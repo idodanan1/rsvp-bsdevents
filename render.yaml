@@ -8,21 +8,11 @@ services:
     startCommand: cd whatsapp-backend && node server.js
     envVars:
       - key: PORT
-        value: 3002
+        value: "3002"
       - key: NODE_ENV
         value: production
       - key: WEBHOOK_VERIFY_TOKEN
         value: whatsapp_webhook_verify_token_2024
-      # הוסף את ה-tokens שלך ב-Render Dashboard → Environment:
-      # WHATSAPP_ACCESS_TOKEN=your_token_here
-      # WHATSAPP_PHONE_NUMBER_ID=874204535776090
-      # GROW_API_KEY=your_grow_api_key
-      # GROW_API_SECRET=your_grow_api_secret
-      # GROW_MERCHANT_ID=your_grow_merchant_id
-      # GROW_WEBSITE_URL=https://your-website-url.com
-      # MORNING_API_KEY=your_morning_api_key
-      # MORNING_API_SECRET=your_morning_api_secret
-      # MORNING_BUSINESS_ID=your_morning_business_id
 
   # Frontend Service  
   - type: static
@@ -30,7 +20,6 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
-      # זה יתעדכן אוטומטית לאחר פריסת ה-backend
       - key: VITE_BACKEND_URL
         fromService:
           name: whatsapp-backend
