@@ -1,8 +1,7 @@
 services:
-  # Backend Service
   - type: web
     name: whatsapp-backend
-    env: node
+    runtime: node
     plan: free
     buildCommand: cd whatsapp-backend && npm install
     startCommand: cd whatsapp-backend && node server.js
@@ -14,15 +13,8 @@ services:
       - key: WEBHOOK_VERIFY_TOKEN
         value: whatsapp_webhook_verify_token_2024
 
-  # Frontend Service  
   - type: static
     name: rsvp-frontend
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    envVars:
-      - key: VITE_BACKEND_URL
-        fromService:
-          name: whatsapp-backend
-          type: web
-          property: host
 
