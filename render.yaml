@@ -20,10 +20,9 @@ services:
       #   value: 874204535776090
 
   # Frontend Service  
-  - type: web
+  - type: static
     name: rsvp-frontend
-    env: static
-    buildCommand: npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./dist
     envVars:
       # זה יתעדכן אוטומטית לאחר פריסת ה-backend
