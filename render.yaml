@@ -9,15 +9,20 @@ services:
     envVars:
       - key: PORT
         value: 3002
-      - key: WEBHOOK_VERIFY_TOKEN
-        value: whatsapp_webhook_verify_token_2024
       - key: NODE_ENV
         value: production
-      # הוסף את ה-tokens שלך כאן:
-      # - key: WHATSAPP_ACCESS_TOKEN
-      #   value: your_token_here
-      # - key: WHATSAPP_PHONE_NUMBER_ID
-      #   value: 874204535776090
+      - key: WEBHOOK_VERIFY_TOKEN
+        value: whatsapp_webhook_verify_token_2024
+      # הוסף את ה-tokens שלך ב-Render Dashboard → Environment:
+      # WHATSAPP_ACCESS_TOKEN=your_token_here
+      # WHATSAPP_PHONE_NUMBER_ID=874204535776090
+      # GROW_API_KEY=your_grow_api_key
+      # GROW_API_SECRET=your_grow_api_secret
+      # GROW_MERCHANT_ID=your_grow_merchant_id
+      # GROW_WEBSITE_URL=https://your-website-url.com
+      # MORNING_API_KEY=your_morning_api_key
+      # MORNING_API_SECRET=your_morning_api_secret
+      # MORNING_BUSINESS_ID=your_morning_business_id
 
   # Frontend Service  
   - type: static

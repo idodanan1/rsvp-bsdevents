@@ -68,6 +68,7 @@ export interface VenueLayout {
 
 export interface Event {
   id: string;
+  userId: string; // NEW: מזהה המשתמש שיצר את האירוע
   coupleName: string;
   groomName: string;
   brideName: string;
@@ -84,6 +85,7 @@ export interface Event {
   venueLayout?: VenueLayout; // סקיצת האולם
   invitationImageUrl?: string; // תמונת הזמנה
   eventImages?: string[]; // תמונות האירוע
+  creditsUsed: number; // NEW: כמות רשומות ששימשו לאירוע זה
   createdAt: Date;
   updatedAt: Date;
   isActive: boolean;
@@ -371,4 +373,48 @@ export interface ReminderFilterOptions {
     end: Date;
   };
   isOverdue?: boolean;
+}
+
+// User Management Types (SaaS)
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  credits: number; // יתרת רשומות
+  createdAt: Date;
+  updatedAt: Date;
+  isAdmin?: boolean; // האם מנהל המערכת
+}
+
+export interface Transaction {
+  id: string;
+  userId: string;
+  amount: number; // סכום התשלום בשקלים
+  credits: number; // כמות רשומות שנרכשו
+  stripePaymentId?: string; // מזהה תשלום מ-Stripe
+  status: 'pending' | 'success' | 'failed';
+  createdAt: Date;
+}
+
+export interface PricingPackage {
+  credits: number; // כמות רשומות
+  price: number; // מחיר בשקלים
+  label: string; // תווית (למשל: "50 רשומות")
+}
+
+// User Store Interface
+export interface UserStore {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  updateCredits: (credits: number) => void;
+  deductCredits: (amount: number) => Promise<boolean>; // מחזיר true אם יש מספיק
+  checkCredits: (required: number) => boolean; // בודק אם יש מספיק רשומות
+  makeAdmin: () => void; // הופך את המשתמש הנוכחי למנהל
 }

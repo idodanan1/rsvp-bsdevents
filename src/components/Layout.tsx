@@ -1,6 +1,8 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User } from 'lucide-react';
+import { useUserStore } from '../store/userStore';
+import toast from 'react-hot-toast';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,9 +10,18 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const user = useUserStore(state => state.user);
+  const logout = useUserStore(state => state.logout);
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast.success('התנתקת בהצלחה');
+    navigate('/login');
   };
 
   return (
@@ -95,6 +106,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span>תזכורות</span>
             </Link>
             
+            {user?.isAdmin && (
+              <Link
+                to="/admin"
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  isActive('/admin') 
+                    ? 'bg-teal-100 text-teal-700 font-medium' 
+                    : 'text-gray-600 hover:bg-yellow-50'
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+                <span>דשבורד מנהל</span>
+              </Link>
+            )}
+            
             <Link
               to="/settings"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
@@ -118,6 +143,40 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              {user && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-gray-600" />
+                    <span className="text-gray-700 font-medium">{user.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2 bg-teal-50 px-4 py-2 rounded-lg">
+                    <CreditCard className="w-5 h-5 text-teal-600" />
+                    <span className="text-teal-700 font-semibold">{user.credits} רשומות</span>
+                  </div>
+                  <Link
+                    to="/pricing"
+                    className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium"
+                  >
+                    רכוש רשומות
+                  </Link>
+                </>
+              )}
+            </div>
+            {user && (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>התנתק</span>
+              </button>
+            )}
+          </div>
+        </header>
         <main className="flex-1 p-8">
           {children}
         </main>

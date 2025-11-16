@@ -4,6 +4,7 @@ const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const stripe = require('stripe');
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,30 @@ process.env.CALLMEBOT_API_KEY = process.env.CALLMEBOT_API_KEY || '1234567890';
 process.env.WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'whatsapp_webhook_verify_token_2024';
 process.env.WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
 process.env.WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '874204535776090'; // Phone Number ID
+process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''; // Stripe Secret Key
+process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''; // Stripe Webhook Secret
+
+// Tranzila Configuration
+process.env.TRANZILA_TERMINAL = process.env.TRANZILA_TERMINAL || ''; // Tranzila Terminal Number
+process.env.TRANZILA_USERNAME = process.env.TRANZILA_USERNAME || ''; // Tranzila Username
+process.env.TRANZILA_PASSWORD = process.env.TRANZILA_PASSWORD || ''; // Tranzila Password/API Key
+
+// Morning Invoice (חשבונית ירוקה) Configuration
+process.env.MORNING_API_KEY = process.env.MORNING_API_KEY || ''; // Morning API Key
+process.env.MORNING_API_SECRET = process.env.MORNING_API_SECRET || ''; // Morning API Secret
+process.env.MORNING_BUSINESS_ID = process.env.MORNING_BUSINESS_ID || ''; // Morning Business ID
+
+// Grow Payment Gateway Configuration
+process.env.GROW_API_KEY = process.env.GROW_API_KEY || ''; // Grow API Key
+process.env.GROW_API_SECRET = process.env.GROW_API_SECRET || ''; // Grow API Secret
+process.env.GROW_MERCHANT_ID = process.env.GROW_MERCHANT_ID || ''; // Grow Merchant ID
+process.env.GROW_WEBSITE_URL = process.env.GROW_WEBSITE_URL || ''; // Grow Website URL for clearing
+
+// Initialize Stripe
+const stripeClient = process.env.STRIPE_SECRET_KEY ? stripe(process.env.STRIPE_SECRET_KEY) : null;
+
+// Temporary storage for transactions (in production, use a database)
+const transactions = [];
 
 console.log('🔧 WhatsApp Backend Configuration:');
 console.log('📱 WaNotifier API Key:', process.env.WANOTIFIER_API_KEY ? 'Set' : 'Not set');
@@ -64,6 +89,75 @@ const upload = multer({
 
 // Middleware
 app.use(cors());
+
+// Stripe webhook handler (must be before express.json() to get raw body)
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+
+  try {
+    if (!process.env.STRIPE_WEBHOOK_SECRET || !stripeClient) {
+      console.warn('⚠️ STRIPE_WEBHOOK_SECRET או stripeClient לא מוגדר - לא ניתן לאמת webhook');
+      return res.status(400).json({ error: 'Webhook secret לא מוגדר' });
+    }
+
+    const event = stripeClient.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+
+    // Handle the event
+    if (event.type === 'payment_intent.succeeded') {
+      const paymentIntent = event.data.object;
+      const { userId, credits } = paymentIntent.metadata;
+
+      // Find transaction (in production, use database)
+      let transaction = transactions.find(t => t.id === paymentIntent.id);
+      if (!transaction) {
+        // Create new transaction if not found
+        transaction = {
+          id: paymentIntent.id,
+          userId,
+          amount: paymentIntent.amount / 100, // Convert from cents
+          credits: parseInt(credits) || 0,
+          status: 'pending',
+          stripePaymentId: paymentIntent.id,
+          createdAt: new Date(),
+        };
+        transactions.push(transaction);
+      }
+      
+      transaction.status = 'success';
+      transaction.stripePaymentId = paymentIntent.id;
+
+      // Create invoice via Morning after successful payment
+      try {
+        await createMorningInvoice(transaction);
+      } catch (invoiceError) {
+        console.error('❌ Error creating invoice:', invoiceError);
+        // Don't fail the webhook if invoice creation fails
+      }
+
+      console.log(`✅ Payment succeeded: ${paymentIntent.id} for user ${userId}, credits: ${credits}`);
+      
+      // Here you would update the user's credits in the database
+      // For now, we'll just log it
+      // In production: await updateUserCredits(userId, parseInt(credits));
+    } else if (event.type === 'payment_intent.payment_failed') {
+      const paymentIntent = event.data.object;
+      
+      // Find transaction
+      const transaction = transactions.find(t => t.id === paymentIntent.id);
+      if (transaction) {
+        transaction.status = 'failed';
+      }
+
+      console.log(`❌ Payment failed: ${paymentIntent.id}`);
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error('❌ Webhook error:', err.message);
+    res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -834,8 +928,447 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'WhatsApp Backend is running' });
 });
 
+// ========================================
+// Stripe Payment Endpoints
+// ========================================
+
+// Create payment intent
+app.post('/api/payments/create-intent', async (req, res) => {
+  try {
+    if (!stripeClient) {
+      return res.status(500).json({ error: 'Stripe לא מוגדר. אנא הוסף STRIPE_SECRET_KEY ל-environment variables.' });
+    }
+
+    const { amount, credits, userId, currency = 'ils' } = req.body;
+
+    if (!amount || !credits || !userId) {
+      return res.status(400).json({ error: 'חסרים פרמטרים: amount, credits, userId' });
+    }
+
+    // Create payment intent in Stripe
+    const paymentIntent = await stripeClient.paymentIntents.create({
+      amount: Math.round(amount * 100), // Convert to agorot (cents)
+      currency: currency,
+      metadata: {
+        userId,
+        credits: credits.toString(),
+      },
+    });
+
+    // Store transaction
+    const transaction = {
+      id: paymentIntent.id,
+      userId,
+      amount,
+      credits,
+      status: 'pending',
+      createdAt: new Date(),
+    };
+    transactions.push(transaction);
+
+    res.json({
+      clientSecret: paymentIntent.client_secret,
+      paymentIntentId: paymentIntent.id,
+    });
+  } catch (error) {
+    console.error('❌ Error creating payment intent:', error);
+    res.status(500).json({ error: error.message || 'שגיאה ביצירת תשלום' });
+  }
+});
+
+
+// Get transaction history
+app.get('/api/payments/transactions/:userId', (req, res) => {
+  const { userId } = req.params;
+  const userTransactions = transactions.filter(t => t.userId === userId);
+  res.json({ transactions: userTransactions });
+});
+
+// Get all transactions (admin only)
+app.get('/api/payments/transactions', (req, res) => {
+  res.json({ transactions });
+});
+
+// ========================================
+// Tranzila Payment Endpoints
+// ========================================
+
+// Create Tranzila payment
+app.post('/api/payments/tranzila/create', async (req, res) => {
+  try {
+    const { amount, credits, userId, currency = 'ILS' } = req.body;
+
+    if (!amount || !credits || !userId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if Tranzila is configured
+    if (!process.env.TRANZILA_TERMINAL || !process.env.TRANZILA_USERNAME || !process.env.TRANZILA_PASSWORD) {
+      return res.status(500).json({ 
+        error: 'Tranzila לא מוגדר. אנא הוסף TRANZILA_TERMINAL, TRANZILA_USERNAME, TRANZILA_PASSWORD ל-.env' 
+      });
+    }
+
+    // Generate transaction ID
+    const transactionId = `tranzila_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create transaction record
+    const transaction = {
+      id: transactionId,
+      userId,
+      amount,
+      credits,
+      status: 'pending',
+      tranzilaTransactionId: null,
+      createdAt: new Date(),
+    };
+
+    transactions.push(transaction);
+
+    // TODO: Integrate with Tranzila API
+    // For now, return payment URL (will be implemented after getting API credentials)
+    const paymentUrl = `https://secure5.tranzila.com/api/payment?terminal=${process.env.TRANZILA_TERMINAL}&sum=${amount}&currency=${currency}&TranzilaTK=${transactionId}`;
+
+    res.json({
+      success: true,
+      paymentUrl,
+      transactionId,
+    });
+  } catch (error) {
+    console.error('❌ Error creating Tranzila payment:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת תשלום' });
+  }
+});
+
+// Check Tranzila payment status
+app.get('/api/payments/tranzila/status/:transactionId', (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const transaction = transactions.find(t => t.id === transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    res.json({ transaction });
+  } catch (error) {
+    console.error('❌ Error checking payment status:', error);
+    res.status(500).json({ error: 'שגיאה בבדיקת סטטוס תשלום' });
+  }
+});
+
+// Get Tranzila transactions for user
+app.get('/api/payments/tranzila/transactions/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userTransactions = transactions.filter(t => t.userId === userId);
+    res.json({ transactions: userTransactions });
+  } catch (error) {
+    console.error('❌ Error fetching transactions:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת תשלומים' });
+  }
+});
+
+// Get all Tranzila transactions (admin only)
+app.get('/api/payments/tranzila/transactions', (req, res) => {
+  try {
+    res.json({ transactions });
+  } catch (error) {
+    console.error('❌ Error fetching all transactions:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת תשלומים' });
+  }
+});
+
+// Tranzila webhook callback (for payment confirmation)
+app.post('/api/payments/tranzila/webhook', async (req, res) => {
+  try {
+    // TODO: Implement Tranzila webhook handler
+    // This will be called by Tranzila after payment is processed
+    const { transactionId, status, amount } = req.body;
+
+    const transaction = transactions.find(t => t.id === transactionId || t.tranzilaTransactionId === transactionId);
+    if (transaction) {
+      transaction.status = status === 'success' || status === 'approved' ? 'success' : 'failed';
+      transaction.tranzilaTransactionId = transactionId;
+
+      // Create invoice if payment succeeded
+      if (transaction.status === 'success') {
+        try {
+          await createMorningInvoice(transaction);
+        } catch (invoiceError) {
+          console.error('❌ Error creating invoice:', invoiceError);
+          // Don't fail the webhook if invoice creation fails
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error processing Tranzila webhook:', error);
+    res.status(500).json({ error: 'שגיאה בעיבוד webhook' });
+  }
+});
+
+// ========================================
+// Morning Invoice (חשבונית ירוקה) Functions
+// ========================================
+
+/**
+ * יוצר חשבונית במורנינג אחרי תשלום מוצלח
+ */
+async function createMorningInvoice(transaction) {
+  // Check if Morning is configured
+  if (!process.env.MORNING_API_KEY || !process.env.MORNING_API_SECRET) {
+    console.log('⚠️ Morning Invoice לא מוגדר - מדלג על יצירת חשבונית');
+    return null;
+  }
+
+  try {
+    // TODO: Implement Morning API call
+    // This will be implemented after getting API credentials
+    // For now, just log
+    console.log('📄 Creating Morning invoice for transaction:', transaction.id);
+    
+    // Example API call structure (will be updated with actual API):
+    /*
+    const invoiceData = {
+      customer: {
+        name: transaction.userName || 'לקוח',
+        email: transaction.userEmail,
+        phone: transaction.userPhone,
+      },
+      items: [{
+        description: `רכישת ${transaction.credits} רשומות`,
+        quantity: 1,
+        price: transaction.amount,
+      }],
+      payment: {
+        method: 'credit_card',
+        transactionId: transaction.tranzilaTransactionId || transaction.id,
+      },
+    };
+
+    const response = await axios.post('https://api.morning.co.il/v1/invoices', invoiceData, {
+      headers: {
+        'Authorization': `Bearer ${process.env.MORNING_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response.data;
+    */
+
+    // For now, return success (will be implemented with actual API)
+    console.log('✅ Morning invoice creation logged (API implementation pending)');
+    return { success: true, invoiceId: 'pending', message: 'API implementation pending' };
+  } catch (error) {
+    console.error('❌ Error creating Morning invoice:', error);
+    throw error;
+  }
+}
+
+// ========================================
+// Morning Invoice Endpoints
+// ========================================
+
+// Create Morning invoice
+app.post('/api/invoices/morning/create', async (req, res) => {
+  try {
+    const { customerName, customerEmail, customerPhone, customerId, amount, description, transactionId, userId } = req.body;
+
+    if (!customerName || !amount || !transactionId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if Morning is configured
+    if (!process.env.MORNING_API_KEY || !process.env.MORNING_API_SECRET) {
+      return res.status(500).json({ 
+        error: 'Morning Invoice לא מוגדר. אנא הוסף MORNING_API_KEY ו-MORNING_API_SECRET ל-.env' 
+      });
+    }
+
+    // Create invoice via Morning API
+    const invoiceResult = await createMorningInvoice({
+      id: transactionId,
+      userId,
+      amount,
+      credits: 0, // Will be filled from transaction
+      customerName,
+      customerEmail,
+      customerPhone,
+      customerId,
+      description,
+    });
+
+    res.json({
+      success: true,
+      invoiceId: invoiceResult?.invoiceId,
+      invoiceUrl: invoiceResult?.invoiceUrl,
+    });
+  } catch (error) {
+    console.error('❌ Error creating Morning invoice:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת חשבונית' });
+  }
+});
+
+// Get Morning invoice
+app.get('/api/invoices/morning/:invoiceId', async (req, res) => {
+  try {
+    const { invoiceId } = req.params;
+
+    // TODO: Implement Morning API call to get invoice
+    // For now, return placeholder
+    res.json({
+      success: true,
+      invoiceId,
+      message: 'Invoice retrieval will be implemented with Morning API credentials',
+    });
+  } catch (error) {
+    console.error('❌ Error fetching invoice:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת חשבונית' });
+  }
+});
+
+// ========================================
+// Grow Payment Gateway Endpoints
+// ========================================
+
+// Create Grow payment
+app.post('/api/payments/grow/create', async (req, res) => {
+  try {
+    const { amount, credits, userId, currency = 'ILS', customerName, customerEmail, customerPhone } = req.body;
+
+    if (!amount || !credits || !userId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if Grow is configured
+    if (!process.env.GROW_API_KEY || !process.env.GROW_API_SECRET || !process.env.GROW_MERCHANT_ID) {
+      return res.status(500).json({ 
+        error: 'Grow לא מוגדר. אנא הוסף GROW_API_KEY, GROW_API_SECRET, GROW_MERCHANT_ID ל-.env' 
+      });
+    }
+
+    // Generate transaction ID
+    const transactionId = `grow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create transaction record
+    const transaction = {
+      id: transactionId,
+      userId,
+      amount,
+      credits,
+      status: 'pending',
+      growTransactionId: null,
+      createdAt: new Date(),
+    };
+
+    transactions.push(transaction);
+
+    // TODO: Integrate with Grow API
+    // This will be implemented after getting API credentials
+    // For now, return payment URL structure
+    const paymentUrl = `${process.env.GROW_WEBSITE_URL || 'https://secure.grow.co.il'}/payment?transaction=${transactionId}&amount=${amount}&currency=${currency}`;
+
+    res.json({
+      success: true,
+      paymentUrl,
+      transactionId,
+    });
+  } catch (error) {
+    console.error('❌ Error creating Grow payment:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת תשלום' });
+  }
+});
+
+// Check Grow payment status
+app.get('/api/payments/grow/status/:transactionId', (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    const transaction = transactions.find(t => t.id === transactionId || t.growTransactionId === transactionId);
+
+    if (!transaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    res.json({ transaction });
+  } catch (error) {
+    console.error('❌ Error checking payment status:', error);
+    res.status(500).json({ error: 'שגיאה בבדיקת סטטוס תשלום' });
+  }
+});
+
+// Get Grow transactions for user
+app.get('/api/payments/grow/transactions/:userId', (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userTransactions = transactions.filter(t => t.userId === userId);
+    res.json({ transactions: userTransactions });
+  } catch (error) {
+    console.error('❌ Error fetching transactions:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת תשלומים' });
+  }
+});
+
+// Get all Grow transactions (admin only)
+app.get('/api/payments/grow/transactions', (req, res) => {
+  try {
+    res.json({ transactions });
+  } catch (error) {
+    console.error('❌ Error fetching all transactions:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת תשלומים' });
+  }
+});
+
+// Grow webhook callback (for payment confirmation)
+app.post('/api/payments/grow/webhook', async (req, res) => {
+  try {
+    // TODO: Implement Grow webhook handler
+    // This will be called by Grow after payment is processed
+    const { transactionId, status, amount } = req.body;
+
+    const transaction = transactions.find(t => t.id === transactionId || t.growTransactionId === transactionId);
+    if (transaction) {
+      transaction.status = status === 'success' || status === 'approved' || status === 'completed' ? 'success' : 'failed';
+      transaction.growTransactionId = transactionId;
+
+      // Create invoice if payment succeeded
+      if (transaction.status === 'success') {
+        try {
+          await createMorningInvoice(transaction);
+        } catch (invoiceError) {
+          console.error('❌ Error creating invoice:', invoiceError);
+          // Don't fail the webhook if invoice creation fails
+        }
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error processing Grow webhook:', error);
+    res.status(500).json({ error: 'שגיאה בעיבוד webhook' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 WhatsApp Backend running on port ${PORT}`);
   console.log(`📱 Ready to send WhatsApp messages!`);
   console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/api/whatsapp/webhook`);
+  if (stripeClient) {
+    console.log(`💳 Stripe payment endpoints ready`);
+  } else {
+    console.log(`⚠️ Stripe not configured - add STRIPE_SECRET_KEY to enable payments`);
+  }
+  
+  if (process.env.TRANZILA_TERMINAL && process.env.TRANZILA_USERNAME && process.env.TRANZILA_PASSWORD) {
+    console.log(`💳 Tranzila payment endpoints ready`);
+  } else {
+    console.log(`⚠️ Tranzila not configured - add TRANZILA_TERMINAL, TRANZILA_USERNAME, TRANZILA_PASSWORD to enable payments`);
+  }
+  
+  if (process.env.GROW_API_KEY && process.env.GROW_API_SECRET && process.env.GROW_MERCHANT_ID) {
+    console.log(`💳 Grow payment endpoints ready`);
+  } else {
+    console.log(`⚠️ Grow not configured - add GROW_API_KEY, GROW_API_SECRET, GROW_MERCHANT_ID to enable payments`);
+  }
 });

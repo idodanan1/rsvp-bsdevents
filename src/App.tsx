@@ -15,6 +15,11 @@ import GuestResponse from './components/GuestResponse';
 import ClientManagement from './components/ClientManagement';
 import CalendarView from './components/CalendarView';
 import QRScan from './components/QRScan';
+import Login from './components/Login';
+import SignUp from './components/SignUp';
+import Pricing from './components/Pricing';
+import AdminDashboard from './components/AdminDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { webhookService } from './services/webhookService';
@@ -51,22 +56,29 @@ function App() {
           }}
         />
         <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
           <Route path="/client/:eventId" element={<ClientDashboard />} />
           <Route path="/guest-response/:eventId" element={<GuestResponse />} />
           <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
-          <Route path="/" element={<Layout><Dashboard /></Layout>} />
-          <Route path="/create-event" element={<Layout><CreateEvent /></Layout>} />
-          <Route path="/event/:id" element={<Layout><EventManagement /></Layout>} />
-          <Route path="/event/:id/manage" element={<Layout><EventManagement /></Layout>} />
-          <Route path="/event/:id/view" element={<Layout><EventViewer /></Layout>} />
-          <Route path="/event/:id/campaigns" element={<Layout><CampaignManagement /></Layout>} />
-          <Route path="/event/:id/seating" element={<Layout><SeatingManagement /></Layout>} />
-          <Route path="/event/:id/venue" element={<VenueEditor />} />
-          <Route path="/templates" element={<Layout><MessageTemplates /></Layout>} />
-          <Route path="/clients" element={<Layout><ClientManagement /></Layout>} />
-          <Route path="/calendar" element={<Layout><CalendarView /></Layout>} />
-          <Route path="/reminders" element={<Layout><ClientManagement /></Layout>} />
-          <Route path="/settings" element={<Layout><div>הגדרות</div></Layout>} />
+          
+          {/* Protected routes */}
+          <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+          <Route path="/pricing" element={<ProtectedRoute><Layout><Pricing /></Layout></ProtectedRoute>} />
+          <Route path="/create-event" element={<ProtectedRoute><Layout><CreateEvent /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id/manage" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id/view" element={<ProtectedRoute><Layout><EventViewer /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id/campaigns" element={<ProtectedRoute><Layout><CampaignManagement /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id/seating" element={<ProtectedRoute><Layout><SeatingManagement /></Layout></ProtectedRoute>} />
+          <Route path="/event/:id/venue" element={<ProtectedRoute><VenueEditor /></ProtectedRoute>} />
+          <Route path="/templates" element={<ProtectedRoute><Layout><MessageTemplates /></Layout></ProtectedRoute>} />
+          <Route path="/clients" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
+          <Route path="/calendar" element={<ProtectedRoute><Layout><CalendarView /></Layout></ProtectedRoute>} />
+          <Route path="/reminders" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><div>הגדרות</div></Layout></ProtectedRoute>} />
           <Route path="*" element={<div style={{padding: '20px'}}><h1>404 - דף לא נמצא</h1><p>הנתיב לא קיים</p></div>} />
         </Routes>
       </div>

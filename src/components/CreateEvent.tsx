@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
+import { useUserStore } from '../store/userStore';
 import { toast } from 'react-hot-toast';
 import { Calendar, User, Phone, Mail, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
 
@@ -8,6 +9,9 @@ const CreateEvent: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { createEvent, isLoading } = useEventStore();
+  const user = useUserStore(state => state.user);
+  const checkCredits = useUserStore(state => state.checkCredits);
+  const deductCredits = useUserStore(state => state.deductCredits);
   
   const [formData, setFormData] = useState({
     groomName: '',
@@ -126,6 +130,23 @@ const CreateEvent: React.FC = () => {
     }
 
     try {
+      // Check if user is logged in
+      if (!user) {
+        toast.error('אנא התחבר תחילה');
+        navigate('/login');
+        return;
+      }
+
+      // Calculate credits needed (minimum 50)
+      const creditsNeeded = 50; // Minimum for now, can be based on guest count later
+
+      // Check if user has enough credits
+      if (!checkCredits(creditsNeeded)) {
+        toast.error(`אין לך מספיק רשומות. נדרשות ${creditsNeeded} רשומות.`);
+        navigate('/pricing');
+        return;
+      }
+
       const eventData = {
         coupleName: `${formData.groomName} & ${formData.brideName}`,
         groomName: formData.groomName,
@@ -144,8 +165,15 @@ const CreateEvent: React.FC = () => {
         isActive: true
       };
 
+      // Deduct credits before creating event
+      const success = await deductCredits(creditsNeeded);
+      if (!success) {
+        toast.error('שגיאה בניכוי רשומות');
+        return;
+      }
+
       await createEvent(eventData);
-      toast.success('האירוע נוצר בהצלחה!');
+      toast.success(`האירוע נוצר בהצלחה! נוכו ${creditsNeeded} רשומות מהחשבון שלך.`);
       navigate('/');
     } catch (error) {
       toast.error('שגיאה ביצירת האירוע');

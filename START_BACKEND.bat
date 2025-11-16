@@ -42,6 +42,20 @@ if not exist "node_modules" (
     echo.
 )
 
+REM Check if port 3002 is in use and kill the process
+echo [INFO] Checking if port 3002 is in use...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3002 ^| findstr LISTENING') do (
+    echo [INFO] Found process using port 3002: %%a
+    echo [INFO] Stopping process %%a...
+    taskkill /F /PID %%a >nul 2>&1
+    if errorlevel 1 (
+        echo [WARNING] Failed to stop process %%a - you may need to run as administrator
+    ) else (
+        echo [INFO] Successfully stopped process %%a
+    )
+    timeout /t 2 /nobreak >nul
+)
+
 echo [INFO] Starting WhatsApp Backend on http://localhost:3002/
 echo [INFO] Webhook endpoint: http://localhost:3002/api/whatsapp/webhook
 echo [INFO] Press Ctrl+C to stop the server

@@ -19,13 +19,26 @@ export const useEventStore = create<EventStore>()(
       fetchEvents: async () => {
         set({ isLoading: true, error: null });
         try {
+          // Get current user ID
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+          }
+
           // Check if there are events in localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state && parsed.state.events && parsed.state.events.length > 0) {
-              console.log('📋 Found existing events:', parsed.state.events.length);
-              set({ events: parsed.state.events, isLoading: false });
+              // Filter events by userId (if logged in)
+              let filteredEvents = parsed.state.events;
+              if (userId) {
+                filteredEvents = parsed.state.events.filter((event: Event) => event.userId === userId);
+              }
+              console.log('📋 Found existing events:', filteredEvents.length, 'for user:', userId);
+              set({ events: filteredEvents, isLoading: false });
               return;
             }
           }
@@ -351,9 +364,23 @@ export const useEventStore = create<EventStore>()(
             }
           ];
           
+          // Get userId from localStorage (temporary - will be from backend)
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+          }
+
+          // Calculate credits needed (minimum 50, based on guest count)
+          const guestCount = eventData.guests?.length || 0;
+          const creditsNeeded = Math.max(50, Math.ceil(guestCount / 50) * 50); // Round up to nearest 50
+
           const newEvent: Event = {
             ...eventData,
             id: eventId,
+            userId: userId || 'anonymous', // Add userId
+            creditsUsed: creditsNeeded, // Add creditsUsed
             campaigns: defaultCampaigns,
             createdAt: new Date(),
             updatedAt: new Date()
