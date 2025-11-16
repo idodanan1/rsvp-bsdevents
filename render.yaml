@@ -22,9 +22,8 @@ services:
   # Frontend Service  
   - type: static
     name: rsvp-frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     staticPublishPath: ./dist
-    nodeVersion: 18
     envVars:
       # זה יתעדכן אוטומטית לאחר פריסת ה-backend
       - key: VITE_BACKEND_URL
