@@ -1,0 +1,1970 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useEventStore } from '../store/eventStore';
+import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+// import ExcelJS from 'exceljs';
+import { 
+  ArrowRight, 
+  Users, 
+  Plus, 
+  Upload, 
+  Download, 
+  Search, 
+  CheckCircle,
+  XCircle,
+  MessageSquare,
+  Phone,
+  Edit,
+  Trash2,
+  Save,
+  Send,
+  X,
+  RefreshCw
+} from 'lucide-react';
+
+const EventManagement: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns } = useEventStore();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [editingGuest, setEditingGuest] = useState<any>(null);
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showSendMessageModal, setShowSendMessageModal] = useState(false);
+  const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
+  const [messageChannel, setMessageChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [customMessage, setCustomMessage] = useState('');
+  const [newGuest, setNewGuest] = useState({
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    guestCount: 1,
+    notes: ''
+  });
+
+  useEffect(() => {
+    if (id) {
+      const event = events.find(e => e.id === id);
+      if (event) {
+        setCurrentEvent(event);
+      } else {
+        navigate('/');
+      }
+    }
+  }, [id, setCurrentEvent, navigate, events]);
+
+  // Update currentEvent when events change
+  useEffect(() => {
+    if (currentEvent && id) {
+      const updatedEvent = events.find(e => e.id === id);
+      if (updatedEvent && updatedEvent !== currentEvent) {
+        setCurrentEvent(updatedEvent);
+      }
+    }
+  }, [events, currentEvent, id, setCurrentEvent]);
+
+  if (!currentEvent) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const stats = calculateEventStats(currentEvent);
+  
+  const filteredGuests = (currentEvent.guests || []).filter(guest => {
+    const matchesSearch = 
+      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      guest.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      guest.phoneNumber.includes(searchTerm);
+    
+    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  // Filter guests for modal search
+  const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
+    guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+    guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+    guest.phoneNumber.includes(modalSearchTerm)
+  );
+  
+
+  const handleAddGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('🔍 handleAddGuest called with:', newGuest);
+    console.log('🔍 currentEvent.id:', currentEvent?.id);
+    
+    if (!newGuest.firstName || !newGuest.lastName || !newGuest.phoneNumber) {
+      console.log('❌ Missing required fields');
+      return;
+    }
+
+    try {
+      console.log('📤 Calling addGuest...');
+      await addGuest(currentEvent.id, {
+        ...newGuest,
+        rsvpStatus: 'pending',
+        channel: 'whatsapp', // ברירת מחדל - WhatsApp
+        actualAttendance: 'not_marked'
+      });
+      
+      console.log('✅ addGuest completed successfully');
+      
+      setNewGuest({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        guestCount: 1,
+        notes: ''
+      });
+      setShowAddGuest(false);
+    } catch (error) {
+      console.error('❌ Error adding guest:', error);
+    }
+  };
+
+  const handleEditGuest = (guest: any) => {
+    setEditingGuest(guest);
+    setNewGuest({
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      phoneNumber: guest.phoneNumber,
+      guestCount: guest.guestCount,
+      notes: guest.notes || ''
+    });
+  };
+
+  const handleUpdateGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGuest || !newGuest.firstName || !newGuest.lastName || !newGuest.phoneNumber) {
+      return;
+    }
+
+    try {
+      await updateGuest(currentEvent.id, editingGuest.id, {
+        firstName: newGuest.firstName,
+        lastName: newGuest.lastName,
+        phoneNumber: newGuest.phoneNumber,
+        guestCount: newGuest.guestCount,
+        notes: newGuest.notes
+      });
+      
+      setEditingGuest(null);
+      setNewGuest({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        guestCount: 1,
+        notes: ''
+      });
+    } catch (error) {
+      console.error('Error updating guest:', error);
+    }
+  };
+
+  const handleUpdateGuestStatus = async (guestId: string, status: string) => {
+    try {
+      await updateGuest(currentEvent.id, guestId, {
+        rsvpStatus: status as any,
+        responseDate: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating guest:', error);
+    }
+  };
+
+  const handleUpdateAttendance = async (guestId: string, attendance: string) => {
+    try {
+      await updateGuest(currentEvent.id, guestId, {
+        actualAttendance: attendance as any,
+        attendanceDate: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating attendance:', error);
+    }
+  };
+
+  const handleUpdateGuestField = async (guestId: string, updates: any) => {
+    try {
+      await updateGuest(currentEvent.id, guestId, updates);
+    } catch (error) {
+      console.error('Error updating guest:', error);
+    }
+  };
+
+  const getMessageStatusColor = (status: string) => {
+    switch (status) {
+      case 'sent': return 'text-blue-600';
+      case 'delivered': return 'text-green-600';
+      case 'failed': return 'text-red-600';
+      case 'sms_sent': return 'text-purple-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  const getMessageStatusText = (status: string) => {
+    switch (status) {
+      case 'not_sent': return 'לא נשלחה';
+      case 'sent': return 'נשלחה';
+      case 'delivered': return 'נשלחה והתקבלה';
+      case 'failed': return 'נשלחה ונכשלה';
+      case 'sms_sent': return 'נשלח SMS';
+      default: return 'לא נשלחה';
+    }
+  };
+
+  const getRsvpStatusText = (status: string): string => {
+    switch (status) {
+      case 'confirmed':
+        return 'אישר הגעה';
+      case 'declined':
+        return 'דחה הזמנה';
+      case 'pending':
+        return 'ממתין לתגובה';
+      case 'not_responded':
+        return 'לא ענה';
+      default:
+        return 'לא ענה';
+    }
+  };
+
+  const getActualAttendanceText = (attendance: string): string => {
+    switch (attendance) {
+      case 'attended':
+        return 'הגיע';
+      case 'not_attended':
+        return 'לא הגיע';
+      case 'not_marked':
+        return 'לא סומן';
+      default:
+        return 'לא סומן';
+    }
+  };
+
+  const createTableSummaryData = () => {
+    if (!currentEvent || !currentEvent.tables || !currentEvent.guests) {
+      return [['אין נתונים']];
+    }
+
+    // Header row
+    const headerRow = [
+      'מספר שולחן',
+      'כמות מוזמנים',
+      'הגיעו בפועל',
+      'לא הגיעו',
+      'לא סומן',
+      'אחוז הגעה'
+    ];
+
+    const dataRows = [];
+
+    // Process each table
+    currentEvent.tables.forEach(table => {
+      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
+      
+      // Count actual attendance
+      const attended = tableGuests.filter(g => g.actualAttendance === 'attended').length;
+      const notAttended = tableGuests.filter(g => g.actualAttendance === 'not_attended').length;
+      const notMarked = tableGuests.filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked').length;
+      
+      // Calculate attendance percentage
+      const totalGuests = tableGuests.length;
+      const attendancePercentage = totalGuests > 0 ? Math.round((attended / totalGuests) * 100) : 0;
+      
+      dataRows.push([
+        table.number || 'ללא מספר',
+        totalGuests,
+        attended,
+        notAttended,
+        notMarked,
+        `${attendancePercentage}%`
+      ]);
+    });
+
+    // Add totals row
+    const totalAttended = currentEvent.guests.filter(g => g.actualAttendance === 'attended').length;
+    const totalNotAttended = currentEvent.guests.filter(g => g.actualAttendance === 'not_attended').length;
+    const totalNotMarked = currentEvent.guests.filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked').length;
+    const totalGuests = currentEvent.guests.length;
+    const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
+
+    dataRows.push([
+      'סה"כ',
+      totalGuests,
+      totalAttended,
+      totalNotAttended,
+      totalNotMarked,
+      `${totalAttendancePercentage}%`
+    ]);
+
+    return [headerRow, ...dataRows];
+  };
+
+  const createAttendanceData = () => {
+    console.log('createAttendanceData called with:', {
+      currentEvent,
+      tables: currentEvent?.tables,
+      guests: currentEvent?.guests
+    });
+
+    if (!currentEvent) {
+      console.log('No current event');
+      return [['אין אירוע נבחר']];
+    }
+
+    if (!currentEvent.guests || currentEvent.guests.length === 0) {
+      console.log('No guests');
+      return [['אין אורחים']];
+    }
+
+    console.log('Creating attendance data:', {
+      tables: currentEvent.tables,
+      guests: currentEvent.guests
+    });
+
+    const dataRows: any[] = [];
+
+    // Process each table
+    currentEvent.tables.forEach(table => {
+      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
+      
+      if (tableGuests.length === 0) {
+        // Empty table
+        dataRows.push([
+          `שולחן מספר ${table.number}`,
+          '',
+          `כמות כסאות: ${table.capacity || 8}`,
+          '',
+          'הגיעו: 0/0',
+          ''
+        ]);
+        dataRows.push(['', '', '', '', '', '']); // Empty row
+        return;
+      }
+
+      // Count attendance
+      const attendedGuests = tableGuests.filter(g => g.actualAttendance === 'attended');
+      const totalGuests = tableGuests.length;
+      const attendedCount = attendedGuests.length;
+
+      // Table header with attendance summary
+      dataRows.push([
+        `שולחן מספר ${table.number}`,
+        '',
+        `כמות כסאות: ${table.capacity || 8}`,
+        '',
+        `הגיעו: ${attendedCount}/${totalGuests}`,
+        ''
+      ]);
+
+      // Add each guest with their attendance status
+      tableGuests.forEach(guest => {
+        const attendanceStatus = getActualAttendanceText(guest.actualAttendance || 'unknown');
+        const statusIcon = guest.actualAttendance === 'attended' ? '✓' : 
+                          guest.actualAttendance === 'not_attended' ? '✗' : '?';
+        
+        dataRows.push([
+          `${statusIcon} ${guest.firstName || ''} ${guest.lastName || ''}`.trim(),
+          guest.phoneNumber || '',
+          `(${guest.guestCount || 1} אנשים)`,
+          attendanceStatus,
+          '',
+          guest.notes || ''
+        ]);
+      });
+
+      dataRows.push(['', '', '', '', '', '']); // Empty row between tables
+      dataRows.push(['', '', '', '', '', '']); // Additional separator
+    });
+
+
+    console.log('Final attendance data:', dataRows as any[]);
+    
+    // If no data was created, add a fallback
+    if (dataRows.length === 0) {
+      console.log('No data created, adding fallback');
+      dataRows.push(['אין נתונים להצגה', '', '', '', '', '']);
+    }
+    
+    return dataRows;
+  };
+
+  const styleTableSummarySheet = (ws: any, data: any[][]) => {
+    // Set row heights
+    const rowHeights = [];
+    for (let i = 0; i < data.length; i++) {
+      rowHeights.push({ hpt: 25 });
+    }
+    ws['!rows'] = rowHeights;
+
+    // Get range
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    
+    // Style header row
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!ws[cellAddress]) continue;
+      
+      ws[cellAddress].s = {
+        font: { bold: true, color: { rgb: "FFFFFF" }, sz: 14 },
+        fill: { fgColor: { rgb: "2F5597" } },
+        alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+        border: {
+          top: { style: "medium", color: { rgb: "1F4E79" } },
+          bottom: { style: "medium", color: { rgb: "1F4E79" } },
+          left: { style: "medium", color: { rgb: "1F4E79" } },
+          right: { style: "medium", color: { rgb: "1F4E79" } }
+        }
+      };
+    }
+    
+    // Style data rows
+    for (let row = 1; row < data.length; row++) {
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[cellAddress]) continue;
+        
+        // Check if this is the totals row
+        const isTotalsRow = row === data.length - 1;
+        
+        ws[cellAddress].s = {
+          font: { 
+            sz: 11, 
+            bold: isTotalsRow 
+          },
+          fill: { 
+            fgColor: { 
+              rgb: isTotalsRow ? "E8F4FD" : (row % 2 === 0 ? "F8F9FA" : "FFFFFF") 
+            } 
+          },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+          border: {
+            top: { style: "thin", color: { rgb: "E0E0E0" } },
+            bottom: { style: "thin", color: { rgb: "E0E0E0" } },
+            left: { style: "thin", color: { rgb: "E0E0E0" } },
+            right: { style: "thin", color: { rgb: "E0E0E0" } }
+          }
+        };
+      }
+    }
+  };
+
+  const styleAttendanceSheet = (ws: any, data: any[][]) => {
+    console.log('Styling attendance sheet with data:', data);
+    
+    // Set row heights
+    const rowHeights = [];
+    for (let i = 0; i < data.length; i++) {
+      rowHeights.push({ hpt: 30 });
+    }
+    ws['!rows'] = rowHeights;
+
+    // Get range
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    console.log('Range:', range);
+    
+    // Style data rows
+    for (let row = 0; row < data.length; row++) {
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+        if (!ws[cellAddress]) continue;
+        
+        const cellValue = data[row][0];
+        // const attendanceStatus = data[row][3];
+        
+        // Style table header rows - make them stand out more
+        if (cellValue && cellValue.includes('שולחן מספר')) {
+          console.log('Styling table header:', cellValue, 'at', cellAddress);
+          // Style the entire row for table headers
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cellAddr = XLSX.utils.encode_cell({ r: row, c: c });
+            if (!ws[cellAddr]) continue;
+            ws[cellAddr].s = {
+              font: { bold: true, color: { rgb: "000000" }, sz: 18 },
+              fill: { fgColor: { rgb: "FEF08A" } },
+              alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+              border: {
+                top: { style: "thick", color: { rgb: "F59E0B" } },
+                bottom: { style: "thick", color: { rgb: "F59E0B" } },
+                left: { style: "thick", color: { rgb: "F59E0B" } },
+                right: { style: "thick", color: { rgb: "F59E0B" } }
+              }
+            };
+          }
+        }
+        // Style capacity and attendance summary cells - make them more prominent
+        else if (data[row][2] && (data[row][2].includes('כמות כסאות') || data[row][4] && data[row][4].includes('הגיעו'))) {
+          // Style the entire row for capacity/summary rows
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cellAddr = XLSX.utils.encode_cell({ r: row, c: c });
+            if (!ws[cellAddr]) continue;
+            ws[cellAddr].s = {
+              font: { bold: true, color: { rgb: "000000" }, sz: 14 },
+              fill: { fgColor: { rgb: "FEF3C7" } },
+              alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+              border: {
+                top: { style: "medium", color: { rgb: "F59E0B" } },
+                bottom: { style: "medium", color: { rgb: "F59E0B" } },
+                left: { style: "medium", color: { rgb: "F59E0B" } },
+                right: { style: "medium", color: { rgb: "F59E0B" } }
+              }
+            };
+          }
+        }
+        // Style guest rows with better colors and borders
+        else if (cellValue && (cellValue.includes('✓') || cellValue.includes('✗') || cellValue.includes('?'))) {
+          let statusColor = "FFFFFF"; // default white
+          let textColor = "000000";
+          let borderColor = "E5E7EB";
+          
+          if (cellValue.includes('✓')) {
+            statusColor = "D1FAE5"; // lighter green for attended
+            textColor = "065F46";
+            borderColor = "10B981";
+          } else if (cellValue.includes('✗')) {
+            statusColor = "FEE2E2"; // lighter red for not attended
+            textColor = "991B1B";
+            borderColor = "EF4444";
+          } else if (cellValue.includes('?')) {
+            statusColor = "FEF3C7"; // lighter yellow for not marked
+            textColor = "92400E";
+            borderColor = "F59E0B";
+          }
+          
+          // Style the entire row for guest rows
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const cellAddr = XLSX.utils.encode_cell({ r: row, c: c });
+            if (!ws[cellAddr]) continue;
+            ws[cellAddr].s = {
+              font: { sz: 12, bold: true, color: { rgb: textColor } },
+              fill: { fgColor: { rgb: statusColor } },
+              alignment: { horizontal: "right", vertical: "center", wrapText: true, readingOrder: 2 },
+              border: {
+                top: { style: "thin", color: { rgb: borderColor } },
+                bottom: { style: "thin", color: { rgb: borderColor } },
+                left: { style: "thin", color: { rgb: borderColor } },
+                right: { style: "thin", color: { rgb: borderColor } }
+              }
+            };
+          }
+        }
+        // Style empty rows between tables - make them more visible
+        else if (cellValue === '') {
+          ws[cellAddress].s = {
+            font: { sz: 11 },
+            fill: { fgColor: { rgb: "F9FAFB" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+            border: {
+              top: { style: "thin", color: { rgb: "D1D5DB" } },
+              bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+              left: { style: "thin", color: { rgb: "D1D5DB" } },
+              right: { style: "thin", color: { rgb: "D1D5DB" } }
+            }
+          };
+        }
+        // Default cells
+        else {
+          ws[cellAddress].s = {
+            font: { sz: 11 },
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            alignment: { horizontal: "center", vertical: "center", wrapText: true, readingOrder: 2 },
+            border: {
+              top: { style: "thin", color: { rgb: "E5E7EB" } },
+              bottom: { style: "thin", color: { rgb: "E5E7EB" } },
+              left: { style: "thin", color: { rgb: "E5E7EB" } },
+              right: { style: "thin", color: { rgb: "E5E7EB" } }
+            }
+          };
+        }
+      }
+    }
+  };
+
+  const handleDeleteGuest = async (guestId: string) => {
+    if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
+      try {
+        await deleteGuest(currentEvent.id, guestId);
+      } catch (error) {
+        console.error('Error deleting guest:', error);
+      }
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    const eventName = currentEvent ? currentEvent.coupleName : 'אירוע';
+    
+    // Create new Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    
+    // Set workbook properties for RTL
+    workbook.creator = 'מערכת ניהול אירועים';
+    workbook.lastModifiedBy = 'מערכת ניהול אירועים';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    
+    // Create worksheet
+    const worksheet = workbook.addWorksheet('תבנית רשימת אורחים', {
+      properties: {
+        tabColor: { argb: 'FF2F5597' }
+      }
+    });
+    
+    // Define columns in RTL order - עמודה A תהיה "הערות" (ימין), עמודה E תהיה "שם האורח" (שמאל)
+    worksheet.columns = [
+      { header: 'הערות', key: 'notes', width: 20 },
+      { header: 'שיוך למשפחה', key: 'family', width: 15 },
+      { header: 'כמות מגיעים', key: 'guestCount', width: 20 },
+      { header: 'פלאפון האורח', key: 'phoneNumber', width: 15 },
+      { header: 'שם האורח', key: 'fullName', width: 20 }
+    ];
+    
+    // Style header row
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { 
+        bold: true, 
+        color: { argb: 'FF000000' }, 
+        size: 14, 
+        name: 'Arial' 
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFEF08A' }
+      };
+      cell.alignment = { 
+        horizontal: 'right', 
+        vertical: 'middle', 
+        wrapText: true, 
+        readingOrder: 'rtl' 
+      };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FFF59E0B' } },
+        left: { style: 'medium', color: { argb: 'FFF59E0B' } },
+        bottom: { style: 'medium', color: { argb: 'FFF59E0B' } },
+        right: { style: 'medium', color: { argb: 'FFF59E0B' } }
+      };
+    });
+    
+    // Add example data rows
+    const exampleData = [
+      {
+        notes: '',
+        family: '',
+        guestCount: '1 (לא חובה להזין כמות) חברים של הכלה',
+        phoneNumber: '0505522333',
+        fullName: 'אבי'
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      },
+      {
+        notes: '',
+        family: '',
+        guestCount: '',
+        phoneNumber: '',
+        fullName: ''
+      }
+    ];
+    
+    exampleData.forEach((data) => {
+      const row = worksheet.addRow(data);
+      
+      // Style data row
+      row.eachCell((cell) => {
+        cell.font = { 
+          size: 11, 
+          name: 'Arial' 
+        };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFFFFFFF' }
+        };
+        cell.alignment = { 
+          horizontal: 'right', 
+          vertical: 'middle', 
+          wrapText: true, 
+          readingOrder: 'rtl' 
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          left: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+          right: { style: 'thin', color: { argb: 'FFE5E7EB' } }
+        };
+      });
+    });
+    
+    // Set row heights
+    worksheet.eachRow((row) => {
+      row.height = 20;
+    });
+    
+    // Save file
+    const fileName = `תבנית_רשימת_אורחים_${eventName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = await workbook.xlsx.writeBuffer();
+    
+    // Create blob and download
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportGuests = async () => {
+    if (!currentEvent) return;
+    
+    // Create new Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    
+    // Set workbook properties for RTL
+    workbook.creator = 'מערכת ניהול אירועים';
+    workbook.lastModifiedBy = 'מערכת ניהול אירועים';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    
+    // Create worksheet
+    const worksheet = workbook.addWorksheet('רשימת אורחים', {
+      properties: {
+        tabColor: { argb: 'FF2F5597' }
+      }
+    });
+    
+    // Define columns in RTL order - עמודה A תהיה "הערות" (ימין), עמודה K תהיה "שם מלא" (שמאל)
+    worksheet.columns = [
+      { header: 'הערות', key: 'notes', width: 30 },
+      { header: 'תאריך שליחה', key: 'messageSentDate', width: 12 },
+      { header: 'סטטוס הודעה', key: 'messageStatus', width: 15 },
+      { header: 'שולחן', key: 'table', width: 8 },
+      { header: 'הגעה בפועל', key: 'actualAttendance', width: 15 },
+      { header: 'ערוץ', key: 'channel', width: 12 },
+      { header: 'תאריך תגובה', key: 'responseDate', width: 12 },
+      { header: 'סטטוס אישור', key: 'rsvpStatus', width: 15 },
+      { header: 'מספר מוזמנים', key: 'guestCount', width: 12 },
+      { header: 'מספר טלפון', key: 'phoneNumber', width: 15 },
+      { header: 'שם מלא', key: 'fullName', width: 25 }
+    ];
+    
+    // Style header row
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { 
+        bold: true, 
+        color: { argb: 'FFFFFFFF' }, 
+        size: 14, 
+        name: 'Arial' 
+      };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF2F5597' }
+      };
+      cell.alignment = { 
+        horizontal: 'right', 
+        vertical: 'middle', 
+        wrapText: true, 
+        readingOrder: 'rtl' 
+      };
+      cell.border = {
+        top: { style: 'medium', color: { argb: 'FF1F4E79' } },
+        left: { style: 'medium', color: { argb: 'FF1F4E79' } },
+        bottom: { style: 'medium', color: { argb: 'FF1F4E79' } },
+        right: { style: 'medium', color: { argb: 'FF1F4E79' } }
+      };
+    });
+    
+    // Add data rows
+    currentEvent.guests.forEach((guest, index) => {
+      const row = worksheet.addRow({
+        notes: guest.notes || '',
+        messageSentDate: guest.messageSentDate ? formatDate(guest.messageSentDate) : '',
+        messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
+        table: guest.tableId ? currentEvent.tables?.find(t => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
+        actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
+        channel: guest.channel || 'וואטסאפ',
+        responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
+        rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
+        guestCount: guest.guestCount || 1,
+        phoneNumber: guest.phoneNumber || '',
+        fullName: `${guest.firstName || ''} ${guest.lastName || ''}`.trim()
+      });
+      
+      // Style data row
+      const isEvenRow = (index + 1) % 2 === 0;
+      row.eachCell((cell) => {
+        cell.font = { 
+          size: 11, 
+          name: 'Arial' 
+        };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: isEvenRow ? 'FFF8F9FA' : 'FFFFFFFF' }
+        };
+        cell.alignment = { 
+          horizontal: 'right', 
+          vertical: 'middle', 
+          wrapText: true, 
+          readingOrder: 'rtl' 
+        };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+          right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+        };
+      });
+    });
+    
+    // Set row heights
+    worksheet.eachRow((row) => {
+      row.height = 25;
+    });
+    
+    // Save file
+    const fileName = `רשימת_אורחים_${currentEvent.coupleName}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const buffer = await workbook.xlsx.writeBuffer();
+    
+    // Create blob and download
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Convert to guests array
+        const guests = jsonData.slice(1) // Skip header row
+          .filter((row: any) => row && row.length > 0) // Filter empty rows
+          .map((row: any) => {
+            const tableNumber = String(row[4] || '').trim();
+            const table = currentEvent.tables?.find(t => t.number === parseInt(tableNumber));
+            
+            return {
+              firstName: String(row[0] || '').trim(),
+              lastName: String(row[1] || '').trim(),
+              phoneNumber: String(row[2] || '').trim(),
+              guestCount: parseInt(String(row[3] || '1')) || 1,
+              tableId: table?.id,
+              messageStatus: String(row[5] || 'not_sent').trim() as any,
+              notes: String(row[6] || '').trim()
+            };
+          })
+          .filter(guest => guest.firstName && guest.lastName && guest.phoneNumber);
+
+        // Add guests to event
+        guests.forEach(guest => {
+          addGuest(currentEvent.id, {
+            ...guest,
+            rsvpStatus: 'pending',
+            channel: 'whatsapp' // ברירת מחדל - WhatsApp
+          });
+        });
+
+        setShowImportModal(false);
+        alert(`יובאו ${guests.length} מוזמנים בהצלחה!`);
+      } catch (error) {
+        console.error('Error reading Excel file:', error);
+        alert('שגיאה בקריאת קובץ האקסל. אנא ודא שהקובץ תקין.');
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const cancelEdit = () => {
+    setEditingGuest(null);
+    setNewGuest({
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      guestCount: 1,
+      notes: ''
+    });
+  };
+
+  // Send message functions
+  const handleSelectGuest = (guestId: string) => {
+    setSelectedGuests(prev => 
+      prev.includes(guestId) 
+        ? prev.filter(id => id !== guestId)
+        : [...prev, guestId]
+    );
+  };
+
+  const handleSelectAllGuests = () => {
+    const allGuestIds = filteredGuests.map(guest => guest.id);
+    setSelectedGuests(allGuestIds);
+  };
+
+  const handleDeselectAllGuests = () => {
+    setSelectedGuests([]);
+  };
+
+  const handleSendMessage = async () => {
+    if (selectedGuests.length === 0) {
+      alert('אנא בחר לפחות מוזמן אחד');
+      return;
+    }
+
+    try {
+      const guestsToSend = currentEvent.guests.filter(guest => selectedGuests.includes(guest.id));
+      
+      // Use default message if no custom message
+      const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
+
+      // Send messages using the message service
+      const { messageService } = await import('../services/messageService');
+      
+      const recipients = guestsToSend.map(guest => {
+        // Use current origin for the link
+        // Note: For links to be clickable in WhatsApp, they should use HTTPS
+        // Local network IPs (192.168.x.x) won't be clickable in WhatsApp
+        let baseUrl = window.location.origin || 'http://192.168.1.47:5173';
+        
+        // For production, use HTTPS. For local development, keep as-is
+        // WhatsApp will make the link clickable if it's a valid URL format
+      const guestLink = `${baseUrl}/guest-response/${currentEvent.id}?guest=${guest.id}`;
+      console.log('🔗 Generated guest link:', guestLink);
+      console.log('🔗 Event ID:', currentEvent.id);
+      console.log('🔗 Guest ID:', guest.id);
+        console.log('🖼️ Event invitation image:', currentEvent.invitationImageUrl);
+      
+      const personalizedMessage = customMessage 
+        ? customMessage.replace('{{guest_link}}', guestLink)
+        : `${baseMessage}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}`;
+        
+        return {
+          id: guest.id,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          phoneNumber: guest.phoneNumber,
+          channel: messageChannel,
+          message: personalizedMessage,
+          firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+          eventData: {
+            coupleName: currentEvent.coupleName,
+            groomName: currentEvent.groomName,
+            brideName: currentEvent.brideName,
+            eventType: currentEvent.eventType,
+            eventTypeHebrew: currentEvent.eventTypeHebrew,
+            eventDate: formatDate(currentEvent.eventDate),
+            eventTime: currentEvent.eventTime,
+            venue: currentEvent.venue,
+            invitationImageUrl: currentEvent.invitationImageUrl
+          }
+        };
+      });
+
+      const result = await messageService.sendBulkMessages({
+        message: '', // Will be overridden by individual messages
+        recipients
+      });
+
+      // Update guest channels and message status based on actual results
+      result.results.forEach(messageResult => {
+        const guest = guestsToSend.find(g => g.id === messageResult.recipientId);
+        if (guest && messageResult.success) {
+          let messageStatus = 'sent';
+          if (messageResult.channel === 'sms') {
+            messageStatus = 'sms_sent';
+          } else if (messageResult.fallbackUsed) {
+            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
+          }
+          
+          const updateData: any = { 
+            channel: messageResult.channel,
+            messageStatus: messageStatus as any,
+            messageSentDate: new Date()
+          };
+          
+          // If this was a first message (template), mark it
+          if (messageResult.isFirstMessage) {
+            updateData.firstMessageSent = true;
+            updateData.firstMessageSentDate = new Date();
+          }
+          
+          updateGuest(currentEvent.id, guest.id, updateData);
+        }
+      });
+
+      // Show detailed success message
+      const successMessage = `✅ הודעות נשלחו בהצלחה!\n\n📊 סיכום:\n• ${result.successful} הודעות נשלחו בהצלחה\n• ${result.failed} הודעות נכשלו\n\n📱 ערוצים:\n• WhatsApp: ${result.results.filter(r => r.channel === 'whatsapp' && r.success).length}\n• SMS: ${result.results.filter(r => r.channel === 'sms' && r.success).length}`;
+      
+      alert(successMessage);
+      
+      setShowSendMessageModal(false);
+      setSelectedGuests([]);
+      setCustomMessage('');
+    } catch (error) {
+      console.error('Error sending messages:', error);
+      alert('שגיאה בשליחת ההודעות');
+    }
+  };
+
+  const handleSendToSingleGuest = async (guest: any) => {
+    try {
+      // Use local IP for testing - replace with your actual IP
+      const baseUrl = window.location.origin || 'http://192.168.1.47:3001';
+      
+      // Debug: Check if guest ID is correct
+      console.log('🔍 DEBUG - Guest ID from parameter:', guest.id);
+      console.log('🔍 DEBUG - Guest object:', guest);
+      console.log('🔍 DEBUG - All guests in event:', currentEvent.guests?.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+      
+      // Find the correct guest by name to get the real ID
+      const realGuest = currentEvent.guests?.find(g => 
+        g.firstName === guest.firstName && g.lastName === guest.lastName
+      );
+      
+      console.log('🔍 DEBUG - Real guest found:', realGuest);
+      
+      // Use the real guest ID if found, otherwise use the parameter ID
+      const guestIdToUse = realGuest?.id || guest.id;
+      const guestLink = `${baseUrl}/guest-response/${currentEvent.id}?guest=${guestIdToUse}`;
+      
+      console.log('🔗 Single guest link:', guestLink);
+      console.log('🔗 Single Event ID:', currentEvent.id);
+      console.log('🔗 Single Guest ID used:', guestIdToUse);
+      
+      // Get the first campaign (הזמנה ראשונית)
+      const firstCampaign = currentEvent.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
+                            currentEvent.campaigns?.[0];
+      
+      let message: string;
+      let campaignImageUrl: string | undefined;
+      
+      if (firstCampaign) {
+        console.log('📧 Using first campaign message:', firstCampaign.name);
+        
+        // Replace template variables in campaign message
+        const guestTable = currentEvent.tables?.find(table => table.guests.includes(guestIdToUse));
+        const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
+        
+        message = firstCampaign.message
+          .replace(/\{\{guest_name\}\}/g, guest.firstName)
+          .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
+          .replace(/\{\{last_name\}\}/g, guest.lastName)
+          .replace(/\{\{event_date\}\}/g, formatDate(currentEvent.eventDate))
+          .replace(/\{\{event_time\}\}/g, currentEvent.eventTime)
+          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew)
+          .replace(/\{\{venue\}\}/g, currentEvent.venue)
+          .replace(/\{\{couple_name\}\}/g, currentEvent.coupleName)
+          .replace(/\{\{groom_name\}\}/g, currentEvent.groomName)
+          .replace(/\{\{bride_name\}\}/g, currentEvent.brideName)
+          .replace(/\{\{table_number\}\}/g, tableNumber.toString())
+          .replace(/\{\{guest_response_link\}\}/g, guestLink);
+        
+        campaignImageUrl = firstCampaign.imageUrl;
+      } else {
+        // Fallback to default message if no campaign found
+        console.log('⚠️ No campaign found, using default message');
+        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${currentEvent.coupleName}`;
+      }
+
+      const { messageService } = await import('../services/messageService');
+      
+      const result = await messageService.sendBulkMessages({
+        message,
+        imageUrl: campaignImageUrl || currentEvent.invitationImageUrl,
+        // Use template from campaign if it's the first campaign
+        templateName: firstCampaign?.templateName,
+        recipients: [{
+          id: guest.id,
+          firstName: guest.firstName,
+          lastName: guest.lastName,
+          phoneNumber: guest.phoneNumber,
+          channel: messageChannel,
+          message: message,
+          firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+          eventData: {
+            coupleName: currentEvent.coupleName,
+            groomName: currentEvent.groomName,
+            brideName: currentEvent.brideName,
+            eventType: currentEvent.eventType,
+            eventTypeHebrew: currentEvent.eventTypeHebrew,
+            eventDate: formatDate(currentEvent.eventDate),
+            eventTime: currentEvent.eventTime,
+            venue: currentEvent.venue,
+            invitationImageUrl: campaignImageUrl || currentEvent.invitationImageUrl
+          },
+              // Add template params if using template "aa"
+              // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
+              // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
+              templateParams: firstCampaign?.templateName ? {
+                paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name',
+                              'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: currentEvent.eventTypeHebrew,
+                bride_name: currentEvent.brideName, // Parameter 3 - bride_name comes BEFORE groom_name in Meta template
+                groom_name: currentEvent.groomName, // Parameter 4 - groom_name comes AFTER bride_name in Meta template
+                event_date: formatDate(currentEvent.eventDate),
+                event_time: currentEvent.eventTime,
+                venue: currentEvent.venue,
+                guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
+                couple_name: currentEvent.coupleName,
+                language: 'he' // Hebrew language code for template "aa"
+              } : undefined
+        }]
+      });
+
+      // Update guest channel and message status based on actual result
+      if (result.results.length > 0) {
+        const messageResult = result.results[0];
+        if (messageResult.success) {
+          let messageStatus = 'sent';
+          if (messageResult.channel === 'sms') {
+            messageStatus = 'sms_sent';
+          } else if (messageResult.fallbackUsed) {
+            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
+          }
+          
+          updateGuest(currentEvent.id, guest.id, { 
+            channel: messageResult.channel,
+            messageStatus: messageStatus as any,
+            messageSentDate: new Date()
+          });
+        }
+      }
+
+      if (result.successful > 0) {
+        const channel = result.results[0]?.channel === 'whatsapp' ? 'WhatsApp' : 'SMS';
+        const warning = result.results[0]?.warning;
+        let message = `✅ הודעה נשלחה בהצלחה ל-${guest.firstName} ${guest.lastName}!\n\n📱 ערוץ: ${channel}\n📞 טלפון: ${guest.phoneNumber}`;
+        
+        if (warning) {
+          message += `\n\n⚠️ הערה חשובה:\n${warning}`;
+        }
+        
+        alert(message);
+      } else {
+        const error = result.results[0]?.error || 'שגיאה לא ידועה';
+        alert(`❌ שגיאה בשליחת הודעה ל-${guest.firstName} ${guest.lastName}\n\n🔍 שגיאה: ${error}`);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert('שגיאה בשליחת ההודעה');
+    }
+  };
+
+  try {
+    return (
+      <div className="min-h-screen bg-gray-50 p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center text-gray-600 hover:text-gray-800"
+            >
+              <ArrowRight className="w-5 h-5 ml-2" />
+              חזרה לדשבורד
+            </button>
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{currentEvent.coupleName}</h1>
+            <p className="text-gray-600">
+              {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime} | {currentEvent.venue}
+            </p>
+            <p className="text-sm text-yellow-500 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה</p>
+          </div>
+        </div>
+        
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowSendMessageModal(true)}
+            className="btn-warning flex items-center space-x-2"
+            disabled={selectedGuests.length === 0}
+          >
+            <Send className="w-4 h-4" />
+            <span>שלח הודעה ({selectedGuests.length})</span>
+          </button>
+          <Link
+            to={`/event/${currentEvent.id}/campaigns`}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>ניהול קמפיינים</span>
+          </Link>
+          <button
+            onClick={() => {
+              if (currentEvent) {
+                console.log('🔄 Creating new campaigns for event:', currentEvent.id);
+                try {
+                  recreateCampaigns(currentEvent.id);
+                  console.log('✅ Campaigns recreated successfully');
+                  alert('✅ קמפיינים נוצרו מחדש עם קישורים נכונים!');
+                  window.location.reload();
+                } catch (error) {
+                  console.error('❌ Error recreating campaigns:', error);
+                  alert('❌ שגיאה ביצירת קמפיינים: ' + error);
+                }
+              } else {
+                alert('❌ לא נמצא אירוע נוכחי');
+              }
+            }}
+            className="btn-warning flex items-center space-x-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>צור קמפיינים מחדש</span>
+          </button>
+          <button
+            onClick={() => {
+              try {
+                updateExistingEventsCampaigns();
+                alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
+                window.location.reload();
+              } catch (error) {
+                console.error('❌ Error updating campaigns:', error);
+                alert('❌ שגיאה בעדכון קמפיינים: ' + error);
+              }
+            }}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>עדכן כל האירועים לתבנית חדשה</span>
+          </button>
+          <Link
+            to={`/event/${currentEvent.id}/seating`}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <Users className="w-4 h-4" />
+            <span>סידורי הושבה</span>
+          </Link>
+          <Link
+            to={`/client/${currentEvent.id}`}
+            target="_blank"
+            className="btn-success flex items-center space-x-2"
+          >
+            <Users className="w-4 h-4" />
+            <span>ממשק לקוח</span>
+          </Link>
+          <button 
+            onClick={() => setShowImportModal(true)}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <Upload className="w-4 h-4" />
+            <span>ייבוא רשימת אורחים</span>
+          </button>
+          <button 
+            onClick={handleExportGuests}
+            className="btn-secondary flex items-center space-x-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>ייצוא רשימת אורחים</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Enhanced Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="stat-card-orange">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-orange-700">נותר להושיב</p>
+              <p className="text-3xl font-bold text-orange-600">{stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0)}</p>
+            </div>
+            <Users className="w-8 h-8 text-orange-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-green">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-700">יושבים</p>
+              <p className="text-3xl font-bold text-green-600">{currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0}</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-blue">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-700">סה"כ אורחים</p>
+              <p className="text-3xl font-bold text-blue-600">{stats.totalGuests}</p>
+            </div>
+            <Users className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-purple">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-700">מגיעים</p>
+              <p className="text-3xl font-bold text-purple-600">{stats.confirmed}</p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-purple-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-red">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-red-700">לא מגיעים</p>
+              <p className="text-3xl font-bold text-red-600">{stats.declined}</p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-yellow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-700">אחוז תגובה</p>
+              <p className="text-3xl font-bold text-yellow-600">{stats.responseRate}%</p>
+            </div>
+            <MessageSquare className="w-8 h-8 text-yellow-600" />
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Search and Filter */}
+      <div className="flex flex-col lg:flex-row gap-4">
+        <div className="flex-1 relative">
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            placeholder="🔍 חיפוש אורחים..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input-field pr-10 text-lg border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <button className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+            <Users className="w-4 h-4" />
+            <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0)})</span>
+          </button>
+          
+          <button className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+            <Users className="w-4 h-4" />
+            <span>הושב אורח</span>
+          </button>
+        </div>
+        
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="input-field w-full lg:w-48 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+        >
+          <option value="all">כל הסטטוסים</option>
+          <option value="pending">לא ענה</option>
+          <option value="confirmed">מגיע</option>
+          <option value="declined">לא מגיע</option>
+          <option value="maybe">אולי מגיע</option>
+        </select>
+        
+        <button
+          onClick={() => setShowAddGuest(true)}
+          className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium"
+        >
+          <Plus className="w-4 h-4" />
+          <span>הוסף מוזמן</span>
+        </button>
+      </div>
+
+      {/* Add/Edit Guest Modal */}
+      {(showAddGuest || editingGuest) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {editingGuest ? 'עריכת מוזמן' : 'הוספת מוזמן חדש'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAddGuest(false);
+                  cancelEdit();
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search existing guests */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="חיפוש אורחים קיימים..."
+                  value={modalSearchTerm}
+                  onChange={(e) => setModalSearchTerm(e.target.value)}
+                  className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              
+              {modalSearchTerm && (
+                <div className="mt-3 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
+                  {modalFilteredGuests.length > 0 ? (
+                    <div className="space-y-1 p-2">
+                      {modalFilteredGuests.map((guest) => (
+                        <div key={guest.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                          <div>
+                            <span className="text-sm font-medium">
+                              {guest.firstName} {guest.lastName}
+                            </span>
+                            <span className="text-sm text-gray-500 mr-2">
+                              {guest.phoneNumber}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setNewGuest({
+                                firstName: guest.firstName,
+                                lastName: guest.lastName,
+                                phoneNumber: guest.phoneNumber,
+                                guestCount: guest.guestCount,
+                                notes: guest.notes || ''
+                              });
+                              setModalSearchTerm('');
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-sm"
+                          >
+                            בחר
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 text-center text-gray-500 text-sm">
+                      לא נמצאו אורחים התואמים לחיפוש
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <form onSubmit={editingGuest ? handleUpdateGuest : handleAddGuest} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="text"
+                  placeholder="שם פרטי"
+                  value={newGuest.firstName}
+                  onChange={(e) => setNewGuest({...newGuest, firstName: e.target.value})}
+                  className="input-field"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="שם משפחה"
+                  value={newGuest.lastName}
+                  onChange={(e) => setNewGuest({...newGuest, lastName: e.target.value})}
+                  className="input-field"
+                  required
+                />
+              </div>
+              
+              <input
+                type="tel"
+                placeholder="מספר טלפון"
+                value={newGuest.phoneNumber}
+                onChange={(e) => setNewGuest({...newGuest, phoneNumber: e.target.value})}
+                className="input-field"
+                required
+              />
+              
+              <div className="grid grid-cols-2 gap-4">
+                <input
+                  type="number"
+                  placeholder="מספר מוזמנים"
+                  value={newGuest.guestCount}
+                  onChange={(e) => setNewGuest({...newGuest, guestCount: parseInt(e.target.value) || 1})}
+                  className="input-field"
+                  min="1"
+                />
+                <input
+                  type="text"
+                  placeholder="הערות (אופציונלי)"
+                  value={newGuest.notes}
+                  onChange={(e) => setNewGuest({...newGuest, notes: e.target.value})}
+                  className="input-field"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddGuest(false);
+                    cancelEdit();
+                  }}
+                  className="btn-secondary"
+                >
+                  ביטול
+                </button>
+                <button type="submit" className="btn-primary flex items-center space-x-2">
+                  <Save className="w-4 h-4" />
+                  <span>{editingGuest ? 'עדכן' : 'הוסף'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Guests Table */}
+      <div className="card">
+        <div className="overflow-x-auto">
+          <div className="min-w-full">
+          <table className="w-full divide-y divide-gray-200 table-fixed" style={{ minWidth: '1200px' }}>
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
+              <tr>
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={selectedGuests.length === filteredGuests.length && filteredGuests.length > 0}
+                    onChange={selectedGuests.length === filteredGuests.length ? handleDeselectAllGuests : handleSelectAllGuests}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                  />
+                </th>
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  מוזמן
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  טלפון
+                </th>
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px]">
+                  מספר מוזמנים
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                  סטטוס אישור
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                  הגעה בפועל
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                  ערוץ
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                  שולחן
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                  סטטוס הודעה
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  תאריך שליחה
+                </th>
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                  פעולות
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredGuests.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="text-gray-500">
+                      <Users className="mx-auto h-12  text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">אין אורחים</h3>
+                      <p className="text-gray-500 mb-4">
+                        {searchTerm || filterStatus !== 'all' 
+                          ? 'לא נמצאו אורחים התואמים לחיפוש' 
+                          : 'עדיין לא נוספו אורחים לאירוע זה'
+                        }
+                      </p>
+                      <button
+                        onClick={() => {
+                          console.log('הוסף אורח ראשון clicked');
+                          setShowAddGuest(true);
+                        }}
+                        className="btn-primary flex items-center justify-center space-x-2 mx-auto w-full max-w-xs py-3 px-6"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>הוסף אורח ראשון</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredGuests.map((guest, index) => (
+                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className="px-4 py-4 whitespace-nowrap">
+                    <input
+                      type="checkbox"
+                      checked={selectedGuests.includes(guest.id)}
+                      onChange={() => handleSelectGuest(guest.id)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
+                    />
+                  </td>
+                  <td className="px-4 py-4 w-40">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 break-words">
+                        {guest.firstName} {guest.lastName}
+                      </div>
+                      {guest.notes && (
+                        <div className="text-xs text-gray-500 break-words mt-1">{guest.notes}</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                    {guest.phoneNumber}
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-900 w-24 min-w-[100px]">
+                    <input
+                      type="number"
+                      value={guest.guestCount}
+                      onChange={(e) => handleUpdateGuestField(guest.id, { guestCount: parseInt(e.target.value) || 1 })}
+                      className="w-full text-center border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
+                      min="1"
+                    />
+                  </td>
+                  <td className="px-3 py-4 w-32 min-w-[120px]">
+                    <select
+                      value={guest.rsvpStatus}
+                      onChange={(e) => handleUpdateGuestStatus(guest.id, e.target.value)}
+                      className={`text-sm font-semibold ${getStatusColor(guest.rsvpStatus)} bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500`}
+                    >
+                      <option value="pending">לא ענה</option>
+                      <option value="confirmed">מגיע</option>
+                      <option value="declined">לא מגיע</option>
+                      <option value="maybe">אולי מגיע</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-4 w-32 min-w-[120px]">
+                    <select
+                      value={guest.actualAttendance || 'not_marked'}
+                      onChange={(e) => handleUpdateAttendance(guest.id, e.target.value)}
+                      className="text-sm font-semibold bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="not_marked">לא סומן</option>
+                      <option value="attended">הגיע</option>
+                      <option value="not_attended">לא הגיע</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-500 w-32 min-w-[120px]">
+                    <select
+                      value={guest.channel || 'manual'}
+                      onChange={(e) => handleUpdateGuestField(guest.id, { channel: e.target.value as 'whatsapp' | 'sms' | 'manual' })}
+                      className="text-sm border-2 border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-500 w-full"
+                    >
+                      <option value="whatsapp">וואטסאפ</option>
+                      <option value="sms">SMS</option>
+                      <option value="manual">ידני</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                    <select
+                      value={guest.tableId || ''}
+                      onChange={(e) => {
+                        const tableId = e.target.value;
+                        if (tableId) {
+                          handleUpdateGuestField(guest.id, { 
+                            tableId: tableId
+                          });
+                        } else {
+                          handleUpdateGuestField(guest.id, { tableId: undefined });
+                        }
+                      }}
+                      className="text-sm border-2 border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-500 w-full"
+                    >
+                      <option value="">ללא שולחן</option>
+                      {currentEvent.tables?.map(table => (
+                        <option key={table.id} value={table.id}>
+                          שולחן {table.number}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                    <select
+                      value={guest.messageStatus || 'not_sent'}
+                      onChange={(e) => handleUpdateGuestField(guest.id, { messageStatus: e.target.value })}
+                      className={`text-sm font-semibold ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500`}
+                    >
+                      <option value="not_sent">לא נשלחה</option>
+                      <option value="sent">נשלחה</option>
+                      <option value="delivered">נשלחה והתקבלה</option>
+                      <option value="failed">נשלחה ונכשלה</option>
+                      <option value="sms_sent">נשלח SMS</option>
+                    </select>
+                  </td>
+                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                    {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
+                  </td>
+                  <td className="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => handleSendToSingleGuest(guest)}
+                        className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-colors duration-200"
+                        title="שלח הודעה"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEditGuest(guest)}
+                        className="text-blue-600 hover:text-blue-900 p-2 rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                        title="ערוך"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGuest(guest.id)}
+                        className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-50 transition-colors duration-200"
+                        title="מחק"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">ייבוא רשימת אורחים מקובץ</h3>
+            
+            <div className="space-y-4">
+              <div className="bg-teal-50 p-4 rounded-lg">
+                <h4 className="font-medium text-teal-900 mb-2">הוראות ייבוא:</h4>
+                <ol className="text-sm text-teal-800 space-y-1 list-decimal list-inside">
+                  <li>הורד את קובץ התבנית "תבנית רשימת אורחים"</li>
+                  <li>מלא את פרטי האורחים בקובץ</li>
+                  <li>שמור כקובץ Excel (.xlsx) או CSV</li>
+                  <li>העלה את הקובץ כאן</li>
+                </ol>
+                <div className="mt-2 text-sm text-teal-700">
+                  <strong>עמודות נדרשות:</strong> הערות | שיוך למשפחה | כמות מגיעים | פלאפון האורח | שם האורח
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>הורד תבנית רשימת אורחים</span>
+                </button>
+                
+                <label className="btn-primary flex-1 flex items-center justify-center space-x-2 cursor-pointer">
+                  <Upload className="w-4 h-4" />
+                  <span>העלה רשימת אורחים</span>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="btn-secondary"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Message Modal */}
+      {showSendMessageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">שליחת הודעה למוזמנים נבחרים</h3>
+            
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yello0 rounded-lg p-3">
+                <p className="text-yellow-800 text-sm font-medium">📱 שליחת הודעות אמיתית מופעלת!</p>
+                <p className="text-yellow-700 text-sm mt-1">
+                  נבחרו {selectedGuests.length} מוזמנים לשליחה
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ערוץ שליחה
+                </label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="whatsapp"
+                      checked={messageChannel === 'whatsapp'}
+                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
+                      className="ml-2"
+                    />
+                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                    <span className="text-sm">וואטסאפ</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      value="sms"
+                      checked={messageChannel === 'sms'}
+                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
+                      className="ml-2"
+                    />
+                    <Phone className="w-4 h-4 text-blue-600 ml-1" />
+                    <span className="text-sm">SMS</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  תוכן ההודעה (אופציונלי)
+                </label>
+                <textarea
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  className="input-field h-32"
+                  placeholder="השאר ריק לשימוש בהודעה ברירת מחדל..."
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  אם תשאיר ריק, תישלח הודעה ברירת מחדל עם פרטי האירוע
+                </p>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
+                <div className="max-h-32 overflow-y-auto">
+                  {selectedGuests.map(guestId => {
+                    const guest = currentEvent.guests.find(g => g.id === guestId);
+                    return guest ? (
+                      <div key={guestId} className="text-sm text-gray-600 py-1">
+                        {guest.firstName} {guest.lastName} - {guest.phoneNumber}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                onClick={() => {
+                  setShowSendMessageModal(false);
+                  setSelectedGuests([]);
+                  setCustomMessage('');
+                }}
+                className="btn-secondary"
+              >
+                ביטול
+              </button>
+              <button
+                onClick={handleSendMessage}
+                className="btn-warning flex items-center space-x-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>שלח הודעה</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+        </div>
+      </div>
+    );
+  } catch (error) {
+    console.error('Error rendering EventManagement:', error);
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h2 className="text-lg font-semibold text-red-800 mb-2">שגיאה בטעינת הדף</h2>
+        <p className="text-red-600">אירעה שגיאה בטעינת דף ניהול האירוע. אנא רענן את הדף ונסה שוב.</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          רענן דף
+        </button>
+      </div>
+    );
+  }
+};
+
+export default EventManagement;

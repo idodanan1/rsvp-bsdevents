@@ -1,0 +1,27 @@
+node_modules
+dist
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+.vscode
+.idea
+*.swp
+*.swo
+*~
+coverage
+.nyc_output
+build
+.cache
+
+# Sensitive files
+*.key
+*.pem
+*.p12
+secrets.json
+config.json
+
+# OS files
+Thumbs.db
+desktop.ini

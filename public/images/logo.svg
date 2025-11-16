@@ -1,0 +1,7 @@
+<svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
+  <rect width="300" height="150" fill="#fff" stroke="#000" stroke-width="2"/>
+  <text x="150" y="50" text-anchor="middle" fill="#FFD700" font-size="32" font-weight="bold" font-family="serif" style="font-style: italic;">בסייד</text>
+  <text x="150" y="80" text-anchor="middle" fill="#FFD700" font-size="24" font-weight="bold" font-family="serif" style="font-style: italic;">אירועים</text>
+  <text x="150" y="105" text-anchor="middle" fill="#FFD700" font-size="14" font-family="sans-serif">צלמים | הפקות | הושבה</text>
+  <text x="150" y="130" text-anchor="middle" fill="#FFD700" font-size="16" font-family="sans-serif" font-weight="bold">0503789504</text>
+</svg>

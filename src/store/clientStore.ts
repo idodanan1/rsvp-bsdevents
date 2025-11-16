@@ -1,0 +1,581 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Client, ClientEvent, Reminder, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types';
+import { generateId, formatDate } from '../utils/helpers';
+
+export interface ClientStore {
+  clients: Client[];
+  reminders: Reminder[];
+  currentClient: Client | null;
+  isLoading: boolean;
+  error: string | null;
+  filters: ClientFilterOptions;
+  reminderFilters: ReminderFilterOptions;
+  
+  // Client Actions
+  fetchClients: () => Promise<void>;
+  createClient: (client: Omit<Client, 'id' | 'createdAt' | 'updatedAt' | 'events' | 'totalEvents' | 'totalGuests'>) => Promise<void>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+  deleteClient: (id: string) => Promise<void>;
+  setCurrentClient: (client: Client | null) => void;
+  addClientEvent: (clientId: string, event: Omit<ClientEvent, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateClientEvent: (clientId: string, eventId: string, updates: Partial<ClientEvent>) => Promise<void>;
+  removeClientEvent: (clientId: string, eventId: string) => Promise<void>;
+  
+  // Reminder Actions
+  createReminder: (reminder: Omit<Reminder, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateReminder: (id: string, updates: Partial<Reminder>) => Promise<void>;
+  deleteReminder: (id: string) => Promise<void>;
+  completeReminder: (id: string, completedBy?: string, notes?: string) => Promise<void>;
+  markReminderOverdue: (id: string) => Promise<void>;
+  
+  // Filter Actions
+  setFilters: (filters: ClientFilterOptions) => void;
+  setReminderFilters: (filters: ReminderFilterOptions) => void;
+  clearFilters: () => void;
+  clearReminderFilters: () => void;
+  
+  // Stats
+  getClientStats: () => ClientStats;
+  getFilteredClients: () => Client[];
+  getFilteredReminders: () => Reminder[];
+  getUpcomingReminders: (days?: number) => Reminder[];
+  getOverdueReminders: () => Reminder[];
+  
+  // Utility Actions
+  searchClients: (query: string) => Client[];
+  getClientEvents: (clientId: string) => ClientEvent[];
+  getClientReminders: (clientId: string) => Reminder[];
+  syncWithEvents: () => Promise<void>;
+}
+
+export const useClientStore = create<ClientStore>()(
+  persist(
+    (set, get) => ({
+      clients: [],
+      reminders: [],
+      currentClient: null,
+      isLoading: false,
+      error: null,
+      filters: {},
+      reminderFilters: {},
+
+      fetchClients: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Check if there are clients in localStorage
+          const stored = localStorage.getItem('client-store');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.state && parsed.state.clients) {
+              console.log('📋 Found existing clients:', parsed.state.clients.length);
+              set({ 
+                clients: parsed.state.clients, 
+                reminders: parsed.state.reminders || [],
+                isLoading: false 
+              });
+              return;
+            }
+          }
+          
+          console.log('📝 No clients found in localStorage');
+          set({ clients: [], reminders: [], isLoading: false });
+        } catch (error) {
+          console.error('❌ Error fetching clients:', error);
+          set({ error: 'שגיאה בטעינת הלקוחות', isLoading: false });
+        }
+      },
+
+      createClient: async (clientData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const newClient: Client = {
+            ...clientData,
+            id: generateId(),
+            events: [],
+            totalEvents: 0,
+            totalGuests: 0,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          set(state => ({
+            clients: [...state.clients, newClient],
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה ביצירת הלקוח', isLoading: false });
+        }
+      },
+
+      updateClient: async (id, updates) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            clients: state.clients.map(client =>
+              client.id === id
+                ? { ...client, ...updates, updatedAt: new Date() }
+                : client
+            ),
+            currentClient: state.currentClient?.id === id 
+              ? { ...state.currentClient, ...updates, updatedAt: new Date() }
+              : state.currentClient,
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה בעדכון הלקוח', isLoading: false });
+        }
+      },
+
+      deleteClient: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            clients: state.clients.filter(client => client.id !== id),
+            currentClient: state.currentClient?.id === id ? null : state.currentClient,
+            reminders: state.reminders.filter(reminder => reminder.clientId !== id),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה במחיקת הלקוח', isLoading: false });
+        }
+      },
+
+      setCurrentClient: (client) => {
+        set({ currentClient: client });
+      },
+
+      addClientEvent: async (clientId, eventData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const newEvent: ClientEvent = {
+            ...eventData,
+            id: generateId(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          set(state => {
+            const updatedClients = state.clients.map(client =>
+              client.id === clientId
+                ? { 
+                    ...client, 
+                    events: [...client.events, newEvent],
+                    totalEvents: client.totalEvents + 1,
+                    totalGuests: client.totalGuests + eventData.guestCount,
+                    updatedAt: new Date()
+                  }
+                : client
+            );
+            
+            return {
+              clients: updatedClients,
+              currentClient: state.currentClient?.id === clientId 
+                ? { 
+                    ...state.currentClient, 
+                    events: [...state.currentClient.events, newEvent],
+                    totalEvents: state.currentClient.totalEvents + 1,
+                    totalGuests: state.currentClient.totalGuests + eventData.guestCount,
+                    updatedAt: new Date()
+                  }
+                : state.currentClient,
+              isLoading: false
+            };
+          });
+        } catch (error) {
+          set({ error: 'שגיאה בהוספת אירוע ללקוח', isLoading: false });
+        }
+      },
+
+      updateClientEvent: async (clientId, eventId, updates) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => {
+            const updatedClients = state.clients.map(client =>
+              client.id === clientId
+                ? {
+                    ...client,
+                    events: client.events.map(event =>
+                      event.id === eventId
+                        ? { ...event, ...updates, updatedAt: new Date() }
+                        : event
+                    ),
+                    updatedAt: new Date()
+                  }
+                : client
+            );
+            
+            return {
+              clients: updatedClients,
+              currentClient: state.currentClient?.id === clientId 
+                ? {
+                    ...state.currentClient,
+                    events: state.currentClient.events.map(event =>
+                      event.id === eventId
+                        ? { ...event, ...updates, updatedAt: new Date() }
+                        : event
+                    ),
+                    updatedAt: new Date()
+                  }
+                : state.currentClient,
+              isLoading: false
+            };
+          });
+        } catch (error) {
+          set({ error: 'שגיאה בעדכון אירוע הלקוח', isLoading: false });
+        }
+      },
+
+      removeClientEvent: async (clientId, eventId) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => {
+            const client = state.clients.find(c => c.id === clientId);
+            const eventToRemove = client?.events.find(e => e.id === eventId);
+            
+            const updatedClients = state.clients.map(client =>
+              client.id === clientId
+                ? {
+                    ...client,
+                    events: client.events.filter(event => event.id !== eventId),
+                    totalEvents: Math.max(0, client.totalEvents - 1),
+                    totalGuests: Math.max(0, client.totalGuests - (eventToRemove?.guestCount || 0)),
+                    updatedAt: new Date()
+                  }
+                : client
+            );
+            
+            return {
+              clients: updatedClients,
+              currentClient: state.currentClient?.id === clientId 
+                ? {
+                    ...state.currentClient,
+                    events: state.currentClient.events.filter(event => event.id !== eventId),
+                    totalEvents: Math.max(0, state.currentClient.totalEvents - 1),
+                    totalGuests: Math.max(0, state.currentClient.totalGuests - (eventToRemove?.guestCount || 0)),
+                    updatedAt: new Date()
+                  }
+                : state.currentClient,
+              isLoading: false
+            };
+          });
+        } catch (error) {
+          set({ error: 'שגיאה בהסרת אירוע מהלקוח', isLoading: false });
+        }
+      },
+
+      createReminder: async (reminderData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const newReminder: Reminder = {
+            ...reminderData,
+            id: generateId(),
+            createdAt: new Date(),
+            updatedAt: new Date()
+          };
+          
+          set(state => ({
+            reminders: [...state.reminders, newReminder],
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה ביצירת התזכורת', isLoading: false });
+        }
+      },
+
+      updateReminder: async (id, updates) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            reminders: state.reminders.map(reminder =>
+              reminder.id === id
+                ? { ...reminder, ...updates, updatedAt: new Date() }
+                : reminder
+            ),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה בעדכון התזכורת', isLoading: false });
+        }
+      },
+
+      deleteReminder: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            reminders: state.reminders.filter(reminder => reminder.id !== id),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה במחיקת התזכורת', isLoading: false });
+        }
+      },
+
+      completeReminder: async (id, completedBy, notes) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            reminders: state.reminders.map(reminder =>
+              reminder.id === id
+                ? { 
+                    ...reminder, 
+                    status: 'completed',
+                    completedAt: new Date(),
+                    completedBy,
+                    notes: notes || reminder.notes,
+                    updatedAt: new Date()
+                  }
+                : reminder
+            ),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה בסיום התזכורת', isLoading: false });
+        }
+      },
+
+      markReminderOverdue: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+          set(state => ({
+            reminders: state.reminders.map(reminder =>
+              reminder.id === id
+                ? { ...reminder, status: 'overdue', updatedAt: new Date() }
+                : reminder
+            ),
+            isLoading: false
+          }));
+        } catch (error) {
+          set({ error: 'שגיאה בסימון התזכורת כפגת תוקף', isLoading: false });
+        }
+      },
+
+      setFilters: (filters) => {
+        set({ filters });
+      },
+
+      setReminderFilters: (filters) => {
+        set({ reminderFilters: filters });
+      },
+
+      clearFilters: () => {
+        set({ filters: {} });
+      },
+
+      clearReminderFilters: () => {
+        set({ reminderFilters: {} });
+      },
+
+      getClientStats: () => {
+        const { clients, reminders } = get();
+        const now = new Date();
+        
+        const totalClients = clients.length;
+        const activeClients = clients.filter(c => c.isActive).length;
+        const totalEvents = clients.reduce((sum, c) => sum + c.totalEvents, 0);
+        const upcomingEvents = clients.reduce((sum, c) => 
+          sum + c.events.filter(e => e.status === 'upcoming' && new Date(e.eventDate) > now).length, 0
+        );
+        const completedEvents = clients.reduce((sum, c) => 
+          sum + c.events.filter(e => e.status === 'completed').length, 0
+        );
+        const totalGuests = clients.reduce((sum, c) => sum + c.totalGuests, 0);
+        const averageResponseRate = clients.length > 0 
+          ? clients.reduce((sum, c) => 
+              sum + c.events.reduce((eventSum, e) => eventSum + e.responseRate, 0) / c.events.length, 0
+            ) / clients.length
+          : 0;
+        const pendingReminders = reminders.filter(r => r.status === 'pending').length;
+        const overdueReminders = reminders.filter(r => r.status === 'overdue').length;
+
+        return {
+          totalClients,
+          activeClients,
+          totalEvents,
+          upcomingEvents,
+          completedEvents,
+          averageResponseRate,
+          totalGuests,
+          pendingReminders,
+          overdueReminders
+        };
+      },
+
+      getFilteredClients: () => {
+        const { clients, filters } = get();
+        let filtered = [...clients];
+
+        if (filters.searchTerm) {
+          const searchLower = filters.searchTerm.toLowerCase();
+          filtered = filtered.filter(client =>
+            client.firstName.toLowerCase().includes(searchLower) ||
+            client.lastName.toLowerCase().includes(searchLower) ||
+            client.phoneNumber.includes(searchLower) ||
+            client.email?.toLowerCase().includes(searchLower) ||
+            client.company?.toLowerCase().includes(searchLower)
+          );
+        }
+
+        if (filters.tags && filters.tags.length > 0) {
+          filtered = filtered.filter(client =>
+            client.tags?.some(tag => filters.tags!.includes(tag))
+          );
+        }
+
+        if (filters.status && filters.status.length > 0) {
+          filtered = filtered.filter(client =>
+            filters.status!.includes(client.isActive ? 'active' : 'inactive')
+          );
+        }
+
+        if (filters.eventType && filters.eventType.length > 0) {
+          filtered = filtered.filter(client =>
+            client.events.some(event => filters.eventType!.includes(event.eventType))
+          );
+        }
+
+        if (filters.dateRange) {
+          filtered = filtered.filter(client =>
+            client.events.some(event => {
+              const eventDate = new Date(event.eventDate);
+              return eventDate >= filters.dateRange!.start && eventDate <= filters.dateRange!.end;
+            })
+          );
+        }
+
+        if (filters.hasUpcomingEvents) {
+          const now = new Date();
+          filtered = filtered.filter(client =>
+            client.events.some(event => 
+              event.status === 'upcoming' && new Date(event.eventDate) > now
+            )
+          );
+        }
+
+        if (filters.hasOverdueReminders) {
+          const overdueReminderIds = get().getOverdueReminders().map(r => r.clientId);
+          filtered = filtered.filter(client => overdueReminderIds.includes(client.id));
+        }
+
+        if (filters.serviceAreas && filters.serviceAreas.length > 0) {
+          filtered = filtered.filter(client => {
+            if (!client.serviceAreas || client.serviceAreas.length === 0) return false;
+            
+            // Check if client has any of the selected service areas
+            return filters.serviceAreas!.some(area => 
+              client.serviceAreas!.includes(area) || 
+              (area === 'all' && client.serviceAreas!.includes('all'))
+            );
+          });
+        }
+
+        return filtered;
+      },
+
+      getFilteredReminders: () => {
+        const { reminders, reminderFilters } = get();
+        let filtered = [...reminders];
+
+        if (reminderFilters.clientId) {
+          filtered = filtered.filter(reminder => reminder.clientId === reminderFilters.clientId);
+        }
+
+        if (reminderFilters.eventId) {
+          filtered = filtered.filter(reminder => reminder.eventId === reminderFilters.eventId);
+        }
+
+        if (reminderFilters.type && reminderFilters.type.length > 0) {
+          filtered = filtered.filter(reminder => reminderFilters.type!.includes(reminder.type));
+        }
+
+        if (reminderFilters.status && reminderFilters.status.length > 0) {
+          filtered = filtered.filter(reminder => reminderFilters.status!.includes(reminder.status));
+        }
+
+        if (reminderFilters.priority && reminderFilters.priority.length > 0) {
+          filtered = filtered.filter(reminder => reminderFilters.priority!.includes(reminder.priority));
+        }
+
+        if (reminderFilters.dateRange) {
+          filtered = filtered.filter(reminder => {
+            const reminderDate = new Date(reminder.reminderDate);
+            return reminderDate >= reminderFilters.dateRange!.start && 
+                   reminderDate <= reminderFilters.dateRange!.end;
+          });
+        }
+
+        if (reminderFilters.isOverdue) {
+          const now = new Date();
+          filtered = filtered.filter(reminder => 
+            reminder.status === 'pending' && new Date(reminder.reminderDate) < now
+          );
+        }
+
+        return filtered;
+      },
+
+      getUpcomingReminders: (days = 7) => {
+        const { reminders } = get();
+        const now = new Date();
+        const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+        
+        return reminders.filter(reminder =>
+          reminder.status === 'pending' &&
+          new Date(reminder.reminderDate) >= now &&
+          new Date(reminder.reminderDate) <= futureDate
+        ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
+      },
+
+      getOverdueReminders: () => {
+        const { reminders } = get();
+        const now = new Date();
+        
+        return reminders.filter(reminder =>
+          reminder.status === 'pending' && new Date(reminder.reminderDate) < now
+        ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
+      },
+
+      searchClients: (query) => {
+        const { clients } = get();
+        const searchLower = query.toLowerCase();
+        
+        return clients.filter(client =>
+          client.firstName.toLowerCase().includes(searchLower) ||
+          client.lastName.toLowerCase().includes(searchLower) ||
+          client.phoneNumber.includes(searchLower) ||
+          client.email?.toLowerCase().includes(searchLower) ||
+          client.company?.toLowerCase().includes(searchLower)
+        );
+      },
+
+      getClientEvents: (clientId) => {
+        const client = get().clients.find(c => c.id === clientId);
+        return client?.events || [];
+      },
+
+      getClientReminders: (clientId) => {
+        const { reminders } = get();
+        return reminders.filter(reminder => reminder.clientId === clientId);
+      },
+
+      syncWithEvents: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // This would sync with the event store to keep client events in sync
+          // For now, we'll just mark as completed
+          set({ isLoading: false });
+        } catch (error) {
+          set({ error: 'שגיאה בסנכרון עם אירועים', isLoading: false });
+        }
+      }
+    }),
+    {
+      name: 'client-store',
+      partialize: (state) => ({ 
+        clients: state.clients,
+        reminders: state.reminders,
+        currentClient: state.currentClient
+      })
+    }
+  )
+);

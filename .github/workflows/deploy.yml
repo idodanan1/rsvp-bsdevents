@@ -1,0 +1,24 @@
+name: Deploy to Render
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install dependencies
+        run: |
+          npm install
+          cd whatsapp-backend && npm install
+      - name: Build
+        run: npm run build
+

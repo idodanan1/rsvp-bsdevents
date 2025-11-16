@@ -1,0 +1,421 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { Campaign, CampaignStore, MessageTemplate } from '../types';
+import { generateId } from '../utils/helpers';
+import { whatsappService } from '../services/whatsappService';
+import { smsService } from '../services/smsService';
+
+// Mock data for development
+const mockCampaigns: Campaign[] = [
+  {
+    id: '1',
+    eventId: '1',
+    name: 'הזמנה ראשונית',
+    message: 'שלום! אתם מוזמנים לחתונה של דוד ושרה ב-15 במרץ 2024 בשעה 18:00. אנא אשרו הגעה.',
+    imageUrl: 'https://example.com/wedding-invitation.jpg',
+    channel: 'whatsapp',
+    scheduledDate: new Date('2024-03-01T10:00:00'),
+    status: 'sent',
+    sentCount: 80,
+    responseCount: 65,
+    createdAt: new Date('2024-02-28'),
+    updatedAt: new Date('2024-03-01')
+  },
+  {
+    id: '2',
+    eventId: '1',
+    name: 'תזכורת שבוע לפני',
+    message: 'תזכורת: החתונה של דוד ושרה תתקיים בעוד שבוע! אנא אשרו הגעה אם עדיין לא עשיתם זאת.',
+    channel: 'whatsapp',
+    scheduledDate: new Date('2024-03-08T10:00:00'),
+    status: 'scheduled',
+    sentCount: 0,
+    responseCount: 0,
+    createdAt: new Date('2024-03-01'),
+    updatedAt: new Date('2024-03-01')
+  }
+];
+
+const mockTemplates: MessageTemplate[] = [
+  {
+    id: '1',
+    name: 'הזמנה אישית - חתונה',
+    content: `🎉 שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {groomName} ו{brideName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+🔗 https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+{groomName} ו{brideName} 💕`,
+    imageUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&h=600&fit=crop',
+    channel: 'whatsapp',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '2',
+    name: 'הזמנה אישית - בר מצווה',
+    content: `🎊 שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {groomName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+🔗 https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+משפחת {groomName} 🎉`,
+    imageUrl: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=600&fit=crop',
+    channel: 'whatsapp',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '3',
+    name: 'הזמנה אישית - בת מצווה',
+    content: `🌸 שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {brideName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+🔗 https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+משפחת {brideName} 🌸`,
+    imageUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&h=600&fit=crop',
+    channel: 'whatsapp',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '4',
+    name: 'תזכורת חמה',
+    content: `⏰ שלום {firstName}! 
+
+תזכורת חמה: ה{eventType} של {coupleName} מתקרב! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
+🔗 https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+מחכים לראות אותך! 🎉`,
+    channel: 'whatsapp',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '5',
+    name: 'הודעת תודה',
+    content: `🙏 שלום {firstName}! 
+
+תודה רבה שהגעת ל{eventType} של {coupleName}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות! 💝
+
+באהבה,
+{coupleName} 💕`,
+    channel: 'whatsapp',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '6',
+    name: 'SMS חלופי - חתונה',
+    content: `שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {groomName} ו{brideName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+{groomName} ו{brideName}`,
+    channel: 'sms',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '7',
+    name: 'SMS חלופי - בר מצווה',
+    content: `שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {groomName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+משפחת {groomName}`,
+    channel: 'sms',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '8',
+    name: 'SMS חלופי - בת מצווה',
+    content: `שלום {firstName}! 
+
+אנחנו שמחים להזמין אותך ל{eventType} של {brideName}! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אנא אשר/י הגעה בקישור הבא:
+https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+בברכה,
+משפחת {brideName}`,
+    channel: 'sms',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '9',
+    name: 'SMS תזכורת',
+    content: `שלום {firstName}! 
+
+תזכורת: ה{eventType} של {coupleName} מתקרב! 
+
+📅 תאריך: {eventDate}
+🕐 שעה: {eventTime}
+📍 מיקום: {venue}
+
+אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
+https://rsvp.example.com/event/{eventId}/guest/{guestId}
+
+מחכים לראות אותך!`,
+    channel: 'sms',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  },
+  {
+    id: '10',
+    name: 'SMS הודעת תודה',
+    content: `שלום {firstName}! 
+
+תודה רבה שהגעת ל{eventType} של {coupleName}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות!
+
+באהבה,
+{coupleName}`,
+    channel: 'sms',
+    isDefault: true,
+    createdAt: new Date('2024-02-01')
+  }
+];
+
+export const useCampaignStore = create<CampaignStore>()(
+  persist(
+    (set, get) => ({
+  campaigns: mockCampaigns,
+  currentCampaign: null,
+  isLoading: false,
+  error: null,
+
+  createCampaign: async (campaignData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newCampaign: Campaign = {
+        ...campaignData,
+        id: generateId(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      set(state => ({
+        campaigns: [...state.campaigns, newCampaign],
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה ביצירת הקמפיין', isLoading: false });
+    }
+  },
+
+  updateCampaign: async (id, updates) => {
+    set({ isLoading: true, error: null });
+    try {
+      set(state => ({
+        campaigns: state.campaigns.map(campaign =>
+          campaign.id === id
+            ? { ...campaign, ...updates, updatedAt: new Date() }
+            : campaign
+        ),
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה בעדכון הקמפיין', isLoading: false });
+    }
+  },
+
+  deleteCampaign: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      set(state => ({
+        campaigns: state.campaigns.filter(campaign => campaign.id !== id),
+        currentCampaign: state.currentCampaign?.id === id ? null : state.currentCampaign,
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה במחיקת הקמפיין', isLoading: false });
+    }
+  },
+
+  sendCampaign: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const campaign = get().campaigns.find(c => c.id === id);
+      if (!campaign) {
+        throw new Error('קמפיין לא נמצא');
+      }
+
+      // Update campaign status to sending
+      await get().updateCampaign(id, { status: 'sending' });
+
+      // Here you would integrate with the actual messaging services
+      // For now, we'll simulate the sending process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update campaign status to sent
+      await get().updateCampaign(id, { 
+        status: 'sent',
+        sentCount: (campaign.sentCount || 0) + 1
+      });
+
+      set({ isLoading: false });
+    } catch (error) {
+      set({ error: 'שגיאה בשליחת הקמפיין', isLoading: false });
+    }
+  },
+
+  scheduleCampaign: async (id, scheduledDate) => {
+    set({ isLoading: true, error: null });
+    try {
+      await get().updateCampaign(id, { 
+        scheduledDate,
+        status: 'scheduled'
+      });
+    } catch (error) {
+      set({ error: 'שגיאה בתזמון הקמפיין', isLoading: false });
+    }
+  }
+    }),
+    {
+      name: 'rsvp-campaigns-storage',
+      partialize: (state) => ({ 
+        campaigns: state.campaigns,
+        currentCampaign: state.currentCampaign 
+      }),
+    }
+  )
+);
+
+// Message Templates Store
+export const useTemplateStore = create<{
+  templates: MessageTemplate[];
+  currentTemplate: MessageTemplate | null;
+  isLoading: boolean;
+  error: string | null;
+  
+  fetchTemplates: () => Promise<void>;
+  createTemplate: (template: Omit<MessageTemplate, 'id' | 'createdAt'>) => Promise<void>;
+  updateTemplate: (id: string, updates: Partial<MessageTemplate>) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
+  setCurrentTemplate: (template: MessageTemplate | null) => void;
+}>((set, get) => ({
+  templates: mockTemplates,
+  currentTemplate: null,
+  isLoading: false,
+  error: null,
+
+  fetchTemplates: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      // In a real app, this would be an API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      set({ templates: mockTemplates, isLoading: false });
+    } catch (error) {
+      set({ error: 'שגיאה בטעינת התבניות', isLoading: false });
+    }
+  },
+
+  createTemplate: async (templateData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const newTemplate: MessageTemplate = {
+        ...templateData,
+        id: generateId(),
+        createdAt: new Date()
+      };
+      
+      set(state => ({
+        templates: [...state.templates, newTemplate],
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה ביצירת התבנית', isLoading: false });
+    }
+  },
+
+  updateTemplate: async (id, updates) => {
+    set({ isLoading: true, error: null });
+    try {
+      set(state => ({
+        templates: state.templates.map(template =>
+          template.id === id
+            ? { ...template, ...updates }
+            : template
+        ),
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה בעדכון התבנית', isLoading: false });
+    }
+  },
+
+  deleteTemplate: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      set(state => ({
+        templates: state.templates.filter(template => template.id !== id),
+        currentTemplate: state.currentTemplate?.id === id ? null : state.currentTemplate,
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: 'שגיאה במחיקת התבנית', isLoading: false });
+    }
+  },
+
+  setCurrentTemplate: (template) => {
+    set({ currentTemplate: template });
+  }
+}));

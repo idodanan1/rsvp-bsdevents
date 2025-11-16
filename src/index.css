@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+  
+  body {
+    @apply bg-gray-50 text-gray-900;
+    direction: rtl;
+    
+    
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+  }
+  
+  html {
+    direction: rtl;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-teal-600 hover:bg-teal-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-success {
+    @apply bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-warning {
+    @apply bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .btn-danger {
+    @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg shadow-md border border-teal-200 p-6;
+  }
+  
+  .input-field {
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent;
+  }
+  
+  .stat-card {
+    @apply bg-white rounded-lg shadow-sm border border-teal-200 p-4 text-center;
+  }
+  
+  .stat-card-orange {
+    @apply bg-orange-50 border-orange-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .stat-card-green {
+    @apply bg-green-50 border-green-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .stat-card-blue {
+    @apply bg-blue-50 border-blue-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .stat-card-purple {
+    @apply bg-purple-50 border-purple-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .stat-card-red {
+    @apply bg-red-50 border-red-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .stat-card-yellow {
+    @apply bg-yellow-50 border-yellow-200 rounded-lg shadow-sm p-4 text-center border-2;
+  }
+  
+  .event-card {
+    @apply bg-white rounded-xl shadow-lg border border-teal-200 p-6 hover:shadow-xl transition-shadow duration-300;
+  }
+  
+  /* Fix for table text truncation */
+  .table-fixed td {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  .table-fixed select {
+    white-space: normal;
+    word-wrap: break-word;
+  }
+  
+  /* Fix table column spacing */
+  .table-fixed th,
+  .table-fixed td {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  
+  .table-fixed th:first-child,
+  .table-fixed td:first-child {
+    padding-left: 1rem;
+  }
+  
+  .table-fixed th:last-child,
+  .table-fixed td:last-child {
+    padding-right: 1rem;
+  }
+}
