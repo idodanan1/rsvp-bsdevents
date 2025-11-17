@@ -47,59 +47,49 @@ const EventManagement: React.FC = () => {
     notes: ''
   });
 
+  // Load events when component mounts or id changes
   useEffect(() => {
-    const loadEvent = async () => {
-      if (id) {
-        try {
-          // First, try to fetch events to ensure we have the latest data
-          await fetchEvents();
-        } catch (error) {
-          console.error('❌ Error fetching events:', error);
-        }
-      }
-    };
-    
-    loadEvent();
+    if (id) {
+      fetchEvents().catch(error => {
+        console.error('❌ Error fetching events:', error);
+      });
+    }
   }, [id, fetchEvents]);
 
   // Set current event when id or events change
   useEffect(() => {
-    if (id) {
-      if (events.length === 0) {
-        // If no events yet, try fetching again
-        fetchEvents();
-        return;
-      }
-      
-      const event = events.find(e => e.id === id);
-      if (event) {
+    if (!id) return;
+    
+    // Wait a bit for events to load if they're empty
+    if (events.length === 0) {
+      return;
+    }
+    
+    const event = events.find(e => e.id === id);
+    if (event) {
+      // Only update if it's a different event or campaigns changed
+      if (!currentEvent || currentEvent.id !== event.id) {
         setCurrentEvent(event);
       } else {
-        console.warn('⚠️ Event not found, redirecting to dashboard');
-        navigate('/');
+        // Check if campaigns changed
+        const campaignsChanged = JSON.stringify(event.campaigns) !== JSON.stringify(currentEvent.campaigns);
+        if (campaignsChanged) {
+          setCurrentEvent(event);
+        }
       }
+    } else {
+      // Event not found - redirect after a short delay to allow events to load
+      const timeout = setTimeout(() => {
+        // Check again if event was loaded
+        if (events.length > 0 && !events.find(e => e.id === id)) {
+          console.warn('⚠️ Event not found after loading, redirecting to dashboard');
+          navigate('/');
+        }
+      }, 2000);
+      
+      return () => clearTimeout(timeout);
     }
-  }, [id, events, setCurrentEvent, navigate, fetchEvents]);
-
-  // Update currentEvent when events change (for reactive updates)
-  useEffect(() => {
-    if (id && events.length > 0) {
-      const event = events.find(e => e.id === id);
-      if (event && (!currentEvent || currentEvent.id !== event.id)) {
-        setCurrentEvent(event);
-      }
-    }
-  }, [id, events, currentEvent, setCurrentEvent]);
-
-  // Update currentEvent when events change
-  useEffect(() => {
-    if (currentEvent && id) {
-      const updatedEvent = events.find(e => e.id === id);
-      if (updatedEvent && updatedEvent !== currentEvent) {
-        setCurrentEvent(updatedEvent);
-      }
-    }
-  }, [events, currentEvent, id, setCurrentEvent]);
+  }, [id, events, currentEvent, setCurrentEvent, navigate]);
 
   if (!currentEvent) {
     return (
