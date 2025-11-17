@@ -281,7 +281,9 @@ class WhatsAppService {
       console.log('📤 FULL PAYLOAD TO META API:');
       console.log(JSON.stringify(messagePayload, null, 2));
       console.log('📤 Sending via WhatsApp Business API...');
-      const response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+      
+      // Try sending with current payload (may include header image)
+      let response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -291,6 +293,61 @@ class WhatsAppService {
       });
 
       console.log('📊 WhatsApp Business API response status:', response.status);
+      
+      // If error 132018 (template doesn't support header image), retry without header
+      if (!response.ok && messagePayload.type === 'template' && messagePayload.template?.components) {
+        // Clone response to read it without consuming it
+        const responseClone = response.clone();
+        const errorData = await responseClone.json().catch(() => ({}));
+        const errorCode = errorData.error?.code;
+        const errorDetails = errorData.error?.error_data?.details || '';
+        
+        // Check if error is about header component not being supported
+        if (errorCode === 132018 && errorDetails.includes('header') && errorDetails.includes('no parameters allowed')) {
+          console.warn('⚠️ Template does not support header image component');
+          console.warn('🔄 Retrying without header image...');
+          
+          // Remove header component and retry
+          const componentsWithoutHeader = messagePayload.template.components.filter(
+            (comp: any) => comp.type !== 'header'
+          );
+          
+          // Create new payload without header
+          const retryPayload = {
+            ...messagePayload,
+            template: {
+              ...messagePayload.template,
+              components: componentsWithoutHeader.length > 0 ? componentsWithoutHeader : undefined
+            }
+          };
+          
+          // Remove components array if empty (Meta requirement)
+          if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
+            delete retryPayload.template.components;
+          }
+          
+          console.log('📤 RETRY PAYLOAD (without header):');
+          console.log(JSON.stringify(retryPayload, null, 2));
+          
+          // Retry the request
+          response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(retryPayload)
+          });
+          
+          console.log('📊 Retry response status:', response.status);
+          
+          if (response.ok) {
+            console.log('✅ Message sent successfully without header image');
+            console.warn('💡 Note: Template does not support header images. Image was not sent.');
+            console.warn('💡 To send images, configure the template in Meta Business Manager with a header image component.');
+          }
+        }
+      }
       
       if (response.ok) {
         const responseData = await response.json();
