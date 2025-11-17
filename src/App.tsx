@@ -19,6 +19,7 @@ import Login from './components/Login';
 import SignUp from './components/SignUp';
 import Pricing from './components/Pricing';
 import AdminDashboard from './components/AdminDashboard';
+import UserManagement from './components/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
@@ -78,6 +79,7 @@ function App() {
           <Route path="/calendar" element={<ProtectedRoute><Layout><CalendarView /></Layout></ProtectedRoute>} />
           <Route path="/reminders" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><div>הגדרות</div></Layout></ProtectedRoute>} />
           <Route path="*" element={<div style={{padding: '20px'}}><h1>404 - דף לא נמצא</h1><p>הנתיב לא קיים</p></div>} />
         </Routes>

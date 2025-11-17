@@ -242,6 +242,15 @@ export interface EventStore {
   updateTableSize: (eventId: string, tableId: string, width: number, height: number) => Promise<void>;
   updateTableRotation: (eventId: string, tableId: string, rotation: number) => Promise<void>;
   updateTableShape: (eventId: string, tableId: string, shape: 'rectangle' | 'circle' | 'oval') => Promise<void>;
+  
+  // Admin functions
+  getAllEvents: () => Event[]; // קבלת כל האירועים (רק למנהל)
+  getEventsByUserId: (userId: string) => Event[]; // קבלת אירועים לפי userId
+  getEventStatsByUserId: (userId: string) => {
+    totalEvents: number;
+    totalGuests: number;
+    totalCreditsUsed: number;
+  }; // סטטיסטיקות אירועים למשתמש
 }
 
 export interface CampaignStore {
@@ -423,4 +432,5 @@ export interface UserStore {
     previousCredits: number;
     newCredits: number;
   }; // מוסיף רשומות למשתמש אחר (רק למנהל)
+  getAllUsers: () => User[]; // קבלת כל המשתמשים (רק למנהל)
 }

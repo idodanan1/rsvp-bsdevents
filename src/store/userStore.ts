@@ -178,11 +178,45 @@ export const useUserStore = create<UserStore>()(
         throw new Error('לא ניתן להפוך משתמש למנהל. רק המנהל הקבוע יכול להתחבר כמנהל.');
       },
 
+      getAllUsers: () => {
+        const { user } = get();
+        // רק מנהל יכול לראות את כל המשתמשים
+        if (!user || !user.isAdmin) {
+          throw new Error('רק מנהל יכול לראות את כל המשתמשים');
+        }
+
+        const stored = localStorage.getItem('rsvp-users-storage');
+        if (!stored) {
+          return [];
+        }
+
+        const parsed = JSON.parse(stored);
+        const users: User[] = parsed.state?.users || [];
+        
+        // הוספת המנהל לרשימה
+        const adminUser: User = {
+          id: 'admin-fixed-id',
+          email: ADMIN_EMAIL,
+          name: 'מנהל המערכת',
+          credits: 999999,
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date(),
+          isAdmin: true,
+        };
+
+        return [adminUser, ...users];
+      },
+
       addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
         const { user } = get();
         // רק מנהל יכול להוסיף רשומות למשתמש אחר
         if (!user || !user.isAdmin) {
           throw new Error('רק מנהל יכול להוסיף רשומות למשתמש אחר');
+        }
+
+        // אם זה המנהל, לא ניתן להוסיף רשומות
+        if (userEmailOrName.toLowerCase() === ADMIN_EMAIL.toLowerCase() || userEmailOrName === 'מנהל המערכת') {
+          throw new Error('לא ניתן להוסיף רשומות למנהל המערכת');
         }
 
         // מציאת המשתמש
@@ -198,7 +232,8 @@ export const useUserStore = create<UserStore>()(
         const userIndex = users.findIndex(u => 
           u.email.toLowerCase() === userEmailOrName.toLowerCase() ||
           u.name?.toLowerCase().includes(userEmailOrName.toLowerCase()) ||
-          userEmailOrName.toLowerCase().includes(u.name?.toLowerCase() || '')
+          userEmailOrName.toLowerCase().includes(u.name?.toLowerCase() || '') ||
+          u.id === userEmailOrName // גם לפי ID
         );
 
         if (userIndex === -1) {

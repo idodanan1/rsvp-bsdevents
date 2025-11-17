@@ -107,17 +107,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </Link>
             
             {user?.isAdmin && (
-              <Link
-                to="/admin"
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive('/admin') 
-                    ? 'bg-teal-100 text-teal-700 font-medium' 
-                    : 'text-gray-600 hover:bg-yellow-50'
-                }`}
-              >
-                <Settings className="w-5 h-5" />
-                <span>דשבורד מנהל</span>
-              </Link>
+              <>
+                <Link
+                  to="/admin"
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive('/admin') 
+                      ? 'bg-teal-100 text-teal-700 font-medium' 
+                      : 'text-gray-600 hover:bg-yellow-50'
+                  }`}
+                >
+                  <Settings className="w-5 h-5" />
+                  <span>דשבורד מנהל</span>
+                </Link>
+                <Link
+                  to="/users"
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive('/users') 
+                      ? 'bg-teal-100 text-teal-700 font-medium' 
+                      : 'text-gray-600 hover:bg-yellow-50'
+                  }`}
+                >
+                  <Users className="w-5 h-5" />
+                  <span>ניהול משתמשים</span>
+                </Link>
+              </>
             )}
             
             <Link
@@ -131,6 +144,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Settings className="w-5 h-5" />
               <span>הגדרות</span>
             </Link>
+            
+            {/* כפתור התנתקות בתפריט הצד */}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-red-600 hover:bg-red-50 mt-4"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>התנתק</span>
+            </button>
           </nav>
         </div>
         
@@ -169,7 +191,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {user && (
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
               >
                 <LogOut className="w-5 h-5" />
                 <span>התנתק</span>

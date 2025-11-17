@@ -1910,6 +1910,51 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
+      // Admin functions - רק למנהל
+      getAllEvents: () => {
+        // בדיקה אם המשתמש הוא מנהל
+        const userStorage = localStorage.getItem('rsvp-user-storage');
+        let isAdmin = false;
+        if (userStorage) {
+          const parsed = JSON.parse(userStorage);
+          isAdmin = parsed.state?.user?.isAdmin || false;
+        }
+
+        if (!isAdmin) {
+          throw new Error('רק מנהל יכול לראות את כל האירועים');
+        }
+
+        // קריאת כל האירועים מ-localStorage
+        const stored = localStorage.getItem('rsvp-events-storage');
+        if (!stored) {
+          return [];
+        }
+
+        const parsed = JSON.parse(stored);
+        return parsed.state?.events || [];
+      },
+
+      getEventsByUserId: (userId: string) => {
+        const { getAllEvents } = get();
+        const allEvents = getAllEvents();
+        return allEvents.filter((event: Event) => event.userId === userId);
+      },
+
+      getEventStatsByUserId: (userId: string) => {
+        const { getEventsByUserId } = get();
+        const userEvents = getEventsByUserId(userId);
+        
+        const totalEvents = userEvents.length;
+        const totalGuests = userEvents.reduce((sum, event) => sum + (event.guests?.length || 0), 0);
+        const totalCreditsUsed = userEvents.reduce((sum, event) => sum + (event.creditsUsed || 0), 0);
+
+        return {
+          totalEvents,
+          totalGuests,
+          totalCreditsUsed
+        };
+      },
+
     }),
     {
       name: 'rsvp-events-storage',
