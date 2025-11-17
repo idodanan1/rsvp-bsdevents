@@ -19,8 +19,7 @@ const MessageTemplates: React.FC = () => {
     setCurrentTemplate,
     createTemplate, 
     updateTemplate, 
-    deleteTemplate,
-    isLoading 
+    deleteTemplate
   } = useTemplateStore();
   
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
@@ -39,7 +38,7 @@ const MessageTemplates: React.FC = () => {
         name: editingTemplate.name,
         content: editingTemplate.content,
         imageUrl: editingTemplate.imageUrl || '',
-        channel: editingTemplate.channel,
+        channel: editingTemplate.channel === 'manual' ? 'whatsapp' : editingTemplate.channel as 'whatsapp' | 'sms',
         isDefault: editingTemplate.isDefault
       });
     }
@@ -116,7 +115,7 @@ const MessageTemplates: React.FC = () => {
       name: `${template.name} (עותק)`,
       content: template.content,
       imageUrl: template.imageUrl || '',
-      channel: template.channel,
+      channel: template.channel === 'manual' ? 'whatsapp' : template.channel as 'whatsapp' | 'sms',
       isDefault: false
     });
     setShowCreateTemplate(true);

@@ -163,10 +163,12 @@ const VenueEditor: React.FC = () => {
               guests: []
           }));
           
-          updateVenueLayout(eventId, {
-            ...event.venueLayout!,
-            tables: [...(event.venueLayout?.tables || []), ...tablesWithGuests]
-          });
+          if (event.venueLayout) {
+            updateVenueLayout(eventId, {
+              ...event.venueLayout,
+              tables: [...(event.venueLayout.tables || []), ...tablesWithGuests]
+            });
+          }
         }
         
         const unassigned = event.guests.filter(guest => !guest.tableId);
