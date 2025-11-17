@@ -27,7 +27,7 @@ import {
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents } = useEventStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -48,15 +48,28 @@ const EventManagement: React.FC = () => {
   });
 
   useEffect(() => {
-    if (id) {
+    const loadEvent = async () => {
+      if (id) {
+        // First, try to fetch events to ensure we have the latest data
+        await fetchEvents();
+      }
+    };
+    
+    loadEvent();
+  }, [id, fetchEvents]);
+
+  // Set current event when id or events change
+  useEffect(() => {
+    if (id && events.length > 0) {
       const event = events.find(e => e.id === id);
       if (event) {
         setCurrentEvent(event);
       } else {
+        console.warn('⚠️ Event not found, redirecting to dashboard');
         navigate('/');
       }
     }
-  }, [id, setCurrentEvent, navigate, events]);
+  }, [id, events, setCurrentEvent, navigate]);
 
   // Update currentEvent when events change
   useEffect(() => {
@@ -1263,14 +1276,19 @@ const EventManagement: React.FC = () => {
             <span>ניהול קמפיינים</span>
           </Link>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (currentEvent) {
                 console.log('🔄 Creating new campaigns for event:', currentEvent.id);
                 try {
                   recreateCampaigns(currentEvent.id);
                   console.log('✅ Campaigns recreated successfully');
-                  alert('✅ קמפיינים נוצרו מחדש עם קישורים נכונים!');
-                  window.location.reload();
+                  
+                  // Refresh events from store to get updated campaigns
+                  await fetchEvents();
+                  
+                  // The useEffect will automatically update currentEvent when events change
+                  
+                  alert('✅ קמפיינים נוצרו מחדש בהצלחה!');
                 } catch (error) {
                   console.error('❌ Error recreating campaigns:', error);
                   alert('❌ שגיאה ביצירת קמפיינים: ' + error);
@@ -1285,11 +1303,21 @@ const EventManagement: React.FC = () => {
             <span>צור קמפיינים מחדש</span>
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               try {
                 updateExistingEventsCampaigns();
+                await fetchEvents();
+                
+                // Update current event if exists
+                if (currentEvent) {
+                  const updatedEvents = useEventStore.getState().events;
+                  const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
+                  if (updatedEvent) {
+                    setCurrentEvent(updatedEvent);
+                  }
+                }
+                
                 alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
-                window.location.reload();
               } catch (error) {
                 console.error('❌ Error updating campaigns:', error);
                 alert('❌ שגיאה בעדכון קמפיינים: ' + error);
