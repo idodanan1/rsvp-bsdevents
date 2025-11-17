@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar, Users, MapPin, Plus, Edit, Trash2 } from 'lucide-react';
 import { useEventStore } from '../store/eventStore';
@@ -31,16 +31,30 @@ const CalendarView: React.FC = () => {
 
   // קבלת אירועים לתאריך ספציפי
   const getEventsForDate = (date: Date): CalendarEvent[] => {
-    return events.filter(event => {
-      const eventDate = new Date(event.date);
+    return events.map(event => ({
+      id: event.id,
+      title: event.coupleName,
+      date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
+      time: event.eventTime,
+      location: event.venue,
+      guestCount: event.guests?.length || 0
+    })).filter(calEvent => {
+      const eventDate = new Date(calEvent.date);
       return isSameDay(eventDate, date);
     });
   };
 
   // קבלת אירועים לחודש הנוכחי
   const getEventsForMonth = (date: Date): CalendarEvent[] => {
-    return events.filter(event => {
-      const eventDate = new Date(event.date);
+    return events.map(event => ({
+      id: event.id,
+      title: event.coupleName,
+      date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
+      time: event.eventTime,
+      location: event.venue,
+      guestCount: event.guests?.length || 0
+    })).filter(calEvent => {
+      const eventDate = new Date(calEvent.date);
       return isSameMonth(eventDate, date);
     });
   };

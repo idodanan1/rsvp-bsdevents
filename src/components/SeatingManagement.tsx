@@ -603,7 +603,7 @@ const SeatingManagement: React.FC = () => {
                     )}
                     {guest.tableId && (
                       <button
-                        onClick={() => handleRemoveGuestFromTable(guest.id)}
+                        onClick={() => handleRemoveGuest(guest.id)}
                         className="text-red-600 hover:text-red-800 p-1"
                         title="הסר משולחן"
                       >
