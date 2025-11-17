@@ -50,8 +50,12 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     const loadEvent = async () => {
       if (id) {
-        // First, try to fetch events to ensure we have the latest data
-        await fetchEvents();
+        try {
+          // First, try to fetch events to ensure we have the latest data
+          await fetchEvents();
+        } catch (error) {
+          console.error('❌ Error fetching events:', error);
+        }
       }
     };
     
@@ -60,7 +64,13 @@ const EventManagement: React.FC = () => {
 
   // Set current event when id or events change
   useEffect(() => {
-    if (id && events.length > 0) {
+    if (id) {
+      if (events.length === 0) {
+        // If no events yet, try fetching again
+        fetchEvents();
+        return;
+      }
+      
       const event = events.find(e => e.id === id);
       if (event) {
         setCurrentEvent(event);
@@ -69,7 +79,17 @@ const EventManagement: React.FC = () => {
         navigate('/');
       }
     }
-  }, [id, events, setCurrentEvent, navigate]);
+  }, [id, events, setCurrentEvent, navigate, fetchEvents]);
+
+  // Update currentEvent when events change (for reactive updates)
+  useEffect(() => {
+    if (id && events.length > 0) {
+      const event = events.find(e => e.id === id);
+      if (event && (!currentEvent || currentEvent.id !== event.id)) {
+        setCurrentEvent(event);
+      }
+    }
+  }, [id, events, currentEvent, setCurrentEvent]);
 
   // Update currentEvent when events change
   useEffect(() => {
