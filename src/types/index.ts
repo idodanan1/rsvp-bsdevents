@@ -417,4 +417,10 @@ export interface UserStore {
   deductCredits: (amount: number) => Promise<boolean>; // מחזיר true אם יש מספיק
   checkCredits: (required: number) => boolean; // בודק אם יש מספיק רשומות
   makeAdmin: () => void; // הופך את המשתמש הנוכחי למנהל
+  addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
+    success: boolean;
+    user: User;
+    previousCredits: number;
+    newCredits: number;
+  }; // מוסיף רשומות למשתמש אחר (רק למנהל)
 }

@@ -177,6 +177,59 @@ export const useUserStore = create<UserStore>()(
         // רק המנהל הקבוע יכול להתחבר כמנהל
         throw new Error('לא ניתן להפוך משתמש למנהל. רק המנהל הקבוע יכול להתחבר כמנהל.');
       },
+
+      addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
+        const { user } = get();
+        // רק מנהל יכול להוסיף רשומות למשתמש אחר
+        if (!user || !user.isAdmin) {
+          throw new Error('רק מנהל יכול להוסיף רשומות למשתמש אחר');
+        }
+
+        // מציאת המשתמש
+        const stored = localStorage.getItem('rsvp-users-storage');
+        if (!stored) {
+          throw new Error('לא נמצאו משתמשים');
+        }
+
+        const parsed = JSON.parse(stored);
+        const users: User[] = parsed.state?.users || [];
+        
+        // חיפוש המשתמש לפי שם או אימייל
+        const userIndex = users.findIndex(u => 
+          u.email.toLowerCase() === userEmailOrName.toLowerCase() ||
+          u.name?.toLowerCase().includes(userEmailOrName.toLowerCase()) ||
+          userEmailOrName.toLowerCase().includes(u.name?.toLowerCase() || '')
+        );
+
+        if (userIndex === -1) {
+          throw new Error(`משתמש "${userEmailOrName}" לא נמצא`);
+        }
+
+        const targetUser = users[userIndex];
+        const currentCredits = targetUser.credits || 0;
+        const newCredits = currentCredits + creditsToAdd;
+
+        // עדכון הרשומות
+        users[userIndex] = {
+          ...targetUser,
+          credits: newCredits,
+          updatedAt: new Date()
+        };
+
+        // שמירה ב-localStorage
+        localStorage.setItem('rsvp-users-storage', JSON.stringify({ state: { users } }));
+
+        console.log(`✅ הוספו ${creditsToAdd} רשומות למשתמש ${targetUser.name} (${targetUser.email})`);
+        console.log(`📊 רשומות קודמות: ${currentCredits}`);
+        console.log(`📊 רשומות חדשות: ${newCredits}`);
+
+        return {
+          success: true,
+          user: users[userIndex],
+          previousCredits: currentCredits,
+          newCredits: newCredits
+        };
+      },
     }),
     {
       name: 'rsvp-user-storage',
