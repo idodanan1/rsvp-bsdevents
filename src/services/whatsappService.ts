@@ -6,9 +6,10 @@ export interface WhatsAppMessage {
   templateName?: string;
   templateParams?: Record<string, string>;
   buttons?: Array<{
-    type: 'url';
-    url: string;
+    type: 'url' | 'reply';
+    url?: string;
     title: string;
+    id?: string; // For reply buttons
   }>;
 }
 
@@ -199,29 +200,46 @@ class WhatsAppService {
           // Meta will return error 132012: "Format mismatch, expected IMAGE, received UNKNOWN"
           // Solution: Either remove header image from template in Meta, or upload image to HTTPS URL
           
-          // Add buttons if provided (URL buttons for guest response links)
+          // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
           if (messageData.buttons && messageData.buttons.length > 0) {
-            const buttonComponents = messageData.buttons
-              .filter(btn => btn.type === 'url')
-              .map(btn => ({
-                type: 'button',
-                sub_type: 'url',
-                index: '0', // WhatsApp allows up to 3 buttons, index starts at 0
-                parameters: [{
-                  type: 'text',
-                  text: btn.url
-                }]
-              }));
+            // WhatsApp allows up to 3 buttons in a template
+            // We can mix URL and Reply buttons, but they must be defined in the template in Meta
+            const buttonComponents: any[] = [];
+            
+            messageData.buttons.forEach((btn, index) => {
+              if (index >= 3) return; // WhatsApp allows max 3 buttons
+              
+              if (btn.type === 'url' && btn.url) {
+                // URL button - opens a link
+                buttonComponents.push({
+                  type: 'button',
+                  sub_type: 'url',
+                  index: index.toString(),
+                  parameters: [{
+                    type: 'text',
+                    text: btn.url
+                  }]
+                });
+                console.log(`🔘 Adding URL button ${index}:`, btn.url, btn.title);
+              } else if (btn.type === 'reply') {
+                // Reply button - sends webhook event (no parameters needed)
+                // Note: Reply buttons must be defined in the template in Meta Business Manager
+                buttonComponents.push({
+                  type: 'button',
+                  sub_type: 'quick_reply',
+                  index: index.toString()
+                });
+                console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
+              }
+            });
+            
+            // Add all button components
+            buttonComponents.forEach(btnComponent => {
+              components.push(btnComponent);
+            });
             
             if (buttonComponents.length > 0) {
-              // Add button component - WhatsApp allows up to 3 buttons
-              components.push({
-                type: 'button',
-                sub_type: 'url',
-                index: '0',
-                parameters: buttonComponents[0].parameters
-              });
-              console.log('🔘 Adding URL button to template:', messageData.buttons[0].url);
+              console.log(`🔘 Added ${buttonComponents.length} button(s) to template`);
             }
           }
           

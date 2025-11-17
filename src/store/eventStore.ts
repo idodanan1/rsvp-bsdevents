@@ -892,14 +892,26 @@ export const useEventStore = create<EventStore>()(
                   url: buttonUrl,
                   title: button.url.title || 'אישור הגעה'
                 };
+              } else if (button.type === 'reply' && button.reply) {
+                // Reply button - keep as is (no personalization needed)
+                return {
+                  type: 'reply' as const,
+                  id: button.reply.id,
+                  title: button.reply.title
+                };
               }
               return button;
             }) || [
-              // Default button: אישור הגעה
+              // Default buttons
               {
                 type: 'url' as const,
                 url: guestLink,
                 title: 'אישור הגעה'
+              },
+              {
+                type: 'reply' as const,
+                id: 'decline_attendance',
+                title: 'לא אוכל להגיע'
               }
             ];
             
@@ -1473,9 +1485,9 @@ export const useEventStore = create<EventStore>()(
                 }
               },
               {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
+                type: 'reply',
+                reply: {
+                  id: 'decline_attendance',
                   title: 'לא אוכל להגיע'
                 }
               }

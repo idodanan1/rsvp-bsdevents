@@ -12,9 +12,10 @@ export interface MessageRecipient {
   templateParams?: Record<string, string>;
   firstMessageSent?: boolean; // האם נשלחה הודעה ראשונה למספר הזה
   buttons?: Array<{
-    type: 'url';
-    url: string;
+    type: 'url' | 'reply';
+    url?: string;
     title: string;
+    id?: string; // For reply buttons
   }>;
   eventData?: {
     coupleName: string;
