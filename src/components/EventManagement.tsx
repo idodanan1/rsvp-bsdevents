@@ -28,6 +28,7 @@ const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents } = useEventStore();
+  const getEvents = useEventStore(state => state.events);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -1290,13 +1291,28 @@ const EventManagement: React.FC = () => {
               if (currentEvent) {
                 console.log('🔄 Creating new campaigns for event:', currentEvent.id);
                 try {
+                  // Recreate campaigns
                   recreateCampaigns(currentEvent.id);
                   console.log('✅ Campaigns recreated successfully');
+                  
+                  // Wait a bit for state to update
+                  await new Promise(resolve => setTimeout(resolve, 100));
                   
                   // Refresh events from store to get updated campaigns
                   await fetchEvents();
                   
-                  // The useEffect will automatically update currentEvent when events change
+                  // Wait a bit more for events to load
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                  
+                  // Force update by finding the event again from the store
+                  const updatedEvents = useEventStore.getState().events;
+                  const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
+                  if (updatedEvent) {
+                    setCurrentEvent(updatedEvent);
+                    console.log('✅ Event updated with new campaigns:', updatedEvent.campaigns?.length || 0);
+                  } else {
+                    console.warn('⚠️ Updated event not found in store');
+                  }
                   
                   alert('✅ קמפיינים נוצרו מחדש בהצלחה!');
                 } catch (error) {
