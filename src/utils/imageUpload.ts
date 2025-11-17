@@ -4,20 +4,37 @@ export async function uploadImageFile(file: File): Promise<string | null> {
     const formData = new FormData();
     formData.append('image', file);
     
-    const response = await fetch('http://localhost:3002/api/upload/image', {
+    // Use BACKEND_URL from environment or fallback to localhost
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    const uploadUrl = `${BACKEND_URL}/api/upload/image`;
+    
+    console.log('📤 Uploading image to:', uploadUrl);
+    
+    const response = await fetch(uploadUrl, {
       method: 'POST',
       body: formData
     });
     
     if (response.ok) {
       const data = await response.json();
+      console.log('✅ Image uploaded successfully:', data.imageUrl);
+      
+      // Verify the image URL is HTTPS (required for WhatsApp)
+      if (data.imageUrl && data.imageUrl.startsWith('https://')) {
+        console.log('✅ Image URL is HTTPS - ready for WhatsApp');
+      } else if (data.imageUrl && data.imageUrl.startsWith('http://')) {
+        console.warn('⚠️ Image URL is HTTP - may not work with WhatsApp Business API');
+        console.warn('💡 Consider uploading to a cloud storage service (e.g., Imgur, Google Drive) for HTTPS support');
+      }
+      
       return data.imageUrl;
     } else {
-      console.error('Failed to upload image:', response.status);
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('❌ Failed to upload image:', response.status, errorData);
       return null;
     }
   } catch (error) {
-    console.error('Error uploading image:', error);
+    console.error('❌ Error uploading image:', error);
     return null;
   }
 }

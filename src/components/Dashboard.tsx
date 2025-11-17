@@ -684,7 +684,8 @@ const Dashboard: React.FC = () => {
                             const formData = new FormData();
                             formData.append('image', file);
                             
-                            const response = await fetch('http://localhost:3002/api/upload/image', {
+                            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+                            const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
                               method: 'POST',
                               body: formData
                             });
