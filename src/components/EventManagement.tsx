@@ -28,7 +28,6 @@ const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents } = useEventStore();
-  const getEvents = useEventStore(state => state.events);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
