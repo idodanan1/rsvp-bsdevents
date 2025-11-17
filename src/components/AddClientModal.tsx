@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, Phone, Mail, Building, FileText, Tag, Camera, Video, Users, CheckSquare } from 'lucide-react';
 import { useClientStore } from '../store/clientStore';
-import { Client } from '../types';
 
 interface AddClientModalProps {
   isOpen: boolean;
