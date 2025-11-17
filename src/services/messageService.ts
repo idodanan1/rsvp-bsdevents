@@ -11,6 +11,11 @@ export interface MessageRecipient {
   message?: string;
   templateParams?: Record<string, string>;
   firstMessageSent?: boolean; // האם נשלחה הודעה ראשונה למספר הזה
+  buttons?: Array<{
+    type: 'url';
+    url: string;
+    title: string;
+  }>;
   eventData?: {
     coupleName: string;
     groomName: string;
@@ -212,7 +217,8 @@ class MessageService {
       message: processedMessage,
       imageUrl: imageUrl,
       templateName: templateName,
-      templateParams: templateParams
+      templateParams: templateParams,
+      buttons: recipient.buttons // Add buttons from recipient
     };
 
     const response = await whatsappService.sendMessage(whatsappMessage);

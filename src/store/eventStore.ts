@@ -882,6 +882,27 @@ export const useEventStore = create<EventStore>()(
               };
             }
             
+            // Create personalized buttons with guest-specific link
+            const personalizedButtons = campaign.whatsappButtons?.map(button => {
+              if (button.type === 'url' && button.url) {
+                // Replace {{guest_response_link}} placeholder with actual guest link
+                const buttonUrl = button.url.url.replace(/\{\{guest_response_link\}\}/g, guestLink);
+                return {
+                  type: 'url' as const,
+                  url: buttonUrl,
+                  title: button.url.title || 'אישור הגעה'
+                };
+              }
+              return button;
+            }) || [
+              // Default button: אישור הגעה
+              {
+                type: 'url' as const,
+                url: guestLink,
+                title: 'אישור הגעה'
+              }
+            ];
+            
             return {
               id: guest.id,
               firstName: guest.firstName,
@@ -901,7 +922,8 @@ export const useEventStore = create<EventStore>()(
                 venue: event.venue,
                 invitationImageUrl: qrCodeImageUrl || event.invitationImageUrl // Use QR code image for event day reminder
               },
-              templateParams: guest.channel === 'whatsapp' ? templateParams : undefined
+              templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
+              buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined
             };
           });
 
@@ -1444,17 +1466,17 @@ export const useEventStore = create<EventStore>()(
             templateName: 'aa', // Template name in Meta Business Manager
             whatsappButtons: [
               {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'לעדכון סטטוס הגעה'
+                type: 'url',
+                url: {
+                  url: '{{guest_response_link}}',
+                  title: 'אישור הגעה'
                 }
               },
               {
-                type: 'reply',
-                reply: {
-                  id: 'give_gift',
-                  title: 'להענקת מתנה'
+                type: 'url',
+                url: {
+                  url: '{{guest_response_link}}',
+                  title: 'לא אוכל להגיע'
                 }
               }
             ],

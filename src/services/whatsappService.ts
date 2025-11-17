@@ -199,6 +199,32 @@ class WhatsAppService {
           // Meta will return error 132012: "Format mismatch, expected IMAGE, received UNKNOWN"
           // Solution: Either remove header image from template in Meta, or upload image to HTTPS URL
           
+          // Add buttons if provided (URL buttons for guest response links)
+          if (messageData.buttons && messageData.buttons.length > 0) {
+            const buttonComponents = messageData.buttons
+              .filter(btn => btn.type === 'url')
+              .map(btn => ({
+                type: 'button',
+                sub_type: 'url',
+                index: '0', // WhatsApp allows up to 3 buttons, index starts at 0
+                parameters: [{
+                  type: 'text',
+                  text: btn.url
+                }]
+              }));
+            
+            if (buttonComponents.length > 0) {
+              // Add button component - WhatsApp allows up to 3 buttons
+              components.push({
+                type: 'button',
+                sub_type: 'url',
+                index: '0',
+                parameters: buttonComponents[0].parameters
+              });
+              console.log('🔘 Adding URL button to template:', messageData.buttons[0].url);
+            }
+          }
+          
           // Only add components if we have parameters (Meta requirement)
           // Empty components array is not allowed
           if (components.length > 0) {
