@@ -137,13 +137,6 @@ const VenueEditor: React.FC = () => {
         setCurrentEvent(event);
         
         if (!event.venueLayout) {
-          createVenueLayout(eventId, {
-            name: `סקיצת ${event.venue}`,
-            width: 300,
-            height: 500,
-            tables: []
-          });
-          
           // Add default tables
           const defaultTables = [
             { number: 1, name: 'שולחן 1', capacity: 8, notes: 'שולחן ברירת מחדל', x: 5, y: 5, width: 10, height: 10, rotation: 0, shape: 'rectangle' as const },
@@ -163,12 +156,12 @@ const VenueEditor: React.FC = () => {
               guests: []
           }));
           
-          if (event.venueLayout) {
-            updateVenueLayout(eventId, {
-              ...event.venueLayout,
-              tables: [...(event.venueLayout.tables || []), ...tablesWithGuests]
-            });
-          }
+          createVenueLayout(eventId, {
+            name: `סקיצת ${event.venue}`,
+            width: 300,
+            height: 500,
+            tables: tablesWithGuests
+          });
         }
         
         const unassigned = event.guests.filter(guest => !guest.tableId);
