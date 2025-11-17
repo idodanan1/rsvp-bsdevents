@@ -1350,10 +1350,13 @@ app.post('/api/payments/grow/webhook', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WhatsApp Backend running on port ${PORT}`);
   console.log(`📱 Ready to send WhatsApp messages!`);
-  console.log(`🔗 Webhook endpoint: http://localhost:${PORT}/api/whatsapp/webhook`);
+  const webhookUrl = process.env.RENDER_EXTERNAL_URL 
+    ? `${process.env.RENDER_EXTERNAL_URL}/api/whatsapp/webhook`
+    : `http://localhost:${PORT}/api/whatsapp/webhook`;
+  console.log(`🔗 Webhook endpoint: ${webhookUrl}`);
   if (stripeClient) {
     console.log(`💳 Stripe payment endpoints ready`);
   } else {
