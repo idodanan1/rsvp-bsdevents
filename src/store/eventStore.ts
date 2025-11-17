@@ -167,18 +167,22 @@ export const useEventStore = create<EventStore>()(
             {
               id: generateId(),
               name: 'תזכורת שבועית',
-              message: `⏰ שלום {{guest_name}}! 
+              message: `⏰ שלום {{guest_name}}!
 
-תזכורת אחרונה: ה{{event_type}} של {{couple_name}} בעוד שבוע! 
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
 
 📅 תאריך: {{event_date}}
+
 🕐 שעה: {{event_time}}
+
 📍 מיקום: {{venue}}
 
 אנא אשר/י הגעה עד סוף השבוע:
+
 🔗 {{guest_response_link}}
 
 בברכה,
+
 {{couple_name}} 💕`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days before
@@ -200,12 +204,14 @@ export const useEventStore = create<EventStore>()(
                 }
               ],
               // SMS fallback with link
-              smsMessage: `שלום {{guest_name}}! 
+              smsMessage: `⏰ שלום {{guest_name}}!
 
-תזכורת אחרונה: ה{{event_type}} של {{couple_name}} בעוד שבוע! 
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
 
 📅 תאריך: {{event_date}}
+
 🕐 שעה: {{event_time}}
+
 📍 מיקום: {{venue}}
 
 אנא אשר/י הגעה עד סוף השבוע:
@@ -1553,18 +1559,22 @@ export const useEventStore = create<EventStore>()(
             id: generateId(),
             eventId: eventId,
             name: 'תזכורת שבועית',
-            message: `⏰ שלום {{guest_name}}! 
+            message: `⏰ שלום {{guest_name}}!
 
-תזכורת אחרונה: ה{{event_type}} של {{couple_name}} בעוד שבוע! 
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
 
 📅 תאריך: {{event_date}}
+
 🕐 שעה: {{event_time}}
+
 📍 מיקום: {{venue}}
 
 אנא אשר/י הגעה עד סוף השבוע:
+
 🔗 {{guest_response_link}}
 
 בברכה,
+
 {{couple_name}} 💕`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() - 7 * 24 * 60 * 60 * 1000),
@@ -1582,18 +1592,22 @@ export const useEventStore = create<EventStore>()(
                 }
               }
             ],
-            smsMessage: `שלום {{guest_name}}! 
+            smsMessage: `⏰ שלום {{guest_name}}!
 
-תזכורת אחרונה: ה{{event_type}} של {{couple_name}} בעוד שבוע! 
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
 
 📅 תאריך: {{event_date}}
+
 🕐 שעה: {{event_time}}
+
 📍 מיקום: {{venue}}
 
 אנא אשר/י הגעה עד סוף השבוע:
+
 {{guest_response_link}}
 
 בברכה,
+
 {{couple_name}}`,
             createdAt: new Date(),
             updatedAt: new Date()
