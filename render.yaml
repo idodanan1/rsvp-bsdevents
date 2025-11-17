@@ -16,5 +16,5 @@ services:
   - type: static
     name: rsvp-frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    staticPublishPath: dist
 
