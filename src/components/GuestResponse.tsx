@@ -110,7 +110,8 @@ const GuestResponse = () => {
           if (parsed.state && parsed.state.events) {
             console.log('📋 Loading events from localStorage:', parsed.state.events.length);
             // Force refresh the page to load events
-            window.location.reload();
+            // Refresh events without full page reload
+            fetchEvents();
             return;
           }
         } catch (error) {
@@ -131,7 +132,8 @@ const GuestResponse = () => {
             if (targetEvent) {
               console.log('✅ Found target event in localStorage:', targetEvent);
               console.log('🔄 Refreshing page to load correct event...');
-              window.location.reload();
+              // Refresh events without full page reload
+            fetchEvents();
               return;
             } else {
               console.log('❌ Target event not found in localStorage');
@@ -153,7 +155,8 @@ const GuestResponse = () => {
           const parsed = JSON.parse(stored);
           if (parsed.state && parsed.state.events) {
             console.log('📋 Found events in localStorage, refreshing...');
-            window.location.reload();
+            // Refresh events without full page reload
+            fetchEvents();
             return;
           }
         } catch (error) {

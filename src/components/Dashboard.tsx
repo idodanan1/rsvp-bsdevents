@@ -151,7 +151,9 @@ const Dashboard: React.FC = () => {
               const refreshed = forceRefresh();
               if (refreshed) {
                 alert('✅ רענון מלא בוצע! רענן את הדף לראות את השינויים.');
-                window.location.reload();
+                // Refresh events without full page reload
+                fetchEvents();
+                forceRefresh();
               } else {
                 alert('❌ לא ניתן לרענן');
               }
@@ -165,7 +167,9 @@ const Dashboard: React.FC = () => {
               const cleaned = cleanupLocalStorage();
               if (cleaned) {
                 alert('✅ ניקוי localStorage בוצע! רענן את הדף לראות את השינויים.');
-                window.location.reload();
+                // Refresh events without full page reload
+                fetchEvents();
+                forceRefresh();
               } else {
                 alert('❌ לא ניתן לנקות');
               }
@@ -180,7 +184,9 @@ const Dashboard: React.FC = () => {
                 try {
                   updateExistingEventsCampaigns();
                   alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
-                  window.location.reload();
+                  // Refresh events without full page reload
+                fetchEvents();
+                forceRefresh();
                 } catch (error) {
                   console.error('❌ Error updating campaigns:', error);
                   alert('❌ שגיאה בעדכון קמפיינים: ' + error);
