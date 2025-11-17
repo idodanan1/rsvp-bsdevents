@@ -167,16 +167,15 @@ class WhatsAppService {
             });
           }
           
-          // Some templates may have a header component (e.g., with image)
-          // If template has header but we don't send it, Meta will return error 132012
-          // We can send image as header if:
-          // 1. Template requires header image (defined in Meta)
-          // 2. We have an imageUrl to send
+          // Always send image as header component if we have a valid HTTPS image URL
+          // This ensures the image is displayed with the message
           // Priority: headerImageUrl from templateParams > imageUrl from messageData
           const headerImageUrl = (messageData.templateParams as any)?.headerImageUrl || finalImageUrl;
           
           // Check if we have a valid HTTPS image URL for header
           if (headerImageUrl && headerImageUrl.startsWith('https://')) {
+            // Always add header image component if we have a valid HTTPS URL
+            // This ensures the image is sent with the template message
             components.unshift({
               type: 'header',
               parameters: [
@@ -188,17 +187,21 @@ class WhatsAppService {
                 }
               ]
             });
-            console.log('🖼️ Adding header image to template:', headerImageUrl);
-          } else if (messageData.imageUrl && !messageData.imageUrl.startsWith('https://')) {
+            console.log('🖼️ ✅ Adding header image to template:', headerImageUrl);
+            console.log('🖼️ ✅ Image will be displayed with the message');
+          } else if (finalImageUrl && !finalImageUrl.startsWith('https://')) {
             // Local file path detected - cannot send as header image
-            // If template requires header image, this will cause error 132012
-            console.warn('⚠️ Template may require header image, but image URL is local file path');
-            console.warn('⚠️ Please upload image to a public URL (HTTPS) or remove header image from template in Meta');
+            console.warn('⚠️ Image URL is not a valid HTTPS URL:', finalImageUrl);
+            console.warn('⚠️ Please upload image to a public HTTPS URL (e.g., cloud storage)');
+            console.warn('⚠️ Image will not be sent with the message');
+          } else if (!finalImageUrl) {
+            console.log('ℹ️ No image URL provided - message will be sent without image');
           }
           
-          // Note: If template in Meta has header image but we don't send header component,
+          // Note: If template in Meta requires header image but we don't send one,
           // Meta will return error 132012: "Format mismatch, expected IMAGE, received UNKNOWN"
-          // Solution: Either remove header image from template in Meta, or upload image to HTTPS URL
+          // Solution: Make sure the template in Meta has a header image component configured,
+          // and always provide a valid HTTPS image URL
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
           if (messageData.buttons && messageData.buttons.length > 0) {

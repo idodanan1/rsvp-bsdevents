@@ -64,16 +64,14 @@ export const useEventStore = create<EventStore>()(
               id: generateId(),
               eventId: eventId,
               name: 'הזמנה ראשונית',
-              message: `🎉 שלום {{guest_name}}! 
+              message: `🎉 שלום {{guest_name}}!
 
-אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+אנחנו שמחים להזמין אותך ל{{event_type}} של {{couple_name}}!
 
-📅 תאריך: {{event_date}}
-🕐 שעה: {{event_time}}
-📍 מיקום: {{venue}}
+📅 {{event_date}} | 🕐 {{event_time}}
+📍 {{venue}}
 
-אנא אשר/י הגעה בקישור הבא:
-🔗 {{guest_response_link}}
+{{guest_response_link}}
 
 בברכה,
 {{couple_name}} 💕`,
@@ -1460,12 +1458,10 @@ export const useEventStore = create<EventStore>()(
 
 אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
 
-📅 תאריך: {{event_date}}
-🕐 שעה: {{event_time}}
-📍 מיקום: {{venue}}
+📅 {{event_date}} | 🕐 {{event_time}}
+📍 {{venue}}
 
-אנא אשר/י הגעה בקישור הבא:
-🔗 {{guest_response_link}}
+{{guest_response_link}}
 
 בברכה,
 {{couple_name}} 💕`,
