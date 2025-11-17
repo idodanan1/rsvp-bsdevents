@@ -130,9 +130,23 @@ const CreateEvent: React.FC = () => {
     }
 
     try {
-      // Check if user is logged in
-      if (!user) {
+      // CRITICAL FIX: Check if user is logged in - double check
+      const currentUser = useUserStore.getState().user;
+      const isAuth = useUserStore.getState().isAuthenticated;
+      
+      if (!user || !currentUser || !isAuth) {
+        console.error('❌ User not authenticated - redirecting to login');
         toast.error('אנא התחבר תחילה');
+        useUserStore.getState().logout(); // Clear any stale state
+        navigate('/login');
+        return;
+      }
+
+      // CRITICAL FIX: Verify user has credits property
+      if (typeof currentUser.credits !== 'number') {
+        console.error('❌ Invalid user credits:', currentUser);
+        toast.error('שגיאה בנתוני המשתמש. אנא התחבר מחדש.');
+        useUserStore.getState().logout();
         navigate('/login');
         return;
       }
@@ -140,9 +154,9 @@ const CreateEvent: React.FC = () => {
       // Calculate credits needed (minimum 50)
       const creditsNeeded = 50; // Minimum for now, can be based on guest count later
 
-      // Check if user has enough credits
+      // CRITICAL FIX: Check if user has enough credits - use currentUser
       if (!checkCredits(creditsNeeded)) {
-        toast.error(`אין לך מספיק רשומות. נדרשות ${creditsNeeded} רשומות.`);
+        toast.error(`אין לך מספיק רשומות. נדרשות ${creditsNeeded} רשומות. יתרה נוכחית: ${currentUser.credits}`);
         navigate('/pricing');
         return;
       }

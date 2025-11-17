@@ -269,6 +269,22 @@ export const useUserStore = create<UserStore>()(
     {
       name: 'rsvp-user-storage',
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+      onRehydrateStorage: () => (state) => {
+        // CRITICAL FIX: Ensure isAuthenticated matches user existence
+        if (state) {
+          // If user is null but isAuthenticated is true, clear authentication
+          if (!state.user && state.isAuthenticated) {
+            console.warn('⚠️ Invalid authentication state detected during rehydration - clearing');
+            state.isAuthenticated = false;
+            state.user = null;
+          }
+          // If user exists but isAuthenticated is false, set it to true
+          if (state.user && !state.isAuthenticated) {
+            console.log('✅ Restoring authentication state for user:', state.user.email);
+            state.isAuthenticated = true;
+          }
+        }
+      },
     }
   )
 );
