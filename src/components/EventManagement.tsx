@@ -67,13 +67,23 @@ const EventManagement: React.FC = () => {
     
     const event = events.find(e => e.id === id);
     if (event) {
-      // Only update if it's a different event or campaigns changed
+      // Always update if it's a different event
       if (!currentEvent || currentEvent.id !== event.id) {
+        console.log('🔄 Setting new current event:', event.id);
         setCurrentEvent(event);
       } else {
-        // Check if campaigns changed
-        const campaignsChanged = JSON.stringify(event.campaigns) !== JSON.stringify(currentEvent.campaigns);
+        // Check if campaigns changed - compare by length and IDs
+        const currentCampaigns = currentEvent.campaigns || [];
+        const newCampaigns = event.campaigns || [];
+        const campaignsChanged = 
+          currentCampaigns.length !== newCampaigns.length ||
+          JSON.stringify(currentCampaigns.map(c => c.id)) !== JSON.stringify(newCampaigns.map(c => c.id)) ||
+          JSON.stringify(currentCampaigns) !== JSON.stringify(newCampaigns);
+        
         if (campaignsChanged) {
+          console.log('🔄 Campaigns changed, updating event');
+          console.log('📊 Old campaigns:', currentCampaigns.length);
+          console.log('📊 New campaigns:', newCampaigns.length);
           setCurrentEvent(event);
         }
       }
@@ -81,7 +91,8 @@ const EventManagement: React.FC = () => {
       // Event not found - redirect after a short delay to allow events to load
       const timeout = setTimeout(() => {
         // Check again if event was loaded
-        if (events.length > 0 && !events.find(e => e.id === id)) {
+        const currentEvents = useEventStore.getState().events;
+        if (currentEvents.length > 0 && !currentEvents.find(e => e.id === id)) {
           console.warn('⚠️ Event not found after loading, redirecting to dashboard');
           navigate('/');
         }
@@ -1290,27 +1301,40 @@ const EventManagement: React.FC = () => {
               if (currentEvent) {
                 console.log('🔄 Creating new campaigns for event:', currentEvent.id);
                 try {
-                  // Recreate campaigns
+                  // Recreate campaigns - this updates the store
                   recreateCampaigns(currentEvent.id);
                   console.log('✅ Campaigns recreated successfully');
                   
-                  // Wait a bit for state to update
-                  await new Promise(resolve => setTimeout(resolve, 100));
+                  // Force immediate state sync by reading directly from store
+                  // Zustand persist saves automatically, but we need to trigger a re-render
+                  const storeState = useEventStore.getState();
+                  const updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
                   
-                  // Refresh events from store to get updated campaigns
-                  await fetchEvents();
-                  
-                  // Wait a bit more for events to load
-                  await new Promise(resolve => setTimeout(resolve, 200));
-                  
-                  // Force update by finding the event again from the store
-                  const updatedEvents = useEventStore.getState().events;
-                  const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
                   if (updatedEvent) {
+                    console.log('✅ Found updated event with', updatedEvent.campaigns?.length || 0, 'campaigns');
+                    // Force update the current event
                     setCurrentEvent(updatedEvent);
-                    console.log('✅ Event updated with new campaigns:', updatedEvent.campaigns?.length || 0);
+                    
+                    // Also trigger events update to ensure reactivity
+                    await fetchEvents();
+                    
+                    // Double-check after fetchEvents
+                    const finalState = useEventStore.getState();
+                    const finalEvent = finalState.events.find(e => e.id === currentEvent.id);
+                    if (finalEvent && finalEvent.campaigns?.length !== currentEvent.campaigns?.length) {
+                      setCurrentEvent(finalEvent);
+                      console.log('✅ Final update - campaigns:', finalEvent.campaigns?.length || 0);
+                    }
                   } else {
-                    console.warn('⚠️ Updated event not found in store');
+                    console.warn('⚠️ Updated event not found in store immediately');
+                    // Try fetching events and retry
+                    await fetchEvents();
+                    const retryState = useEventStore.getState();
+                    const retryEvent = retryState.events.find(e => e.id === currentEvent.id);
+                    if (retryEvent) {
+                      setCurrentEvent(retryEvent);
+                      console.log('✅ Event found after retry');
+                    }
                   }
                   
                   alert('✅ קמפיינים נוצרו מחדש בהצלחה!');
