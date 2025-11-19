@@ -22,6 +22,8 @@ import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
+import Footer from './components/Footer';
+import AccessibilityPage from './pages/AccessibilityPage';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
@@ -78,6 +80,9 @@ function App() {
             <Route path="/client/:eventId" element={<ClientDashboard />} />
             <Route path="/guest-response/:eventId" element={<GuestResponse />} />
             <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
+            <Route path="/accessibility" element={<AccessibilityPage />} />
+            <Route path="/terms" element={<AccessibilityPage />} />
+            <Route path="/privacy" element={<AccessibilityPage />} />
             
             {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
