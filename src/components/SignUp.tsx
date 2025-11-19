@@ -4,6 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { Mail, Lock, User, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TermsAndPrivacy from './TermsAndPrivacy';
+import Footer from './Footer';
 
 const SignUp: React.FC = () => {
   const [name, setName] = useState('');

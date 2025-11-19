@@ -4,6 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { Mail, Lock, LogIn, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TermsAndPrivacy from './TermsAndPrivacy';
+import Footer from './Footer';
 
 const Login: React.FC = () => {
   // Load saved email from localStorage if exists
