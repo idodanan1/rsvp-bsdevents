@@ -21,8 +21,10 @@ import Pricing from './components/Pricing';
 import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
+import Accessibility from './components/Accessibility';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
+import { useUserStore } from './store/userStore';
 import { webhookService } from './services/webhookService';
 
 function App() {
@@ -56,6 +58,7 @@ function App() {
 
   return (
     <Router>
+      <Accessibility />
       <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50">
         <Toaster 
           position="top-center"
@@ -67,16 +70,17 @@ function App() {
             },
           }}
         />
-        <Routes>
-          {/* Public routes */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/client/:eventId" element={<ClientDashboard />} />
-          <Route path="/guest-response/:eventId" element={<GuestResponse />} />
-          <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
-          
-          {/* Protected routes */}
-          <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+        <main id="main-content">
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/client/:eventId" element={<ClientDashboard />} />
+            <Route path="/guest-response/:eventId" element={<GuestResponse />} />
+            <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
+            
+            {/* Protected routes */}
+            <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
           <Route path="/pricing" element={<ProtectedRoute><Layout><Pricing /></Layout></ProtectedRoute>} />
           <Route path="/create-event" element={<ProtectedRoute><Layout><CreateEvent /></Layout></ProtectedRoute>} />
           <Route path="/event/:id" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />

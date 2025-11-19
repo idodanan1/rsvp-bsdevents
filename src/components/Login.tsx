@@ -65,12 +65,16 @@ const Login: React.FC = () => {
               <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="email"
+                id="email-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                aria-required="true"
+                aria-label="כתובת אימייל"
                 className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הכנס אימייל"
                 dir="ltr"
+                autoComplete="email"
               />
             </div>
           </div>
@@ -83,12 +87,16 @@ const Login: React.FC = () => {
               <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="password"
+                id="password-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                aria-required="true"
+                aria-label="סיסמה"
                 className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הכנס סיסמה"
                 dir="ltr"
+                autoComplete="current-password"
               />
             </div>
           </div>
