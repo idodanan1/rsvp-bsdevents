@@ -1700,12 +1700,25 @@ const EventManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-teal-700">הגיעו בפועל</p>
               <p className="text-3xl font-bold text-teal-600">
-                {currentEvent.guests?.filter(g => g.actualAttendance === 'attended').reduce((sum, g) => sum + (g.guestCount || 1), 0) || 0}
+                {(() => {
+                  const attendedGuests = currentEvent.guests?.filter(g => g.actualAttendance === 'attended') || [];
+                  const totalAttendedCount = attendedGuests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
+                  console.log('📊 Calculating attended count:', {
+                    records: attendedGuests.length,
+                    totalGuests: totalAttendedCount,
+                    details: attendedGuests.map(g => ({ name: g.firstName, guestCount: g.guestCount || 1 }))
+                  });
+                  return totalAttendedCount;
+                })()}
               </p>
               <p className="text-xs text-teal-600 mt-1">
-                {stats.totalGuests > 0 
-                  ? `${Math.round((currentEvent.guests?.filter(g => g.actualAttendance === 'attended').reduce((sum, g) => sum + (g.guestCount || 1), 0) || 0) / stats.totalGuests * 100)}%`
-                  : '0%'}
+                {(() => {
+                  const attendedGuests = currentEvent.guests?.filter(g => g.actualAttendance === 'attended') || [];
+                  const totalAttendedCount = attendedGuests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
+                  return stats.totalGuests > 0 
+                    ? `${Math.round((totalAttendedCount / stats.totalGuests) * 100)}%`
+                    : '0%';
+                })()}
               </p>
             </div>
             <CheckCircle className="w-8 h-8 text-teal-600" />
