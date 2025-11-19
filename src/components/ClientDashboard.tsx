@@ -26,33 +26,76 @@ const ClientDashboard: React.FC = () => {
 
   useEffect(() => {
     if (eventId) {
+      // Try to find event in current events first
       const event = events.find(e => e.id === eventId);
       if (event) {
         setCurrentEvent(event);
         setIsLoading(false);
       } else {
-        // If event not found, try to fetch events
-        fetchEvents().then(() => {
-          const foundEvent = events.find(e => e.id === eventId);
-          if (foundEvent) {
-            setCurrentEvent(foundEvent);
+        // If event not found, try to load from localStorage directly (for public client dashboard)
+        try {
+          const stored = localStorage.getItem('rsvp-events-storage');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.state && parsed.state.events) {
+              // Find event by ID without filtering by userId (public access)
+              const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+              if (foundEvent) {
+                setCurrentEvent(foundEvent);
+                setIsLoading(false);
+                return;
+              }
+            }
           }
+          
+          // If still not found, try fetchEvents (will filter by userId if logged in)
+          fetchEvents().then(() => {
+            const foundEvent = events.find(e => e.id === eventId);
+            if (foundEvent) {
+              setCurrentEvent(foundEvent);
+            }
+            setIsLoading(false);
+          });
+        } catch (error) {
+          console.error('Error loading event:', error);
           setIsLoading(false);
-        });
+        }
       }
     }
   }, [eventId, events, fetchEvents]);
 
   const handleRefresh = () => {
     setIsLoading(true);
-    fetchEvents().then(() => {
-      const event = events.find(e => e.id === eventId);
-      if (event) {
-        setCurrentEvent(event);
-        setLastUpdated(new Date());
+    try {
+      // Try to load from localStorage directly (for public client dashboard)
+      const stored = localStorage.getItem('rsvp-events-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.state && parsed.state.events) {
+          // Find event by ID without filtering by userId (public access)
+          const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+          if (foundEvent) {
+            setCurrentEvent(foundEvent);
+            setLastUpdated(new Date());
+            setIsLoading(false);
+            return;
+          }
+        }
       }
+      
+      // If not found, try fetchEvents
+      fetchEvents().then(() => {
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          setCurrentEvent(event);
+          setLastUpdated(new Date());
+        }
+        setIsLoading(false);
+      });
+    } catch (error) {
+      console.error('Error refreshing event:', error);
       setIsLoading(false);
-    });
+    }
   };
 
   const handleExportData = () => {

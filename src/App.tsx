@@ -22,7 +22,6 @@ import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
-import Footer from './components/Footer';
 import AccessibilityPage from './pages/AccessibilityPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
@@ -119,7 +118,6 @@ function App() {
           } />
         </Routes>
         </main>
-        <Footer />
       </div>
     </Router>
   );
