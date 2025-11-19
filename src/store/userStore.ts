@@ -101,9 +101,9 @@ export const useUserStore = create<UserStore>()(
           let data: any;
           
           try {
-            // Add timeout to prevent hanging
+            // Add timeout to prevent hanging (increased to 30 seconds for slow connections)
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
             
             response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
@@ -143,9 +143,13 @@ export const useUserStore = create<UserStore>()(
             });
             
             // Handle timeout
-            if (fetchError.name === 'AbortError') {
+            if (fetchError.name === 'AbortError' || fetchError.message?.includes('aborted')) {
               console.error('❌ Request timeout - server took too long to respond');
-              throw new Error('השרת לא מגיב. נסה שוב בעוד כמה רגעים או בדוק שהשרת רץ.');
+              console.error('💡 This might mean:');
+              console.error('   1. The backend server is not running');
+              console.error('   2. The backend URL is incorrect');
+              console.error('   3. Network connection is slow');
+              throw new Error('השרת לא מגיב. בדוק שהשרת רץ ב: https://whatsapp-backend-enfz.onrender.com');
             }
             
             if (fetchError.message) {
