@@ -92,6 +92,10 @@ export const useUserStore = create<UserStore>()(
             backendUrl: backendUrl,
             fullUrl: `${backendUrl}/api/users/login`
           });
+          console.log('🔐 Full login details:', JSON.stringify({
+            email: email.trim(),
+            passwordLength: password.trim().length
+          }, null, 2));
           
           let response: Response;
           let data: any;
@@ -124,13 +128,19 @@ export const useUserStore = create<UserStore>()(
 
             console.log('📡 Parsed response data:', data);
           } catch (fetchError: any) {
-            console.error('❌ Fetch error:', fetchError);
+            console.error('❌ Fetch error details:', {
+              name: fetchError.name,
+              message: fetchError.message,
+              stack: fetchError.stack,
+              type: typeof fetchError
+            });
             if (fetchError.message) {
               throw fetchError;
             }
             // Network error or CORS error
             if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
-              throw new Error('לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט או שהשרת לא רץ.');
+              console.error('❌ Network/CORS error detected');
+              throw new Error('לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט או שהשרת לא רץ. אם זה מחשב חדש, ייתכן שהמשתמש לא קיים ב-backend - נסה להירשם מחדש.');
             }
             throw new Error(`שגיאה בהתחברות לשרת: ${fetchError.message || 'שגיאה לא ידועה'}`);
           }

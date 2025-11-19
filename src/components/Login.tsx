@@ -63,12 +63,19 @@ const Login: React.FC = () => {
       toast.error(errorMessage);
       
       // Show more detailed error in console for debugging
-      if (errorMessage.includes('אימייל או סיסמה שגויים')) {
+      if (errorMessage.includes('אימייל או סיסמה שגויים') || errorMessage.includes('משתמש לא נמצא')) {
         console.error('💡 Troubleshooting tips:');
-        console.error('1. Check if email is correct (case-insensitive)');
-        console.error('2. Check if password is correct (exact match required)');
-        console.error('3. If this is a different computer, the user might not exist in this browser\'s localStorage');
-        console.error('4. Try creating the user again or check localStorage in DevTools');
+        console.error('1. אם זה מחשב חדש, המשתמש לא קיים ב-backend');
+        console.error('2. פתרון: הירשם מחדש עם אותו אימייל וסיסמה');
+        console.error('3. האירועים יתחברו אוטומטית לפי האימייל');
+        console.error('4. אם זה לא עובד, בדוק שהאימייל והסיסמה נכונים');
+        
+        // Show helpful message to user
+        if (errorMessage.includes('משתמש לא נמצא')) {
+          toast.error('המשתמש לא קיים במערכת. אם זה מחשב חדש, אנא הירשם מחדש עם אותו אימייל וסיסמה.', {
+            duration: 5000
+          });
+        }
       }
     } finally {
       setIsLoading(false);
