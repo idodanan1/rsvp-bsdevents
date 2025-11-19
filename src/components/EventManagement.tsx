@@ -959,12 +959,12 @@ const EventManagement: React.FC = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary' });
@@ -1002,14 +1002,64 @@ const EventManagement: React.FC = () => {
         // Convert to guests array
         // Excel columns order (RTL): הערות, תאריך שליחה, סטטוס הודעה, שולחן, הגעה בפועל, ערוץ, תאריך תגובה, סטטוס אישור, מספר מוזמנים, מספר טלפון, שם מלא
         // Array indices (0-based): [0] הערות, [1] תאריך שליחה, [2] סטטוס הודעה, [3] שולחן, [4] הגעה בפועל, [5] ערוץ, [6] תאריך תגובה, [7] סטטוס אישור, [8] מספר מוזמנים, [9] מספר טלפון, [10] שם מלא
-        const guests = jsonData.slice(1) // Skip header row
-          .filter((row: any) => row && row.length > 0) // Filter empty rows
-          .map((row: any) => {
-            // Parse full name (column 10 - last column)
-            const fullName = String(row[10] || '').trim();
-            const nameParts = fullName.split(' ').filter((part: string) => part.trim());
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
+        
+        console.log('📊 Total rows in Excel:', jsonData.length);
+        console.log('📊 Header row:', jsonData[0]);
+        console.log('📊 First data row:', jsonData[1]);
+        console.log('📊 Row length:', jsonData[1]?.length);
+        
+        const allRows = jsonData.slice(1); // Skip header row
+        console.log('📊 Data rows after skipping header:', allRows.length);
+        
+        const guests = allRows
+          .filter((row: any, index: number) => {
+            // Filter empty rows
+            if (!row || row.length === 0) {
+              console.log(`⚠️ Row ${index + 1} is empty`);
+              return false;
+            }
+            // Check if row has any meaningful data
+            const hasData = row.some((cell: any) => cell && String(cell).trim());
+            if (!hasData) {
+              console.log(`⚠️ Row ${index + 1} has no data:`, row);
+              return false;
+            }
+            return true;
+          })
+          .map((row: any, index: number) => {
+            console.log(`📋 Processing row ${index + 1}:`, row);
+            console.log(`📋 Row length: ${row.length}, Values:`, row);
+            
+            // Try multiple column positions for name (might be in different positions)
+            // Column 10 is the rightmost (last column in RTL)
+            const fullName = String(row[10] || row[row.length - 1] || '').trim();
+            console.log(`📋 Full name from column 10: "${fullName}"`);
+            
+            // If no name in column 10, try other positions
+            let firstName = '';
+            let lastName = '';
+            if (fullName) {
+              const nameParts = fullName.split(' ').filter((part: string) => part.trim());
+              firstName = nameParts[0] || '';
+              lastName = nameParts.slice(1).join(' ') || '';
+            } else {
+              // Try column 0 (first column) as fallback
+              const altName = String(row[0] || '').trim();
+              if (altName && !altName.includes('הערות') && !altName.includes('תאריך')) {
+                const nameParts = altName.split(' ').filter((part: string) => part.trim());
+                firstName = nameParts[0] || '';
+                lastName = nameParts.slice(1).join(' ') || '';
+                console.log(`📋 Using alternative name from column 0: "${firstName} ${lastName}"`);
+              }
+            }
+            
+            // Parse phone number (column 9)
+            const phoneNumber = String(row[9] || '').trim();
+            console.log(`📋 Phone from column 9: "${phoneNumber}"`);
+            
+            // If no phone in column 9, try column 2 (might be in different position)
+            const altPhone = phoneNumber || String(row[2] || '').trim();
+            const finalPhone = altPhone.replace(/[^\d]/g, ''); // Remove non-digits
             
             // Parse table number (column 3)
             const tableNumber = String(row[3] || '').trim();
@@ -1023,30 +1073,59 @@ const EventManagement: React.FC = () => {
             const actualAttendanceText = String(row[4] || '').trim();
             const actualAttendance = parseActualAttendance(actualAttendanceText);
             
-            return {
+            const guestData = {
               firstName: firstName,
               lastName: lastName,
-              phoneNumber: String(row[9] || '').trim(), // מספר טלפון
+              phoneNumber: finalPhone,
               guestCount: parseInt(String(row[8] || '1')) || 1, // מספר מוזמנים
               tableId: table?.id,
               rsvpStatus: rsvpStatus,
               actualAttendance: actualAttendance,
               messageStatus: String(row[2] || 'not_sent').trim() as any, // סטטוס הודעה
               notes: String(row[0] || '').trim(), // הערות
-              channel: String(row[5] || 'whatsapp').trim() as any // ערוץ
+              channel: (String(row[5] || 'whatsapp').trim() as 'whatsapp' | 'sms') || 'whatsapp' // ערוץ
             };
+            
+            console.log(`✅ Parsed guest ${index + 1}:`, guestData);
+            return guestData;
           })
-          .filter(guest => guest.firstName && guest.phoneNumber);
+          .filter((guest: any, index: number) => {
+            const isValid = guest && (guest.firstName || guest.phoneNumber);
+            if (!isValid) {
+              console.log(`❌ Filtered out guest ${index + 1} - no name or phone:`, guest);
+            }
+            return isValid;
+          });
+        
+        console.log(`📊 Total guests after parsing: ${guests.length}`);
 
         // Add guests to event
-        guests.forEach(guest => {
-          addGuest(currentEvent.id, {
-            ...guest
-          });
-        });
+        let addedCount = 0;
+        for (const guest of guests) {
+          try {
+            await addGuest(currentEvent.id, {
+              ...guest,
+              channel: guest.channel || 'whatsapp',
+              actualAttendance: guest.actualAttendance || 'not_marked'
+            });
+            addedCount++;
+          } catch (error) {
+            console.error('Error adding guest:', error, guest);
+          }
+        }
+
+        // Refresh events to update the UI
+        await fetchEvents();
+        
+        // Update currentEvent with latest data
+        const updatedEvents = useEventStore.getState().events;
+        const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
+        if (updatedEvent) {
+          setCurrentEvent(updatedEvent);
+        }
 
         setShowImportModal(false);
-        alert(`יובאו ${guests.length} מוזמנים בהצלחה!`);
+        alert(`יובאו ${addedCount} מתוך ${guests.length} מוזמנים בהצלחה!`);
       } catch (error) {
         console.error('Error reading Excel file:', error);
         alert('שגיאה בקריאת קובץ האקסל. אנא ודא שהקובץ תקין.');
