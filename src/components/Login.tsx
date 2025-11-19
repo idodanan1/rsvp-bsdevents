@@ -101,18 +101,54 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <label className="flex items-center space-x-2 cursor-pointer">
+          <div className="space-y-3">
+            <div className="flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  id="remember-me"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  aria-label="זכור את פרטי ההתחברות"
+                  className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm text-gray-600">זכור את פרטי ההתחברות</span>
+              </label>
+            </div>
+
+            <div className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg border border-gray-200" role="group" aria-labelledby="terms-label">
               <input
                 type="checkbox"
-                id="remember-me"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                aria-label="זכור את פרטי ההתחברות"
-                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+                id="acceptTerms"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                required
+                aria-required="true"
+                aria-describedby="terms-description"
+                className="mt-1 w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
               />
-              <span className="text-sm text-gray-600">זכור את פרטי ההתחברות</span>
-            </label>
+              <label htmlFor="acceptTerms" id="terms-label" className="text-sm text-gray-700 cursor-pointer flex-1">
+                <span id="terms-description">אני מאשר שקראתי והבנתי את{' '}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowTermsModal(true)}
+                  className="text-teal-600 hover:text-teal-700 underline font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+                  aria-label="קרא תנאי שימוש"
+                >
+                  תנאי השימוש
+                </button>
+                {' '}ואת{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="text-teal-600 hover:text-teal-700 underline font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+                  aria-label="קרא מדיניות פרטיות"
+                >
+                  מדיניות הפרטיות
+                </button>
+                {' '}ומסכים להם. אני מבין שהמערכת אוספת ומעבדת את המידע שלי בהתאם למדיניות הפרטיות.
+              </label>
+            </div>
           </div>
 
           <button
@@ -135,11 +171,27 @@ const Login: React.FC = () => {
         <div className="mt-6 text-center">
           <p className="text-gray-600">
             עדיין אין לך חשבון?{' '}
-            <Link to="/signup" className="text-teal-600 hover:text-teal-700 font-semibold">
+            <Link 
+              to="/signup" 
+              className="text-teal-600 hover:text-teal-700 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+              aria-label="הירשם למערכת"
+            >
               הירשם עכשיו
             </Link>
           </p>
         </div>
+
+        {/* Terms and Privacy Modals */}
+        <TermsAndPrivacy
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          type="terms"
+        />
+        <TermsAndPrivacy
+          isOpen={showPrivacyModal}
+          onClose={() => setShowPrivacyModal(false)}
+          type="privacy"
+        />
       </div>
     </div>
   );

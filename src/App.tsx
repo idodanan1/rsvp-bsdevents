@@ -111,6 +111,7 @@ function App() {
             </div>
           } />
         </Routes>
+        </main>
       </div>
     </Router>
   );
