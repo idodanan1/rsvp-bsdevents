@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { Mail, Lock, LogIn, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TermsAndPrivacy from './TermsAndPrivacy';
 
 const Login: React.FC = () => {
   // Load saved email from localStorage if exists
@@ -10,12 +11,22 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState(savedEmail);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(!!savedEmail);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useUserStore(state => state.login);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // CRITICAL: Check if terms are accepted
+    if (!acceptedTerms) {
+      toast.error('אנא אשר את תנאי השימוש ומדיניות הפרטיות');
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
