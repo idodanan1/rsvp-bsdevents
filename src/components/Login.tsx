@@ -82,6 +82,18 @@ const Login: React.FC = () => {
             </div>
           </div>
 
+          <div className="flex items-center">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+              />
+              <span className="text-sm text-gray-600">זכור את פרטי ההתחברות</span>
+            </label>
+          </div>
+
           <button
             type="submit"
             disabled={isLoading}
