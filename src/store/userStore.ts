@@ -89,28 +89,63 @@ export const useUserStore = create<UserStore>()(
           
           console.log('🔐 Login attempt:', {
             email: email,
-            backendUrl: backendUrl
+            backendUrl: backendUrl,
+            fullUrl: `${backendUrl}/api/users/login`
           });
           
-          const response = await fetch(`${backendUrl}/api/users/login`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: email.trim(),
-              password: password.trim()
-            })
-          });
+          let response: Response;
+          let data: any;
+          
+          try {
+            response = await fetch(`${backendUrl}/api/users/login`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                email: email.trim(),
+                password: password.trim()
+              })
+            });
 
-          const data = await response.json();
+            console.log('📡 Response status:', response.status);
+            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            // Try to parse JSON, but handle errors
+            const responseText = await response.text();
+            console.log('📡 Response text:', responseText);
+            
+            try {
+              data = JSON.parse(responseText);
+            } catch (parseError) {
+              console.error('❌ Failed to parse JSON response:', parseError);
+              throw new Error(`שגיאה בתגובת השרת: ${responseText.substring(0, 100)}`);
+            }
+
+            console.log('📡 Parsed response data:', data);
+          } catch (fetchError: any) {
+            console.error('❌ Fetch error:', fetchError);
+            if (fetchError.message) {
+              throw fetchError;
+            }
+            // Network error or CORS error
+            if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+              throw new Error('לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט או שהשרת לא רץ.');
+            }
+            throw new Error(`שגיאה בהתחברות לשרת: ${fetchError.message || 'שגיאה לא ידועה'}`);
+          }
 
           if (!response.ok) {
-            console.error('❌ Login failed:', data);
-            throw new Error(data.error || 'אימייל או סיסמה שגויים');
+            console.error('❌ Login failed:', {
+              status: response.status,
+              statusText: response.statusText,
+              data: data
+            });
+            throw new Error(data?.error || `שגיאה בהתחברות (${response.status}): ${response.statusText}`);
           }
 
           if (!data.success || !data.user) {
+            console.error('❌ Invalid response format:', data);
             throw new Error('שגיאה בהתחברות - תגובה לא תקינה מהשרת');
           }
 
