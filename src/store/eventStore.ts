@@ -88,9 +88,25 @@ export const useEventStore = create<EventStore>()(
               }
               
               // Filter events by userId (if logged in) ONLY for display
+              // IMPORTANT: Admin can see ALL events
               let filteredEvents = allEvents;
               if (userId) {
-                filteredEvents = allEvents.filter((event: Event) => event.userId === userId);
+                // Check if user is admin
+                const userStorage = localStorage.getItem('rsvp-user-storage');
+                let isAdmin = false;
+                if (userStorage) {
+                  const parsed = JSON.parse(userStorage);
+                  isAdmin = parsed.state?.user?.isAdmin === true || parsed.state?.user?.id === 'admin-fixed-id';
+                }
+                
+                if (isAdmin) {
+                  // Admin sees all events
+                  filteredEvents = allEvents;
+                  console.log('👑 Admin user - showing all events');
+                } else {
+                  // Regular user sees only their events
+                  filteredEvents = allEvents.filter((event: Event) => event.userId === userId);
+                }
               }
               
               console.log('📋 Total events in storage:', allEvents.length);
