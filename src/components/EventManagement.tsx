@@ -1000,8 +1000,8 @@ const EventManagement: React.FC = () => {
         };
 
         // Convert to guests array
-        // Excel columns order (RTL): הערות, תאריך שליחה, סטטוס הודעה, שולחן, הגעה בפועל, ערוץ, תאריך תגובה, סטטוס אישור, מספר מוזמנים, מספר טלפון, שם מלא
-        // Array indices (0-based): [0] הערות, [1] תאריך שליחה, [2] סטטוס הודעה, [3] שולחן, [4] הגעה בפועל, [5] ערוץ, [6] תאריך תגובה, [7] סטטוס אישור, [8] מספר מוזמנים, [9] מספר טלפון, [10] שם מלא
+        // Excel columns order (LTR - Left to Right): שם האורח, פלאפון האורח, כמות מגיעים, סטטוס הגעה, הערות, שיוך למשפחה, מספר שולחן
+        // Array indices (0-based, LTR): [0] שם האורח, [1] פלאפון האורח, [2] כמות מגיעים, [3] סטטוס הגעה, [4] הערות, [5] שיוך למשפחה, [6] מספר שולחן
         
         console.log('📊 Total rows in Excel:', jsonData.length);
         console.log('📊 Header row:', jsonData[0]);
@@ -1030,89 +1030,139 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Processing row ${index + 1}:`, row);
             console.log(`📋 Row length: ${row.length}, Values:`, row);
             
-            // Try multiple column positions for name (might be in different positions)
-            // Column 10 is the rightmost (last column in RTL)
-            const fullName = String(row[10] || row[row.length - 1] || '').trim();
-            console.log(`📋 Full name from column 10: "${fullName}"`);
+            // Excel structure (LTR): Column A=שם, B=טלפון, C=כמות, D=סטטוס הגעה, E=הערות, F=שיוך, G=שולחן
             
-            // If no name in column 10, try other positions
+            // Column A (index 0): שם האורח → תחת "מוזמן"
+            const fullName = String(row[0] || '').trim();
+            console.log(`📋 Full name from column A (index 0): "${fullName}"`);
+            
             let firstName = '';
             let lastName = '';
             if (fullName) {
-              const nameParts = fullName.split(' ').filter((part: string) => part.trim());
+              // Split name by common separators (space, comma, "ו")
+              const nameParts = fullName.split(/[\s,ו]+/).filter((part: string) => part.trim());
               firstName = nameParts[0] || '';
               lastName = nameParts.slice(1).join(' ') || '';
-            } else {
-              // Try column 0 (first column) as fallback
-              const altName = String(row[0] || '').trim();
-              if (altName && !altName.includes('הערות') && !altName.includes('תאריך')) {
-                const nameParts = altName.split(' ').filter((part: string) => part.trim());
-                firstName = nameParts[0] || '';
-                lastName = nameParts.slice(1).join(' ') || '';
-                console.log(`📋 Using alternative name from column 0: "${firstName} ${lastName}"`);
-              }
             }
             
-            // Parse phone number (column 9)
-            const phoneNumber = String(row[9] || '').trim();
-            console.log(`📋 Phone from column 9: "${phoneNumber}"`);
+            // Column B (index 1): פלאפון האורח → תחת "טלפון"
+            const phoneNumber = String(row[1] || '').trim();
+            console.log(`📋 Phone from column B (index 1): "${phoneNumber}"`);
+            const finalPhone = phoneNumber.replace(/[^\d]/g, ''); // Remove non-digits
             
-            // If no phone in column 9, try column 2 (might be in different position)
-            const altPhone = phoneNumber || String(row[2] || '').trim();
-            const finalPhone = altPhone.replace(/[^\d]/g, ''); // Remove non-digits
+            // Column C (index 2): כמות מגיעים → תחת "מספר מוזמנים"
+            const guestCount = parseInt(String(row[2] || '1')) || 1;
+            console.log(`📋 Guest count from column C (index 2): "${guestCount}"`);
             
-            // Parse table number (column 3)
-            const tableNumber = String(row[3] || '').trim();
+            // Column D (index 3): סטטוס הגעה → תחת "סטטוס אישור"
+            const arrivalStatusText = String(row[3] || '').trim();
+            console.log(`📋 Arrival status from column D (index 3): "${arrivalStatusText}"`);
+            
+            // Parse RSVP status from arrival status
+            const rsvpStatus = parseRsvpStatus(arrivalStatusText);
+            console.log(`📋 Parsed RSVP status: "${rsvpStatus}"`);
+            
+            // Parse actual attendance from arrival status (same field)
+            const actualAttendance = parseActualAttendance(arrivalStatusText);
+            console.log(`📋 Parsed actual attendance: "${actualAttendance}"`);
+            
+            // Column E (index 4): הערות (optional)
+            const notes = String(row[4] || '').trim();
+            
+            // Column G (index 6): מספר שולחן → תחת "שולחן"
+            const tableNumber = String(row[6] || '').trim();
+            console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
             const table = tableNumber ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
-            
-            // Parse RSVP status (column 7)
-            const rsvpStatusText = String(row[7] || '').trim();
-            const rsvpStatus = parseRsvpStatus(rsvpStatusText);
-            
-            // Parse actual attendance (column 4)
-            const actualAttendanceText = String(row[4] || '').trim();
-            const actualAttendance = parseActualAttendance(actualAttendanceText);
+            if (table) {
+              console.log(`✅ Found table: ${table.number} (ID: ${table.id})`);
+            } else if (tableNumber) {
+              console.log(`⚠️ Table number ${tableNumber} not found in event tables`);
+            }
             
             const guestData = {
               firstName: firstName,
               lastName: lastName,
               phoneNumber: finalPhone,
-              guestCount: parseInt(String(row[8] || '1')) || 1, // מספר מוזמנים
+              guestCount: guestCount,
               tableId: table?.id,
               rsvpStatus: rsvpStatus,
               actualAttendance: actualAttendance,
-              messageStatus: String(row[2] || 'not_sent').trim() as any, // סטטוס הודעה
-              notes: String(row[0] || '').trim(), // הערות
-              channel: (String(row[5] || 'whatsapp').trim() as 'whatsapp' | 'sms') || 'whatsapp' // ערוץ
+              messageStatus: 'not_sent' as any, // Default - not in Excel
+              notes: notes,
+              channel: 'whatsapp' as 'whatsapp' | 'sms' // Default - not in Excel
             };
             
             console.log(`✅ Parsed guest ${index + 1}:`, guestData);
             return guestData;
           })
           .filter((guest: any, index: number) => {
-            const isValid = guest && (guest.firstName || guest.phoneNumber);
+            // Accept guests with either name OR phone number (not both required)
+            const hasName = guest && guest.firstName && guest.firstName.trim().length > 0;
+            const hasPhone = guest && guest.phoneNumber && guest.phoneNumber.trim().length > 0;
+            const isValid = guest && (hasName || hasPhone);
+            
             if (!isValid) {
               console.log(`❌ Filtered out guest ${index + 1} - no name or phone:`, guest);
+              console.log(`   - Has name: ${hasName}, Name: "${guest?.firstName}"`);
+              console.log(`   - Has phone: ${hasPhone}, Phone: "${guest?.phoneNumber}"`);
+            } else {
+              console.log(`✅ Accepted guest ${index + 1}:`, {
+                firstName: guest.firstName,
+                phoneNumber: guest.phoneNumber,
+                hasName,
+                hasPhone
+              });
             }
             return isValid;
           });
         
         console.log(`📊 Total guests after parsing: ${guests.length}`);
+        if (guests.length === 0) {
+          console.error('❌ No guests found! Check the Excel file structure.');
+          console.log('📋 Sample row data:', jsonData[1]);
+          console.log('📋 Expected columns:', [
+            '[0] הערות',
+            '[1] תאריך שליחה',
+            '[2] סטטוס הודעה',
+            '[3] שולחן',
+            '[4] הגעה בפועל',
+            '[5] ערוץ',
+            '[6] תאריך תגובה',
+            '[7] סטטוס אישור',
+            '[8] מספר מוזמנים',
+            '[9] מספר טלפון',
+            '[10] שם מלא'
+          ]);
+        }
 
         // Add guests to event
+        if (guests.length === 0) {
+          alert('לא נמצאו אורחים לייבוא. אנא בדוק את מבנה הקובץ Excel.\n\nהקובץ צריך לכלול עמודות: שם מלא, מספר טלפון, מספר מוזמנים, שולחן, סטטוס אישור, הגעה בפועל.');
+          setShowImportModal(false);
+          return;
+        }
+        
+        console.log(`🚀 Starting to add ${guests.length} guests...`);
         let addedCount = 0;
+        let errorCount = 0;
+        
         for (const guest of guests) {
           try {
+            console.log(`➕ Adding guest: ${guest.firstName} ${guest.phoneNumber}`);
             await addGuest(currentEvent.id, {
               ...guest,
               channel: guest.channel || 'whatsapp',
               actualAttendance: guest.actualAttendance || 'not_marked'
             });
             addedCount++;
+            console.log(`✅ Successfully added guest ${addedCount}/${guests.length}`);
           } catch (error) {
-            console.error('Error adding guest:', error, guest);
+            errorCount++;
+            console.error(`❌ Error adding guest ${addedCount + errorCount}/${guests.length}:`, error, guest);
           }
         }
+        
+        console.log(`📊 Import complete: ${addedCount} added, ${errorCount} errors`);
 
         // Refresh events to update the UI
         await fetchEvents();
