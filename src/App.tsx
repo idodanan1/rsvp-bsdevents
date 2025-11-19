@@ -28,13 +28,24 @@ import { webhookService } from './services/webhookService';
 function App() {
   const fetchEvents = useEventStore(state => state.fetchEvents);
   const fetchClients = useClientStore(state => state.fetchClients);
+  const { user, isAuthenticated, logout } = useUserStore();
 
+  // CRITICAL FIX: Clear invalid authentication state on app load
   React.useEffect(() => {
-    fetchEvents();
-    fetchClients();
+    // Check if authentication state is invalid (isAuthenticated but no user)
+    if (isAuthenticated && !user) {
+      console.warn('⚠️ Invalid authentication state detected on app load - clearing');
+      logout();
+    }
     
-    // Start webhook polling for button clicks
-    webhookService.startPolling(5000); // Poll every 5 seconds
+    // Only fetch data if user is authenticated
+    if (isAuthenticated && user) {
+      fetchEvents();
+      fetchClients();
+      
+      // Start webhook polling for button clicks
+      webhookService.startPolling(5000); // Poll every 5 seconds
+    }
     
     // Cleanup on unmount
     return () => {

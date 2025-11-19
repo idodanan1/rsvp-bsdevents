@@ -9,15 +9,20 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const user = useUserStore(state => state.user);
+  const logout = useUserStore(state => state.logout);
 
-  // CRITICAL FIX: Check both isAuthenticated AND user exists
+  // CRITICAL FIX: Always check both isAuthenticated AND user exists
   // This prevents access when localStorage has stale isAuthenticated: true but user: null
-  if (!isAuthenticated || !user) {
-    // Clear any stale authentication state
+  // Also prevents auto-login to wrong users
+  React.useEffect(() => {
     if (isAuthenticated && !user) {
-      console.warn('⚠️ Stale authentication state detected - clearing');
-      useUserStore.getState().logout();
+      console.warn('⚠️ Invalid authentication state detected in ProtectedRoute - clearing');
+      logout();
     }
+  }, [isAuthenticated, user, logout]);
+
+  // If not authenticated or no user, redirect to login
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
 
