@@ -105,8 +105,10 @@ const Login: React.FC = () => {
             <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
+                id="remember-me"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
+                aria-label="זכור את פרטי ההתחברות"
                 className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
               />
               <span className="text-sm text-gray-600">זכור את פרטי ההתחברות</span>
@@ -116,6 +118,7 @@ const Login: React.FC = () => {
           <button
             type="submit"
             disabled={isLoading}
+            aria-label={isLoading ? 'מתחבר...' : 'התחבר למערכת'}
             className="w-full bg-teal-600 text-white py-3 rounded-lg font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isLoading ? (

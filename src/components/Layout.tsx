@@ -33,16 +33,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             בס"ד אירועים
           </h1>
           
-          <nav className="space-y-2">
+          <nav className="space-y-2" role="navigation" aria-label="ניווט ראשי">
             <Link
               to="/"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                 isActive('/') 
                   ? 'bg-teal-100 text-teal-700 font-medium' 
                   : 'text-gray-600 hover:bg-yellow-50'
               }`}
+              aria-label="דשבורד"
+              aria-current={isActive('/') ? 'page' : undefined}
             >
-              <Home className="w-5 h-5" />
+              <Home className="w-5 h-5" aria-hidden="true" />
               <span>דשבורד</span>
             </Link>
             
