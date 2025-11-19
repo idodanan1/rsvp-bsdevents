@@ -84,98 +84,79 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          // התחברות דרך Backend API עם fallback ל-localStorage
+          // התחברות - נסה localStorage קודם (מהיר), ואז backend אם צריך
+          const normalizedEmail = email.toLowerCase().trim();
+          
+          console.log('🔐 Login attempt:', { email: normalizedEmail });
+          
+          // נסה localStorage קודם (מהיר מאוד)
+          const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
+          const storedPassword = passwords[normalizedEmail];
+          
+          if (storedPassword && storedPassword === password) {
+            // נמצא ב-localStorage - השתמש בו (מהיר)
+            const stored = localStorage.getItem('rsvp-users-storage');
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              const users: User[] = parsed.state?.users || [];
+              const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
+              
+              if (user) {
+                console.log('✅ Login successful via localStorage (fast):', { id: user.id, email: user.email, name: user.name });
+                set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
+                
+                // נסה לסנכרן עם backend ברקע (לא חוסם)
+                const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+                fetch(`${backendUrl}/api/users/login`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: email.trim(), password: password.trim() })
+                }).catch(() => {
+                  // Ignore - just trying to sync in background
+                });
+                
+                return;
+              }
+            }
+          }
+          
+          // לא נמצא ב-localStorage - נסה backend
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
-          console.log('🔐 Login attempt:', {
-            email: email,
-            backendUrl: backendUrl,
-            fullUrl: `${backendUrl}/api/users/login`
-          });
-          
-          let response: Response | null = null;
-          let data: any = null;
-          let useBackend = true;
-          
           try {
-            // Try backend first with shorter timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds for initial check
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // רק 3 שניות - אם זה לא עובד מהר, זה לא עובד
             
-            response = await fetch(`${backendUrl}/api/users/login`, {
+            const response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                email: email.trim(),
-                password: password.trim()
-              }),
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: email.trim(), password: password.trim() }),
               signal: controller.signal
             });
             
             clearTimeout(timeoutId);
-
-            const responseText = await response.text();
-            data = JSON.parse(responseText);
-
-            if (response.ok && data.success && data.user) {
-              // Backend worked - use it
-              const user: User = {
-                ...data.user,
-                createdAt: new Date(data.user.createdAt),
-                updatedAt: new Date(data.user.updatedAt)
-              };
-              
-              console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
-              set({ user, isAuthenticated: true, isLoading: false });
-              return;
-            } else {
-              // Backend returned error - check if user exists in localStorage as fallback
-              console.log('⚠️ Backend returned error, trying localStorage fallback...');
-              useBackend = false;
-            }
-          } catch (fetchError: any) {
-            // Backend failed - use localStorage fallback
-            console.log('⚠️ Backend unavailable, using localStorage fallback...');
-            console.error('Backend error:', fetchError.message);
-            useBackend = false;
-          }
-
-          // Fallback to localStorage if backend failed
-          if (!useBackend) {
-            console.log('🔄 Using localStorage fallback for login');
             
-            const normalizedEmail = email.toLowerCase().trim();
-            const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-            const storedPassword = passwords[normalizedEmail];
-            
-            if (!storedPassword || storedPassword !== password) {
-              throw new Error('אימייל או סיסמה שגויים. אם זה מחשב חדש, אנא הירשם מחדש.');
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.user) {
+                const user: User = {
+                  ...data.user,
+                  createdAt: new Date(data.user.createdAt),
+                  updatedAt: new Date(data.user.updatedAt)
+                };
+                
+                console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
+                set({ user, isAuthenticated: true, isLoading: false });
+                return;
+              }
             }
-
-            const stored = localStorage.getItem('rsvp-users-storage');
-            if (!stored) {
-              throw new Error('משתמש לא נמצא. אם זה מחשב חדש, אנא הירשם מחדש.');
-            }
-
-            const parsed = JSON.parse(stored);
-            const users: User[] = parsed.state?.users || [];
-            const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
-
-            if (!user) {
-              throw new Error('משתמש לא נמצא. אם זה מחשב חדש, אנא הירשם מחדש.');
-            }
-
-            console.log('✅ Login successful via localStorage fallback:', { id: user.id, email: user.email, name: user.name });
-            set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
-            return;
+          } catch (error: any) {
+            // Backend failed - ignore and continue to error
+            console.log('⚠️ Backend unavailable:', error.message);
           }
-
-          // If we got here and backend didn't work, throw error
-          if (!response || !response.ok) {
-            throw new Error(data?.error || 'שגיאה בהתחברות');
-          }
+          
+          // אם הגענו לכאן - לא נמצא בשום מקום
+          throw new Error('אימייל או סיסמה שגויים. אם זה מחשב חדש, אנא הירשם מחדש.');
 
         } catch (error: any) {
           set({ error: error.message || 'שגיאה בהתחברות', isLoading: false });
