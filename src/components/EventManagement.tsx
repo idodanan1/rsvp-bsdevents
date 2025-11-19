@@ -1664,7 +1664,7 @@ const EventManagement: React.FC = () => {
       </div>
 
       {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
         <div className="stat-card-orange">
           <div className="flex items-center justify-between">
             <div>
@@ -1692,6 +1692,23 @@ const EventManagement: React.FC = () => {
               <p className="text-3xl font-bold text-blue-600">{stats.totalGuests}</p>
             </div>
             <Users className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="stat-card-teal bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 rounded-lg p-4 shadow-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-teal-700">הגיעו בפועל</p>
+              <p className="text-3xl font-bold text-teal-600">
+                {currentEvent.guests?.filter(g => g.actualAttendance === 'attended').length || 0}
+              </p>
+              <p className="text-xs text-teal-600 mt-1">
+                {stats.totalGuests > 0 
+                  ? `${Math.round((currentEvent.guests?.filter(g => g.actualAttendance === 'attended').length || 0) / stats.totalGuests * 100)}%`
+                  : '0%'}
+              </p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-teal-600" />
           </div>
         </div>
 
