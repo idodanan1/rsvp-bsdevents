@@ -32,13 +32,45 @@ export const useEventStore = create<EventStore>()(
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state && parsed.state.events && parsed.state.events.length > 0) {
-              // Filter events by userId (if logged in)
-              let filteredEvents = parsed.state.events;
+              // CRITICAL: Always preserve ALL events in localStorage
+              // Only filter for display in state, but keep all events in storage
+              const allEvents = parsed.state.events;
+              
+              // Filter events by userId (if logged in) ONLY for display
+              let filteredEvents = allEvents;
               if (userId) {
-                filteredEvents = parsed.state.events.filter((event: Event) => event.userId === userId);
+                filteredEvents = allEvents.filter((event: Event) => event.userId === userId);
               }
-              console.log('📋 Found existing events:', filteredEvents.length, 'for user:', userId);
+              
+              console.log('📋 Total events in storage:', allEvents.length);
+              console.log('📋 Filtered events for user:', filteredEvents.length, 'userId:', userId);
+              
+              // IMPORTANT: Set only filtered events in state for display
+              // But persist middleware will save ALL events from storage, not just filtered
               set({ events: filteredEvents, isLoading: false });
+              
+              // CRITICAL FIX: Ensure all events are preserved in localStorage
+              // Don't let persist middleware overwrite with filtered events
+              // We need to manually ensure all events stay in storage
+              const currentStorage = localStorage.getItem('rsvp-events-storage');
+              if (currentStorage) {
+                const currentParsed = JSON.parse(currentStorage);
+                // If storage has more events than what we're setting, preserve them
+                if (currentParsed.state?.events?.length > allEvents.length) {
+                  console.log('⚠️ Storage has more events, preserving them');
+                  // Don't overwrite - keep existing storage
+                } else {
+                  // Ensure all events are saved
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                    state: {
+                      events: allEvents, // Save ALL events, not filtered
+                      deletedEvents: parsed.state.deletedEvents || [],
+                      currentEvent: parsed.state.currentEvent || null
+                    }
+                  }));
+                }
+              }
+              
               return;
             }
           }
@@ -1972,11 +2004,56 @@ export const useEventStore = create<EventStore>()(
     }),
     {
       name: 'rsvp-events-storage',
-      partialize: (state) => ({ 
-        events: state.events,
-        deletedEvents: state.deletedEvents,
-        currentEvent: state.currentEvent 
-      }),
+      partialize: (state) => {
+        // CRITICAL: Always save ALL events from localStorage, not just filtered ones
+        // Get all events from storage to preserve data for all users
+        try {
+          const stored = localStorage.getItem('rsvp-events-storage');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.state?.events && parsed.state.events.length > 0) {
+              // Merge: keep all events from storage, update with current state changes
+              const allEventsFromStorage = parsed.state.events;
+              const currentEventsFromState = state.events || [];
+              
+              // Create a map of events from state (these might have updates)
+              const stateEventsMap = new Map(currentEventsFromState.map((e: Event) => [e.id, e]));
+              
+              // Merge: use updated events from state, keep others from storage
+              const mergedEvents = allEventsFromStorage.map((storedEvent: Event) => {
+                const updatedEvent = stateEventsMap.get(storedEvent.id);
+                return updatedEvent || storedEvent;
+              });
+              
+              // Add any new events from state that aren't in storage
+              currentEventsFromState.forEach((stateEvent: Event) => {
+                if (!allEventsFromStorage.find((e: Event) => e.id === stateEvent.id)) {
+                  mergedEvents.push(stateEvent);
+                }
+              });
+              
+              console.log('💾 Saving to storage - Total events:', mergedEvents.length);
+              console.log('💾 Events from storage:', allEventsFromStorage.length);
+              console.log('💾 Events from state:', currentEventsFromState.length);
+              
+              return {
+                events: mergedEvents, // Save ALL events, preserving all users' data
+                deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
+                currentEvent: state.currentEvent || parsed.state.currentEvent || null
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error in partialize:', error);
+        }
+        
+        // Fallback: if we can't merge, at least save what we have
+        return { 
+          events: state.events,
+          deletedEvents: state.deletedEvents,
+          currentEvent: state.currentEvent 
+        };
+      },
       onRehydrateStorage: () => (state) => {
         console.log('🔄 Rehydrating from localStorage...', state);
         if (state) {

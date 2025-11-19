@@ -633,6 +633,32 @@ const EventManagement: React.FC = () => {
     }
   };
 
+  const handleDeleteSelectedGuests = async () => {
+    if (selectedGuests.length === 0) {
+      alert('אנא בחר אורחים למחיקה');
+      return;
+    }
+
+    const confirmMessage = `האם אתה בטוח שברצונך למחוק ${selectedGuests.length} מוזמנים? פעולה זו לא ניתנת לביטול.`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // Delete all selected guests
+      for (const guestId of selectedGuests) {
+        await deleteGuest(currentEvent.id, guestId);
+      }
+      
+      // Clear selection after deletion
+      setSelectedGuests([]);
+      alert(`נמחקו ${selectedGuests.length} מוזמנים בהצלחה!`);
+    } catch (error) {
+      console.error('Error deleting selected guests:', error);
+      alert('אירעה שגיאה במחיקת המוזמנים');
+    }
+  };
+
   const handleDownloadTemplate = async () => {
     const eventName = currentEvent ? currentEvent.coupleName : 'אירוע';
     
@@ -946,21 +972,68 @@ const EventManagement: React.FC = () => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
+        // Helper function to parse RSVP status from text
+        const parseRsvpStatus = (text: string): 'pending' | 'confirmed' | 'declined' | 'maybe' => {
+          const lowerText = text.toLowerCase().trim();
+          if (lowerText.includes('מגיע') || lowerText.includes('confirmed') || lowerText.includes('אישר')) {
+            return 'confirmed';
+          }
+          if (lowerText.includes('לא מגיע') || lowerText.includes('declined') || lowerText.includes('דחה')) {
+            return 'declined';
+          }
+          if (lowerText.includes('אולי') || lowerText.includes('maybe')) {
+            return 'maybe';
+          }
+          return 'pending';
+        };
+
+        // Helper function to parse actual attendance from text
+        const parseActualAttendance = (text: string): 'attended' | 'not_attended' | 'not_marked' => {
+          const lowerText = text.toLowerCase().trim();
+          if (lowerText.includes('הגיע') || lowerText.includes('attended') || lowerText.includes('כן')) {
+            return 'attended';
+          }
+          if (lowerText.includes('לא הגיע') || lowerText.includes('not_attended') || lowerText.includes('לא')) {
+            return 'not_attended';
+          }
+          return 'not_marked';
+        };
+
         // Convert to guests array
+        // Excel columns order (RTL): הערות, תאריך שליחה, סטטוס הודעה, שולחן, הגעה בפועל, ערוץ, תאריך תגובה, סטטוס אישור, מספר מוזמנים, מספר טלפון, שם מלא
+        // Array indices (0-based): [0] הערות, [1] תאריך שליחה, [2] סטטוס הודעה, [3] שולחן, [4] הגעה בפועל, [5] ערוץ, [6] תאריך תגובה, [7] סטטוס אישור, [8] מספר מוזמנים, [9] מספר טלפון, [10] שם מלא
         const guests = jsonData.slice(1) // Skip header row
           .filter((row: any) => row && row.length > 0) // Filter empty rows
           .map((row: any) => {
-            const tableNumber = String(row[4] || '').trim();
-            const table = currentEvent.tables?.find(t => t.number === parseInt(tableNumber));
+            // Parse full name (column 10 - last column)
+            const fullName = String(row[10] || '').trim();
+            const nameParts = fullName.split(' ').filter((part: string) => part.trim());
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts.slice(1).join(' ') || '';
+            
+            // Parse table number (column 3)
+            const tableNumber = String(row[3] || '').trim();
+            const table = tableNumber ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
+            
+            // Parse RSVP status (column 7)
+            const rsvpStatusText = String(row[7] || '').trim();
+            const rsvpStatus = parseRsvpStatus(rsvpStatusText);
+            
+            // Parse actual attendance (column 4)
+            const actualAttendanceText = String(row[4] || '').trim();
+            const actualAttendance = parseActualAttendance(actualAttendanceText);
             
             return {
-              firstName: String(row[0] || '').trim(),
-              lastName: String(row[1] || '').trim(),
-              phoneNumber: String(row[2] || '').trim(),
-              guestCount: parseInt(String(row[3] || '1')) || 1,
+              firstName: firstName,
+              lastName: lastName,
+              phoneNumber: String(row[9] || '').trim(), // מספר טלפון
+              guestCount: parseInt(String(row[8] || '1')) || 1, // מספר מוזמנים
               tableId: table?.id,
-              messageStatus: String(row[5] || 'not_sent').trim() as any,
-              notes: String(row[6] || '').trim()
+              rsvpStatus: rsvpStatus,
+              actualAttendance: actualAttendance,
+              messageStatus: String(row[2] || 'not_sent').trim() as any, // סטטוס הודעה
+              notes: String(row[0] || '').trim(), // הערות
+              channel: String(row[5] || 'whatsapp').trim() as any // ערוץ
             };
           })
           .filter(guest => guest.firstName && guest.phoneNumber);
@@ -968,9 +1041,7 @@ const EventManagement: React.FC = () => {
         // Add guests to event
         guests.forEach(guest => {
           addGuest(currentEvent.id, {
-            ...guest,
-            rsvpStatus: 'pending',
-            channel: 'whatsapp' // ברירת מחדל - WhatsApp
+            ...guest
           });
         });
 
@@ -1289,6 +1360,16 @@ const EventManagement: React.FC = () => {
           >
             <Send className="w-4 h-4" />
             <span>שלח הודעה ({selectedGuests.length})</span>
+          </button>
+          
+          <button
+            onClick={handleDeleteSelectedGuests}
+            className="btn-danger flex items-center space-x-2"
+            disabled={selectedGuests.length === 0}
+            title="מחק את כל האורחים המסומנים"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>מחק מסומנים ({selectedGuests.length})</span>
           </button>
           <Link
             to={`/event/${currentEvent.id}/campaigns`}
