@@ -14,7 +14,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    copyPublicDir: true
   },
   resolve: {
     alias: {
