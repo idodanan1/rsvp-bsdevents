@@ -21,51 +21,40 @@ export const useUserStore = create<UserStore>()(
       signUp: async (email: string, password: string, name: string) => {
         set({ isLoading: true, error: null });
         try {
-          // בדיקה אם זה ניסיון להירשם כמנהל
-          if (email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-            throw new Error('לא ניתן להירשם עם אימייל זה. אנא השתמש בדף ההתחברות למנהל.');
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          const response = await fetch(`${backendUrl}/api/users/signup`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: email.trim(),
+              password: password.trim(),
+              name: name.trim()
+            })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'שגיאה בהרשמה');
           }
 
-          // בדיקה אם המשתמש כבר קיים
-          const stored = localStorage.getItem('rsvp-users-storage');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.state && parsed.state.users) {
-              const existingUser = parsed.state.users.find((u: User) => u.email === email);
-              if (existingUser) {
-                throw new Error('משתמש עם אימייל זה כבר קיים');
-              }
-            }
+          if (!data.success || !data.user) {
+            throw new Error('שגיאה בהרשמה - תגובה לא תקינה מהשרת');
           }
 
-          // יצירת משתמש חדש (לא מנהל)
+          // Convert dates from ISO strings to Date objects
           const newUser: User = {
-            id: generateId(),
-            email,
-            name,
-            credits: 0, // מתחיל עם 0 רשומות
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            isAdmin: false, // אף משתמש חדש לא יכול להיות מנהל
+            ...data.user,
+            createdAt: new Date(data.user.createdAt),
+            updatedAt: new Date(data.user.updatedAt)
           };
-
-          // שמירה ב-localStorage (זמני - בפועל זה יהיה ב-backend)
-          const usersStorage = localStorage.getItem('rsvp-users-storage');
-          let users: User[] = [];
-          if (usersStorage) {
-            const parsed = JSON.parse(usersStorage);
-            users = parsed.state?.users || [];
-          }
-          users.push(newUser);
-          localStorage.setItem('rsvp-users-storage', JSON.stringify({ state: { users } }));
-
-          // שמירת סיסמה (בפועל זה יהיה מוצפן ב-backend)
-          const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-          passwords[email] = password; // בפועל: bcrypt.hash(password)
-          localStorage.setItem('rsvp-passwords', JSON.stringify(passwords));
 
           set({ user: newUser, isAuthenticated: true, isLoading: false });
         } catch (error: any) {
+          console.error('❌ Signup error:', error);
           set({ error: error.message || 'שגיאה בהרשמה', isLoading: false });
           throw error;
         }
@@ -95,29 +84,46 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          // התחברות משתמש רגיל
-          const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-          if (passwords[email] !== password) {
-            throw new Error('אימייל או סיסמה שגויים');
+          // התחברות דרך Backend API
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          console.log('🔐 Login attempt:', {
+            email: email,
+            backendUrl: backendUrl
+          });
+          
+          const response = await fetch(`${backendUrl}/api/users/login`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: email.trim(),
+              password: password.trim()
+            })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error('❌ Login failed:', data);
+            throw new Error(data.error || 'אימייל או סיסמה שגויים');
           }
 
-          // מציאת המשתמש
-          const stored = localStorage.getItem('rsvp-users-storage');
-          if (!stored) {
-            throw new Error('משתמש לא נמצא');
+          if (!data.success || !data.user) {
+            throw new Error('שגיאה בהתחברות - תגובה לא תקינה מהשרת');
           }
 
-          const parsed = JSON.parse(stored);
-          const users: User[] = parsed.state?.users || [];
-          const user = users.find((u: User) => u.email === email);
+          // Convert dates from ISO strings to Date objects
+          const user: User = {
+            ...data.user,
+            createdAt: new Date(data.user.createdAt),
+            updatedAt: new Date(data.user.updatedAt)
+          };
+          
+          console.log('✅ Login successful:', { id: user.id, email: user.email, name: user.name });
 
-          if (!user) {
-            throw new Error('משתמש לא נמצא');
-          }
-
-          // ודא שמשתמש רגיל לא יכול להיות מנהל
-          const regularUser = { ...user, isAdmin: false };
-          set({ user: regularUser, isAuthenticated: true, isLoading: false });
+          set({ user, isAuthenticated: true, isLoading: false });
         } catch (error: any) {
           set({ error: error.message || 'שגיאה בהתחברות', isLoading: false });
           throw error;
@@ -207,44 +213,48 @@ export const useUserStore = create<UserStore>()(
         return [adminUser, ...users];
       },
 
-      getAllUsersWithPasswords: () => {
+      getAllUsersWithPasswords: async () => {
         const { user } = get();
         // רק מנהל יכול לראות את כל המשתמשים עם הסיסמאות
         if (!user || !user.isAdmin) {
           throw new Error('רק מנהל יכול לראות את כל המשתמשים עם הסיסמאות');
         }
 
-        const stored = localStorage.getItem('rsvp-users-storage');
-        const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-        
-        let users: User[] = [];
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          users = parsed.state?.users || [];
+        try {
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          const response = await fetch(`${backendUrl}/api/users`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'שגיאה בטעינת משתמשים');
+          }
+
+          if (!data.success || !data.users) {
+            throw new Error('שגיאה בטעינת משתמשים - תגובה לא תקינה מהשרת');
+          }
+
+          // Convert dates from ISO strings to Date objects
+          const usersWithPasswords = data.users.map((u: any) => ({
+            ...u,
+            createdAt: new Date(u.createdAt),
+            updatedAt: new Date(u.updatedAt)
+          }));
+
+          return usersWithPasswords;
+        } catch (error: any) {
+          console.error('❌ Get users error:', error);
+          throw error;
         }
-        
-        // הוספת המנהל הקבוע לרשימה עם הסיסמה שלו
-        const adminUser: User & { password: string } = {
-          id: 'admin-fixed-id',
-          email: ADMIN_EMAIL,
-          name: 'מנהל המערכת',
-          credits: 999999,
-          createdAt: new Date('2024-01-01'),
-          updatedAt: new Date(),
-          isAdmin: true,
-          password: ADMIN_PASSWORD,
-        };
-        
-        // הוספת סיסמאות למשתמשים רגילים
-        const usersWithPasswords = users.map(user => ({
-          ...user,
-          password: passwords[user.email] || '(לא נמצאה סיסמה)'
-        }));
-        
-        return [adminUser, ...usersWithPasswords];
       },
 
-      addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
+      addCreditsToUser: async (userEmailOrName: string, creditsToAdd: number) => {
         const { user } = get();
         // רק מנהל יכול להוסיף רשומות למשתמש אחר
         if (!user || !user.isAdmin) {
@@ -256,51 +266,65 @@ export const useUserStore = create<UserStore>()(
           throw new Error('לא ניתן להוסיף רשומות למנהל המערכת');
         }
 
-        // מציאת המשתמש
-        const stored = localStorage.getItem('rsvp-users-storage');
-        if (!stored) {
-          throw new Error('לא נמצאו משתמשים');
+        try {
+          // First, get all users to find the user ID
+          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const usersResponse = await fetch(`${backendUrl}/api/users`);
+          const usersData = await usersResponse.json();
+          
+          if (!usersData.success || !usersData.users) {
+            throw new Error('שגיאה בטעינת משתמשים');
+          }
+          
+          // Find user by email, name, or ID
+          const targetUser = usersData.users.find((u: any) => 
+            u.email.toLowerCase() === userEmailOrName.toLowerCase() ||
+            u.name?.toLowerCase().includes(userEmailOrName.toLowerCase()) ||
+            userEmailOrName.toLowerCase().includes(u.name?.toLowerCase() || '') ||
+            u.id === userEmailOrName
+          );
+
+          if (!targetUser) {
+            throw new Error(`משתמש "${userEmailOrName}" לא נמצא`);
+          }
+
+          // Add credits via API
+          const response = await fetch(`${backendUrl}/api/users/${targetUser.id}/credits`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ creditsToAdd })
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'שגיאה בהוספת רשומות');
+          }
+
+          if (!data.success || !data.user) {
+            throw new Error('שגיאה בהוספת רשומות - תגובה לא תקינה מהשרת');
+          }
+
+          console.log(`✅ הוספו ${creditsToAdd} רשומות למשתמש ${data.user.name} (${data.user.email})`);
+          console.log(`📊 רשומות קודמות: ${data.previousCredits}`);
+          console.log(`📊 רשומות חדשות: ${data.newCredits}`);
+
+          return {
+            success: true,
+            user: {
+              ...data.user,
+              createdAt: new Date(data.user.createdAt),
+              updatedAt: new Date(data.user.updatedAt)
+            },
+            previousCredits: data.previousCredits,
+            newCredits: data.newCredits
+          };
+        } catch (error: any) {
+          console.error('❌ Add credits error:', error);
+          throw error;
         }
-
-        const parsed = JSON.parse(stored);
-        const users: User[] = parsed.state?.users || [];
-        
-        // חיפוש המשתמש לפי שם או אימייל
-        const userIndex = users.findIndex(u => 
-          u.email.toLowerCase() === userEmailOrName.toLowerCase() ||
-          u.name?.toLowerCase().includes(userEmailOrName.toLowerCase()) ||
-          userEmailOrName.toLowerCase().includes(u.name?.toLowerCase() || '') ||
-          u.id === userEmailOrName // גם לפי ID
-        );
-
-        if (userIndex === -1) {
-          throw new Error(`משתמש "${userEmailOrName}" לא נמצא`);
-        }
-
-        const targetUser = users[userIndex];
-        const currentCredits = targetUser.credits || 0;
-        const newCredits = currentCredits + creditsToAdd;
-
-        // עדכון הרשומות
-        users[userIndex] = {
-          ...targetUser,
-          credits: newCredits,
-          updatedAt: new Date()
-        };
-
-        // שמירה ב-localStorage
-        localStorage.setItem('rsvp-users-storage', JSON.stringify({ state: { users } }));
-
-        console.log(`✅ הוספו ${creditsToAdd} רשומות למשתמש ${targetUser.name} (${targetUser.email})`);
-        console.log(`📊 רשומות קודמות: ${currentCredits}`);
-        console.log(`📊 רשומות חדשות: ${newCredits}`);
-
-        return {
-          success: true,
-          user: users[userIndex],
-          previousCredits: currentCredits,
-          newCredits: newCredits
-        };
       },
     }),
     {

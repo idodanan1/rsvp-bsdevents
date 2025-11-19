@@ -44,6 +44,42 @@ const stripeClient = process.env.STRIPE_SECRET_KEY ? stripe(process.env.STRIPE_S
 // Temporary storage for transactions (in production, use a database)
 const transactions = [];
 
+// Temporary storage for users (in production, use a database)
+// Load users from file if exists
+const usersFilePath = path.join(__dirname, 'users.json');
+let users = [];
+let passwords = {};
+
+// Load users from file on startup
+try {
+  if (fs.existsSync(usersFilePath)) {
+    const usersData = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
+    users = usersData.users || [];
+    passwords = usersData.passwords || {};
+    console.log(`✅ Loaded ${users.length} users from file`);
+  } else {
+    console.log('📝 No users file found - starting with empty users');
+  }
+} catch (error) {
+  console.error('❌ Error loading users file:', error);
+  users = [];
+  passwords = {};
+}
+
+// Save users to file
+function saveUsers() {
+  try {
+    fs.writeFileSync(usersFilePath, JSON.stringify({ users, passwords }, null, 2), 'utf8');
+    console.log(`💾 Saved ${users.length} users to file`);
+  } catch (error) {
+    console.error('❌ Error saving users file:', error);
+  }
+}
+
+// Admin user (fixed)
+const ADMIN_EMAIL = 'idodanan1@gmail.com';
+const ADMIN_PASSWORD = 'QPwo1029';
+
 console.log('🔧 WhatsApp Backend Configuration:');
 console.log('📱 WaNotifier API Key:', process.env.WANOTIFIER_API_KEY ? 'Set' : 'Not set');
 console.log('📱 CallMeBot API Key:', process.env.CALLMEBOT_API_KEY ? 'Set' : 'Not set');
@@ -89,6 +125,7 @@ const upload = multer({
 
 // Middleware
 app.use(cors());
+app.use(express.json()); // Parse JSON bodies
 
 // Stripe webhook handler (must be before express.json() to get raw body)
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -1350,9 +1387,191 @@ app.post('/api/payments/grow/webhook', async (req, res) => {
   }
 });
 
+// ============================================
+// USER MANAGEMENT API ENDPOINTS
+// ============================================
+
+// Sign up (create new user)
+app.post('/api/users/signup', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'כל השדות נדרשים' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if admin email
+    if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+      return res.status(400).json({ error: 'לא ניתן להירשם עם אימייל זה. אנא השתמש בדף ההתחברות למנהל.' });
+    }
+    
+    // Check if user already exists
+    const existingUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
+    if (existingUser) {
+      return res.status(400).json({ error: 'משתמש עם אימייל זה כבר קיים' });
+    }
+    
+    // Create new user
+    const newUser = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      email: normalizedEmail,
+      name: name.trim(),
+      credits: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isAdmin: false
+    };
+    
+    users.push(newUser);
+    passwords[normalizedEmail] = password; // In production, hash this with bcrypt
+    
+    saveUsers();
+    
+    console.log(`✅ New user created: ${newUser.email} (${newUser.name})`);
+    
+    // Return user without password
+    res.status(201).json({
+      success: true,
+      user: newUser
+    });
+  } catch (error) {
+    console.error('❌ Signup error:', error);
+    res.status(500).json({ error: 'שגיאה ביצירת משתמש' });
+  }
+});
+
+// Login
+app.post('/api/users/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'אימייל וסיסמה נדרשים' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if admin
+    if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+      if (password === ADMIN_PASSWORD) {
+        const adminUser = {
+          id: 'admin-fixed-id',
+          email: ADMIN_EMAIL,
+          name: 'מנהל המערכת',
+          credits: 999999,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: new Date().toISOString(),
+          isAdmin: true
+        };
+        
+        return res.json({
+          success: true,
+          user: adminUser
+        });
+      } else {
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+    }
+    
+    // Check regular user
+    const storedPassword = passwords[normalizedEmail];
+    if (!storedPassword || storedPassword !== password) {
+      return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+    }
+    
+    const user = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
+    if (!user) {
+      return res.status(404).json({ error: 'משתמש לא נמצא' });
+    }
+    
+    // Return user without password
+    res.json({
+      success: true,
+      user: user
+    });
+  } catch (error) {
+    console.error('❌ Login error:', error);
+    res.status(500).json({ error: 'שגיאה בהתחברות' });
+  }
+});
+
+// Get all users (admin only)
+app.get('/api/users', async (req, res) => {
+  try {
+    // In production, add authentication check here
+    const usersWithPasswords = users.map(u => ({
+      ...u,
+      password: passwords[u.email.toLowerCase().trim()] || '(לא נמצאה סיסמה)'
+    }));
+    
+    // Add admin user
+    const adminUser = {
+      id: 'admin-fixed-id',
+      email: ADMIN_EMAIL,
+      name: 'מנהל המערכת',
+      credits: 999999,
+      createdAt: '2024-01-01T00:00:00.000Z',
+      updatedAt: new Date().toISOString(),
+      isAdmin: true,
+      password: ADMIN_PASSWORD
+    };
+    
+    res.json({
+      success: true,
+      users: [adminUser, ...usersWithPasswords]
+    });
+  } catch (error) {
+    console.error('❌ Get users error:', error);
+    res.status(500).json({ error: 'שגיאה בטעינת משתמשים' });
+  }
+});
+
+// Update user credits (admin only)
+app.post('/api/users/:userId/credits', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { creditsToAdd } = req.body;
+    
+    if (!creditsToAdd || creditsToAdd <= 0) {
+      return res.status(400).json({ error: 'כמות רשומות לא תקינה' });
+    }
+    
+    // Find user
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'משתמש לא נמצא' });
+    }
+    
+    const user = users[userIndex];
+    const currentCredits = user.credits || 0;
+    const newCredits = currentCredits + creditsToAdd;
+    
+    users[userIndex] = {
+      ...user,
+      credits: newCredits,
+      updatedAt: new Date().toISOString()
+    };
+    
+    saveUsers();
+    
+    res.json({
+      success: true,
+      user: users[userIndex],
+      previousCredits: currentCredits,
+      newCredits: newCredits
+    });
+  } catch (error) {
+    console.error('❌ Update credits error:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון רשומות' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WhatsApp Backend running on port ${PORT}`);
   console.log(`📱 Ready to send WhatsApp messages!`);
+  console.log(`👥 User Management API: Ready`);
   const webhookUrl = process.env.RENDER_EXTERNAL_URL 
     ? `${process.env.RENDER_EXTERNAL_URL}/api/whatsapp/webhook`
     : `http://localhost:${PORT}/api/whatsapp/webhook`;

@@ -28,14 +28,29 @@ const Login: React.FC = () => {
       return;
     }
     
+    // Normalize email (trim whitespace)
+    const normalizedEmail = email.trim();
+    const normalizedPassword = password.trim();
+    
+    if (!normalizedEmail || !normalizedPassword) {
+      toast.error('אנא מלא את כל השדות');
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
-      await login(email, password);
+      console.log('🔐 Login attempt:', {
+        email: normalizedEmail,
+        passwordLength: normalizedPassword.length,
+        rememberMe: rememberMe
+      });
+      
+      await login(normalizedEmail, normalizedPassword);
       
       // Save email if "remember me" is checked
       if (rememberMe) {
-        localStorage.setItem('rsvp-saved-email', email);
+        localStorage.setItem('rsvp-saved-email', normalizedEmail);
       } else {
         localStorage.removeItem('rsvp-saved-email');
       }
@@ -43,7 +58,18 @@ const Login: React.FC = () => {
       toast.success('התחברת בהצלחה!');
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || 'שגיאה בהתחברות');
+      console.error('❌ Login error:', error);
+      const errorMessage = error.message || 'שגיאה בהתחברות';
+      toast.error(errorMessage);
+      
+      // Show more detailed error in console for debugging
+      if (errorMessage.includes('אימייל או סיסמה שגויים')) {
+        console.error('💡 Troubleshooting tips:');
+        console.error('1. Check if email is correct (case-insensitive)');
+        console.error('2. Check if password is correct (exact match required)');
+        console.error('3. If this is a different computer, the user might not exist in this browser\'s localStorage');
+        console.error('4. Try creating the user again or check localStorage in DevTools');
+      }
     } finally {
       setIsLoading(false);
     }

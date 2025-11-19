@@ -1074,17 +1074,20 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
             
             // Try to find existing table
-            let table = tableNumber ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
+            let table = tableNumber && !isNaN(parseInt(tableNumber)) ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
             
             if (table) {
               console.log(`✅ Found table: ${table.number} (ID: ${table.id})`);
-            } else if (tableNumber) {
+            } else if (tableNumber && !isNaN(parseInt(tableNumber))) {
               console.log(`⚠️ Table number ${tableNumber} not found in event tables - will save in notes`);
+            } else if (!tableNumber) {
+              console.log(`ℹ️ No table number provided for this guest`);
             }
             
             // Save table number in notes if table doesn't exist (so we can display it later)
+            // ALWAYS save table number in notes if it exists, even if table not found in system
             let finalNotes = notes;
-            if (tableNumber && !table) {
+            if (tableNumber && !isNaN(parseInt(tableNumber)) && !table) {
               // Save table number in a special format: "שולחן: X" at the beginning
               finalNotes = notes ? `שולחן: ${tableNumber} | ${notes}` : `שולחן: ${tableNumber}`;
             }
@@ -1094,7 +1097,7 @@ const EventManagement: React.FC = () => {
               lastName: lastName,
               phoneNumber: finalPhone,
               guestCount: guestCount,
-              tableId: table?.id, // Only set if table exists
+              tableId: table?.id, // Only set if table exists in system
               rsvpStatus: rsvpStatus,
               actualAttendance: actualAttendance,
               messageStatus: 'not_sent' as any, // Default - not in Excel
@@ -1481,11 +1484,18 @@ const EventManagement: React.FC = () => {
         alert(message);
       } else {
         const error = result.results[0]?.error || 'שגיאה לא ידועה';
-        alert(`❌ שגיאה בשליחת הודעה ל-${guest.firstName} ${guest.lastName}\n\n🔍 שגיאה: ${error}`);
+        console.error('❌ WhatsApp sending failed:', error);
+        console.error('📋 Full result:', result);
+        alert(`❌ שגיאה בשליחת הודעה ל-${guest.firstName} ${guest.lastName}\n\n🔍 שגיאה: ${error}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
       }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      alert('שגיאה בשליחת ההודעה');
+    } catch (error: any) {
+      console.error('❌ Error sending message:', error);
+      console.error('📋 Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        fullError: error
+      });
+      alert(`❌ שגיאה בשליחת ההודעה\n\n🔍 שגיאה: ${error?.message || 'שגיאה לא ידועה'}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
     }
   };
 
@@ -1899,6 +1909,9 @@ const EventManagement: React.FC = () => {
           <table className="w-full divide-y divide-gray-200 table-fixed" style={{ minWidth: '1200px' }}>
             <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
               <tr>
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12">
+                  #
+                </th>
                 <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">
                   <input
                     type="checkbox"
@@ -1942,7 +1955,7 @@ const EventManagement: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
+                  <td colSpan={11} className="px-6 py-12 text-center">
                     <div className="text-gray-500">
                       <Users className="mx-auto h-12  text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">אין אורחים</h3>
@@ -1968,6 +1981,9 @@ const EventManagement: React.FC = () => {
               ) : (
                 filteredGuests.map((guest, index) => (
                 <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                  <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
+                    {index + 1}
+                  </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <input
                       type="checkbox"
@@ -2061,6 +2077,12 @@ const EventManagement: React.FC = () => {
                           const match = guest.notes.match(/שולחן:\s*(\d+)/);
                           return match ? `שולחן ${match[1]}` : null;
                         })()}
+                      </div>
+                    )}
+                    {/* Show message if no table number at all */}
+                    {!guest.tableId && (!guest.notes || !guest.notes.includes('שולחן:')) && (
+                      <div className="text-xs text-gray-400 italic mt-1">
+                        ללא שולחן
                       </div>
                     )}
                   </td>

@@ -69,6 +69,7 @@ export interface VenueLayout {
 export interface Event {
   id: string;
   userId: string; // NEW: מזהה המשתמש שיצר את האירוע
+  userEmail?: string; // NEW: אימייל המשתמש (לחיבור אירועים למשתמשים שנרשמו מחדש)
   coupleName: string;
   groomName: string;
   brideName: string;
@@ -426,12 +427,12 @@ export interface UserStore {
   deductCredits: (amount: number) => Promise<boolean>; // מחזיר true אם יש מספיק
   checkCredits: (required: number) => boolean; // בודק אם יש מספיק רשומות
   makeAdmin: () => void; // הופך את המשתמש הנוכחי למנהל
-  addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
+  addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => Promise<{
     success: boolean;
     user: User;
     previousCredits: number;
     newCredits: number;
-  }; // מוסיף רשומות למשתמש אחר (רק למנהל)
+  }>; // מוסיף רשומות למשתמש אחר (רק למנהל)
   getAllUsers: () => User[];
-  getAllUsersWithPasswords: () => (User & { password: string })[]; // קבלת כל המשתמשים (רק למנהל)
+  getAllUsersWithPasswords: () => Promise<(User & { password: string })[]>; // קבלת כל המשתמשים (רק למנהל)
 }

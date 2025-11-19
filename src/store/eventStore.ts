@@ -19,13 +19,17 @@ export const useEventStore = create<EventStore>()(
       fetchEvents: async () => {
         set({ isLoading: true, error: null });
         try {
-          // Get current user ID
+          // Get current user ID and email
           const userStorage = localStorage.getItem('rsvp-user-storage');
           let userId = '';
+          let userEmail = '';
           if (userStorage) {
             const parsed = JSON.parse(userStorage);
             userId = parsed.state?.user?.id || '';
+            userEmail = parsed.state?.user?.email || '';
           }
+
+          console.log('🔍 Fetching events for user:', { userId, userEmail });
 
           // Check if there are events in localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
@@ -34,7 +38,54 @@ export const useEventStore = create<EventStore>()(
             if (parsed.state && parsed.state.events && parsed.state.events.length > 0) {
               // CRITICAL: Always preserve ALL events in localStorage
               // Only filter for display in state, but keep all events in storage
-              const allEvents = parsed.state.events;
+              let allEvents = parsed.state.events;
+              
+              // IMPORTANT: If user logged in, update events to match current userId
+              // This ensures that if user re-registered with same email, events are connected
+              if (userId && userEmail) {
+                let eventsUpdated = false;
+                const updatedEvents = allEvents.map((event: Event) => {
+                  // If event has userEmail matching current user, update userId
+                  if (event.userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim() && event.userId !== userId) {
+                    console.log(`🔄 Updating event ${event.id} userId from ${event.userId} to ${userId} (email match)`);
+                    eventsUpdated = true;
+                    return { ...event, userId };
+                  }
+                  // Also check if event has old userId but we can match by email from user storage
+                  // This handles case where event was created before userEmail field existed
+                  if (!event.userEmail && event.userId && event.userId !== userId) {
+                    // Try to find if this userId belongs to same email in old user storage
+                    const oldUserStorage = localStorage.getItem('rsvp-users-storage');
+                    if (oldUserStorage) {
+                      try {
+                        const oldParsed = JSON.parse(oldUserStorage);
+                        const oldUsers = oldParsed.state?.users || [];
+                        const oldUser = oldUsers.find((u: any) => u.id === event.userId);
+                        if (oldUser && oldUser.email && oldUser.email.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
+                          console.log(`🔄 Updating event ${event.id} userId from ${event.userId} to ${userId} (found matching email in old users)`);
+                          eventsUpdated = true;
+                          return { ...event, userId, userEmail };
+                        }
+                      } catch (e) {
+                        // Ignore parsing errors
+                      }
+                    }
+                  }
+                  return event;
+                });
+                
+                if (eventsUpdated) {
+                  // Save updated events
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                    state: {
+                      events: updatedEvents,
+                      deletedEvents: parsed.state.deletedEvents || [],
+                      currentEvent: parsed.state.currentEvent || null
+                    }
+                  }));
+                  allEvents = updatedEvents;
+                }
+              }
               
               // Filter events by userId (if logged in) ONLY for display
               let filteredEvents = allEvents;
@@ -400,12 +451,14 @@ export const useEventStore = create<EventStore>()(
             }
           ];
           
-          // Get userId from localStorage (temporary - will be from backend)
+          // Get userId and email from localStorage (temporary - will be from backend)
           const userStorage = localStorage.getItem('rsvp-user-storage');
           let userId = '';
+          let userEmail = '';
           if (userStorage) {
             const parsed = JSON.parse(userStorage);
             userId = parsed.state?.user?.id || '';
+            userEmail = parsed.state?.user?.email || '';
           }
 
           // Calculate credits needed (minimum 50, based on guest count)
@@ -416,6 +469,7 @@ export const useEventStore = create<EventStore>()(
             ...eventData,
             id: eventId,
             userId: userId || 'anonymous', // Add userId
+            userEmail: userEmail || '', // Add userEmail for re-registration matching
             creditsUsed: creditsNeeded, // Add creditsUsed
             campaigns: defaultCampaigns,
             createdAt: new Date(),

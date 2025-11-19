@@ -32,9 +32,10 @@ const UserManagement: React.FC = () => {
     loadUsers();
   }, [currentUser]);
 
-  const loadUsers = () => {
+  const loadUsers = async () => {
     try {
-      const allUsersWithPasswords = getAllUsersWithPasswords();
+      setIsLoading(true);
+      const allUsersWithPasswords = await getAllUsersWithPasswords();
       const allEvents = getAllEvents();
       
       const usersWithStats: UserWithStats[] = allUsersWithPasswords.map(user => {
@@ -48,7 +49,10 @@ const UserManagement: React.FC = () => {
 
       setUsers(usersWithStats);
     } catch (error: any) {
+      console.error('❌ Load users error:', error);
       toast.error(error.message || 'שגיאה בטעינת המשתמשים');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -67,12 +71,13 @@ const UserManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const result = addCreditsToUser(userId, creditsToAdd);
+      const result = await addCreditsToUser(userId, creditsToAdd);
       toast.success(`הוספו ${creditsToAdd} רשומות למשתמש ${result.user.name}`);
-      loadUsers(); // רענון הרשימה
+      await loadUsers(); // רענון הרשימה
       setSelectedUser(null);
       setCreditsToAdd(50);
     } catch (error: any) {
+      console.error('❌ Add credits error:', error);
       toast.error(error.message || 'שגיאה בהוספת רשומות');
     } finally {
       setIsLoading(false);
