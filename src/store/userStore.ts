@@ -101,6 +101,10 @@ export const useUserStore = create<UserStore>()(
           let data: any;
           
           try {
+            // Add timeout to prevent hanging
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+            
             response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
               headers: {
@@ -109,8 +113,11 @@ export const useUserStore = create<UserStore>()(
               body: JSON.stringify({
                 email: email.trim(),
                 password: password.trim()
-              })
+              }),
+              signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
 
             console.log('📡 Response status:', response.status);
             console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
@@ -134,6 +141,13 @@ export const useUserStore = create<UserStore>()(
               stack: fetchError.stack,
               type: typeof fetchError
             });
+            
+            // Handle timeout
+            if (fetchError.name === 'AbortError') {
+              console.error('❌ Request timeout - server took too long to respond');
+              throw new Error('השרת לא מגיב. נסה שוב בעוד כמה רגעים או בדוק שהשרת רץ.');
+            }
+            
             if (fetchError.message) {
               throw fetchError;
             }
