@@ -1700,11 +1700,11 @@ const EventManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-teal-700">הגיעו בפועל</p>
               <p className="text-3xl font-bold text-teal-600">
-                {currentEvent.guests?.filter(g => g.actualAttendance === 'attended').length || 0}
+                {currentEvent.guests?.filter(g => g.actualAttendance === 'attended').reduce((sum, g) => sum + (g.guestCount || 1), 0) || 0}
               </p>
               <p className="text-xs text-teal-600 mt-1">
                 {stats.totalGuests > 0 
-                  ? `${Math.round((currentEvent.guests?.filter(g => g.actualAttendance === 'attended').length || 0) / stats.totalGuests * 100)}%`
+                  ? `${Math.round((currentEvent.guests?.filter(g => g.actualAttendance === 'attended').reduce((sum, g) => sum + (g.guestCount || 1), 0) || 0) / stats.totalGuests * 100)}%`
                   : '0%'}
               </p>
             </div>
