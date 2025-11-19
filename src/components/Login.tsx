@@ -5,8 +5,11 @@ import { Mail, Lock, LogIn, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  // Load saved email from localStorage if exists
+  const savedEmail = localStorage.getItem('rsvp-saved-email') || '';
+  const [email, setEmail] = useState(savedEmail);
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(!!savedEmail);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useUserStore(state => state.login);
@@ -17,6 +20,14 @@ const Login: React.FC = () => {
 
     try {
       await login(email, password);
+      
+      // Save email if "remember me" is checked
+      if (rememberMe) {
+        localStorage.setItem('rsvp-saved-email', email);
+      } else {
+        localStorage.removeItem('rsvp-saved-email');
+      }
+      
       toast.success('התחברת בהצלחה!');
       navigate('/');
     } catch (error: any) {
