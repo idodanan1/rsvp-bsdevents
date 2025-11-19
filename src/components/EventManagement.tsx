@@ -963,7 +963,7 @@ const EventManagement: React.FC = () => {
               notes: String(row[6] || '').trim()
             };
           })
-          .filter(guest => guest.firstName && guest.lastName && guest.phoneNumber);
+          .filter(guest => guest.firstName && guest.phoneNumber);
 
         // Add guests to event
         guests.forEach(guest => {
