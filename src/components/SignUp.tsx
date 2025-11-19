@@ -3,18 +3,28 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { Mail, Lock, User, UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TermsAndPrivacy from './TermsAndPrivacy';
 
 const SignUp: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const signUp = useUserStore(state => state.signUp);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // CRITICAL: Check if terms are accepted
+    if (!acceptedTerms) {
+      toast.error('אנא אשר את תנאי השימוש ומדיניות הפרטיות');
+      return;
+    }
 
     if (password !== confirmPassword) {
       toast.error('הסיסמאות לא תואמות');
@@ -40,8 +50,9 @@ const SignUp: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-yellow-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-yellow-50 px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">הרשמה</h1>
           <p className="text-gray-600">צור חשבון חדש</p>
@@ -121,6 +132,40 @@ const SignUp: React.FC = () => {
             </div>
           </div>
 
+          <div className="flex items-start space-x-2 p-3 bg-gray-50 rounded-lg border border-gray-200" role="group" aria-labelledby="terms-label-signup">
+            <input
+              type="checkbox"
+              id="acceptTermsSignup"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              required
+              aria-required="true"
+              aria-describedby="terms-description-signup"
+              className="mt-1 w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-teal-500"
+            />
+            <label htmlFor="acceptTermsSignup" id="terms-label-signup" className="text-sm text-gray-700 cursor-pointer flex-1">
+              <span id="terms-description-signup">אני מאשר שקראתי והבנתי את{' '}</span>
+              <button
+                type="button"
+                onClick={() => setShowTermsModal(true)}
+                className="text-teal-600 hover:text-teal-700 underline font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+                aria-label="קרא תנאי שימוש"
+              >
+                תנאי השימוש
+              </button>
+              {' '}ואת{' '}
+              <button
+                type="button"
+                onClick={() => setShowPrivacyModal(true)}
+                className="text-teal-600 hover:text-teal-700 underline font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+                aria-label="קרא מדיניות פרטיות"
+              >
+                מדיניות הפרטיות
+              </button>
+              {' '}ומסכים להם. אני מבין שהמערכת אוספת ומעבדת את המידע שלי בהתאם למדיניות הפרטיות.
+            </label>
+          </div>
+
           <button
             type="submit"
             disabled={isLoading}
@@ -145,8 +190,22 @@ const SignUp: React.FC = () => {
             </Link>
           </p>
         </div>
+
+        {/* Terms and Privacy Modals */}
+        <TermsAndPrivacy
+          isOpen={showTermsModal}
+          onClose={() => setShowTermsModal(false)}
+          type="terms"
+        />
+        <TermsAndPrivacy
+          isOpen={showPrivacyModal}
+          onClose={() => setShowPrivacyModal(false)}
+          type="privacy"
+        />
+        </div>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 };
 

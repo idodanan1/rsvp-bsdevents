@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import toast from 'react-hot-toast';
+import Footer from './Footer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -204,6 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <main className="flex-1 p-8">
           {children}
         </main>
+        <Footer />
       </div>
     </div>
   );

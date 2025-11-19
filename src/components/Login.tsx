@@ -49,8 +49,9 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-yellow-50 px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-yellow-50 px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
         <header className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800 mb-2">ברוכים הבאים למערכת אישורי ההגעה של בס"ד אירועים</h1>
           <p className="text-gray-600">התחבר לחשבון שלך</p>
@@ -192,8 +193,10 @@ const Login: React.FC = () => {
           onClose={() => setShowPrivacyModal(false)}
           type="privacy"
         />
+        </div>
+        <Footer />
       </div>
-    </div>
+    </>
   );
 };
 

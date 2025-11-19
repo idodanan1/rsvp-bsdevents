@@ -24,6 +24,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
 import Footer from './components/Footer';
 import AccessibilityPage from './pages/AccessibilityPage';
+import TermsPage from './pages/TermsPage';
+import PrivacyPage from './pages/PrivacyPage';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
@@ -81,8 +83,8 @@ function App() {
             <Route path="/guest-response/:eventId" element={<GuestResponse />} />
             <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
             <Route path="/accessibility" element={<AccessibilityPage />} />
-            <Route path="/terms" element={<AccessibilityPage />} />
-            <Route path="/privacy" element={<AccessibilityPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
             
             {/* Protected routes */}
             <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
@@ -117,6 +119,7 @@ function App() {
           } />
         </Routes>
         </main>
+        <Footer />
       </div>
     </Router>
   );
