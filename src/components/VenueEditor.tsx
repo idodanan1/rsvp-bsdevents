@@ -358,12 +358,12 @@ const VenueEditor: React.FC = () => {
   };
 
   const handleAddGuest = async () => {
-    if (!eventId || !selectedTableForGuest || !newGuest.firstName || !newGuest.lastName) return;
+    if (!eventId || !selectedTableForGuest || !newGuest.firstName) return;
     
     try {
       await addGuest(eventId, {
         firstName: newGuest.firstName,
-        lastName: newGuest.lastName,
+        lastName: '', // שם משפחה לא נדרש יותר
         phoneNumber: newGuest.phone,
         guestCount: newGuest.guestCount,
         tableId: selectedTableForGuest,
@@ -1827,27 +1827,15 @@ const VenueEditor: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    שם פרטי
+                    שם מלא
                   </label>
                   <input
                     type="text"
                     value={newGuest.firstName}
                     onChange={(e) => setNewGuest({...newGuest, firstName: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="הכנס שם פרטי"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    שם משפחה
-                  </label>
-                  <input
-                    type="text"
-                    value={newGuest.lastName}
-                    onChange={(e) => setNewGuest({...newGuest, lastName: e.target.value})}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="הכנס שם משפחה"
+                    placeholder="הכנס שם מלא"
+                    required
                   />
                 </div>
                 

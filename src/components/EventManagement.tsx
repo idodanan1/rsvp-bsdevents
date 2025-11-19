@@ -115,7 +115,7 @@ const EventManagement: React.FC = () => {
   const filteredGuests = (currentEvent.guests || []).filter(guest => {
     const matchesSearch = 
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      guest.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
       guest.phoneNumber.includes(searchTerm);
     
     const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
@@ -125,8 +125,8 @@ const EventManagement: React.FC = () => {
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
-    guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
-    guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+      guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase())) ||
     guest.phoneNumber.includes(modalSearchTerm)
   );
   
@@ -136,7 +136,7 @@ const EventManagement: React.FC = () => {
     console.log('🔍 handleAddGuest called with:', newGuest);
     console.log('🔍 currentEvent.id:', currentEvent?.id);
     
-    if (!newGuest.firstName || !newGuest.lastName || !newGuest.phoneNumber) {
+    if (!newGuest.firstName || !newGuest.phoneNumber) {
       console.log('❌ Missing required fields');
       return;
     }
@@ -145,6 +145,7 @@ const EventManagement: React.FC = () => {
       console.log('📤 Calling addGuest...');
       await addGuest(currentEvent.id, {
         ...newGuest,
+        lastName: '', // שם משפחה לא נדרש יותר
         rsvpStatus: 'pending',
         channel: 'whatsapp', // ברירת מחדל - WhatsApp
         actualAttendance: 'not_marked'
@@ -178,7 +179,7 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingGuest || !newGuest.firstName || !newGuest.lastName || !newGuest.phoneNumber) {
+    if (!editingGuest || !newGuest.firstName || !newGuest.phoneNumber) {
       return;
     }
 
@@ -1591,24 +1592,14 @@ const EventManagement: React.FC = () => {
               )}
             </div>
             <form onSubmit={editingGuest ? handleUpdateGuest : handleAddGuest} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder="שם פרטי"
-                  value={newGuest.firstName}
-                  onChange={(e) => setNewGuest({...newGuest, firstName: e.target.value})}
-                  className="input-field"
-                  required
-                />
-                <input
-                  type="text"
-                  placeholder="שם משפחה"
-                  value={newGuest.lastName}
-                  onChange={(e) => setNewGuest({...newGuest, lastName: e.target.value})}
-                  className="input-field"
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                placeholder="שם מלא"
+                value={newGuest.firstName}
+                onChange={(e) => setNewGuest({...newGuest, firstName: e.target.value})}
+                className="input-field"
+                required
+              />
               
               <input
                 type="tel"
