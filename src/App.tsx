@@ -81,7 +81,20 @@ function App() {
           <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><div>הגדרות</div></Layout></ProtectedRoute>} />
-          <Route path="*" element={<div style={{padding: '20px'}}><h1>404 - דף לא נמצא</h1><p>הנתיב לא קיים</p></div>} />
+          <Route path="*" element={
+            <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+                <h1 className="text-3xl font-bold text-gray-800 mb-4">404 - דף לא נמצא</h1>
+                <p className="text-gray-600 mb-6">הנתיב שביקשת לא קיים במערכת</p>
+                <a 
+                  href="/" 
+                  className="inline-block bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors font-semibold"
+                >
+                  חזרה לעמוד הראשי
+                </a>
+              </div>
+            </div>
+          } />
         </Routes>
       </div>
     </Router>
