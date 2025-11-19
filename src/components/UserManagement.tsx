@@ -2,17 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useUserStore } from '../store/userStore';
 import { useEventStore } from '../store/eventStore';
 import { User } from '../types';
-import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail } from 'lucide-react';
+import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface UserWithStats extends User {
   totalEvents: number;
   totalGuests: number;
   totalCreditsUsed: number;
+  password?: string;
 }
 
 const UserManagement: React.FC = () => {
-  const { user: currentUser, getAllUsers, addCreditsToUser } = useUserStore();
+  const { user: currentUser, getAllUsers, getAllUsersWithPasswords, addCreditsToUser } = useUserStore();
   const { getAllEvents, getEventStatsByUserId } = useEventStore();
   
   const [users, setUsers] = useState<UserWithStats[]>([]);
@@ -20,6 +21,7 @@ const UserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
   const [creditsToAdd, setCreditsToAdd] = useState<number>(50);
   const [isLoading, setIsLoading] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!currentUser || !currentUser.isAdmin) {
@@ -32,14 +34,15 @@ const UserManagement: React.FC = () => {
 
   const loadUsers = () => {
     try {
-      const allUsers = getAllUsers();
+      const allUsersWithPasswords = getAllUsersWithPasswords();
       const allEvents = getAllEvents();
       
-      const usersWithStats: UserWithStats[] = allUsers.map(user => {
+      const usersWithStats: UserWithStats[] = allUsersWithPasswords.map(user => {
         const stats = getEventStatsByUserId(user.id);
         return {
           ...user,
-          ...stats
+          ...stats,
+          password: user.password
         };
       });
 
@@ -47,6 +50,13 @@ const UserManagement: React.FC = () => {
     } catch (error: any) {
       toast.error(error.message || 'שגיאה בטעינת המשתמשים');
     }
+  };
+
+  const togglePasswordVisibility = (userId: string) => {
+    setVisiblePasswords(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }));
   };
 
   const handleAddCredits = async (userId: string, userName: string) => {
@@ -126,6 +136,7 @@ const UserManagement: React.FC = () => {
               <thead className="bg-teal-600 text-white">
                 <tr>
                   <th className="px-6 py-4 text-right">משתמש</th>
+                  <th className="px-6 py-4 text-center">סיסמה</th>
                   <th className="px-6 py-4 text-center">אירועים</th>
                   <th className="px-6 py-4 text-center">מוזמנים</th>
                   <th className="px-6 py-4 text-center">רשומות בשימוש</th>
@@ -136,7 +147,7 @@ const UserManagement: React.FC = () => {
               <tbody className="divide-y divide-gray-200">
                 {filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                       לא נמצאו משתמשים
                     </td>
                   </tr>
@@ -160,6 +171,24 @@ const UserManagement: React.FC = () => {
                               </span>
                             )}
                           </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex items-center justify-center space-x-2">
+                          <span className="font-mono text-sm text-gray-700">
+                            {visiblePasswords[user.id] ? user.password || '(לא נמצאה)' : '••••••••'}
+                          </span>
+                          <button
+                            onClick={() => togglePasswordVisibility(user.id)}
+                            className="text-gray-500 hover:text-gray-700 transition-colors"
+                            title={visiblePasswords[user.id] ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                          >
+                            {visiblePasswords[user.id] ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">

@@ -207,6 +207,43 @@ export const useUserStore = create<UserStore>()(
         return [adminUser, ...users];
       },
 
+      getAllUsersWithPasswords: () => {
+        const { user } = get();
+        // רק מנהל יכול לראות את כל המשתמשים עם הסיסמאות
+        if (!user || !user.isAdmin) {
+          throw new Error('רק מנהל יכול לראות את כל המשתמשים עם הסיסמאות');
+        }
+
+        const stored = localStorage.getItem('rsvp-users-storage');
+        const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
+        
+        let users: User[] = [];
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          users = parsed.state?.users || [];
+        }
+        
+        // הוספת המנהל הקבוע לרשימה עם הסיסמה שלו
+        const adminUser: User & { password: string } = {
+          id: 'admin-fixed-id',
+          email: ADMIN_EMAIL,
+          name: 'מנהל המערכת',
+          credits: 999999,
+          createdAt: new Date('2024-01-01'),
+          updatedAt: new Date(),
+          isAdmin: true,
+          password: ADMIN_PASSWORD,
+        };
+        
+        // הוספת סיסמאות למשתמשים רגילים
+        const usersWithPasswords = users.map(user => ({
+          ...user,
+          password: passwords[user.email] || '(לא נמצאה סיסמה)'
+        }));
+        
+        return [adminUser, ...usersWithPasswords];
+      },
+
       addCreditsToUser: (userEmailOrName: string, creditsToAdd: number) => {
         const { user } = get();
         // רק מנהל יכול להוסיף רשומות למשתמש אחר

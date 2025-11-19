@@ -432,5 +432,6 @@ export interface UserStore {
     previousCredits: number;
     newCredits: number;
   }; // מוסיף רשומות למשתמש אחר (רק למנהל)
-  getAllUsers: () => User[]; // קבלת כל המשתמשים (רק למנהל)
+  getAllUsers: () => User[];
+  getAllUsersWithPasswords: () => (User & { password: string })[]; // קבלת כל המשתמשים (רק למנהל)
 }

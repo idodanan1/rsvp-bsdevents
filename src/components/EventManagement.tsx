@@ -1072,11 +1072,21 @@ const EventManagement: React.FC = () => {
             // Column G (index 6): מספר שולחן → תחת "שולחן"
             const tableNumber = String(row[6] || '').trim();
             console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
-            const table = tableNumber ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
+            
+            // Try to find existing table
+            let table = tableNumber ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
+            
             if (table) {
               console.log(`✅ Found table: ${table.number} (ID: ${table.id})`);
             } else if (tableNumber) {
-              console.log(`⚠️ Table number ${tableNumber} not found in event tables`);
+              console.log(`⚠️ Table number ${tableNumber} not found in event tables - will save in notes`);
+            }
+            
+            // Save table number in notes if table doesn't exist (so we can display it later)
+            let finalNotes = notes;
+            if (tableNumber && !table) {
+              // Save table number in a special format: "שולחן: X" at the beginning
+              finalNotes = notes ? `שולחן: ${tableNumber} | ${notes}` : `שולחן: ${tableNumber}`;
             }
             
             const guestData = {
@@ -1084,11 +1094,11 @@ const EventManagement: React.FC = () => {
               lastName: lastName,
               phoneNumber: finalPhone,
               guestCount: guestCount,
-              tableId: table?.id,
+              tableId: table?.id, // Only set if table exists
               rsvpStatus: rsvpStatus,
               actualAttendance: actualAttendance,
               messageStatus: 'not_sent' as any, // Default - not in Excel
-              notes: notes,
+              notes: finalNotes,
               channel: 'whatsapp' as 'whatsapp' | 'sms' // Default - not in Excel
             };
             
@@ -1120,62 +1130,85 @@ const EventManagement: React.FC = () => {
         if (guests.length === 0) {
           console.error('❌ No guests found! Check the Excel file structure.');
           console.log('📋 Sample row data:', jsonData[1]);
-          console.log('📋 Expected columns:', [
-            '[0] הערות',
-            '[1] תאריך שליחה',
-            '[2] סטטוס הודעה',
-            '[3] שולחן',
-            '[4] הגעה בפועל',
-            '[5] ערוץ',
-            '[6] תאריך תגובה',
-            '[7] סטטוס אישור',
-            '[8] מספר מוזמנים',
-            '[9] מספר טלפון',
-            '[10] שם מלא'
+          console.log('📋 Expected columns (LTR - Left to Right):', [
+            '[0] Column A: שם האורח',
+            '[1] Column B: פלאפון האורח',
+            '[2] Column C: כמות מגיעים',
+            '[3] Column D: סטטוס הגעה',
+            '[4] Column E: הערות',
+            '[5] Column F: שיוך למשפחה',
+            '[6] Column G: מספר שולחן'
           ]);
+          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (משמאל לימין):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: סטטוס הגעה\n- Column G: מספר שולחן');
         }
 
         // Add guests to event
         if (guests.length === 0) {
-          alert('לא נמצאו אורחים לייבוא. אנא בדוק את מבנה הקובץ Excel.\n\nהקובץ צריך לכלול עמודות: שם מלא, מספר טלפון, מספר מוזמנים, שולחן, סטטוס אישור, הגעה בפועל.');
           setShowImportModal(false);
           return;
         }
         
         console.log(`🚀 Starting to add ${guests.length} guests...`);
+        console.log(`📋 First guest sample:`, guests[0]);
+        
         let addedCount = 0;
         let errorCount = 0;
         
         for (const guest of guests) {
           try {
-            console.log(`➕ Adding guest: ${guest.firstName} ${guest.phoneNumber}`);
-            await addGuest(currentEvent.id, {
-              ...guest,
-              channel: guest.channel || 'whatsapp',
-              actualAttendance: guest.actualAttendance || 'not_marked'
+            console.log(`➕ Adding guest ${addedCount + 1}/${guests.length}:`, {
+              name: `${guest.firstName} ${guest.lastName}`,
+              phone: guest.phoneNumber,
+              count: guest.guestCount,
+              status: guest.rsvpStatus,
+              table: guest.tableId
             });
+            
+            await addGuest(currentEvent.id, {
+              firstName: guest.firstName,
+              lastName: guest.lastName || '',
+              phoneNumber: guest.phoneNumber,
+              guestCount: guest.guestCount,
+              tableId: guest.tableId,
+              rsvpStatus: guest.rsvpStatus,
+              actualAttendance: guest.actualAttendance || 'not_marked',
+              messageStatus: 'not_sent',
+              notes: guest.notes || '',
+              channel: 'whatsapp'
+            });
+            
             addedCount++;
             console.log(`✅ Successfully added guest ${addedCount}/${guests.length}`);
           } catch (error) {
             errorCount++;
-            console.error(`❌ Error adding guest ${addedCount + errorCount}/${guests.length}:`, error, guest);
+            console.error(`❌ Error adding guest ${addedCount + errorCount}/${guests.length}:`, error);
+            console.error(`   Guest data:`, guest);
           }
         }
         
         console.log(`📊 Import complete: ${addedCount} added, ${errorCount} errors`);
 
-        // Refresh events to update the UI
+        // Force refresh - wait a bit for state to update
+        await new Promise(resolve => setTimeout(resolve, 500));
         await fetchEvents();
         
         // Update currentEvent with latest data
         const updatedEvents = useEventStore.getState().events;
         const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
         if (updatedEvent) {
+          console.log(`🔄 Updating currentEvent with ${updatedEvent.guests?.length || 0} guests`);
           setCurrentEvent(updatedEvent);
+        } else {
+          console.warn(`⚠️ Event ${currentEvent.id} not found after import`);
         }
 
         setShowImportModal(false);
-        alert(`יובאו ${addedCount} מתוך ${guests.length} מוזמנים בהצלחה!`);
+        
+        if (addedCount > 0) {
+          alert(`✅ יובאו ${addedCount} מתוך ${guests.length} מוזמנים בהצלחה!`);
+        } else {
+          alert(`❌ לא הצלחנו לייבא אורחים. אנא בדוק את הקונסול (F12) לפרטים.`);
+        }
       } catch (error) {
         console.error('Error reading Excel file:', error);
         alert('שגיאה בקריאת קובץ האקסל. אנא ודא שהקובץ תקין.');
@@ -2021,6 +2054,15 @@ const EventManagement: React.FC = () => {
                         </option>
                       ))}
                     </select>
+                    {/* Display table number from notes if tableId doesn't exist */}
+                    {!guest.tableId && guest.notes && guest.notes.includes('שולחן:') && (
+                      <div className="text-xs text-blue-600 font-semibold mt-1">
+                        {(() => {
+                          const match = guest.notes.match(/שולחן:\s*(\d+)/);
+                          return match ? `שולחן ${match[1]}` : null;
+                        })()}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
                     <select
