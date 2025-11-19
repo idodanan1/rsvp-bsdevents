@@ -84,7 +84,7 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          // התחברות דרך Backend API
+          // התחברות דרך Backend API עם fallback ל-localStorage
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           console.log('🔐 Login attempt:', {
@@ -92,18 +92,15 @@ export const useUserStore = create<UserStore>()(
             backendUrl: backendUrl,
             fullUrl: `${backendUrl}/api/users/login`
           });
-          console.log('🔐 Full login details:', JSON.stringify({
-            email: email.trim(),
-            passwordLength: password.trim().length
-          }, null, 2));
           
-          let response: Response;
-          let data: any;
+          let response: Response | null = null;
+          let data: any = null;
+          let useBackend = true;
           
           try {
-            // Add timeout to prevent hanging (increased to 30 seconds for slow connections)
+            // Try backend first with shorter timeout
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds for initial check
             
             response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
@@ -119,74 +116,67 @@ export const useUserStore = create<UserStore>()(
             
             clearTimeout(timeoutId);
 
-            console.log('📡 Response status:', response.status);
-            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-            
-            // Try to parse JSON, but handle errors
             const responseText = await response.text();
-            console.log('📡 Response text:', responseText);
-            
-            try {
-              data = JSON.parse(responseText);
-            } catch (parseError) {
-              console.error('❌ Failed to parse JSON response:', parseError);
-              throw new Error(`שגיאה בתגובת השרת: ${responseText.substring(0, 100)}`);
-            }
+            data = JSON.parse(responseText);
 
-            console.log('📡 Parsed response data:', data);
+            if (response.ok && data.success && data.user) {
+              // Backend worked - use it
+              const user: User = {
+                ...data.user,
+                createdAt: new Date(data.user.createdAt),
+                updatedAt: new Date(data.user.updatedAt)
+              };
+              
+              console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
+              set({ user, isAuthenticated: true, isLoading: false });
+              return;
+            } else {
+              // Backend returned error - check if user exists in localStorage as fallback
+              console.log('⚠️ Backend returned error, trying localStorage fallback...');
+              useBackend = false;
+            }
           } catch (fetchError: any) {
-            console.error('❌ Fetch error details:', {
-              name: fetchError.name,
-              message: fetchError.message,
-              stack: fetchError.stack,
-              type: typeof fetchError
-            });
+            // Backend failed - use localStorage fallback
+            console.log('⚠️ Backend unavailable, using localStorage fallback...');
+            console.error('Backend error:', fetchError.message);
+            useBackend = false;
+          }
+
+          // Fallback to localStorage if backend failed
+          if (!useBackend) {
+            console.log('🔄 Using localStorage fallback for login');
             
-            // Handle timeout
-            if (fetchError.name === 'AbortError' || fetchError.message?.includes('aborted')) {
-              console.error('❌ Request timeout - server took too long to respond');
-              console.error('💡 This might mean:');
-              console.error('   1. The backend server is not running');
-              console.error('   2. The backend URL is incorrect');
-              console.error('   3. Network connection is slow');
-              throw new Error('השרת לא מגיב. בדוק שהשרת רץ ב: https://whatsapp-backend-enfz.onrender.com');
-            }
+            const normalizedEmail = email.toLowerCase().trim();
+            const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
+            const storedPassword = passwords[normalizedEmail];
             
-            if (fetchError.message) {
-              throw fetchError;
+            if (!storedPassword || storedPassword !== password) {
+              throw new Error('אימייל או סיסמה שגויים. אם זה מחשב חדש, אנא הירשם מחדש.');
             }
-            // Network error or CORS error
-            if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
-              console.error('❌ Network/CORS error detected');
-              throw new Error('לא ניתן להתחבר לשרת. בדוק את החיבור לאינטרנט או שהשרת לא רץ. אם זה מחשב חדש, ייתכן שהמשתמש לא קיים ב-backend - נסה להירשם מחדש.');
+
+            const stored = localStorage.getItem('rsvp-users-storage');
+            if (!stored) {
+              throw new Error('משתמש לא נמצא. אם זה מחשב חדש, אנא הירשם מחדש.');
             }
-            throw new Error(`שגיאה בהתחברות לשרת: ${fetchError.message || 'שגיאה לא ידועה'}`);
+
+            const parsed = JSON.parse(stored);
+            const users: User[] = parsed.state?.users || [];
+            const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
+
+            if (!user) {
+              throw new Error('משתמש לא נמצא. אם זה מחשב חדש, אנא הירשם מחדש.');
+            }
+
+            console.log('✅ Login successful via localStorage fallback:', { id: user.id, email: user.email, name: user.name });
+            set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
+            return;
           }
 
-          if (!response.ok) {
-            console.error('❌ Login failed:', {
-              status: response.status,
-              statusText: response.statusText,
-              data: data
-            });
-            throw new Error(data?.error || `שגיאה בהתחברות (${response.status}): ${response.statusText}`);
+          // If we got here and backend didn't work, throw error
+          if (!response || !response.ok) {
+            throw new Error(data?.error || 'שגיאה בהתחברות');
           }
 
-          if (!data.success || !data.user) {
-            console.error('❌ Invalid response format:', data);
-            throw new Error('שגיאה בהתחברות - תגובה לא תקינה מהשרת');
-          }
-
-          // Convert dates from ISO strings to Date objects
-          const user: User = {
-            ...data.user,
-            createdAt: new Date(data.user.createdAt),
-            updatedAt: new Date(data.user.updatedAt)
-          };
-          
-          console.log('✅ Login successful:', { id: user.id, email: user.email, name: user.name });
-
-          set({ user, isAuthenticated: true, isLoading: false });
         } catch (error: any) {
           set({ error: error.message || 'שגיאה בהתחברות', isLoading: false });
           throw error;
