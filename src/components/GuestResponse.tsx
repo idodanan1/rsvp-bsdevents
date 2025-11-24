@@ -628,10 +628,7 @@ const GuestResponse = () => {
               <button
                 onClick={() => {
                   setFormData(prev => ({ ...prev, response: 'maybe' }));
-                  // Auto-submit for maybe
-                  setTimeout(() => {
-                    handleSubmit({ preventDefault: () => {} } as any);
-                  }, 500);
+                  setShowGuestCount(true);
                 }}
                 className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
@@ -642,10 +639,7 @@ const GuestResponse = () => {
               <button
                 onClick={() => {
                   setFormData(prev => ({ ...prev, response: 'not_attending' }));
-                  // Auto-submit for not attending
-                  setTimeout(() => {
-                    handleSubmit({ preventDefault: () => {} } as any);
-                  }, 500);
+                  setShowGuestCount(true);
                 }}
                 className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
@@ -656,11 +650,17 @@ const GuestResponse = () => {
           ) : (
             <div className="space-y-6">
               <div className="text-center">
-                <h2 className="text-xl font-medium text-gray-800 mb-2">
-                  כמה אורחים מתכוונים להגיע?
+                <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  {formData.response === 'attending' 
+                    ? 'כמה אורחים מתכוונים להגיע?'
+                    : formData.response === 'maybe'
+                    ? 'כמה אורחים עשויים להגיע?'
+                    : 'כמה אורחים לא יגיעו?'}
                 </h2>
                 <p className="text-gray-600">
-                  בחרו את מספר האורחים
+                  {formData.response === 'attending' 
+                    ? 'בחרו את מספר האורחים'
+                    : 'אנא עדכנו אותנו'}
                 </p>
               </div>
               
@@ -699,6 +699,20 @@ const GuestResponse = () => {
                   }}
                   placeholder="מספר אורחים"
                   className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none text-center text-lg"
+                />
+              </div>
+              
+              {/* Notes field */}
+              <div className="max-w-lg mx-auto mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  הערות (אופציונלי):
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="הוסף הערה או בקשה מיוחדת..."
+                  rows={3}
+                  className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none resize-none"
                 />
               </div>
               
