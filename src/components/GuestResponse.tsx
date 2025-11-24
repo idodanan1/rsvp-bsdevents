@@ -62,14 +62,19 @@ const GuestResponse = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
   
-  const event = events.find(e => e.id === eventId);
-  const guest = event?.guests.find(g => g.id === guestId);
+  // State to store event found directly from localStorage (for public access)
+  const [directEvent, setDirectEvent] = React.useState<any>(null);
+  const [directGuest, setDirectGuest] = React.useState<any>(null);
+
+  // Try to find event from store first, then from direct localStorage
+  const event = events.find(e => e.id === eventId) || directEvent;
+  const guest = event?.guests.find(g => g.id === guestId) || directGuest;
   
   // Fallback: Try to find guest by partial ID match
   const fallbackGuest = event?.guests.find(g => guestId && (g.id.includes(guestId) || guestId.includes(g.id)));
   
   // Use fallback guest if main guest not found
-  const finalGuest = guest || fallbackGuest;
+  const finalGuest = guest || fallbackGuest || directGuest;
   
   // Debug logging
   console.log('🔍 GuestResponse Debug:', {
@@ -100,24 +105,48 @@ const GuestResponse = () => {
   useEffect(() => {
     console.log('🔍 useEffect triggered:', { event, finalGuest, eventId, guestId });
     
-    // Force load events from localStorage if not loaded
-    if (events.length === 0) {
-      console.log('🔄 No events loaded, trying to load from localStorage...');
+    // Always try to load event directly from localStorage (public access, no userId filter)
+    if (eventId) {
       const stored = localStorage.getItem('rsvp-events-storage');
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
           if (parsed.state && parsed.state.events) {
-            console.log('📋 Loading events from localStorage:', parsed.state.events.length);
-            // Force refresh the page to load events
-            // Refresh events without full page reload
-            fetchEvents();
-            return;
+            // Find event by ID without filtering by userId (public access)
+            const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+            if (foundEvent) {
+              console.log('✅ Found event directly from localStorage:', foundEvent.id);
+              setDirectEvent(foundEvent);
+              
+              // Find guest in the found event
+              if (guestId) {
+                const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
+                if (foundGuest) {
+                  console.log('✅ Found guest directly from localStorage:', foundGuest.id);
+                  setDirectGuest(foundGuest);
+                } else {
+                  // Try fallback - partial match
+                  const fallbackGuest = foundEvent.guests?.find((g: any) => 
+                    guestId && (g.id.includes(guestId) || guestId.includes(g.id))
+                  );
+                  if (fallbackGuest) {
+                    console.log('✅ Found guest with fallback match:', fallbackGuest.id);
+                    setDirectGuest(fallbackGuest);
+                  }
+                }
+              }
+            }
           }
         } catch (error) {
           console.error('❌ Error parsing localStorage:', error);
         }
       }
+    }
+    
+    // Force load events from localStorage if not loaded
+    if (events.length === 0) {
+      console.log('🔄 No events loaded, trying to load from localStorage...');
+      fetchEvents();
     }
     
     // If we have events but the specific event is not found, try to find it
