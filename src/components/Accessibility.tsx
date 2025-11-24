@@ -12,12 +12,14 @@ const Accessibility: React.FC = () => {
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Detect if mobile/tablet
+    // Detect device type
     const isMobile = window.innerWidth < 768;
+    const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
+    const isDesktop = window.innerWidth >= 1024;
     
     // Load saved position from localStorage
     const savedPosition = localStorage.getItem('rsvp-accessibility-position');
-    if (savedPosition && !isMobile) {
+    if (savedPosition && isDesktop) {
       // Only use saved position on desktop
       try {
         const pos = JSON.parse(savedPosition);
@@ -25,11 +27,13 @@ const Accessibility: React.FC = () => {
       } catch (e) {
         console.warn('Failed to load accessibility position');
       }
-    } else if (isMobile) {
-      // On mobile, position at bottom-right corner
+    } else if (isMobile || isTablet) {
+      // On mobile/tablet, position at bottom-right corner
+      const buttonWidth = 120;
+      const buttonHeight = 80;
       setPosition({ 
-        x: window.innerWidth - 120, // Button width + padding
-        y: window.innerHeight - 80  // Button height + padding
+        x: Math.max(10, window.innerWidth - buttonWidth - 10), // Ensure it's visible
+        y: Math.max(10, window.innerHeight - buttonHeight - 10)  // Ensure it's visible
       });
     }
 
@@ -60,11 +64,12 @@ const Accessibility: React.FC = () => {
       // Keep within viewport bounds
       const toolbarWidth = toolbarRef.current?.offsetWidth || 200;
       const toolbarHeight = toolbarRef.current?.offsetHeight || (isOpen ? 400 : 60);
-      const maxX = window.innerWidth - toolbarWidth;
-      const maxY = window.innerHeight - toolbarHeight;
+      const padding = 10; // Add padding to keep button visible
+      const maxX = window.innerWidth - toolbarWidth - padding;
+      const maxY = window.innerHeight - toolbarHeight - padding;
       
-      const clampedX = Math.max(0, Math.min(newX, maxX));
-      const clampedY = Math.max(0, Math.min(newY, maxY));
+      const clampedX = Math.max(padding, Math.min(newX, maxX));
+      const clampedY = Math.max(padding, Math.min(newY, maxY));
       
       setPosition({
         x: clampedX,
@@ -130,11 +135,12 @@ const Accessibility: React.FC = () => {
     // Keep within viewport bounds
     const toolbarWidth = toolbarRef.current?.offsetWidth || 200;
     const toolbarHeight = toolbarRef.current?.offsetHeight || (isOpen ? 400 : 60);
-    const maxX = window.innerWidth - toolbarWidth;
-    const maxY = window.innerHeight - toolbarHeight;
+    const padding = 10; // Add padding to keep button visible
+    const maxX = window.innerWidth - toolbarWidth - padding;
+    const maxY = window.innerHeight - toolbarHeight - padding;
     
-    const clampedX = Math.max(0, Math.min(newX, maxX));
-    const clampedY = Math.max(0, Math.min(newY, maxY));
+    const clampedX = Math.max(padding, Math.min(newX, maxX));
+    const clampedY = Math.max(padding, Math.min(newY, maxY));
     
     setPosition({
       x: clampedX,
@@ -175,12 +181,13 @@ const Accessibility: React.FC = () => {
       {/* Accessibility Toolbar */}
       <div
         ref={toolbarRef}
-        className="fixed z-50 bg-white rounded-xl shadow-2xl border-2 border-teal-200 transition-all duration-200 max-w-[90vw] sm:max-w-none"
+        className="fixed bg-white rounded-xl shadow-2xl border-2 border-teal-200 transition-all duration-200 max-w-[90vw] sm:max-w-none"
         style={{
           left: `${Math.min(position.x, window.innerWidth - 200)}px`,
           top: `${Math.min(position.y, window.innerHeight - 100)}px`,
           cursor: isDragging ? 'grabbing' : 'default',
-          touchAction: 'none' // Prevent default touch behaviors
+          touchAction: 'none', // Prevent default touch behaviors
+          zIndex: 9999 // Very high z-index to ensure it's always on top
         }}
         role="toolbar"
         aria-label="כלי נגישות"
