@@ -612,7 +612,7 @@ const GuestResponse = () => {
           </div>
           {/* Main Status Button */}
           {!showStatusButtons && !showGuestCount ? (
-            <div className="text-center">
+            <div className="text-center space-y-4">
               <button
                 onClick={() => setShowStatusButtons(true)}
                 className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl px-12 py-6 font-bold text-xl shadow-2xl hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-3 mx-auto"
@@ -623,6 +623,14 @@ const GuestResponse = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              <div>
+                <button
+                  onClick={() => window.history.back()}
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                >
+                  ← חזרה
+                </button>
+              </div>
             </div>
           ) : !showGuestCount ? (
             <div className="space-y-4">
@@ -673,6 +681,17 @@ const GuestResponse = () => {
             </div>
           ) : formData.response === 'attending' ? (
             <div className="space-y-6">
+              <div className="text-center mb-4">
+                <button
+                  onClick={() => {
+                    setShowGuestCount(false);
+                    setShowStatusButtons(true);
+                  }}
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                >
+                  ← חזרה לבחירת סטטוס
+                </button>
+              </div>
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
                   כמה אורחים מתכוונים להגיע?
