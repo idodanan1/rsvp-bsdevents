@@ -12,15 +12,25 @@ const Accessibility: React.FC = () => {
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Detect if mobile/tablet
+    const isMobile = window.innerWidth < 768;
+    
     // Load saved position from localStorage
     const savedPosition = localStorage.getItem('rsvp-accessibility-position');
-    if (savedPosition) {
+    if (savedPosition && !isMobile) {
+      // Only use saved position on desktop
       try {
         const pos = JSON.parse(savedPosition);
         setPosition(pos);
       } catch (e) {
         console.warn('Failed to load accessibility position');
       }
+    } else if (isMobile) {
+      // On mobile, position at bottom-right corner
+      setPosition({ 
+        x: window.innerWidth - 120, // Button width + padding
+        y: window.innerHeight - 80  // Button height + padding
+      });
     }
 
     // Apply font size
@@ -39,7 +49,7 @@ const Accessibility: React.FC = () => {
     };
   }, [fontSize, highContrast]);
 
-  // Handle dragging
+  // Handle dragging (mouse)
   useEffect(() => {
     if (!isDragging) return;
 
@@ -80,7 +90,20 @@ const Accessibility: React.FC = () => {
     };
   }, [isDragging, dragStart, isOpen]);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Handle dragging (touch)
+  useEffect(() => {
+    if (!isDragging) return;
+
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isDragging, dragStart, isOpen]);
+
+  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     // Only allow dragging from the header area, not from buttons
     if ((e.target as HTMLElement).closest('button')) {
       return;
@@ -88,11 +111,43 @@ const Accessibility: React.FC = () => {
     
     if (toolbarRef.current) {
       setIsDragging(true);
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
       setDragStart({
-        x: e.clientX - position.x,
-        y: e.clientY - position.y
+        x: clientX - position.x,
+        y: clientY - position.y
       });
     }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (!isDragging) return;
+    e.preventDefault(); // Prevent scrolling while dragging
+    
+    const newX = e.touches[0].clientX - dragStart.x;
+    const newY = e.touches[0].clientY - dragStart.y;
+    
+    // Keep within viewport bounds
+    const toolbarWidth = toolbarRef.current?.offsetWidth || 200;
+    const toolbarHeight = toolbarRef.current?.offsetHeight || (isOpen ? 400 : 60);
+    const maxX = window.innerWidth - toolbarWidth;
+    const maxY = window.innerHeight - toolbarHeight;
+    
+    const clampedX = Math.max(0, Math.min(newX, maxX));
+    const clampedY = Math.max(0, Math.min(newY, maxY));
+    
+    setPosition({
+      x: clampedX,
+      y: clampedY
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setPosition(prev => {
+      localStorage.setItem('rsvp-accessibility-position', JSON.stringify(prev));
+      return prev;
+    });
   };
 
   const increaseFont = () => {
@@ -120,29 +175,31 @@ const Accessibility: React.FC = () => {
       {/* Accessibility Toolbar */}
       <div
         ref={toolbarRef}
-        className="fixed z-50 bg-white rounded-xl shadow-2xl border-2 border-teal-200 transition-all duration-200"
+        className="fixed z-50 bg-white rounded-xl shadow-2xl border-2 border-teal-200 transition-all duration-200 max-w-[90vw] sm:max-w-none"
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          cursor: isDragging ? 'grabbing' : 'default'
+          left: `${Math.min(position.x, window.innerWidth - 200)}px`,
+          top: `${Math.min(position.y, window.innerHeight - 100)}px`,
+          cursor: isDragging ? 'grabbing' : 'default',
+          touchAction: 'none' // Prevent default touch behaviors
         }}
         role="toolbar"
         aria-label="כלי נגישות"
       >
         {/* Main button - always visible */}
         <div
-          className="flex items-center justify-between p-3 select-none"
+          className="flex items-center justify-between p-2 sm:p-3 select-none"
           onMouseDown={handleMouseDown}
+          onTouchStart={handleMouseDown}
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-semibold"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 active:bg-teal-800 transition-colors font-semibold text-sm sm:text-base"
             aria-label={isOpen ? 'סגור תפריט נגישות' : 'פתח תפריט נגישות'}
             aria-expanded={isOpen}
           >
-            <AccessibilityIcon className="w-5 h-5" />
-            <span>נגישות</span>
+            <AccessibilityIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="hidden sm:inline">נגישות</span>
           </button>
           {isOpen && (
             <button
