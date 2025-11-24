@@ -133,20 +133,19 @@ export const useEventStore = create<EventStore>()(
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
                       console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id} (${Math.round((now - lastManualChange) / 1000)}s ago)`);
+                      console.log(`🛡️ Preserving fields:`, {
+                        guestCount: localGuest.guestCount,
+                        rsvpStatus: localGuest.rsvpStatus,
+                        actualAttendance: localGuest.actualAttendance,
+                        notes: localGuest.notes,
+                        tableId: localGuest.tableId
+                      });
                       return localGuest;
                     }
                     
-                    // No recent manual change - merge: prefer API data but keep local if API is missing fields
-                    return {
-                      ...apiGuest,
-                      // Only override with local if API value is missing or undefined
-                      guestCount: apiGuest.guestCount !== undefined ? apiGuest.guestCount : localGuest.guestCount,
-                      rsvpStatus: apiGuest.rsvpStatus || localGuest.rsvpStatus,
-                      actualAttendance: apiGuest.actualAttendance !== undefined ? apiGuest.actualAttendance : localGuest.actualAttendance,
-                      notes: apiGuest.notes !== undefined ? apiGuest.notes : localGuest.notes,
-                      tableId: apiGuest.tableId !== undefined ? apiGuest.tableId : localGuest.tableId,
-                      channel: apiGuest.channel || localGuest.channel
-                    };
+                    // No recent manual change - merge: ALWAYS use API data (it's the source of truth)
+                    // API has the latest data from all devices
+                    return apiGuest;
                   });
                   
                   // Add any local guests that aren't in API
@@ -889,8 +888,26 @@ export const useEventStore = create<EventStore>()(
                   eventId: updatedEvent.id,
                   guestId: guestId,
                   updates: updates,
-                  allFields: Object.keys(updates)
+                  allFields: Object.keys(updates),
+                  actualAttendance: updates.actualAttendance,
+                  guestCount: updates.guestCount,
+                  rsvpStatus: updates.rsvpStatus
                 });
+                
+                // Log the full guest object being sent
+                const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
+                if (updatedGuest) {
+                  console.log('📤 Full guest object being synced:', {
+                    id: updatedGuest.id,
+                    firstName: updatedGuest.firstName,
+                    lastName: updatedGuest.lastName,
+                    actualAttendance: updatedGuest.actualAttendance,
+                    guestCount: updatedGuest.guestCount,
+                    rsvpStatus: updatedGuest.rsvpStatus,
+                    tableId: updatedGuest.tableId,
+                    notes: updatedGuest.notes
+                  });
+                }
                 
                 const response = await fetch(`${BACKEND_URL}/api/events`, {
                   method: 'POST',

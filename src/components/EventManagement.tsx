@@ -113,20 +113,19 @@ const EventManagement: React.FC = () => {
           if (hasRecentManualChange) {
             // Preserve current guest data (manual change is recent)
             console.log(`🛡️ Preserving manual change for guest ${newGuest.id} in currentEvent (${Math.round((now - lastManualChange) / 1000)}s ago)`);
+            console.log(`🛡️ Preserving fields:`, {
+              guestCount: currentGuest.guestCount,
+              rsvpStatus: currentGuest.rsvpStatus,
+              actualAttendance: currentGuest.actualAttendance,
+              notes: currentGuest.notes,
+              tableId: currentGuest.tableId
+            });
             return currentGuest;
           }
           
-                    // No recent manual change - merge: prefer new data but keep local if new is missing fields
-                    return {
-                      ...newGuest,
-                      // Only override with current if new value is missing or undefined
-                      guestCount: newGuest.guestCount !== undefined ? newGuest.guestCount : currentGuest.guestCount,
-                      rsvpStatus: newGuest.rsvpStatus || currentGuest.rsvpStatus,
-                      actualAttendance: newGuest.actualAttendance !== undefined ? newGuest.actualAttendance : currentGuest.actualAttendance,
-                      notes: newGuest.notes !== undefined ? newGuest.notes : currentGuest.notes,
-                      tableId: newGuest.tableId !== undefined ? newGuest.tableId : currentGuest.tableId,
-                      channel: newGuest.channel || currentGuest.channel
-                    };
+                    // No recent manual change - ALWAYS use new data from API (it's the source of truth)
+                    // API has the latest data from all devices
+                    return newGuest;
         });
         
         // Add any new guests from API that aren't in currentEvent
@@ -300,12 +299,14 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateAttendance = async (guestId: string, attendance: string) => {
     try {
+      console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: currentEvent.id });
       await updateGuest(currentEvent.id, guestId, {
         actualAttendance: attendance as any,
         attendanceDate: new Date()
       });
+      console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {
-      console.error('Error updating attendance:', error);
+      console.error('❌ Error updating attendance:', error);
     }
   };
 
