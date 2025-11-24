@@ -88,6 +88,38 @@ const EventManagement: React.FC = () => {
         console.log('🔄 Setting new current event:', event.id);
         setCurrentEvent(event);
       } else {
+        // CRITICAL: Check for manual changes before updating
+        const state = useEventStore.getState();
+        const now = Date.now();
+        const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+        
+        // Merge guests, preserving manual changes
+        const mergedGuests = event.guests.map(newGuest => {
+          const currentGuest = currentEvent.guests.find(g => g.id === newGuest.id);
+          if (!currentGuest) {
+            return newGuest; // New guest from API
+          }
+          
+          // Check if there was a manual change for this guest
+          const guestKey = `${event.id}-${newGuest.id}`;
+          const lastManualChange = state.manualChanges?.get?.(guestKey);
+          const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
+          
+          if (hasRecentManualChange) {
+            // Preserve current guest data (manual change is recent)
+            console.log(`🛡️ Preserving manual change for guest ${newGuest.id} in currentEvent (${Math.round((now - lastManualChange) / 1000)}s ago)`);
+            return currentGuest;
+          }
+          
+          // No recent manual change - use new data from API
+          return newGuest;
+        });
+        
+        // Add any new guests from API that aren't in currentEvent
+        const newGuestsFromAPI = event.guests.filter(ng => 
+          !currentEvent.guests.find(cg => cg.id === ng.id)
+        );
+        
         // Check if campaigns changed - compare by length and IDs
         const currentCampaigns = currentEvent.campaigns || [];
         const newCampaigns = event.campaigns || [];
@@ -96,34 +128,30 @@ const EventManagement: React.FC = () => {
           JSON.stringify(currentCampaigns.map(c => c.id)) !== JSON.stringify(newCampaigns.map(c => c.id)) ||
           JSON.stringify(currentCampaigns) !== JSON.stringify(newCampaigns);
         
-        // Check if guests changed - compare by guest count and RSVP statuses
-        const currentGuests = currentEvent.guests || [];
-        const newGuests = event.guests || [];
+        // Check if guests changed (excluding manual changes)
         const guestsChanged = 
-          currentGuests.length !== newGuests.length ||
-          JSON.stringify(currentGuests.map(g => ({ id: g.id, rsvpStatus: g.rsvpStatus, guestCount: g.guestCount }))) !== 
-          JSON.stringify(newGuests.map(g => ({ id: g.id, rsvpStatus: g.rsvpStatus, guestCount: g.guestCount })));
+          currentEvent.guests.length !== mergedGuests.length + newGuestsFromAPI.length ||
+          mergedGuests.some((mg, idx) => {
+            const cg = currentEvent.guests[idx];
+            return !cg || cg.id !== mg.id || 
+                   (cg.rsvpStatus !== mg.rsvpStatus && !state.manualChanges?.get?.(`${event.id}-${mg.id}`)) ||
+                   (cg.guestCount !== mg.guestCount && !state.manualChanges?.get?.(`${event.id}-${mg.id}`));
+          });
         
-        if (campaignsChanged || guestsChanged) {
-          console.log('🔄 Event data changed, updating event');
+        if (campaignsChanged || guestsChanged || newGuestsFromAPI.length > 0) {
+          console.log('🔄 Event data changed, updating event (preserving manual changes)');
           if (campaignsChanged) {
             console.log('📊 Campaigns changed - Old:', currentCampaigns.length, 'New:', newCampaigns.length);
           }
-          if (guestsChanged) {
-            console.log('👥 Guests changed - Old:', currentGuests.length, 'New:', newGuests.length);
-            // Log status changes
-            const statusChanges = newGuests.filter(newGuest => {
-              const oldGuest = currentGuests.find(g => g.id === newGuest.id);
-              return !oldGuest || oldGuest.rsvpStatus !== newGuest.rsvpStatus;
-            });
-            if (statusChanges.length > 0) {
-              console.log('📝 Status changes detected:', statusChanges.map(g => ({ 
-                name: `${g.firstName} ${g.lastName}`, 
-                status: g.rsvpStatus 
-              })));
-            }
+          if (guestsChanged || newGuestsFromAPI.length > 0) {
+            console.log('👥 Guests changed - Old:', currentEvent.guests.length, 'New:', mergedGuests.length + newGuestsFromAPI.length);
           }
-          setCurrentEvent(event);
+          
+          // Update currentEvent with merged data (preserving manual changes)
+          setCurrentEvent({
+            ...event,
+            guests: [...mergedGuests, ...newGuestsFromAPI]
+          });
         }
       }
     } else {
