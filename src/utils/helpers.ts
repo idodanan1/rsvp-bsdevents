@@ -83,15 +83,38 @@ export const formatTime = (time: string | Date): string => {
 
 // Calculate event statistics
 export const calculateEventStats = (event: Event): EventStats => {
-  const totalGuests = event.guests.length;
-  const confirmed = event.guests.filter(g => g.rsvpStatus === 'confirmed').length;
-  const declined = event.guests.filter(g => g.rsvpStatus === 'declined').length;
-  const maybe = event.guests.filter(g => g.rsvpStatus === 'maybe').length;
-  const pending = event.guests.filter(g => g.rsvpStatus === 'pending').length;
+  // Calculate total guests count (sum of guestCount for all guests)
+  const totalGuests = event.guests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
+  // Calculate confirmed guests count (sum of guestCount for confirmed guests)
+  const confirmed = event.guests
+    .filter(g => g.rsvpStatus === 'confirmed')
+    .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  
+  // Calculate declined guests count (sum of guestCount for declined guests)
+  const declined = event.guests
+    .filter(g => g.rsvpStatus === 'declined')
+    .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  
+  // Calculate maybe guests count (sum of guestCount for maybe guests)
+  const maybe = event.guests
+    .filter(g => g.rsvpStatus === 'maybe')
+    .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  
+  // Calculate pending guests count (sum of guestCount for pending guests)
+  const pending = event.guests
+    .filter(g => g.rsvpStatus === 'pending')
+    .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  
+  // Response rate based on total guest count
   const responseRate = totalGuests > 0 ? Math.round(((confirmed + declined + maybe) / totalGuests) * 100) : 0;
   
-  const attended = event.guests.filter(g => g.actualAttendance === 'attended').length;
+  // Calculate attended guests count (sum of guestCount for attended guests)
+  const attended = event.guests
+    .filter(g => g.actualAttendance === 'attended')
+    .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  
+  // Attendance rate based on confirmed guest count
   const attendanceRate = confirmed > 0 ? Math.round((attended / confirmed) * 100) : 0;
 
   return {

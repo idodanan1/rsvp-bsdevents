@@ -1716,7 +1716,18 @@ const EventManagement: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-orange-700">נותר להושיב</p>
-              <p className="text-3xl font-bold text-orange-600">{stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0)}</p>
+              <p className="text-3xl font-bold text-orange-600">
+                {(() => {
+                  // Calculate total guests count in tables (sum of guestCount)
+                  const seatedGuestsCount = currentEvent.tables?.reduce((acc, table) => {
+                    return acc + table.guests.reduce((sum, guestId) => {
+                      const guest = currentEvent.guests.find(g => g.id === guestId);
+                      return sum + (guest?.guestCount || 1);
+                    }, 0);
+                  }, 0) || 0;
+                  return stats.totalGuests - seatedGuestsCount;
+                })()}
+              </p>
             </div>
             <Users className="w-8 h-8 text-orange-600" />
           </div>
@@ -1726,7 +1737,17 @@ const EventManagement: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-green-700">יושבים</p>
-              <p className="text-3xl font-bold text-green-600">{currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0}</p>
+              <p className="text-3xl font-bold text-green-600">
+                {(() => {
+                  // Calculate total guests count in tables (sum of guestCount)
+                  return currentEvent.tables?.reduce((acc, table) => {
+                    return acc + table.guests.reduce((sum, guestId) => {
+                      const guest = currentEvent.guests.find(g => g.id === guestId);
+                      return sum + (guest?.guestCount || 1);
+                    }, 0);
+                  }, 0) || 0;
+                })()}
+              </p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
