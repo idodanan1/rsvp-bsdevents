@@ -650,6 +650,7 @@ const GuestResponse = () => {
                   onClick={() => {
                     setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 })); // Reset to 1 for maybe
                     setShowGuestCount(false); // Don't show guest count for "maybe"
+                    setShowStatusButtons(false); // Hide status buttons to show notes/submit screen
                   }}
                   className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -661,6 +662,7 @@ const GuestResponse = () => {
                   onClick={() => {
                     setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 })); // Reset to 1 for not attending
                     setShowGuestCount(false); // Don't show guest count for "not attending"
+                    setShowStatusButtons(false); // Hide status buttons to show notes/submit screen
                   }}
                   className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -758,7 +760,7 @@ const GuestResponse = () => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : !showStatusButtons && (formData.response === 'maybe' || formData.response === 'not_attending') ? (
             // For "maybe" or "not_attending" - show notes and submit directly
             <div className="space-y-6">
               <div className="text-center mb-4">
