@@ -124,6 +124,22 @@ try {
   eventsData = { events: [], deletedEvents: [] };
 }
 
+// Load events from file (reload from disk)
+function loadEvents() {
+  try {
+    if (fs.existsSync(eventsFilePath)) {
+      const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+      eventsData.events = fileData.events || [];
+      eventsData.deletedEvents = fileData.deletedEvents || [];
+      console.log(`✅ Reloaded ${eventsData.events.length} events from file`);
+    }
+    return eventsData.events;
+  } catch (error) {
+    console.error('❌ Error loading events file:', error);
+    return eventsData.events || [];
+  }
+}
+
 // Save events to file
 function saveEvents() {
   try {
