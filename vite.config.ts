@@ -15,7 +15,8 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
-    copyPublicDir: true
+    copyPublicDir: true,
+    chunkSizeWarningLimit: 1000
   },
   resolve: {
     alias: {
