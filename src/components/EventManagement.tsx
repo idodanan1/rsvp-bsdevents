@@ -1369,7 +1369,7 @@ const EventManagement: React.FC = () => {
       
       // Use the real guest ID if found, otherwise use the parameter ID
       const guestIdToUse = realGuest?.id || guest.id;
-      const guestLink = `${baseUrl}/guest-response/${currentEvent.id}?guest=${guestIdToUse}`;
+      const guestLink = `${baseUrl}/#/guest-response/${currentEvent.id}?guest=${guestIdToUse}`;
       
       console.log('🔗 Single guest link:', guestLink);
       console.log('🔗 Single Event ID:', currentEvent.id);

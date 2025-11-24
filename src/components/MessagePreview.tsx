@@ -44,7 +44,7 @@ const MessagePreview: React.FC<MessagePreviewProps> = ({ campaign, eventId }) =>
             <div className="text-sm text-gray-800 whitespace-pre-line mb-3">
               {campaign.message.replace(
                 `${window.location.origin}/guest-response/${eventId}`,
-                `${window.location.origin}/guest-response/${eventId}?guest=GUEST_ID`
+                `${window.location.origin}/#/guest-response/${eventId}?guest=GUEST_ID`
               )}
             </div>
             
@@ -87,7 +87,7 @@ const MessagePreview: React.FC<MessagePreviewProps> = ({ campaign, eventId }) =>
             <div className="text-sm text-gray-800 whitespace-pre-line">
               {campaign.smsMessage?.replace(
                 `${window.location.origin}/guest-response/${eventId}`,
-                `${window.location.origin}/guest-response/${eventId}?guest=GUEST_ID`
+                `${window.location.origin}/#/guest-response/${eventId}?guest=GUEST_ID`
               )}
             </div>
           </div>
