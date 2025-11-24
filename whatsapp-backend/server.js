@@ -2143,13 +2143,50 @@ app.post('/api/events', async (req, res) => {
     const existingIndex = eventsData.events.findIndex(e => e.id === event.id);
     
     if (existingIndex >= 0) {
-      // Update existing event
-      eventsData.events[existingIndex] = {
-        ...eventsData.events[existingIndex],
+      // Log what we're updating
+      const existingEvent = eventsData.events[existingIndex];
+      console.log(`🔄 Updating event ${event.id}`);
+      console.log(`📤 Incoming event has ${event.guests?.length || 0} guests`);
+      
+      // Check for actualAttendance updates
+      if (event.guests && event.guests.length > 0) {
+        event.guests.forEach((newGuest, idx) => {
+          const existingGuest = existingEvent.guests?.find(g => g.id === newGuest.id);
+          if (existingGuest) {
+            if (newGuest.actualAttendance !== existingGuest.actualAttendance) {
+              console.log(`📊 Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}): actualAttendance changed from "${existingGuest.actualAttendance}" to "${newGuest.actualAttendance}"`);
+            }
+            if (newGuest.guestCount !== existingGuest.guestCount) {
+              console.log(`📊 Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}): guestCount changed from ${existingGuest.guestCount} to ${newGuest.guestCount}`);
+            }
+            if (newGuest.rsvpStatus !== existingGuest.rsvpStatus) {
+              console.log(`📊 Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}): rsvpStatus changed from "${existingGuest.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
+            }
+          }
+        });
+      }
+      
+      // Update existing event - CRITICAL: Merge guests properly to preserve all fields
+      const mergedEvent = {
+        ...existingEvent,
         ...event,
+        // CRITICAL: Merge guests array properly - use incoming guests as source of truth
+        guests: event.guests || existingEvent.guests,
         updatedAt: new Date().toISOString()
       };
-      console.log(`🔄 Updated event ${event.id}`);
+      
+      eventsData.events[existingIndex] = mergedEvent;
+      console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests`);
+      
+      // Verify actualAttendance was saved
+      const savedEvent = eventsData.events[existingIndex];
+      if (savedEvent.guests && savedEvent.guests.length > 0) {
+        const guestsWithAttendance = savedEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked');
+        if (guestsWithAttendance.length > 0) {
+          console.log(`✅ Verified: ${guestsWithAttendance.length} guests have actualAttendance set:`, 
+            guestsWithAttendance.map(g => `${g.firstName} ${g.lastName}: ${g.actualAttendance}`));
+        }
+      }
     } else {
       // Create new event
       eventsData.events.push({
@@ -2163,9 +2200,11 @@ app.post('/api/events', async (req, res) => {
     // Save to file
     saveEvents();
     
+    const savedEvent = existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1];
+    
     res.json({
       success: true,
-      event: existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1]
+      event: savedEvent
     });
   } catch (error) {
     console.error('❌ Error saving event:', error);
