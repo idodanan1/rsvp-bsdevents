@@ -10,6 +10,14 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3002;
 
+// Enable CORS for all routes
+app.use(cors({
+  origin: '*', // Allow all origins (in production, specify exact origins)
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 // Temporary storage for guest status updates (in production, use a database)
 const pendingUpdates = [];
 
@@ -157,7 +165,6 @@ const upload = multer({
 });
 
 // Middleware
-app.use(cors());
 app.use(express.json()); // Parse JSON bodies
 
 // Stripe webhook handler (must be before express.json() to get raw body)
