@@ -783,6 +783,15 @@ const GuestResponse = () => {
             // For "maybe" or "not_attending" - show notes and submit directly
             <div className="space-y-6">
               <div className="text-center mb-4">
+                <button
+                  onClick={() => {
+                    setShowStatusButtons(true);
+                    setShowGuestCount(false);
+                  }}
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline mb-4 block"
+                >
+                  ← חזרה לבחירת סטטוס
+                </button>
                 <p className="text-lg font-medium text-gray-700">
                   {formData.response === 'maybe' 
                     ? 'תודה על העדכון! נשמח לעדכון נוסף בהמשך.'
