@@ -673,16 +673,10 @@ const GuestResponse = () => {
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
-                  {formData.response === 'attending' 
-                    ? 'כמה אורחים מתכוונים להגיע?'
-                    : formData.response === 'maybe'
-                    ? 'כמה אורחים עשויים להגיע?'
-                    : 'כמה אורחים לא יגיעו?'}
+                  כמה אורחים מתכוונים להגיע?
                 </h2>
                 <p className="text-gray-600">
-                  {formData.response === 'attending' 
-                    ? 'בחרו את מספר האורחים'
-                    : 'אנא עדכנו אותנו'}
+                  בחרו את מספר האורחים
                 </p>
               </div>
               
