@@ -13,6 +13,8 @@ class WebhookService {
   private pollingInterval: number | null = null;
   private isPolling = false;
   private processedUpdates = new Set<string>(); // Track processed updates to show toast only once
+  private manualChanges = new Map<string, number>(); // Track manual changes: "eventId-guestId" -> timestamp
+  private readonly MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds protection after manual change
 
   // Start polling for webhook updates
   startPolling(intervalMs: number = 5000) {
@@ -190,9 +192,37 @@ class WebhookService {
         if (foundGuest && foundEventId) {
           // Create unique key for this update to avoid duplicate toasts
           const updateKey = `${foundEventId}-${foundGuest.id}-${update.status}-${update.responseDate}`;
+          const guestKey = `${foundEventId}-${foundGuest.id}`;
           
           // Check if we already processed this exact update
           const isNewUpdate = !this.processedUpdates.has(updateKey);
+          
+          // CRITICAL: Check if there was a manual change recently (within protection time)
+          const lastManualChange = this.manualChanges.get(guestKey);
+          const now = Date.now();
+          if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+            const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
+            console.log(`🛡️ BLOCKING webhook update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
+            // Still remove from backend to prevent it from being processed again
+            try {
+              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  removeAllForPhone: true
+                })
+              });
+              if (removeResponse.ok) {
+                console.log(`✅ Removed blocked update from backend`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove blocked update from backend:', error);
+            }
+            continue; // Skip to next update
+          }
           
           // Ensure status is correctly set
           const newStatus = update.status as 'confirmed' | 'declined' | 'pending' | 'maybe';
@@ -200,7 +230,8 @@ class WebhookService {
           console.log(`🔍 Checking if update needed for ${foundGuest.firstName} ${foundGuest.lastName}:`, {
             currentStatus: foundGuest.rsvpStatus,
             newStatus: newStatus,
-            isNewUpdate: isNewUpdate
+            isNewUpdate: isNewUpdate,
+            lastManualChange: lastManualChange ? `${Math.round((now - lastManualChange) / 1000)}s ago` : 'none'
           });
           
           // CRITICAL: Only update if status is DIFFERENT from current status
@@ -381,6 +412,22 @@ class WebhookService {
     } else {
       console.warn(`⚠️ Guest not found for phone number: ${formattedPhone}`);
       return { success: false, error: 'Guest not found' };
+    }
+  }
+}
+
+  // Mark a manual change to prevent webhook from overwriting it
+  markManualChange(eventId: string, guestId: string) {
+    const guestKey = `${eventId}-${guestId}`;
+    this.manualChanges.set(guestKey, Date.now());
+    console.log(`🛡️ Marked manual change for ${guestKey} - webhook updates will be blocked for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s`);
+    
+    // Clean up old manual change entries (older than protection time)
+    const now = Date.now();
+    for (const [key, timestamp] of this.manualChanges.entries()) {
+      if (now - timestamp > this.MANUAL_CHANGE_PROTECTION_TIME) {
+        this.manualChanges.delete(key);
+      }
     }
   }
 }

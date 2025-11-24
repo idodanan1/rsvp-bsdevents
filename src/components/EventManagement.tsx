@@ -246,6 +246,10 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuestStatus = async (guestId: string, status: string) => {
     try {
+      // CRITICAL: Mark this as a manual change to prevent webhook from overwriting it
+      const { webhookService } = await import('../services/webhookService');
+      webhookService.markManualChange(currentEvent.id, guestId);
+      
       await updateGuest(currentEvent.id, guestId, {
         rsvpStatus: status as any,
         responseDate: new Date()
