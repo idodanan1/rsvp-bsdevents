@@ -338,16 +338,83 @@ const CreateEvent: React.FC = () => {
         {/* Invitation Image */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            קישור לתמונת הזמנה (אופציונלי)
+            תמונת הזמנה (אופציונלי)
           </label>
-          <input
-            type="url"
-            name="invitationImageUrl"
-            value={formData.invitationImageUrl}
-            onChange={handleInputChange}
-            className="input-field"
-            placeholder="https://example.com/invitation.jpg"
-          />
+          
+          {/* File upload option */}
+          <div className="mb-2">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  try {
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    
+                    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+                    const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
+                      method: 'POST',
+                      body: formData
+                    });
+                    
+                    if (response.ok) {
+                      const data = await response.json();
+                      setFormData(prev => ({
+                        ...prev,
+                        invitationImageUrl: data.imageUrl
+                      }));
+                      toast.success('✅ התמונה הועלתה בהצלחה!');
+                    } else {
+                      toast.error('שגיאה בהעלאת התמונה');
+                    }
+                  } catch (error) {
+                    console.error('Error uploading image:', error);
+                    toast.error('שגיאה בהעלאת התמונה');
+                  }
+                }
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              העלה תמונה מהמחשב - היא תישמר אוטומטית במערכת
+            </p>
+          </div>
+          
+          {/* URL input option */}
+          <div className="mt-2">
+            <div className="text-center text-gray-500 text-sm mb-2">או</div>
+            <input
+              type="url"
+              name="invitationImageUrl"
+              value={formData.invitationImageUrl}
+              onChange={handleInputChange}
+              className="input-field"
+              placeholder="https://example.com/invitation.jpg"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              הזן קישור ישיר לתמונה (אופציונלי)
+            </p>
+          </div>
+          
+          {/* Image preview */}
+          {formData.invitationImageUrl && (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-gray-700 mb-2">תצוגה מקדימה:</p>
+              <div className="border border-gray-300 rounded-lg p-2 bg-gray-50">
+                <img
+                  src={formData.invitationImageUrl}
+                  alt="תצוגה מקדימה"
+                  className="max-w-full h-32 object-contain rounded"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          
           <p className="text-xs text-gray-500 mt-1">
             תמונה זו תוצג בכל ההודעות שנשלחו לאורחים
           </p>

@@ -68,15 +68,36 @@ const EventViewer: React.FC = () => {
     await updateEvent(currentEvent.id, { eventImages: updatedImages });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const result = event.target?.result as string;
-        setNewImageUrl(result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setNewImageUrl(data.imageUrl);
+          // Auto-add the image to the event
+          if (currentEvent && data.imageUrl) {
+            const updatedImages = [...(currentEvent.eventImages || []), data.imageUrl];
+            await updateEvent(currentEvent.id, { eventImages: updatedImages });
+            setShowImageUpload(false);
+            setNewImageUrl('');
+          }
+        } else {
+          alert('שגיאה בהעלאת התמונה');
+        }
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('שגיאה בהעלאת התמונה');
+      }
     }
   };
 
