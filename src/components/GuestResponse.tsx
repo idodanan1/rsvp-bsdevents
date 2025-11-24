@@ -94,7 +94,7 @@ const GuestResponse = () => {
   });
   
   const [showGuestCount, setShowGuestCount] = useState(false);
-  const [showStatusButtons, setShowStatusButtons] = useState(false);
+  const [showStatusButtons, setShowStatusButtons] = useState(true); // Start with buttons visible
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
