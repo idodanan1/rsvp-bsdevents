@@ -756,6 +756,8 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
+          let updatedEvent: Event | null = null;
+          
           set(state => {
             const updatedEvents = state.events.map(event =>
               event.id === eventId
@@ -765,10 +767,14 @@ export const useEventStore = create<EventStore>()(
                       guest.id === guestId
                         ? { ...guest, ...updates }
                         : guest
-                    )
+                    ),
+                    updatedAt: new Date()
                   }
                 : event
             );
+            
+            // Find the updated event for API sync
+            updatedEvent = updatedEvents.find(e => e.id === eventId) || null;
             
             const updatedCurrentEvent = state.currentEvent?.id === eventId 
               ? {
@@ -787,7 +793,40 @@ export const useEventStore = create<EventStore>()(
               isLoading: false
             };
           });
+          
+          // CRITICAL: Sync to API to prevent auto-refresh from overwriting manual changes
+          if (updatedEvent) {
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            try {
+              console.log('🌐 Syncing guest update to API...');
+              console.log('📤 Sending updated event:', {
+                eventId: updatedEvent.id,
+                guestId: guestId,
+                updates: updates
+              });
+              
+              const response = await fetch(`${BACKEND_URL}/api/events`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedEvent)
+              });
+              
+              if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Guest update synced to API:', result);
+              } else {
+                const errorText = await response.text();
+                console.warn('⚠️ API sync failed:', response.status, errorText);
+              }
+            } catch (error) {
+              console.warn('⚠️ Failed to sync guest update to API (will use localStorage):', error);
+              // Continue - localStorage is already updated by Zustand persist
+            }
+          }
         } catch (error) {
+          console.error('❌ Error in updateGuest:', error);
           set({ error: 'שגיאה בעדכון מוזמן', isLoading: false });
         }
       },
