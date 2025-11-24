@@ -212,6 +212,30 @@ class WebhookService {
           // Mark this update as processed
           this.processedUpdates.add(updateKey);
           
+          // IMPORTANT: Remove this update from backend to prevent infinite loop
+          // After processing, we should notify backend to remove it
+          // For now, we'll track processed updates and ignore duplicates
+          try {
+            // Try to remove processed update from backend
+            const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phoneNumber: update.phoneNumber,
+                status: update.status,
+                responseDate: update.responseDate
+              })
+            });
+            if (removeResponse.ok) {
+              console.log('✅ Removed processed update from backend');
+            }
+          } catch (error) {
+            // Ignore errors - update is already processed locally
+            console.log('ℹ️ Could not remove update from backend (will be cleaned up automatically)');
+          }
+          
           // Verify the update was applied
           const verifyState = useEventStore.getState();
           const verifyEvent = verifyState.events.find(e => e.id === foundEventId);

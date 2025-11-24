@@ -1288,6 +1288,14 @@ app.get('/api/guests/pending-updates', (req, res) => {
   pendingUpdates.length = 0;
   pendingUpdates.push(...filteredUpdates);
   
+  // IMPORTANT: Remove processed updates from pendingUpdates to prevent infinite loop
+  // After frontend processes an update, it should call DELETE endpoint to remove it
+  // But for now, we'll remove updates older than 1 minute that have been returned
+  const oneMinuteAgo = Date.now() - (60 * 1000);
+  const stillPending = pendingUpdates.filter(u => u.timestamp > oneMinuteAgo);
+  pendingUpdates.length = 0;
+  pendingUpdates.push(...stillPending);
+  
   console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
   if (formattedUpdates.length > 0) {
     console.log('📤 Updates being returned:', formattedUpdates.map(u => ({ 
