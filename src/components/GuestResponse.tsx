@@ -231,13 +231,22 @@ const GuestResponse = () => {
       }
     }
     
-    if (!event) {
-      console.log('❌ Event not found for ID:', eventId);
-      setSubmitStatus('not_found');
-    } else if (guestId && !finalGuest) {
+    // Wait a bit for directEvent to load before showing error
+    if (!event && eventId) {
+      // Give it a moment to load from localStorage
+      const timeout = setTimeout(() => {
+        if (!directEvent) {
+          console.log('❌ Event not found for ID:', eventId);
+          setSubmitStatus('not_found');
+        }
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+    
+    if (event && guestId && !finalGuest) {
       console.log('❌ Guest not found for ID:', guestId, 'in event:', event.id);
       setSubmitStatus('not_found');
-    } else if (finalGuest) {
+    } else if (finalGuest || !guestId) {
       // Pre-fill form with guest data
       setFormData(prev => ({
         ...prev,
