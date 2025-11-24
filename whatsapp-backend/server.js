@@ -713,6 +713,125 @@ async function handleIncomingMessage(message) {
   }
 }
 
+// Extract guest count from text message
+function extractGuestCount(text) {
+  if (!text) return null;
+  
+  // Try to find numbers first
+  const numberMatch = text.match(/\d+/);
+  if (numberMatch) {
+    const count = parseInt(numberMatch[0], 10);
+    if (count > 0 && count <= 100) { // Reasonable range
+      return count;
+    }
+  }
+  
+  // Try Hebrew number words
+  const hebrewNumbers = {
+    'אחד': 1, 'אחת': 1, 'שניים': 2, 'שתיים': 2, 'שלושה': 3, 'שלוש': 3,
+    'ארבעה': 4, 'ארבע': 4, 'חמישה': 5, 'חמש': 5, 'שישה': 6, 'שש': 6,
+    'שבעה': 7, 'שבע': 7, 'שמונה': 8, 'תשעה': 9, 'תשע': 9, 'עשרה': 10, 'עשר': 10
+  };
+  
+  const textLower = text.toLowerCase();
+  for (const [word, num] of Object.entries(hebrewNumbers)) {
+    if (textLower.includes(word)) {
+      return num;
+    }
+  }
+  
+  // Try common phrases
+  if (textLower.includes('רק אני') || textLower.includes('אני לבד')) {
+    return 1;
+  }
+  if (textLower.includes('אני ו') || textLower.includes('אני +')) {
+    // Try to extract number after "אני ו" or "אני +"
+    const afterMatch = text.match(/אני\s*[ו+]\s*(\d+)/);
+    if (afterMatch) {
+      return parseInt(afterMatch[1], 10) + 1; // +1 for the person themselves
+    }
+    return 2; // Default to 2 if "אני ו" without number
+  }
+  
+  return null;
+}
+
+// Update guest count by phone number
+async function updateGuestCountByPhone(phoneNumber, guestCount) {
+  try {
+    const formattedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const phoneWith0 = formattedPhone.replace(/^972/, '0');
+    
+    console.log(`🔄 Updating guest count for ${phoneNumber} to ${guestCount}`);
+    
+    // Store update in pending updates array
+    const updateData = {
+      phoneNumber: phoneWith0,
+      originalPhoneNumber: formattedPhone,
+      guestCount: guestCount,
+      timestamp: Date.now()
+    };
+    
+    // Add to pending updates
+    pendingUpdates.push(updateData);
+    console.log('✅ Guest count update stored:', updateData);
+  } catch (error) {
+    console.error('❌ Error updating guest count:', error);
+  }
+}
+
+// Send follow-up message asking for guest count
+async function sendGuestCountQuestion(phoneNumber) {
+  try {
+    const questionMessage = 'כמה אנשים אתם מתכוונים להגיע?';
+    
+    console.log(`📤 Sending guest count question to ${phoneNumber}`);
+    
+    // Use WhatsApp Business API to send the message
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    
+    if (!accessToken || !phoneNumberId) {
+      console.warn('⚠️ WhatsApp credentials not configured - cannot send guest count question');
+      return;
+    }
+    
+    // Format phone number
+    const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
+    
+    // Send as regular text message (not template - this is a follow-up)
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: questionMessage
+      }
+    };
+    
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ Guest count question sent successfully');
+    } else {
+      console.warn('⚠️ Failed to send guest count question:', response.status);
+    }
+  } catch (error) {
+    console.error('❌ Error sending guest count question:', error);
+    // Don't throw - this is not critical
+  }
+}
+
 // Update guest status by phone number
 async function updateGuestStatusByPhone(phoneNumber, status) {
   try {
