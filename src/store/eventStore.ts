@@ -117,11 +117,28 @@ export const useEventStore = create<EventStore>()(
                     return apiEvent; // Use API event if no local version
                   }
                   
-                  // Merge guests, preserving manual changes
+                  // Log API event guests for debugging
+                console.log(`🔍 Merging event ${apiEvent.id}:`, {
+                  apiGuestsCount: apiEvent.guests.length,
+                  localGuestsCount: localEvent.guests.length,
+                  apiGuestsWithAttendance: apiEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked').map(g => ({
+                    id: g.id,
+                    name: `${g.firstName} ${g.lastName}`,
+                    actualAttendance: g.actualAttendance
+                  })),
+                  localGuestsWithAttendance: localEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked').map(g => ({
+                    id: g.id,
+                    name: `${g.firstName} ${g.lastName}`,
+                    actualAttendance: g.actualAttendance
+                  }))
+                });
+                
+                // Merge guests, preserving manual changes
                   const mergedGuests = apiEvent.guests.map(apiGuest => {
                     const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
                     
                     if (!localGuest) {
+                      console.log(`➕ New guest from API: ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id})`);
                       return apiGuest; // Use API guest if no local version
                     }
                     
@@ -130,15 +147,18 @@ export const useEventStore = create<EventStore>()(
                     const lastManualChange = cleanedManualChanges.get(guestKey);
                     const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
                     
-                    // Log comparison for debugging
-                    if (apiGuest.actualAttendance !== localGuest.actualAttendance) {
-                      console.log(`🔄 actualAttendance mismatch for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
-                        api: apiGuest.actualAttendance,
-                        local: localGuest.actualAttendance,
-                        hasRecentManualChange: hasRecentManualChange,
-                        timeSinceChange: hasRecentManualChange ? `${Math.round((now - lastManualChange) / 1000)}s` : 'N/A'
-                      });
-                    }
+                    // Log comparison for debugging - ALWAYS log, not just on mismatch
+                    console.log(`🔍 Comparing guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
+                      api_actualAttendance: apiGuest.actualAttendance,
+                      local_actualAttendance: localGuest.actualAttendance,
+                      match: apiGuest.actualAttendance === localGuest.actualAttendance,
+                      hasRecentManualChange: hasRecentManualChange,
+                      timeSinceChange: hasRecentManualChange ? `${Math.round((now - lastManualChange) / 1000)}s` : 'N/A',
+                      api_guestCount: apiGuest.guestCount,
+                      local_guestCount: localGuest.guestCount,
+                      api_rsvpStatus: apiGuest.rsvpStatus,
+                      local_rsvpStatus: localGuest.rsvpStatus
+                    });
                     
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
