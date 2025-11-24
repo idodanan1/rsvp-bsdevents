@@ -414,7 +414,6 @@ class WebhookService {
       return { success: false, error: 'Guest not found' };
     }
   }
-}
 
   // Mark a manual change to prevent webhook from overwriting it
   markManualChange(eventId: string, guestId: string) {
