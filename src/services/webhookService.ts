@@ -166,15 +166,28 @@ class WebhookService {
           // Check if we already processed this exact update
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
+          // Ensure status is correctly set
+          const newStatus = update.status as 'confirmed' | 'declined' | 'pending' | 'maybe';
+          
+          console.log(`🔍 Checking if update needed for ${foundGuest.firstName} ${foundGuest.lastName}:`, {
+            currentStatus: foundGuest.rsvpStatus,
+            newStatus: newStatus,
+            isNewUpdate: isNewUpdate
+          });
+          
+          // Only update if status is different OR if this is a new update
+          // This prevents overwriting manual changes if the status already matches
+          if (foundGuest.rsvpStatus === newStatus && !isNewUpdate) {
+            console.log(`⏭️ Skipping update - status already matches and update was already processed`);
+            continue; // Skip to next update
+          }
+          
           console.log(`✅ Updating guest ${foundGuest.firstName} ${foundGuest.lastName} status to ${update.status}`);
           console.log(`   Current status: ${foundGuest.rsvpStatus}`);
           console.log(`   New status: ${update.status}`);
           console.log(`   Guest ID: ${foundGuest.id}`);
           console.log(`   Event ID: ${foundEventId}`);
           console.log(`   Is new update: ${isNewUpdate}`);
-
-          // Ensure status is correctly set
-          const newStatus = update.status as 'confirmed' | 'declined' | 'pending' | 'maybe';
           
           const updatedGuest = {
             ...foundGuest,
@@ -193,9 +206,11 @@ class WebhookService {
             }
           });
 
-          // Always update the guest status (even if we already showed toast)
-          // This allows users to change their response multiple times
+          // Update the guest status
           await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+          
+          // Mark this update as processed
+          this.processedUpdates.add(updateKey);
           
           // Verify the update was applied
           const verifyState = useEventStore.getState();
@@ -205,13 +220,6 @@ class WebhookService {
           
           if (verifyGuest?.rsvpStatus !== newStatus) {
             console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
-            // Try to force update again
-            console.log('🔄 Attempting force update...');
-            await updateGuestResponse(foundEventId, foundGuest.id, {
-              ...foundGuest,
-              rsvpStatus: newStatus,
-              responseDate: new Date(update.responseDate || Date.now())
-            });
           }
           
           console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
@@ -224,7 +232,6 @@ class WebhookService {
           
           // Show toast notification only once per unique update
           if (isNewUpdate) {
-            this.processedUpdates.add(updateKey);
             const toast = await import('react-hot-toast');
             const statusText = update.status === 'confirmed' ? 'אישר הגעה' : 
                              update.status === 'declined' ? 'דחה הזמנה' : 
