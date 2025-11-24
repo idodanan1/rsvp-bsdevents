@@ -207,7 +207,7 @@ class WebhookService {
           // This prevents overwriting manual changes - if status already matches, skip the update
           if (foundGuest.rsvpStatus === newStatus) {
             console.log(`⏭️ Skipping update - status already matches current status (${newStatus}). This prevents overwriting manual changes.`);
-            // Still remove from backend to prevent it from being processed again
+            // CRITICAL: Remove ALL updates for this phone number to prevent old updates from coming back
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                 method: 'DELETE',
@@ -216,16 +216,15 @@ class WebhookService {
                 },
                 body: JSON.stringify({
                   phoneNumber: update.phoneNumber,
-                  status: update.status,
-                  responseDate: update.responseDate,
-                  guestCount: update.guestCount
+                  removeAllForPhone: true // Remove ALL updates for this phone, not just this one
                 })
               });
               if (removeResponse.ok) {
-                console.log(`✅ Removed duplicate update from backend (status already matches)`);
+                const removeData = await removeResponse.json();
+                console.log(`✅ Removed all updates for phone ${update.phoneNumber} from backend (${removeData.removed || 0} updates removed)`);
               }
             } catch (error) {
-              console.warn('⚠️ Could not remove duplicate update from backend:', error);
+              console.warn('⚠️ Could not remove updates from backend:', error);
             }
             continue; // Skip to next update
           }

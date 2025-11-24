@@ -1042,10 +1042,10 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
     );
     
     if (existingSameStatusIndex === -1) {
-      // Remove old updates for this phone number (keep only the latest)
+      // CRITICAL: Remove ALL old updates for this phone number (regardless of status)
+      // This prevents old "confirmed" updates from overwriting new "declined" updates
       const otherUpdates = pendingUpdates.filter(u => 
-        !(u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) ||
-        (Date.now() - u.timestamp) > 60000 // Keep if older than 1 minute
+        !(u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone)
       );
       pendingUpdates.length = 0;
       pendingUpdates.push(...otherUpdates);
