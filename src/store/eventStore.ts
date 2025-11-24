@@ -93,9 +93,24 @@ export const useEventStore = create<EventStore>()(
                 }
                 
                 // CRITICAL: Merge API events with local events, but preserve manual changes
+                console.log('🔍 Starting merge process:', {
+                  apiEventsCount: apiEvents.length,
+                  localEventsCount: localEvents.length,
+                  apiEventIds: apiEvents.map(e => e.id),
+                  localEventIds: localEvents.map(e => e.id)
+                });
+                
                 const state = get();
                 const now = Date.now();
                 const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+                
+                console.log('🔍 Manual changes before cleanup:', {
+                  total: state.manualChanges.size,
+                  entries: Array.from(state.manualChanges.entries()).map(([key, timestamp]) => ({
+                    key,
+                    age: `${Math.round((now - timestamp) / 1000)}s`
+                  }))
+                });
                 
                 // Clean up old manual changes
                 const cleanedManualChanges = new Map<string, number>();
@@ -108,12 +123,28 @@ export const useEventStore = create<EventStore>()(
                   set({ manualChanges: cleanedManualChanges });
                 }
                 
+                console.log('🔍 Manual changes after cleanup:', {
+                  total: cleanedManualChanges.size,
+                  entries: Array.from(cleanedManualChanges.entries()).map(([key, timestamp]) => ({
+                    key,
+                    age: `${Math.round((now - timestamp) / 1000)}s`
+                  }))
+                });
+                
                 // Merge API events with local events, preserving manual changes
                 const allEvents = apiEvents.map(apiEvent => {
                   // Find corresponding local event
                   const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
                   
+                  console.log(`🔍 Processing event ${apiEvent.id}:`, {
+                    hasLocalEvent: !!localEvent,
+                    localEventId: localEvent?.id,
+                    apiGuestsCount: apiEvent.guests?.length || 0,
+                    localGuestsCount: localEvent?.guests?.length || 0
+                  });
+                  
                   if (!localEvent) {
+                    console.log(`➡️ No local event found for ${apiEvent.id}, using API event directly`);
                     return apiEvent; // Use API event if no local version
                   }
                   
