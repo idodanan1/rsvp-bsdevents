@@ -170,7 +170,12 @@ class WhatsAppService {
           // Always send image as header component if we have a valid HTTPS image URL
           // This ensures the image is displayed with the message
           // Priority: headerImageUrl from templateParams > imageUrl from messageData
-          const headerImageUrl = (messageData.templateParams as any)?.headerImageUrl || finalImageUrl;
+          let headerImageUrl = (messageData.templateParams as any)?.headerImageUrl || finalImageUrl;
+          
+          // CRITICAL FIX: If template requires header image but no image provided,
+          // use a default placeholder image to prevent error 132012
+          // Some templates (like "aa") require header image - Meta will reject without it
+          const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
           // Check if we have a valid HTTPS image URL for header
           if (headerImageUrl && headerImageUrl.startsWith('https://')) {
@@ -189,19 +194,13 @@ class WhatsAppService {
             });
             console.log('🖼️ ✅ Adding header image to template:', headerImageUrl);
             console.log('🖼️ ✅ Image will be displayed with the message');
-          } else if (finalImageUrl && !finalImageUrl.startsWith('https://')) {
-            // Local file path detected - cannot send as header image
-            console.warn('⚠️ Image URL is not a valid HTTPS URL:', finalImageUrl);
-            console.warn('⚠️ Please upload image to a public HTTPS URL (e.g., cloud storage)');
-            console.warn('⚠️ Image will not be sent with the message');
-          } else if (!finalImageUrl) {
-            console.log('ℹ️ No image URL provided - message will be sent without image');
+          } else {
+            // No valid image URL - check if template might require header image
+            // For templates like "aa" that require header, we'll add placeholder
+            // This will be handled in error handling if Meta rejects it
+            console.log('ℹ️ No image URL provided - will try without header first');
+            console.log('💡 If template requires header image, error 132012 will occur and we\'ll add placeholder');
           }
-          
-          // Note: If template in Meta requires header image but we don't send one,
-          // Meta will return error 132012: "Format mismatch, expected IMAGE, received UNKNOWN"
-          // Solution: Make sure the template in Meta has a header image component configured,
-          // and always provide a valid HTTPS image URL
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
           if (messageData.buttons && messageData.buttons.length > 0) {
@@ -306,40 +305,65 @@ class WhatsAppService {
         // Error 132012: Template expects header image but we're not sending one
         if (errorCode === 132012 && errorDetails.includes('header') && errorDetails.includes('expected IMAGE')) {
           console.warn('⚠️ Template requires header image but no image was provided');
-          console.warn('💡 Solution: Add an image to the event or campaign');
-          console.warn('💡 Alternative: Update the template in Meta to not require header image');
+          console.warn('💡 Adding placeholder image to satisfy template requirement...');
           
-          // Try to send without header (may not work if template requires it)
+          // Template requires header image - add placeholder image
+          const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
+          
+          // Build components with placeholder header image
+          const componentsWithHeader: any[] = [
+            {
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: {
+                    link: DEFAULT_PLACEHOLDER_IMAGE
+                  }
+                }
+              ]
+            }
+          ];
+          
+          // Add body parameters if they exist
           if (messagePayload.template?.components) {
-            const componentsWithoutHeader = messagePayload.template.components.filter(
-              (comp: any) => comp.type !== 'header'
+            const bodyComponents = messagePayload.template.components.filter(
+              (comp: any) => comp.type === 'body' || comp.type === 'button'
             );
-            
-            const retryPayload = {
-              ...messagePayload,
-              template: {
-                ...messagePayload.template,
-                components: componentsWithoutHeader.length > 0 ? componentsWithoutHeader : undefined
-              }
-            };
-            
-            if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
-              delete retryPayload.template.components;
+            componentsWithHeader.push(...bodyComponents);
+          }
+          
+          const retryPayload = {
+            ...messagePayload,
+            template: {
+              ...messagePayload.template,
+              components: componentsWithHeader
             }
-            
-            console.log('🔄 Retrying without header image...');
-            response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(retryPayload)
-            });
-            
-            if (response.ok) {
-              console.log('✅ Message sent successfully without header image');
-            }
+          };
+          
+          console.log('🔄 Retrying with placeholder header image...');
+          console.log('📤 RETRY PAYLOAD (with placeholder image):');
+          console.log(JSON.stringify(retryPayload, null, 2));
+          
+          response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(retryPayload)
+          });
+          
+          console.log('📊 Retry response status:', response.status);
+          
+          if (response.ok) {
+            console.log('✅ Message sent successfully with placeholder header image');
+            console.warn('💡 Note: Used placeholder image because template requires header image');
+            console.warn('💡 To use your own image, upload it to a public HTTPS URL and add it to the event/campaign');
+          } else {
+            // Still failed - log the error
+            const errorData2 = await response.json().catch(() => ({}));
+            console.error('❌ Retry with placeholder image also failed:', errorData2);
           }
         }
         
