@@ -91,8 +91,66 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                // Merge API events with any remaining local events
-                const allEvents = [...apiEvents];
+                // CRITICAL: Merge API events with local events, but preserve manual changes
+                // Get webhook service to check for manual changes
+                const { webhookService } = await import('../services/webhookService');
+                const now = Date.now();
+                const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+                
+                // Merge API events with local events, preserving manual changes
+                const allEvents = apiEvents.map(apiEvent => {
+                  // Find corresponding local event
+                  const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
+                  
+                  if (!localEvent) {
+                    return apiEvent; // Use API event if no local version
+                  }
+                  
+                  // Merge guests, preserving manual changes
+                  const mergedGuests = apiEvent.guests.map(apiGuest => {
+                    const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
+                    
+                    if (!localGuest) {
+                      return apiGuest; // Use API guest if no local version
+                    }
+                    
+                    // Check if there was a manual change for this guest
+                    const guestKey = `${apiEvent.id}-${apiGuest.id}`;
+                    const lastManualChange = (webhookService as any).manualChanges?.get?.(guestKey);
+                    const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
+                    
+                    if (hasRecentManualChange) {
+                      // Preserve local guest data (manual change is recent)
+                      console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id}`);
+                      return localGuest;
+                    }
+                    
+                    // No recent manual change - merge: prefer API data but keep local if API is missing fields
+                    return {
+                      ...apiGuest,
+                      // Only override with local if API value is missing or undefined
+                      guestCount: apiGuest.guestCount !== undefined ? apiGuest.guestCount : localGuest.guestCount,
+                      rsvpStatus: apiGuest.rsvpStatus || localGuest.rsvpStatus,
+                      notes: apiGuest.notes !== undefined ? apiGuest.notes : localGuest.notes
+                    };
+                  });
+                  
+                  // Add any local guests that aren't in API
+                  const localOnlyGuests = localEvent.guests.filter((lg: Guest) => 
+                    !apiEvent.guests.find((ag: Guest) => ag.id === lg.id)
+                  );
+                  
+                  return {
+                    ...apiEvent,
+                    guests: [...mergedGuests, ...localOnlyGuests],
+                    updatedAt: new Date(Math.max(
+                      new Date(apiEvent.updatedAt || 0).getTime(),
+                      new Date(localEvent.updatedAt || 0).getTime()
+                    ))
+                  };
+                });
+                
+                // Add any remaining local events that aren't in API
                 const remainingLocalEvents = localEvents.filter((e: Event) => 
                   e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
                 );
