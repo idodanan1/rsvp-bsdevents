@@ -1221,13 +1221,21 @@ app.post('/api/guests/update-status', async (req, res) => {
 // API endpoint to get pending guest status updates
 // Handle OPTIONS preflight for pending-updates endpoint
 app.options('/api/guests/pending-updates', (req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   res.sendStatus(200);
 });
 
 app.get('/api/guests/pending-updates', (req, res) => {
+  // CRITICAL: Set CORS headers FIRST, before any other operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
   // Return pending updates (but don't clear them immediately - let frontend process them first)
   const updates = [...pendingUpdates];
   
@@ -1271,11 +1279,6 @@ app.get('/api/guests/pending-updates', (req, res) => {
       console.log('📭 No pending updates at all');
     }
   }
-  
-  // Explicitly set CORS headers
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   
   res.json({
     success: true,
