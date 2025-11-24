@@ -47,30 +47,33 @@ const Accessibility: React.FC = () => {
 
       {/* Accessibility Toolbar */}
       <div
-        className="fixed bottom-4 left-4 z-50 bg-white rounded-lg shadow-xl border border-gray-200 p-3"
+        className="fixed bottom-4 left-4 z-50 bg-white rounded-xl shadow-2xl border-2 border-teal-200 p-4"
         role="toolbar"
         aria-label="כלי נגישות"
       >
-        <div className="flex flex-col space-y-2">
+        <div className="flex flex-col space-y-3">
+          <div className="text-xs font-semibold text-teal-700 mb-1 text-center border-b border-teal-100 pb-2">
+            נגישות
+          </div>
           <button
             onClick={increaseFont}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-3 hover:bg-teal-50 rounded-lg transition-all hover:scale-110 active:scale-95 border border-gray-200 hover:border-teal-300"
             aria-label="הגדל טקסט"
             title="הגדל טקסט"
           >
-            <ZoomIn className="w-5 h-5 text-gray-700" />
+            <ZoomIn className="w-6 h-6 text-teal-600" />
           </button>
           <button
             onClick={decreaseFont}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-3 hover:bg-teal-50 rounded-lg transition-all hover:scale-110 active:scale-95 border border-gray-200 hover:border-teal-300"
             aria-label="הקטן טקסט"
             title="הקטן טקסט"
           >
-            <ZoomOut className="w-5 h-5 text-gray-700" />
+            <ZoomOut className="w-6 h-6 text-teal-600" />
           </button>
           <button
             onClick={resetFont}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-xs"
+            className="p-2 hover:bg-teal-50 rounded-lg transition-all hover:scale-110 active:scale-95 border border-gray-200 hover:border-teal-300 text-xs font-semibold text-teal-700"
             aria-label="איפוס גודל טקסט"
             title="איפוס גודל טקסט"
           >
@@ -78,22 +81,22 @@ const Accessibility: React.FC = () => {
           </button>
           <button
             onClick={() => setHighContrast(!highContrast)}
-            className={`p-2 rounded-lg transition-colors ${
-              highContrast ? 'bg-teal-600 text-white' : 'hover:bg-gray-100'
+            className={`p-3 rounded-lg transition-all hover:scale-110 active:scale-95 border ${
+              highContrast ? 'bg-teal-600 text-white border-teal-700' : 'border-gray-200 hover:border-teal-300 hover:bg-teal-50'
             }`}
             aria-label={highContrast ? 'כבה ניגודיות גבוהה' : 'הפעל ניגודיות גבוהה'}
             title={highContrast ? 'כבה ניגודיות גבוהה' : 'הפעל ניגודיות גבוהה'}
             aria-pressed={highContrast}
           >
-            <Contrast className="w-5 h-5" />
+            <Contrast className={`w-6 h-6 ${highContrast ? 'text-white' : 'text-teal-600'}`} />
           </button>
           <button
             onClick={() => setShowKeyboardShortcuts(!showKeyboardShortcuts)}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-3 hover:bg-teal-50 rounded-lg transition-all hover:scale-110 active:scale-95 border border-gray-200 hover:border-teal-300"
             aria-label="הצג קיצורי מקלדת"
             title="הצג קיצורי מקלדת"
           >
-            <Keyboard className="w-5 h-5 text-gray-700" />
+            <Keyboard className="w-6 h-6 text-teal-600" />
           </button>
         </div>
       </div>

@@ -1368,6 +1368,44 @@ app.get('/api/guests/pending-updates', (req, res) => {
   });
 });
 
+// DELETE endpoint to remove a specific pending update
+app.delete('/api/guests/pending-updates', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  const { phoneNumber, status, responseDate, guestCount } = req.body;
+  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount });
+  
+  const initialLength = pendingUpdates.length;
+  
+  // Filter out the specific update that was processed
+  // Match by phone number, status, and responseDate (and guestCount if provided)
+  const filtered = pendingUpdates.filter(u => {
+    const phoneMatch = (u.phoneNumber === phoneNumber || u.originalPhoneNumber === phoneNumber);
+    const statusMatch = !status || u.status === status;
+    const dateMatch = !responseDate || u.responseDate === responseDate || 
+                      new Date(u.responseDate || u.timestamp).toISOString() === responseDate;
+    const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
+    
+    // Keep if it doesn't match all criteria
+    return !(phoneMatch && statusMatch && dateMatch && guestCountMatch);
+  });
+  
+  pendingUpdates.length = 0;
+  pendingUpdates.push(...filtered);
+  
+  const removedCount = initialLength - pendingUpdates.length;
+  console.log(`🗑️ Removed ${removedCount} update(s). Total pending: ${pendingUpdates.length}`);
+  
+  res.json({ 
+    success: true, 
+    removed: removedCount,
+    totalPending: pendingUpdates.length 
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'WhatsApp Backend is running' });
