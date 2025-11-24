@@ -1040,6 +1040,9 @@ export const useEventStore = create<EventStore>()(
             }
           }
           
+          // Import helper function once before map
+          const { generateGuestResponseLink } = await import('../utils/helpers');
+          
           // Create personalized messages for each guest
           const personalizedMessages = await Promise.all(guests.map(async (guest) => {
             let personalizedMessage = campaign.message;
@@ -1047,7 +1050,6 @@ export const useEventStore = create<EventStore>()(
             
             // Replace the generic link with guest-specific link
             // Use helper function to ensure production URL (works on all devices)
-            const { generateGuestResponseLink } = await import('../utils/helpers');
             const guestLink = generateGuestResponseLink(eventId, guest.id);
             
             // Debug: Log the guest ID being used
@@ -1115,11 +1117,11 @@ export const useEventStore = create<EventStore>()(
           // IMPORTANT: Parameters must be in the exact order as defined in the Meta template
           // Order: {{1}} = first_name, {{2}} = event_type, {{3}} = groom_name, {{4}} = bride_name,
           //        {{5}} = event_date, {{6}} = event_time, {{7}} = venue, {{8}} = guest_response_link
+          // generateGuestResponseLink is already imported above, use it here
           const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }) => {
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
             // Use helper function to ensure production URL (works on all devices)
-            const { generateGuestResponseLink } = await import('../utils/helpers');
             const guestLink = generateGuestResponseLink(eventId, guest.id);
             
             // Prepare template parameters based on the template name (use corrected templateNameForCampaign)
