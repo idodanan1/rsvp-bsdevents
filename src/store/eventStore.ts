@@ -817,19 +817,22 @@ export const useEventStore = create<EventStore>()(
                   ...event,
                   guests: event.guests.map(guest => {
                     if (guest.id === guestId) {
+                      // CRITICAL: Always use the new rsvpStatus from updatedGuest, don't merge with old
                       const mergedGuest = { 
                         ...guest, 
                         ...updatedGuest,
-                        rsvpStatus: updatedGuest.rsvpStatus, // Ensure status is explicitly set
-                        guestCount: updatedGuest.guestCount || guest.guestCount || 1, // Ensure guestCount is preserved
-                        notes: updatedGuest.notes || guest.notes || '', // Ensure notes are preserved
-                        responseDate: updatedGuest.responseDate
+                        // EXPLICITLY override rsvpStatus - don't let old value persist
+                        rsvpStatus: updatedGuest.rsvpStatus || guest.rsvpStatus, // Use new status, fallback to old only if new is missing
+                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1), // Use new count if provided
+                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''), // Use new notes if provided
+                        responseDate: updatedGuest.responseDate || guest.responseDate || new Date()
                       };
                       console.log(`🔧 Merging guest:`, {
                         old: { rsvpStatus: guest.rsvpStatus, guestCount: guest.guestCount },
                         new: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount },
                         merged: { rsvpStatus: mergedGuest.rsvpStatus, guestCount: mergedGuest.guestCount }
                       });
+                      console.log(`✅ FINAL merged guest rsvpStatus: ${mergedGuest.rsvpStatus} (should be ${updatedGuest.rsvpStatus})`);
                       return mergedGuest;
                     }
                     return guest;

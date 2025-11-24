@@ -391,21 +391,27 @@ const GuestResponse = () => {
         guestId: guestToUpdate?.id || guestId,
         response: formData.response,
         responseStatus: responseStatus,
-        guestCount: formData.guestCount
+        guestCount: formData.guestCount,
+        currentGuestStatus: guestToUpdate?.rsvpStatus
       });
       
       if (guestToUpdate) {
-        // Update existing guest
+        // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
         const updatedGuest = {
           ...guestToUpdate,
           guestCount: formData.guestCount,
           notes: formData.notes,
-          rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
+          rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe', // EXPLICITLY set status
           responseDate: new Date(),
           actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
         };
         
-        console.log('✅ Updating guest:', updatedGuest);
+        console.log('✅ Updating guest:', {
+          oldStatus: guestToUpdate.rsvpStatus,
+          newStatus: updatedGuest.rsvpStatus,
+          guestCount: updatedGuest.guestCount,
+          fullGuest: updatedGuest
+        });
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
       } else if (guestId) {
         // Try to find guest by ID in event
