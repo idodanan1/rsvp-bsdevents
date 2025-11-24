@@ -639,7 +639,7 @@ const GuestResponse = () => {
             </p>
           </div>
           {/* Main Status Button */}
-          {!showStatusButtons && !showGuestCount ? (
+          {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
             <div className="text-center space-y-4">
               <button
                 onClick={() => setShowStatusButtons(true)}
@@ -660,7 +660,7 @@ const GuestResponse = () => {
                 </button>
               </div>
             </div>
-          ) : !showGuestCount ? (
+          ) : !showGuestCount && !showConfirmButton ? (
             <div className="space-y-4">
               <div className="text-center mb-4">
                 <button
