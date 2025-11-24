@@ -449,6 +449,9 @@ const GuestResponse = () => {
       
       console.log('✅ Response submitted successfully');
       
+      // Reset confirm button state
+      setShowConfirmButton(false);
+      
       // Force refresh events to ensure the table is updated
       try {
         await fetchEvents();
