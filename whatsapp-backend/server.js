@@ -703,39 +703,48 @@ async function handleIncomingMessage(message) {
     return; // Don't process as confirmation/decline
   }
   
-  // Auto-reply to confirmations
-  if (messageText.includes('כן') || 
-      messageText.includes('אשר') ||
-      messageText.includes('מגיע') ||
-      messageText.includes('אגיע')) {
-    console.log('✅ Guest confirmed attendance via text!');
-    console.log(`   Original message: "${originalMessageText}"`);
-    console.log(`   Phone number: ${message.from}`);
-    await updateGuestStatusByPhone(message.from, 'confirmed');
-    
-    // Send automatic follow-up message asking for guest count
-    console.log('📤 About to send guest count question...');
-    try {
-      await sendGuestCountQuestion(message.from);
-      console.log('✅ Guest count question sent (or attempted)');
-    } catch (error) {
-      console.error('❌ Error sending guest count question:', error);
-      if (error.response) {
-        console.error('❌ Error response:', error.response.data);
-      }
-    }
-  } else if (messageText.includes('לא אוכל להגיע') ||
-             messageText.includes('לא מגיע') ||
-             messageText.includes('לא מגיעים') ||
-             messageText.includes('לא אוכל') ||
-             messageText.includes('לא אגיע') ||
-             messageText.includes('דחה') ||
-             (messageText.includes('לא') && (messageText.includes('מגיע') || messageText.includes('אוכל')))) {
+  // IMPORTANT: Check for decline FIRST (before checking for confirmation)
+  // This prevents "לא מגיע" from being matched as "מגיע"
+  if (messageText.includes('לא אוכל להגיע') ||
+      messageText.includes('לא מגיע') ||
+      messageText.includes('לא מגיעים') ||
+      messageText.includes('לא אוכל') ||
+      messageText.includes('לא אגיע') ||
+      messageText.includes('דחה') ||
+      (messageText.includes('לא') && (messageText.includes('מגיע') || messageText.includes('אוכל')))) {
     console.log('❌ Guest declined attendance via text!');
     console.log(`   Message text: "${originalMessageText}"`);
     // Send confirmation message first, then update status
     await sendDeclineConfirmation(message.from);
     await updateGuestStatusByPhone(message.from, 'declined');
+  } else if (messageText.includes('כן') || 
+             messageText.includes('אשר') ||
+             messageText.includes('מגיע') ||
+             messageText.includes('אגיע')) {
+    // Only check for confirmation if it's NOT a decline
+    // Make sure "מגיע" is not part of "לא מגיע"
+    if (!messageText.includes('לא')) {
+      console.log('✅ Guest confirmed attendance via text!');
+      console.log(`   Original message: "${originalMessageText}"`);
+      console.log(`   Phone number: ${message.from}`);
+      await updateGuestStatusByPhone(message.from, 'confirmed');
+      
+      // Send automatic follow-up message asking for guest count
+      console.log('📤 About to send guest count question...');
+      try {
+        await sendGuestCountQuestion(message.from);
+        console.log('✅ Guest count question sent (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending guest count question:', error);
+        if (error.response) {
+          console.error('❌ Error response:', error.response.data);
+        }
+      }
+    } else {
+      console.log('ℹ️ Message contains both "לא" and "מגיע" - treating as decline');
+      await sendDeclineConfirmation(message.from);
+      await updateGuestStatusByPhone(message.from, 'declined');
+    }
   } else {
     console.log('ℹ️ Message did not match confirmation/decline patterns:', originalMessageText);
   }
