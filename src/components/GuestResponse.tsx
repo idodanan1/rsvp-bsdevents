@@ -362,48 +362,93 @@ const GuestResponse = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const currentEvent = event || directEvent;
-    if (!currentEvent) return;
+    const currentGuest = guest || directGuest || finalGuest;
+    
+    if (!currentEvent) {
+      console.error('❌ No event found');
+      setSubmitStatus('error');
+      setErrorMessage('אירוע לא נמצא');
+      return;
+    }
     
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setErrorMessage('');
     
     try {
-      if (guestId && guest) {
+      // Determine the guest to update
+      const guestToUpdate = currentGuest || (guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null);
+      
+      // Determine the response status
+      const responseStatus = formData.response === 'attending' ? 'confirmed' : 
+                            formData.response === 'maybe' ? 'maybe' : 'declined';
+      
+      console.log('📝 Submitting response:', {
+        eventId: currentEvent.id,
+        guestId: guestToUpdate?.id || guestId,
+        response: formData.response,
+        responseStatus: responseStatus,
+        guestCount: formData.guestCount
+      });
+      
+      if (guestToUpdate) {
         // Update existing guest
         const updatedGuest = {
-          ...guest,
+          ...guestToUpdate,
           guestCount: formData.guestCount,
           notes: formData.notes,
-          rsvpStatus: (formData.response === 'attending' ? 'confirmed' : 
-                     formData.response === 'maybe' ? 'maybe' : 'declined') as 'confirmed' | 'declined' | 'maybe',
+          rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
           responseDate: new Date(),
-          actualAttendance: (formData.response === 'attending' ? 'attended' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
+          actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
         };
         
-        updateGuestResponse(eventId!, guestId, updatedGuest);
+        console.log('✅ Updating guest:', updatedGuest);
+        await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
+      } else if (guestId) {
+        // Try to find guest by ID in event
+        const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
+        if (foundGuest) {
+          const updatedGuest = {
+            ...foundGuest,
+            guestCount: formData.guestCount,
+            notes: formData.notes,
+            rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
+            responseDate: new Date(),
+            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
+          };
+          
+          console.log('✅ Updating found guest:', updatedGuest);
+          await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
+        } else {
+          // Create new guest (fallback for direct access)
+          const newGuest = {
+            id: guestId || 'guest-' + Date.now(),
+            firstName: formData.fullName.split(' ')[0] || 'אורח',
+            lastName: formData.fullName.split(' ').slice(1).join(' ') || 'דמו',
+            phoneNumber: formData.phoneNumber || '000-0000000',
+            guestCount: formData.guestCount,
+            notes: formData.notes,
+            rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
+            responseDate: new Date(),
+            channel: 'manual' as const,
+            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
+          };
+          
+          console.log('✅ Creating new guest:', newGuest);
+          await updateGuestResponse(currentEvent.id, newGuest.id, newGuest);
+        }
       } else {
-        // Create new guest (fallback for direct access)
-        const newGuest = {
-          id: 'guest-' + Date.now(),
-          firstName: formData.fullName.split(' ')[0] || 'אורח',
-          lastName: formData.fullName.split(' ').slice(1).join(' ') || 'דמו',
-          phoneNumber: formData.phoneNumber || '000-0000000',
-          guestCount: formData.guestCount,
-          notes: formData.notes,
-          rsvpStatus: (formData.response === 'attending' ? 'confirmed' : 
-                     formData.response === 'maybe' ? 'maybe' : 'declined') as 'confirmed' | 'declined' | 'maybe',
-          responseDate: new Date(),
-          channel: 'manual' as const,
-          actualAttendance: (formData.response === 'attending' ? 'attended' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
-        };
-        
-        updateGuestResponse(eventId!, newGuest.id, newGuest);
+        console.error('❌ No guest ID provided');
+        setSubmitStatus('error');
+        setErrorMessage('אורח לא נמצא');
+        return;
       }
       
+      console.log('✅ Response submitted successfully');
       setSubmitStatus('success');
       
     } catch (error) {
+      console.error('❌ Error submitting response:', error);
       setSubmitStatus('error');
       setErrorMessage('אירעה שגיאה בעדכון התגובה. אנא נסה שוב.');
     } finally {
@@ -485,6 +530,9 @@ const GuestResponse = () => {
                 ? 'תודה על התגובה! נשמח לעדכון נוסף'
                 : 'אנו מצטערים שלא תוכלו להגיע'
               }
+            </p>
+            <p className="text-green-700 text-xs mt-2">
+              סטטוס: {formData.response === 'attending' ? 'מגיע' : formData.response === 'maybe' ? 'מתלבט' : 'לא מגיע'} | מספר אורחים: {formData.guestCount}
             </p>
             {formData.notes && (
               <p className="text-green-700 text-sm mt-2">
