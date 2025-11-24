@@ -228,14 +228,16 @@ class WebhookService {
               body: JSON.stringify({
                 phoneNumber: update.phoneNumber,
                 status: update.status,
-                responseDate: update.responseDate
+                responseDate: update.responseDate,
+                guestCount: update.guestCount // Include guestCount for matching
               })
             });
             if (removeResponse.ok) {
               const removeData = await removeResponse.json();
               console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
             } else {
-              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status);
+              const errorText = await removeResponse.text();
+              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
             }
           } catch (error) {
             console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
