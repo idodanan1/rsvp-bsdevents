@@ -918,42 +918,11 @@ async function sendGuestCountQuestion(phoneNumber) {
     );
     
     if (response.status === 200) {
-      console.log('✅ Guest count question sent successfully with template "yes"');
+      console.log('✅ Guest count question sent successfully');
       console.log('📱 Response:', JSON.stringify(response.data, null, 2));
     } else {
       console.warn('⚠️ Failed to send guest count question:', response.status);
       console.warn('⚠️ Response data:', response.data);
-      // Try regular message as fallback
-      console.log('🔄 Trying regular message as fallback...');
-      const fallbackPayload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: formattedPhone,
-        type: 'text',
-        text: {
-          body: 'כמה אנשים אתם מתכוונים להגיע?'
-        }
-      };
-      try {
-        const fallbackResponse = await axios.post(
-          `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-          fallbackPayload,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        if (fallbackResponse.status === 200) {
-          console.log('✅ Guest count question sent successfully (fallback to text)');
-        }
-      } catch (fallbackError) {
-        console.error('❌ Fallback also failed:', fallbackError);
-        if (fallbackError.response) {
-          console.error('❌ Fallback error response:', fallbackError.response.data);
-        }
-      }
     }
   } catch (error) {
     console.error('❌ Error sending guest count question:', error);
@@ -1242,16 +1211,16 @@ app.get('/api/guests/pending-updates', (req, res) => {
   // Return new updates (not older than 5 minutes)
   const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
   
-  // Format updates for frontend
-  const formattedUpdates = updates
-    .filter(u => u.timestamp > fiveMinutesAgo)
-    .map(u => ({
-      phoneNumber: u.phoneNumber || u.originalPhoneNumber,
-      status: u.status, // May be undefined for guest count updates
-      responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
-      guestCount: u.guestCount // Include guest count if present
-    }));
+  // Filter recent updates first
   const recentUpdates = updates.filter(u => u.timestamp > fiveMinutesAgo);
+  
+  // Format updates for frontend
+  const formattedUpdates = recentUpdates.map(u => ({
+    phoneNumber: u.phoneNumber || u.originalPhoneNumber,
+    status: u.status, // May be undefined for guest count updates
+    responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
+    guestCount: u.guestCount // Include guest count if present
+  }));
   
   // Clear old updates (older than 1 hour) but keep recent ones
   const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -1259,13 +1228,12 @@ app.get('/api/guests/pending-updates', (req, res) => {
   pendingUpdates.length = 0;
   pendingUpdates.push(...filteredUpdates);
   
-  console.log(`📤 GET /api/guests/pending-updates - Returning ${recentUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
-  if (recentUpdates.length > 0) {
-    console.log('📤 Updates being returned:', recentUpdates.map(u => ({ 
+  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
+  if (formattedUpdates.length > 0) {
+    console.log('📤 Updates being returned:', formattedUpdates.map(u => ({ 
       phone: u.phoneNumber, 
-      originalPhone: u.originalPhoneNumber,
       status: u.status, 
-      time: new Date(u.timestamp).toLocaleTimeString() 
+      responseDate: u.responseDate
     })));
   } else {
     // Log even when no updates to help debugging
@@ -1288,8 +1256,8 @@ app.get('/api/guests/pending-updates', (req, res) => {
   
   res.json({
     success: true,
-    updates: recentUpdates,
-    updatesCount: recentUpdates.length,
+    updates: formattedUpdates, // Return formatted updates, not raw
+    updatesCount: formattedUpdates.length,
     totalPending: pendingUpdates.length
   });
 });
