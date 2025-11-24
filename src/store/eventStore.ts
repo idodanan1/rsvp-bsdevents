@@ -815,11 +815,23 @@ export const useEventStore = create<EventStore>()(
               if (event.id === eventId) {
                 updatedEvent = {
                   ...event,
-                  guests: event.guests.map(guest =>
-                    guest.id === guestId
-                      ? { ...updatedGuest }
-                      : guest
-                  ),
+                  guests: event.guests.map(guest => {
+                    if (guest.id === guestId) {
+                      const mergedGuest = { 
+                        ...guest, 
+                        ...updatedGuest,
+                        rsvpStatus: updatedGuest.rsvpStatus, // Ensure status is explicitly set
+                        responseDate: updatedGuest.responseDate
+                      };
+                      console.log(`🔧 Merging guest:`, {
+                        old: { rsvpStatus: guest.rsvpStatus },
+                        new: { rsvpStatus: updatedGuest.rsvpStatus },
+                        merged: { rsvpStatus: mergedGuest.rsvpStatus }
+                      });
+                      return mergedGuest;
+                    }
+                    return guest;
+                  }),
                   updatedAt: new Date()
                 };
                 return updatedEvent;
@@ -830,11 +842,17 @@ export const useEventStore = create<EventStore>()(
             const updatedCurrentEvent = state.currentEvent?.id === eventId 
               ? {
                   ...state.currentEvent,
-                  guests: state.currentEvent.guests.map(guest =>
-                    guest.id === guestId
-                      ? { ...updatedGuest }
-                      : guest
-                  )
+                  guests: state.currentEvent.guests.map(guest => {
+                    if (guest.id === guestId) {
+                      return {
+                        ...guest,
+                        ...updatedGuest,
+                        rsvpStatus: updatedGuest.rsvpStatus,
+                        responseDate: updatedGuest.responseDate
+                      };
+                    }
+                    return guest;
+                  })
                 }
               : state.currentEvent;
             
