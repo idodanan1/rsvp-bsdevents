@@ -130,8 +130,8 @@ const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">דשבורד</h1>
-          <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה</p>
+          <h1 className="text-3xl font-bold text-gray-900">דשבורד 🚀 מעודכן עכשיו!</h1>
+          <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {new Date().toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
           <button
