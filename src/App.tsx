@@ -35,7 +35,8 @@ function App() {
   const fetchClients = useClientStore(state => state.fetchClients);
   const { user, isAuthenticated, logout } = useUserStore();
 
-  // CRITICAL FIX: Clear invalid authentication state on app load
+  // Load data in background - don't block rendering
+  // Zustand persist already loads from localStorage instantly
   React.useEffect(() => {
     // Check if authentication state is invalid (isAuthenticated but no user)
     if (isAuthenticated && !user) {
@@ -43,10 +44,11 @@ function App() {
       logout();
     }
     
-    // Only fetch data if user is authenticated
+    // Fetch data in background (non-blocking) - data already loaded from localStorage via persist
     if (isAuthenticated && user) {
-      fetchEvents();
-      fetchClients();
+      // Don't await - let it run in background
+      fetchEvents().catch(() => {}); // Silent fail - data already in localStorage
+      fetchClients().catch(() => {}); // Silent fail - data already in localStorage
       
       // Start webhook polling for button clicks
       webhookService.startPolling(5000); // Poll every 5 seconds

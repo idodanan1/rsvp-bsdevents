@@ -36,14 +36,9 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(timeInterval);
   }, []);
 
-  // Auto-refresh data every 30 seconds
+  // Auto-refresh data every 30 seconds (data already loaded from localStorage via persist)
   useEffect(() => {
-    // Initial fetch
-    fetchEvents().catch(error => {
-      console.error('❌ Error fetching events:', error);
-    });
-
-    // Set up auto-refresh interval
+    // Set up auto-refresh interval - don't fetch immediately, data already loaded
     const dataInterval = setInterval(() => {
       console.log('🔄 Auto-refreshing data...');
       fetchEvents().catch(error => {

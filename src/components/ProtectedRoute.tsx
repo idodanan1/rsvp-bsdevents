@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 
 interface ProtectedRouteProps {
@@ -10,6 +10,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const isAuthenticated = useUserStore(state => state.isAuthenticated);
   const user = useUserStore(state => state.user);
   const logout = useUserStore(state => state.logout);
+  const navigate = useNavigate();
 
   // CRITICAL FIX: Always check both isAuthenticated AND user exists
   // This prevents access when localStorage has stale isAuthenticated: true but user: null
@@ -17,10 +18,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     if (isAuthenticated && !user) {
       console.warn('⚠️ Invalid authentication state detected in ProtectedRoute - clearing');
       logout();
+      navigate('/login', { replace: true });
     }
-  }, [isAuthenticated, user, logout]);
+  }, [isAuthenticated, user, logout, navigate]);
 
-  // If not authenticated or no user, redirect to login
+  // If not authenticated or no user, redirect to login immediately
+  // Zustand persist loads instantly from localStorage, so no need to wait
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
