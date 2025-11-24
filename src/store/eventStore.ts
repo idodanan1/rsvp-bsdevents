@@ -45,29 +45,64 @@ export const useEventStore = create<EventStore>()(
                 apiEvents = data.events || [];
                 console.log(`✅ Fetched ${apiEvents.length} events from API`);
                 
-                // Save API events to localStorage for offline access
-                if (apiEvents.length > 0) {
-                  const stored = localStorage.getItem('rsvp-events-storage');
-                  let allEvents = apiEvents;
-                  
-                  // Merge with local events (keep local events that aren't in API)
-                  if (stored) {
-                    try {
-                      const parsed = JSON.parse(stored);
-                      const localEvents = parsed.state?.events || [];
-                      const localEventIds = new Set(localEvents.map((e: Event) => e.id));
-                      
-                      // Add local events that aren't in API
-                      const localOnlyEvents = localEvents.filter((e: Event) => 
-                        e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
-                      );
-                      allEvents = [...apiEvents, ...localOnlyEvents];
-                      console.log(`🔄 Merged ${localOnlyEvents.length} local-only events`);
-                    } catch (e) {
-                      console.warn('⚠️ Error merging local events:', e);
-                    }
+                // Get local events to merge
+                const stored = localStorage.getItem('rsvp-events-storage');
+                let localEvents: Event[] = [];
+                if (stored) {
+                  try {
+                    const parsed = JSON.parse(stored);
+                    localEvents = parsed.state?.events || [];
+                  } catch (e) {
+                    console.warn('⚠️ Error parsing local events:', e);
                   }
-                  
+                }
+                
+                // Find local events that aren't in API (need to sync)
+                const localOnlyEvents = localEvents.filter((e: Event) => 
+                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                );
+                
+                // If there are local events not in API, sync them
+                if (localOnlyEvents.length > 0) {
+                  console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing...`);
+                  try {
+                    const syncResponse = await fetch(`${BACKEND_URL}/api/events/sync`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        events: localOnlyEvents,
+                        userId: userId
+                      })
+                    });
+                    if (syncResponse.ok) {
+                      console.log(`✅ Synced ${localOnlyEvents.length} events to API`);
+                      // Re-fetch from API to get all events
+                      const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                      if (reFetchResponse.ok) {
+                        const reFetchData = await reFetchResponse.json();
+                        apiEvents = reFetchData.events || [];
+                        console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
+                      }
+                    }
+                  } catch (syncError) {
+                    console.warn('⚠️ Failed to sync local events to API:', syncError);
+                  }
+                }
+                
+                // Merge API events with any remaining local events
+                const allEvents = [...apiEvents];
+                const remainingLocalEvents = localEvents.filter((e: Event) => 
+                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                );
+                if (remainingLocalEvents.length > 0) {
+                  allEvents.push(...remainingLocalEvents);
+                  console.log(`🔄 Added ${remainingLocalEvents.length} remaining local events`);
+                }
+                
+                // Save merged events to localStorage
+                if (allEvents.length > 0) {
                   localStorage.setItem('rsvp-events-storage', JSON.stringify({
                     state: {
                       events: allEvents,
