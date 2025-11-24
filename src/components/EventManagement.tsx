@@ -1481,6 +1481,16 @@ const EventManagement: React.FC = () => {
           message += `\n\n⚠️ הערה חשובה:\n${warning}`;
         }
         
+        // Add WhatsApp-specific warnings
+        if (channel === 'WhatsApp') {
+          message += `\n\n💡 אם ההודעה לא הגיעה, בדוק:\n`;
+          message += `1. זו הודעה ראשונה - WhatsApp דורש Template מאושר\n`;
+          message += `2. המספר לא חסם אותך\n`;
+          message += `3. המספר פעיל ב-WhatsApp\n`;
+          message += `4. ה-Template מאושר ב-Meta Business Manager\n`;
+          message += `\n📊 עדכוני סטטוס (נשלח/נמסר/נקרא) יגיעו דרך webhook`;
+        }
+        
         alert(message);
       } else {
         const error = result.results[0]?.error || 'שגיאה לא ידועה';

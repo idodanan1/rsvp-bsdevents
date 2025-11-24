@@ -422,6 +422,14 @@ class WhatsAppService {
         const messageId = responseData.messages?.[0]?.id;
         const contact = responseData.contacts?.[0];
         const waId = contact?.wa_id;
+        const messageStatus = responseData.messages?.[0]?.message_status;
+        
+        console.log('📊 Message Status Details:', {
+          messageId,
+          messageStatus,
+          waId,
+          contact: contact ? 'Found' : 'Not found'
+        });
         
         // Validate that message was actually sent successfully
         if (!messageId) {
