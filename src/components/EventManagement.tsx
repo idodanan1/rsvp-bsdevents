@@ -56,6 +56,22 @@ const EventManagement: React.FC = () => {
     }
   }, [id, fetchEvents]);
 
+  // Auto-refresh events every 10 seconds to show real-time updates
+  useEffect(() => {
+    if (!id) return;
+    
+    const intervalId = setInterval(() => {
+      console.log('🔄 Auto-refreshing events for real-time updates...');
+      fetchEvents().catch(error => {
+        console.error('❌ Error auto-refreshing events:', error);
+      });
+    }, 10000); // Refresh every 10 seconds
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [id, fetchEvents]);
+
   // Set current event when id or events change
   useEffect(() => {
     if (!id) return;
