@@ -855,8 +855,6 @@ async function sendDeclineConfirmation(phoneNumber) {
 // Send follow-up message asking for guest count
 async function sendGuestCountQuestion(phoneNumber) {
   try {
-    const questionMessage = 'כמה אנשים אתם מתכוונים להגיע?';
-    
     console.log(`📤 Sending guest count question to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
@@ -871,39 +869,22 @@ async function sendGuestCountQuestion(phoneNumber) {
     // Format phone number
     const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
     
-    // Check if template is configured (optional - can use template if you want)
-    const guestCountTemplateName = process.env.GUEST_COUNT_TEMPLATE_NAME; // Optional: e.g., 'guest_count_question'
+    // Use template "yes" as configured by user
+    const guestCountTemplateName = 'yes'; // Template name in Meta
     
-    let messagePayload;
-    
-    if (guestCountTemplateName) {
-      // Use template if configured
-      console.log(`📋 Using template: ${guestCountTemplateName}`);
-      messagePayload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: formattedPhone,
-        type: 'template',
-        template: {
-          name: guestCountTemplateName,
-          language: {
-            code: 'he'
-          }
+    console.log(`📋 Using template: ${guestCountTemplateName}`);
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: guestCountTemplateName,
+        language: {
+          code: 'he'
         }
-      };
-    } else {
-      // Send as regular text message (not template - this is a follow-up)
-      // This works because the user already received the first message (template)
-      messagePayload = {
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: formattedPhone,
-        type: 'text',
-        text: {
-          body: questionMessage
-        }
-      };
-    }
+      }
+    };
     
     const response = await axios.post(
       `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
@@ -917,37 +898,40 @@ async function sendGuestCountQuestion(phoneNumber) {
     );
     
     if (response.status === 200) {
-      console.log('✅ Guest count question sent successfully');
+      console.log('✅ Guest count question sent successfully with template "yes"');
       console.log('📱 Response:', JSON.stringify(response.data, null, 2));
     } else {
       console.warn('⚠️ Failed to send guest count question:', response.status);
       console.warn('⚠️ Response data:', response.data);
-      // If template failed, try regular message as fallback
-      if (guestCountTemplateName) {
-        console.log('🔄 Trying regular message as fallback...');
-        const fallbackPayload = {
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: formattedPhone,
-          type: 'text',
-          text: {
-            body: questionMessage
-          }
-        };
-        try {
-          await axios.post(
-            `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-            fallbackPayload,
-            {
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              }
+      // Try regular message as fallback
+      console.log('🔄 Trying regular message as fallback...');
+      const fallbackPayload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'text',
+        text: {
+          body: 'כמה אנשים אתם מתכוונים להגיע?'
+        }
+      };
+      try {
+        const fallbackResponse = await axios.post(
+          `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+          fallbackPayload,
+          {
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json'
             }
-          );
-          console.log('✅ Guest count question sent successfully (fallback)');
-        } catch (fallbackError) {
-          console.error('❌ Fallback also failed:', fallbackError);
+          }
+        );
+        if (fallbackResponse.status === 200) {
+          console.log('✅ Guest count question sent successfully (fallback to text)');
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        if (fallbackError.response) {
+          console.error('❌ Fallback error response:', fallbackError.response.data);
         }
       }
     }
