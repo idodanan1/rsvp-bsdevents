@@ -457,9 +457,6 @@ const GuestResponse = () => {
     }
   };
   
-  // State to track loading
-  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
-  
   // Update loading state when event is found
   useEffect(() => {
     if (event || directEvent) {
