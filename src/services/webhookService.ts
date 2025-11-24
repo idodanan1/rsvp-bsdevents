@@ -4,8 +4,9 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
 
 export interface WebhookUpdate {
   phoneNumber: string;
-  status: 'confirmed' | 'declined';
-  responseDate: string;
+  status?: 'confirmed' | 'declined';
+  responseDate?: string;
+  guestCount?: number; // For guest count updates
 }
 
 class WebhookService {

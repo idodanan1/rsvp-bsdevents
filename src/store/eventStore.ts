@@ -1197,6 +1197,11 @@ export const useEventStore = create<EventStore>()(
             }) || [
               // Default buttons
               {
+                type: 'reply' as const,
+                id: 'מגיע',
+                title: 'מגיע'
+              },
+              {
                 type: 'url' as const,
                 url: guestLink,
                 title: 'אישור הגעה'

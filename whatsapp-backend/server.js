@@ -631,14 +631,21 @@ async function handleIncomingMessage(message) {
     const buttonIdLower = (buttonId || '').toLowerCase();
     
     if (buttonId === 'confirm_attendance' || 
+        buttonId === 'מגיע' ||
         buttonIdLower.includes('confirm') ||
         buttonTitle === 'אישור הגעה' ||
+        buttonTitle === 'מגיע' ||
         buttonTitle?.includes('אישור') ||
         buttonTitle?.includes('הגעה') ||
+        buttonTitle?.includes('מגיע') ||
         buttonTitleLower.includes('אישור') ||
-        buttonTitleLower.includes('הגעה')) {
+        buttonTitleLower.includes('הגעה') ||
+        buttonTitleLower.includes('מגיע')) {
       console.log('✅ Guest confirmed attendance via button!');
       await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+      
+      // Send automatic follow-up message asking for guest count
+      await sendGuestCountQuestion(phoneNumber);
     } else if (buttonId === 'decline_attendance' || 
                buttonIdLower.includes('decline') ||
                buttonTitle === 'לא אוכל להגיע' ||
@@ -656,6 +663,9 @@ async function handleIncomingMessage(message) {
       if (buttonTitleLower.includes('כן') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+        
+        // Send automatic follow-up message asking for guest count
+        await sendGuestCountQuestion(phoneNumber);
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
         await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -665,8 +675,18 @@ async function handleIncomingMessage(message) {
     return;
   }
 
-  // Handle text messages (fallback)
+  // Handle text messages (fallback and guest count responses)
   const messageText = message.text?.body?.toLowerCase() || '';
+  const originalMessageText = message.text?.body || '';
+  
+  // Check if this is a response to guest count question
+  // Look for numbers or common phrases indicating guest count
+  const guestCountMatch = extractGuestCount(originalMessageText);
+  if (guestCountMatch !== null) {
+    console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
+    await updateGuestCountByPhone(message.from, guestCountMatch);
+    return; // Don't process as confirmation/decline
+  }
   
   // Auto-reply to confirmations
   if (messageText.includes('כן') || 
@@ -958,6 +978,16 @@ app.get('/api/guests/pending-updates', (req, res) => {
   
   // Return new updates (not older than 5 minutes)
   const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+  
+  // Format updates for frontend
+  const formattedUpdates = updates
+    .filter(u => u.timestamp > fiveMinutesAgo)
+    .map(u => ({
+      phoneNumber: u.phoneNumber || u.originalPhoneNumber,
+      status: u.status, // May be undefined for guest count updates
+      responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
+      guestCount: u.guestCount // Include guest count if present
+    }));
   const recentUpdates = updates.filter(u => u.timestamp > fiveMinutesAgo);
   
   // Clear old updates (older than 1 hour) but keep recent ones
