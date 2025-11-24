@@ -199,10 +199,8 @@ class WhatsAppService {
             // Only add placeholder if we get error 132012 (template requires header)
             // This prevents sending unwanted placeholder images
             console.log('ℹ️ No header image URL provided - will send without header');
-            console.log('ℹ️ If template requires header image, error 132012 will occur and we'll retry with placeholder');
+            console.log('ℹ️ If template requires header image, error 132012 will occur and we will retry with placeholder');
             // This will be handled in error handling if Meta rejects it
-            console.log('ℹ️ No image URL provided - will try without header first');
-            console.log('💡 If template requires header image, error 132012 will occur and we\'ll add placeholder');
           }
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
