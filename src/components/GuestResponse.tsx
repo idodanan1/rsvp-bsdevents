@@ -648,8 +648,8 @@ const GuestResponse = () => {
                 
                 <button
                   onClick={() => {
-                    setFormData(prev => ({ ...prev, response: 'maybe' }));
-                    setShowGuestCount(true);
+                    setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 })); // Reset to 1 for maybe
+                    setShowGuestCount(false); // Don't show guest count for "maybe"
                   }}
                   className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -659,8 +659,8 @@ const GuestResponse = () => {
                 
                 <button
                   onClick={() => {
-                    setFormData(prev => ({ ...prev, response: 'not_attending' }));
-                    setShowGuestCount(true);
+                    setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 })); // Reset to 1 for not attending
+                    setShowGuestCount(false); // Don't show guest count for "not attending"
                   }}
                   className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -669,7 +669,7 @@ const GuestResponse = () => {
                 </button>
               </div>
             </div>
-          ) : (
+          ) : formData.response === 'attending' ? (
             <div className="space-y-6">
               <div className="text-center">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">
@@ -757,6 +757,57 @@ const GuestResponse = () => {
                   onClick={() => {
                     setShowGuestCount(false);
                     setShowStatusButtons(true);
+                  }}
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                >
+                  ← חזרה לבחירת סטטוס
+                </button>
+              </div>
+            </div>
+          ) : (
+            // For "maybe" or "not_attending" - show notes and submit directly
+            <div className="space-y-6">
+              <div className="text-center mb-4">
+                <p className="text-lg font-medium text-gray-700">
+                  {formData.response === 'maybe' 
+                    ? 'תודה על העדכון! נשמח לעדכון נוסף בהמשך.'
+                    : 'אנו מצטערים שלא תוכלו להגיע.'}
+                </p>
+              </div>
+              
+              {/* Notes field */}
+              <div className="max-w-lg mx-auto mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  הערות (אופציונלי):
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="הוסף הערה או בקשה מיוחדת..."
+                  rows={3}
+                  className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none resize-none"
+                />
+              </div>
+              
+              {/* Submit button */}
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    setTimeout(() => {
+                      handleSubmit({ preventDefault: () => {} } as any);
+                    }, 300);
+                  }}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105"
+                >
+                  {formData.response === 'maybe' ? 'שלח עדכון' : 'שלח תשובה'}
+                </button>
+              </div>
+              
+              <div className="text-center mt-6">
+                <button
+                  onClick={() => {
+                    setShowStatusButtons(true);
+                    setShowGuestCount(false);
                   }}
                   className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
                 >

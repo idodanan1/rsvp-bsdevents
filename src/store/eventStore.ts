@@ -821,12 +821,14 @@ export const useEventStore = create<EventStore>()(
                         ...guest, 
                         ...updatedGuest,
                         rsvpStatus: updatedGuest.rsvpStatus, // Ensure status is explicitly set
+                        guestCount: updatedGuest.guestCount || guest.guestCount || 1, // Ensure guestCount is preserved
+                        notes: updatedGuest.notes || guest.notes || '', // Ensure notes are preserved
                         responseDate: updatedGuest.responseDate
                       };
                       console.log(`🔧 Merging guest:`, {
-                        old: { rsvpStatus: guest.rsvpStatus },
-                        new: { rsvpStatus: updatedGuest.rsvpStatus },
-                        merged: { rsvpStatus: mergedGuest.rsvpStatus }
+                        old: { rsvpStatus: guest.rsvpStatus, guestCount: guest.guestCount },
+                        new: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount },
+                        merged: { rsvpStatus: mergedGuest.rsvpStatus, guestCount: mergedGuest.guestCount }
                       });
                       return mergedGuest;
                     }
@@ -848,6 +850,8 @@ export const useEventStore = create<EventStore>()(
                         ...guest,
                         ...updatedGuest,
                         rsvpStatus: updatedGuest.rsvpStatus,
+                        guestCount: updatedGuest.guestCount || guest.guestCount || 1,
+                        notes: updatedGuest.notes || guest.notes || '',
                         responseDate: updatedGuest.responseDate
                       };
                     }
