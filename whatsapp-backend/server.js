@@ -76,6 +76,39 @@ function saveUsers() {
   }
 }
 
+// Temporary storage for events (in production, use a database)
+// Load events from file if exists
+const eventsFilePath = path.join(__dirname, 'events.json');
+let eventsData = {
+  events: [],
+  deletedEvents: []
+};
+
+// Load events from file on startup
+try {
+  if (fs.existsSync(eventsFilePath)) {
+    const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+    eventsData.events = fileData.events || [];
+    eventsData.deletedEvents = fileData.deletedEvents || [];
+    console.log(`✅ Loaded ${eventsData.events.length} events from file`);
+  } else {
+    console.log('📝 No events file found - starting with empty events');
+  }
+} catch (error) {
+  console.error('❌ Error loading events file:', error);
+  eventsData = { events: [], deletedEvents: [] };
+}
+
+// Save events to file
+function saveEvents() {
+  try {
+    fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
+    console.log(`💾 Saved ${eventsData.events.length} events to file`);
+  } catch (error) {
+    console.error('❌ Error saving events file:', error);
+  }
+}
+
 // Admin user (fixed)
 const ADMIN_EMAIL = 'idodanan1@gmail.com';
 const ADMIN_PASSWORD = 'QPwo1029';
@@ -1565,6 +1598,162 @@ app.post('/api/users/:userId/credits', async (req, res) => {
   } catch (error) {
     console.error('❌ Update credits error:', error);
     res.status(500).json({ error: 'שגיאה בעדכון רשומות' });
+  }
+});
+
+// ========================================
+// Events API Endpoints (for syncing between computers)
+// ========================================
+
+// Get all events for a user
+app.get('/api/events/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    // Filter events by userId
+    const userEvents = eventsData.events.filter(e => e.userId === userId);
+    
+    console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+    
+    res.json({
+      success: true,
+      events: userEvents,
+      deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
+    });
+  } catch (error) {
+    console.error('❌ Error fetching events:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת אירועים' });
+  }
+});
+
+// Get all events (for admin or public access)
+app.get('/api/events', async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      events: eventsData.events,
+      deletedEvents: eventsData.deletedEvents
+    });
+  } catch (error) {
+    console.error('❌ Error fetching all events:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת אירועים' });
+  }
+});
+
+// Save/Update events (sync from client)
+app.post('/api/events/sync', async (req, res) => {
+  try {
+    const { events, userId } = req.body;
+    
+    if (!events || !Array.isArray(events)) {
+      return res.status(400).json({ error: 'events must be an array' });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    console.log(`💾 Syncing ${events.length} events for user ${userId}`);
+    
+    // Remove old events for this user
+    eventsData.events = eventsData.events.filter(e => e.userId !== userId);
+    
+    // Add new events
+    eventsData.events.push(...events);
+    
+    // Save to file
+    saveEvents();
+    
+    console.log(`✅ Synced ${events.length} events for user ${userId}`);
+    
+    res.json({
+      success: true,
+      message: `Synced ${events.length} events`,
+      totalEvents: eventsData.events.length
+    });
+  } catch (error) {
+    console.error('❌ Error syncing events:', error);
+    res.status(500).json({ error: 'שגיאה בסנכרון אירועים' });
+  }
+});
+
+// Create or update a single event
+app.post('/api/events', async (req, res) => {
+  try {
+    const event = req.body;
+    
+    if (!event.id || !event.userId) {
+      return res.status(400).json({ error: 'Event id and userId are required' });
+    }
+    
+    // Check if event exists
+    const existingIndex = eventsData.events.findIndex(e => e.id === event.id);
+    
+    if (existingIndex >= 0) {
+      // Update existing event
+      eventsData.events[existingIndex] = {
+        ...eventsData.events[existingIndex],
+        ...event,
+        updatedAt: new Date().toISOString()
+      };
+      console.log(`🔄 Updated event ${event.id}`);
+    } else {
+      // Create new event
+      eventsData.events.push({
+        ...event,
+        createdAt: event.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      console.log(`✨ Created event ${event.id}`);
+    }
+    
+    // Save to file
+    saveEvents();
+    
+    res.json({
+      success: true,
+      event: existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1]
+    });
+  } catch (error) {
+    console.error('❌ Error saving event:', error);
+    res.status(500).json({ error: 'שגיאה בשמירת אירוע' });
+  }
+});
+
+// Delete an event
+app.delete('/api/events/:eventId', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    
+    const eventIndex = eventsData.events.findIndex(e => e.id === eventId);
+    
+    if (eventIndex === -1) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    const event = eventsData.events[eventIndex];
+    
+    // Move to deletedEvents
+    eventsData.deletedEvents.push({
+      ...event,
+      deletedAt: new Date().toISOString()
+    });
+    
+    // Remove from events
+    eventsData.events.splice(eventIndex, 1);
+    
+    // Save to file
+    saveEvents();
+    
+    console.log(`🗑️ Deleted event ${eventId}`);
+    
+    res.json({
+      success: true,
+      message: 'Event deleted'
+    });
+  } catch (error) {
+    console.error('❌ Error deleting event:', error);
+    res.status(500).json({ error: 'שגיאה במחיקת אירוע' });
   }
 });
 

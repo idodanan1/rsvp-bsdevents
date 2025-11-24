@@ -31,6 +31,61 @@ export const useEventStore = create<EventStore>()(
 
           console.log('🔍 Fetching events for user:', { userId, userEmail });
 
+          // Try to fetch from API first (for syncing between computers)
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          let apiEvents: Event[] = [];
+          let apiError = false;
+
+          if (userId) {
+            try {
+              console.log('🌐 Fetching events from API...');
+              const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+              if (response.ok) {
+                const data = await response.json();
+                apiEvents = data.events || [];
+                console.log(`✅ Fetched ${apiEvents.length} events from API`);
+                
+                // Save API events to localStorage for offline access
+                if (apiEvents.length > 0) {
+                  const stored = localStorage.getItem('rsvp-events-storage');
+                  let allEvents = apiEvents;
+                  
+                  // Merge with local events (keep local events that aren't in API)
+                  if (stored) {
+                    try {
+                      const parsed = JSON.parse(stored);
+                      const localEvents = parsed.state?.events || [];
+                      const localEventIds = new Set(localEvents.map((e: Event) => e.id));
+                      
+                      // Add local events that aren't in API
+                      const localOnlyEvents = localEvents.filter((e: Event) => 
+                        e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                      );
+                      allEvents = [...apiEvents, ...localOnlyEvents];
+                      console.log(`🔄 Merged ${localOnlyEvents.length} local-only events`);
+                    } catch (e) {
+                      console.warn('⚠️ Error merging local events:', e);
+                    }
+                  }
+                  
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                    state: {
+                      events: allEvents,
+                      deletedEvents: data.deletedEvents || [],
+                      currentEvent: null
+                    }
+                  }));
+                }
+              } else {
+                console.warn('⚠️ API fetch failed, using localStorage');
+                apiError = true;
+              }
+            } catch (error) {
+              console.warn('⚠️ API not available, using localStorage:', error);
+              apiError = true;
+            }
+          }
+
           // Check if there are events in localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
@@ -502,6 +557,23 @@ export const useEventStore = create<EventStore>()(
               isLoading: false
             };
           });
+          
+          // Sync to API (for multi-computer access)
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          try {
+            console.log('🌐 Syncing new event to API...');
+            await fetch(`${BACKEND_URL}/api/events`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(newEvent)
+            });
+            console.log('✅ Event synced to API');
+          } catch (error) {
+            console.warn('⚠️ Failed to sync event to API (will use localStorage):', error);
+            // Continue - localStorage is already updated by Zustand persist
+          }
         } catch (error) {
           set({ error: 'שגיאה ביצירת האירוע', isLoading: false });
         }
