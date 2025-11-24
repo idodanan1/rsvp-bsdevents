@@ -272,6 +272,12 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuestField = async (guestId: string, updates: any) => {
     try {
+      // CRITICAL: If updating guestCount, mark this as a manual change to prevent webhook from overwriting it
+      if (updates.guestCount !== undefined) {
+        const { webhookService } = await import('../services/webhookService');
+        webhookService.markManualChange(currentEvent.id, guestId);
+      }
+      
       await updateGuest(currentEvent.id, guestId, updates);
     } catch (error) {
       console.error('Error updating guest:', error);

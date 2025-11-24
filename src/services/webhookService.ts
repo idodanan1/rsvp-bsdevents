@@ -105,11 +105,101 @@ class WebhookService {
 
     for (const update of updates) {
       try {
-        // Skip updates without status (these are guest count updates, not status updates)
-        if (!update.status) {
-          console.log(`⏭️ Skipping update without status (guest count update):`, update);
-          // Still try to remove it from backend if it's a guest count update
-          if (update.guestCount !== undefined) {
+        // Handle guest count updates (updates without status)
+        if (!update.status && update.guestCount !== undefined) {
+          // Find guest by phone number
+          let foundGuest: any = null;
+          let foundEventId: string | null = null;
+
+          for (const event of events) {
+            const guest = event.guests?.find((g: any) => {
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+              const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+              const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+              const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
+              const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
+              
+              return guestPhone === updatePhone || 
+                     guestPhone === updatePhoneWith0 ||
+                     guestPhone === updatePhoneWith972 ||
+                     guestPhoneWith0 === updatePhone ||
+                     guestPhoneWith0 === updatePhoneWith0 ||
+                     guestPhoneWith972 === updatePhone ||
+                     guestPhoneWith972 === updatePhoneWith972;
+            });
+
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              break;
+            }
+          }
+
+          if (foundGuest && foundEventId) {
+            const guestKey = `${foundEventId}-${foundGuest.id}`;
+            
+            // CRITICAL: Check if there was a manual change recently
+            const lastManualChange = this.manualChanges.get(guestKey);
+            const now = Date.now();
+            if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+              const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
+              console.log(`🛡️ BLOCKING guest count update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
+              // Remove from backend to prevent it from being processed again
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    guestCount: update.guestCount
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed blocked guest count update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove blocked guest count update from backend:', error);
+              }
+              continue; // Skip this update
+            }
+
+            // Check if guestCount is different from current value
+            if (foundGuest.guestCount === update.guestCount) {
+              console.log(`⏭️ Skipping guest count update - already matches current value (${update.guestCount})`);
+              // Remove from backend
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    guestCount: update.guestCount
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed duplicate guest count update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove duplicate guest count update from backend:', error);
+              }
+              continue;
+            }
+
+            // Update guest count
+            console.log(`✅ Updating guest count for ${foundGuest.firstName} ${foundGuest.lastName} from ${foundGuest.guestCount} to ${update.guestCount}`);
+            const updatedGuest = {
+              ...foundGuest,
+              guestCount: update.guestCount
+            };
+
+            await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+            
+            // Remove from backend
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                 method: 'DELETE',
@@ -118,18 +208,42 @@ class WebhookService {
                 },
                 body: JSON.stringify({
                   phoneNumber: update.phoneNumber,
-                  status: update.status,
-                  responseDate: update.responseDate,
                   guestCount: update.guestCount
                 })
               });
               if (removeResponse.ok) {
-                console.log(`✅ Removed guest count update from backend`);
+                console.log(`✅ Removed processed guest count update from backend`);
               }
             } catch (error) {
               console.warn('⚠️ Could not remove guest count update from backend:', error);
             }
+          } else {
+            console.log(`⏭️ Guest not found for guest count update, removing from backend`);
+            // Remove from backend if guest not found
+            try {
+              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  guestCount: update.guestCount
+                })
+              });
+              if (removeResponse.ok) {
+                console.log(`✅ Removed orphaned guest count update from backend`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove orphaned guest count update from backend:', error);
+            }
           }
+          continue; // Move to next update
+        }
+        
+        // Skip updates without status and without guestCount
+        if (!update.status) {
+          console.log(`⏭️ Skipping update without status or guestCount:`, update);
           continue;
         }
         
