@@ -11,14 +11,9 @@ const Dashboard: React.FC = () => {
     events, 
     deletedEvents,
     isLoading, 
-    restoreEvents, 
-    forceRefresh, 
-    cleanupLocalStorage, 
     deleteEvent,
     restoreDeletedEvent,
     permanentlyDeleteEvent,
-    recreateCampaigns,
-    updateExistingEventsCampaigns,
     fetchEvents
   } = useEventStore();
   const globalStats = calculateGlobalStats(events);
@@ -49,40 +44,6 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(dataInterval);
   }, [fetchEvents]);
 
-  const handleRestoreEvents = () => {
-    // First, let's check what's in localStorage
-    const stored = localStorage.getItem('rsvp-events-storage');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log('🔍 localStorage data:', parsed);
-        
-        if (parsed.state && parsed.state.events) {
-          console.log('📋 Found events in localStorage:', parsed.state.events.length);
-          parsed.state.events.forEach((event: any, index: number) => {
-            console.log(`📅 Event ${index + 1}:`, {
-              id: event.id,
-              coupleName: event.coupleName,
-              guestsCount: event.guests?.length || 0,
-              campaignsCount: event.campaigns?.length || 0,
-              tablesCount: event.tables?.length || 0
-            });
-          });
-        }
-      } catch (error) {
-        console.error('❌ Error parsing localStorage:', error);
-      }
-    } else {
-      console.log('❌ No data found in localStorage');
-    }
-    
-    const restored = restoreEvents();
-    if (restored) {
-      alert('✅ האירועים שוחזרו בהצלחה! רענן את הדף לראות את השינויים.');
-    } else {
-      alert('❌ לא נמצאו אירועים לשחזור');
-    }
-  };
 
   const handleDeleteEvent = async (eventId: string, eventName: string) => {
     const confirmed = window.confirm(
