@@ -35,9 +35,15 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false, // Disable sourcemap for faster builds
     copyPublicDir: true,
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser', // Faster minification
+    terserOptions: {
+      compress: {
+        drop_console: false // Keep console logs
+      }
+    }
   },
   resolve: {
     alias: {
