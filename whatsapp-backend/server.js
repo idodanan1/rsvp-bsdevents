@@ -10,13 +10,17 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3002;
 
-// Enable CORS for all routes
+// Enable CORS for all routes - MUST be before other middleware
 app.use(cors({
   origin: '*', // Allow all origins (in production, specify exact origins)
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Handle preflight OPTIONS requests explicitly
+app.options('*', cors());
 
 // Temporary storage for guest status updates (in production, use a database)
 const pendingUpdates = [];
@@ -1149,6 +1153,14 @@ app.post('/api/guests/update-status', async (req, res) => {
 });
 
 // API endpoint to get pending guest status updates
+// Handle OPTIONS preflight for pending-updates endpoint
+app.options('/api/guests/pending-updates', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.sendStatus(200);
+});
+
 app.get('/api/guests/pending-updates', (req, res) => {
   // Return pending updates (but don't clear them immediately - let frontend process them first)
   const updates = [...pendingUpdates];
@@ -1195,9 +1207,15 @@ app.get('/api/guests/pending-updates', (req, res) => {
     }
   }
   
+  // Explicitly set CORS headers
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  
   res.json({
     success: true,
     updates: recentUpdates,
+    updatesCount: recentUpdates.length,
     totalPending: pendingUpdates.length
   });
 });
