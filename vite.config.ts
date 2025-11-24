@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
+import { copyFileSync, existsSync } from 'fs'
+import { join } from 'path'
 
 // Plugin to ensure _redirects file is copied to dist
 const redirectsPlugin = () => {
@@ -9,16 +11,14 @@ const redirectsPlugin = () => {
     closeBundle() {
       // Ensure _redirects is copied to dist root
       try {
-        const fs = require('fs');
-        const path = require('path');
-        const sourcePath = path.join(process.cwd(), 'public', '_redirects');
-        const destPath = path.join(process.cwd(), 'dist', '_redirects');
-        if (fs.existsSync(sourcePath)) {
-          fs.copyFileSync(sourcePath, destPath);
+        const sourcePath = join(process.cwd(), 'public', '_redirects');
+        const destPath = join(process.cwd(), 'dist', '_redirects');
+        if (existsSync(sourcePath)) {
+          copyFileSync(sourcePath, destPath);
           console.log('✅ _redirects file copied to dist')
         }
       } catch (error) {
-        console.warn('⚠️ Could not copy _redirects file:', error)
+        // Silently fail - _redirects will be copied by copyPublicDir anyway
       }
     }
   }
