@@ -799,16 +799,39 @@ async function sendGuestCountQuestion(phoneNumber) {
     // Format phone number
     const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
     
-    // Send as regular text message (not template - this is a follow-up)
-    const messagePayload = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: formattedPhone,
-      type: 'text',
-      text: {
-        body: questionMessage
-      }
-    };
+    // Check if template is configured (optional - can use template if you want)
+    const guestCountTemplateName = process.env.GUEST_COUNT_TEMPLATE_NAME; // Optional: e.g., 'guest_count_question'
+    
+    let messagePayload;
+    
+    if (guestCountTemplateName) {
+      // Use template if configured
+      console.log(`📋 Using template: ${guestCountTemplateName}`);
+      messagePayload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'template',
+        template: {
+          name: guestCountTemplateName,
+          language: {
+            code: 'he'
+          }
+        }
+      };
+    } else {
+      // Send as regular text message (not template - this is a follow-up)
+      // This works because the user already received the first message (template)
+      messagePayload = {
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to: formattedPhone,
+        type: 'text',
+        text: {
+          body: questionMessage
+        }
+      };
+    }
     
     const response = await axios.post(
       `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
@@ -825,6 +848,34 @@ async function sendGuestCountQuestion(phoneNumber) {
       console.log('✅ Guest count question sent successfully');
     } else {
       console.warn('⚠️ Failed to send guest count question:', response.status);
+      // If template failed, try regular message as fallback
+      if (guestCountTemplateName) {
+        console.log('🔄 Trying regular message as fallback...');
+        const fallbackPayload = {
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: formattedPhone,
+          type: 'text',
+          text: {
+            body: questionMessage
+          }
+        };
+        try {
+          await axios.post(
+            `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+            fallbackPayload,
+            {
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          console.log('✅ Guest count question sent successfully (fallback)');
+        } catch (fallbackError) {
+          console.error('❌ Fallback also failed:', fallbackError);
+        }
+      }
     }
   } catch (error) {
     console.error('❌ Error sending guest count question:', error);
