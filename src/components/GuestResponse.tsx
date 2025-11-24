@@ -533,11 +533,11 @@ const GuestResponse = () => {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <h2 className="text-3xl font-bold text-gray-800 mb-4">
             הבחירה התקבלה!
           </h2>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <p className="text-green-800 font-medium mb-2">
+          <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 mb-6">
+            <p className="text-green-800 font-bold text-lg mb-3">
               {formData.response === 'attending' 
                 ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!` 
                 : formData.response === 'maybe'
@@ -545,11 +545,11 @@ const GuestResponse = () => {
                 : 'אנו מצטערים שלא תוכלו להגיע'
               }
             </p>
-            <p className="text-green-700 text-sm font-medium mb-2">
-              {formData.response === 'maybe' || formData.response === 'not_attending'
-                ? 'נשמח לעדכון אם יש שינוי בתכניות'
-                : ''}
-            </p>
+            {(formData.response === 'maybe' || formData.response === 'not_attending') && (
+              <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
+                נשמח לעדכון אם יש שינוי בתכניות
+              </p>
+            )}
             <p className="text-green-700 text-xs mt-2">
               סטטוס: {formData.response === 'attending' ? 'מגיע' : formData.response === 'maybe' ? 'מתלבט' : 'לא מגיע'} | מספר אורחים: {formData.guestCount}
             </p>
@@ -817,12 +817,12 @@ const GuestResponse = () => {
                 >
                   ← חזרה לבחירת סטטוס
                 </button>
-                <p className="text-lg font-medium text-gray-700 mb-4">
+                <p className="text-xl font-bold text-gray-800 mb-2">
                   {formData.response === 'maybe' 
                     ? 'האם אתם מתלבטים?'
                     : 'האם אתם בטוחים שלא תוכלו להגיע?'}
                 </p>
-                <p className="text-sm text-gray-600 mb-6">
+                <p className="text-base text-gray-600 mb-6">
                   {formData.response === 'maybe' 
                     ? 'נוכל לעדכן אותכם בהמשך אם יש שינוי'
                     : 'נשמח לעדכון אם יש שינוי בתכניות'}
