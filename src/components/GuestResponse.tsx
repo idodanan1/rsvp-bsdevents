@@ -102,6 +102,9 @@ const GuestResponse = () => {
   // State to store event found directly from localStorage (for public access)
   const [directEvent, setDirectEvent] = React.useState<any>(null);
   const [directGuest, setDirectGuest] = React.useState<any>(null);
+  
+  // State to track loading
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
 
   // Try to find event from store first, then from direct localStorage
   const event = events.find(e => e.id === eventId) || directEvent;
@@ -144,19 +147,36 @@ const GuestResponse = () => {
     
     // Try to load event from API first (for cross-device access)
     const loadEventFromAPI = async () => {
-      if (!eventId) return;
+      if (!eventId) {
+        setIsLoadingEvent(false);
+        return;
+      }
       
       try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        console.log('🌐 Attempting to load event from API:', `${BACKEND_URL}/api/events/all`);
+        
         // Try to fetch all events and find the one we need (public access)
-        const response = await fetch(`${BACKEND_URL}/api/events/all`);
+        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          // Add timeout
+          signal: AbortSignal.timeout(8000) // 8 second timeout
+        });
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('📋 API response:', { success: data.success, total: data.total });
           const allEvents = data.events || [];
+          console.log(`📋 Found ${allEvents.length} events in API`);
+          
           const foundEvent = allEvents.find((e: any) => e.id === eventId);
           if (foundEvent) {
             console.log('✅ Found event from API:', foundEvent.id);
             setDirectEvent(foundEvent);
+            setIsLoadingEvent(false);
             
             // Find guest in the found event
             if (guestId) {
@@ -172,14 +192,25 @@ const GuestResponse = () => {
                 if (fallbackGuest) {
                   console.log('✅ Found guest with fallback match from API:', fallbackGuest.id);
                   setDirectGuest(fallbackGuest);
+                } else {
+                  console.warn('⚠️ Guest not found in event from API:', guestId);
                 }
               }
             }
             return; // Found in API, don't check localStorage
+          } else {
+            console.warn('⚠️ Event not found in API. Looking for:', eventId);
+            console.log('📋 Available event IDs:', allEvents.map((e: any) => e.id));
           }
+        } else {
+          console.warn('⚠️ API response not OK:', response.status, response.statusText);
         }
-      } catch (error) {
-        console.warn('⚠️ Could not load event from API, trying localStorage:', error);
+      } catch (error: any) {
+        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+          console.warn('⚠️ API request timed out, trying localStorage...');
+        } else {
+          console.warn('⚠️ Could not load event from API, trying localStorage:', error);
+        }
       }
       
       // Fallback: Try to load event directly from localStorage (public access, no userId filter)
@@ -188,11 +219,13 @@ const GuestResponse = () => {
         try {
           const parsed = JSON.parse(stored);
           if (parsed.state && parsed.state.events) {
+            console.log(`📋 Found ${parsed.state.events.length} events in localStorage`);
             // Find event by ID without filtering by userId (public access)
             const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
             if (foundEvent) {
               console.log('✅ Found event directly from localStorage:', foundEvent.id);
               setDirectEvent(foundEvent);
+              setIsLoadingEvent(false);
               
               // Find guest in the found event
               if (guestId) {
@@ -208,14 +241,26 @@ const GuestResponse = () => {
                   if (fallbackGuest) {
                     console.log('✅ Found guest with fallback match:', fallbackGuest.id);
                     setDirectGuest(fallbackGuest);
+                  } else {
+                    console.warn('⚠️ Guest not found in event from localStorage:', guestId);
                   }
                 }
               }
+            } else {
+              console.warn('⚠️ Event not found in localStorage. Looking for:', eventId);
+              console.log('📋 Available event IDs:', parsed.state.events.map((e: any) => e.id));
+              setIsLoadingEvent(false);
             }
+          } else {
+            setIsLoadingEvent(false);
           }
         } catch (error) {
           console.error('❌ Error parsing localStorage:', error);
+          setIsLoadingEvent(false);
         }
+      } else {
+        console.warn('⚠️ No events found in localStorage');
+        setIsLoadingEvent(false);
       }
     };
     
@@ -366,13 +411,35 @@ const GuestResponse = () => {
     }
   };
   
-  // Show loading while trying to find event
-  if (!event && !directEvent && eventId) {
+  // State to track loading
+  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+  
+  // Update loading state when event is found
+  useEffect(() => {
+    if (event || directEvent) {
+      setIsLoadingEvent(false);
+    }
+  }, [event, directEvent]);
+  
+  // Show loading while trying to find event (with timeout)
+  useEffect(() => {
+    if (eventId && !event && !directEvent) {
+      // Set timeout to stop loading after 10 seconds
+      const timeout = setTimeout(() => {
+        setIsLoadingEvent(false);
+      }, 10000);
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [eventId, event, directEvent]);
+  
+  if ((!event && !directEvent && eventId) || isLoadingEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
           <p className="text-gray-600">טוען את האירוע...</p>
+          <p className="text-gray-400 text-sm mt-2">אם זה לוקח זמן, אנא נסה לרענן את הדף</p>
         </div>
       </div>
     );
