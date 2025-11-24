@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -29,6 +29,18 @@ import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
 import { webhookService } from './services/webhookService';
+
+// Component to save current location to localStorage
+function LocationSaver() {
+  const location = useLocation();
+  
+  React.useEffect(() => {
+    // Save current location to localStorage for persistence
+    localStorage.setItem('rsvp-last-location', location.pathname + location.search);
+  }, [location]);
+  
+  return null;
+}
 
 function App() {
   const fetchEvents = useEventStore(state => state.fetchEvents);
@@ -63,6 +75,7 @@ function App() {
 
   return (
     <Router>
+      <LocationSaver />
       <Accessibility />
       <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50">
         <Toaster 
