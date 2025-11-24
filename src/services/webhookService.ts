@@ -213,10 +213,7 @@ class WebhookService {
           this.processedUpdates.add(updateKey);
           
           // IMPORTANT: Remove this update from backend to prevent infinite loop
-          // After processing, we should notify backend to remove it
-          // For now, we'll track processed updates and ignore duplicates
           try {
-            // Try to remove processed update from backend
             const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
               method: 'DELETE',
               headers: {
@@ -229,11 +226,13 @@ class WebhookService {
               })
             });
             if (removeResponse.ok) {
-              console.log('✅ Removed processed update from backend');
+              const removeData = await removeResponse.json();
+              console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+            } else {
+              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status);
             }
           } catch (error) {
-            // Ignore errors - update is already processed locally
-            console.log('ℹ️ Could not remove update from backend (will be cleaned up automatically)');
+            console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
           }
           
           // Verify the update was applied

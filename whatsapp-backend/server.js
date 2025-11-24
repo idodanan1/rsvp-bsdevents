@@ -1005,14 +1005,24 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
       timestamp: Date.now()
     };
     
-    // Add to pending updates (avoid duplicates based on phone and status)
-    const existingIndex = pendingUpdates.findIndex(
+    // Remove any existing updates for this phone number with the same status (to prevent duplicates)
+    // But keep updates with different statuses (to allow status changes)
+    const existingSameStatusIndex = pendingUpdates.findIndex(
       u => (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) && 
            u.status === status &&
            (Date.now() - u.timestamp) < 60000 // Within last minute
     );
     
-    if (existingIndex === -1) {
+    if (existingSameStatusIndex === -1) {
+      // Remove old updates for this phone number (keep only the latest)
+      const otherUpdates = pendingUpdates.filter(u => 
+        !(u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) ||
+        (Date.now() - u.timestamp) > 60000 // Keep if older than 1 minute
+      );
+      pendingUpdates.length = 0;
+      pendingUpdates.push(...otherUpdates);
+      
+      // Add the new update
       pendingUpdates.push(updateData);
       console.log('✅ Guest status update stored:', {
         phone: formattedPhone,
@@ -1028,7 +1038,7 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
       })));
     } else {
       console.log('⚠️ Update already exists, skipping duplicate');
-      console.log(`   Existing update:`, pendingUpdates[existingIndex]);
+      console.log(`   Existing update:`, pendingUpdates[existingSameStatusIndex]);
     }
     
   } catch (error) {
