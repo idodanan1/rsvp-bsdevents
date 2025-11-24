@@ -103,6 +103,12 @@ class WebhookService {
 
     for (const update of updates) {
       try {
+        // Skip updates without status (these are guest count updates, not status updates)
+        if (!update.status) {
+          console.log(`⏭️ Skipping update without status (guest count update):`, update);
+          continue;
+        }
+        
         // Find guest by phone number across all events
         let foundGuest: any = null;
         let foundEventId: string | null = null;
