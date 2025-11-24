@@ -1046,11 +1046,9 @@ export const useEventStore = create<EventStore>()(
             let personalizedSmsMessage = campaign.smsMessage || campaign.message;
             
             // Replace the generic link with guest-specific link
-            // Use production URL from environment or fallback to window.location.origin
-            const frontendUrl = typeof window !== 'undefined' 
-              ? window.location.origin 
-              : (import.meta.env.VITE_FRONTEND_URL || 'https://rsvp-frontend-wy47.onrender.com');
-            const guestLink = `${frontendUrl}/#/guest-response/${eventId}?guest=${guest.id}`;
+            // Use helper function to ensure production URL (works on all devices)
+            const { generateGuestResponseLink } = await import('../utils/helpers');
+            const guestLink = generateGuestResponseLink(eventId, guest.id);
             
             // Debug: Log the guest ID being used
             console.log('🔗 Campaign - Guest ID:', guest.id, 'for guest:', `${guest.firstName} ${guest.lastName}`);
@@ -1120,11 +1118,9 @@ export const useEventStore = create<EventStore>()(
           const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }) => {
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
-            // Use production URL from environment or fallback to window.location.origin
-            const frontendUrl = typeof window !== 'undefined' 
-              ? window.location.origin 
-              : (import.meta.env.VITE_FRONTEND_URL || 'https://rsvp-frontend-wy47.onrender.com');
-            const guestLink = `${frontendUrl}/#/guest-response/${eventId}?guest=${guest.id}`;
+            // Use helper function to ensure production URL (works on all devices)
+            const { generateGuestResponseLink } = await import('../utils/helpers');
+            const guestLink = generateGuestResponseLink(eventId, guest.id);
             
             // Prepare template parameters based on the template name (use corrected templateNameForCampaign)
             // Different templates require different parameters

@@ -224,6 +224,29 @@ export const filterEventsBySearch = (events: Event[], searchTerm: string): Event
   );
 };
 
+// Get production frontend URL (works on all devices)
+export const getFrontendUrl = (): string => {
+  // Always use production URL for guest links (works on all devices)
+  // This ensures links work even when sent from different devices
+  const productionUrl = import.meta.env.VITE_FRONTEND_URL || 'https://rsvp-frontend-wy47.onrender.com';
+  
+  // In development, allow localhost for testing
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return window.location.origin;
+  }
+  
+  return productionUrl;
+};
+
+// Generate guest response link (works on all devices)
+export const generateGuestResponseLink = (eventId: string, guestId: string): string => {
+  const frontendUrl = getFrontendUrl();
+  // Use HashRouter format for static hosting compatibility
+  const link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}`;
+  console.log('🔗 Generated guest response link:', link);
+  return link;
+};
+
 // Export data to CSV
 export const exportToCSV = (data: any[], filename: string): void => {
   const csvContent = [

@@ -1948,6 +1948,24 @@ app.post('/api/users/:userId/credits', async (req, res) => {
 // ========================================
 
 // Get all events for a user
+// Public endpoint to get all events (for guest response links - works on all devices)
+app.get('/api/events/all', async (req, res) => {
+  try {
+    const events = loadEvents();
+    res.json({
+      success: true,
+      events: events,
+      total: events.length
+    });
+  } catch (error) {
+    console.error('❌ Error loading all events:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to load events'
+    });
+  }
+});
+
 app.get('/api/events/:userId', async (req, res) => {
   try {
     const { userId } = req.params;

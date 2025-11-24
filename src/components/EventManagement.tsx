@@ -1265,14 +1265,9 @@ const EventManagement: React.FC = () => {
       const { messageService } = await import('../services/messageService');
       
       const recipients = guestsToSend.map(guest => {
-        // Use current origin for the link
-        // Note: For links to be clickable in WhatsApp, they should use HTTPS
-        // Local network IPs (192.168.x.x) won't be clickable in WhatsApp
-        let baseUrl = window.location.origin || 'http://192.168.1.47:5173';
-        
-        // For production, use HTTPS. For local development, keep as-is
-        // WhatsApp will make the link clickable if it's a valid URL format
-      const guestLink = `${baseUrl}/#/guest-response/${currentEvent.id}?guest=${guest.id}`;
+        // Use helper function to ensure production URL (works on all devices)
+        const { generateGuestResponseLink } = await import('../utils/helpers');
+        const guestLink = generateGuestResponseLink(currentEvent.id, guest.id);
       console.log('🔗 Generated guest link:', guestLink);
       console.log('🔗 Event ID:', currentEvent.id);
       console.log('🔗 Guest ID:', guest.id);
@@ -1369,7 +1364,9 @@ const EventManagement: React.FC = () => {
       
       // Use the real guest ID if found, otherwise use the parameter ID
       const guestIdToUse = realGuest?.id || guest.id;
-      const guestLink = `${baseUrl}/#/guest-response/${currentEvent.id}?guest=${guestIdToUse}`;
+      // Use helper function to ensure production URL (works on all devices)
+      const { generateGuestResponseLink } = await import('../utils/helpers');
+      const guestLink = generateGuestResponseLink(currentEvent.id, guestIdToUse);
       
       console.log('🔗 Single guest link:', guestLink);
       console.log('🔗 Single Event ID:', currentEvent.id);

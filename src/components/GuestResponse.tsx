@@ -142,8 +142,47 @@ const GuestResponse = () => {
   useEffect(() => {
     console.log('🔍 useEffect triggered:', { event, finalGuest, eventId, guestId });
     
-    // Always try to load event directly from localStorage (public access, no userId filter)
-    if (eventId) {
+    // Try to load event from API first (for cross-device access)
+    const loadEventFromAPI = async () => {
+      if (!eventId) return;
+      
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+        // Try to fetch all events and find the one we need (public access)
+        const response = await fetch(`${BACKEND_URL}/api/events/all`);
+        if (response.ok) {
+          const data = await response.json();
+          const allEvents = data.events || [];
+          const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          if (foundEvent) {
+            console.log('✅ Found event from API:', foundEvent.id);
+            setDirectEvent(foundEvent);
+            
+            // Find guest in the found event
+            if (guestId) {
+              const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
+              if (foundGuest) {
+                console.log('✅ Found guest from API:', foundGuest.id);
+                setDirectGuest(foundGuest);
+              } else {
+                // Try fallback - partial match
+                const fallbackGuest = foundEvent.guests?.find((g: any) => 
+                  guestId && (g.id.includes(guestId) || guestId.includes(g.id))
+                );
+                if (fallbackGuest) {
+                  console.log('✅ Found guest with fallback match from API:', fallbackGuest.id);
+                  setDirectGuest(fallbackGuest);
+                }
+              }
+            }
+            return; // Found in API, don't check localStorage
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not load event from API, trying localStorage:', error);
+      }
+      
+      // Fallback: Try to load event directly from localStorage (public access, no userId filter)
       const stored = localStorage.getItem('rsvp-events-storage');
       if (stored) {
         try {
@@ -178,6 +217,10 @@ const GuestResponse = () => {
           console.error('❌ Error parsing localStorage:', error);
         }
       }
+    };
+    
+    if (eventId) {
+      loadEventFromAPI();
     }
     
     // Force load events from localStorage if not loaded
