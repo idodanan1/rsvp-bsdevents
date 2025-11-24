@@ -839,7 +839,7 @@ const GuestResponse = () => {
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
