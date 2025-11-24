@@ -80,10 +80,33 @@ const EventManagement: React.FC = () => {
           JSON.stringify(currentCampaigns.map(c => c.id)) !== JSON.stringify(newCampaigns.map(c => c.id)) ||
           JSON.stringify(currentCampaigns) !== JSON.stringify(newCampaigns);
         
-        if (campaignsChanged) {
-          console.log('🔄 Campaigns changed, updating event');
-          console.log('📊 Old campaigns:', currentCampaigns.length);
-          console.log('📊 New campaigns:', newCampaigns.length);
+        // Check if guests changed - compare by guest count and RSVP statuses
+        const currentGuests = currentEvent.guests || [];
+        const newGuests = event.guests || [];
+        const guestsChanged = 
+          currentGuests.length !== newGuests.length ||
+          JSON.stringify(currentGuests.map(g => ({ id: g.id, rsvpStatus: g.rsvpStatus, guestCount: g.guestCount }))) !== 
+          JSON.stringify(newGuests.map(g => ({ id: g.id, rsvpStatus: g.rsvpStatus, guestCount: g.guestCount })));
+        
+        if (campaignsChanged || guestsChanged) {
+          console.log('🔄 Event data changed, updating event');
+          if (campaignsChanged) {
+            console.log('📊 Campaigns changed - Old:', currentCampaigns.length, 'New:', newCampaigns.length);
+          }
+          if (guestsChanged) {
+            console.log('👥 Guests changed - Old:', currentGuests.length, 'New:', newGuests.length);
+            // Log status changes
+            const statusChanges = newGuests.filter(newGuest => {
+              const oldGuest = currentGuests.find(g => g.id === newGuest.id);
+              return !oldGuest || oldGuest.rsvpStatus !== newGuest.rsvpStatus;
+            });
+            if (statusChanges.length > 0) {
+              console.log('📝 Status changes detected:', statusChanges.map(g => ({ 
+                name: `${g.firstName} ${g.lastName}`, 
+                status: g.rsvpStatus 
+              })));
+            }
+          }
           setCurrentEvent(event);
         }
       }

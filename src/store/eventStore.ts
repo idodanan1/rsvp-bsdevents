@@ -877,14 +877,34 @@ export const useEventStore = create<EventStore>()(
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             try {
               console.log('🌐 Syncing guest response update to API...');
-              await fetch(`${BACKEND_URL}/api/events`, {
+              console.log('📤 Sending updated event:', {
+                eventId: updatedEvent.id,
+                guestId: guestId,
+                updatedGuest: updatedEvent.guests.find(g => g.id === guestId)
+              });
+              
+              const response = await fetch(`${BACKEND_URL}/api/events`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(updatedEvent)
               });
-              console.log('✅ Guest response update synced to API');
+              
+              if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Guest response update synced to API:', result);
+                
+                // Force refresh events from API to ensure all clients see the update
+                setTimeout(() => {
+                  get().fetchEvents().catch(err => {
+                    console.warn('⚠️ Failed to refresh events after update:', err);
+                  });
+                }, 500);
+              } else {
+                const errorText = await response.text();
+                console.warn('⚠️ API sync failed:', response.status, errorText);
+              }
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist

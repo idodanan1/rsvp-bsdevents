@@ -447,6 +447,15 @@ const GuestResponse = () => {
       }
       
       console.log('✅ Response submitted successfully');
+      
+      // Force refresh events to ensure the table is updated
+      try {
+        await fetchEvents();
+        console.log('✅ Events refreshed after guest response update');
+      } catch (error) {
+        console.warn('⚠️ Failed to refresh events:', error);
+      }
+      
       setSubmitStatus('success');
       
     } catch (error) {
