@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { formatDate } from '../utils/helpers';
-import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare } from 'lucide-react';
+import { formatDate, formatDateTime } from '../utils/helpers';
+import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
 
 const GuestResponse = () => {
   const { eventId: paramEventId } = useParams<{ eventId: string }>();
@@ -555,59 +555,74 @@ const GuestResponse = () => {
   }
   
   return (
-    <div className="min-h-screen" style={{
-      backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f5f5f5' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-      backgroundColor: '#f8f9fa'
-    }}>
-      {/* Header Bar */}
-      <div className="bg-amber-100 border-b border-amber-200 px-4 py-3">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="text-gray-800 font-medium text-lg">
-              {formatDate(currentEvent.eventDate)}
-            </div>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <div className="text-gray-800 font-medium text-lg">
-              {currentEvent.coupleName}
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-pink-50">
+      {/* Header with Event Details */}
+      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg">
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <Heart className="w-6 h-6 fill-current" />
+            <h1 className="text-2xl font-bold">{currentEvent.coupleName}</h1>
           </div>
-          <div className="flex items-center space-x-2 text-amber-600 font-medium">
-            <span>בס"ד אירועים</span>
-            <div className="w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center">
-              <div className="w-2 h-2 bg-white rounded-full"></div>
+          
+          {/* Event Image */}
+          {currentEvent.invitationImageUrl && (
+            <div className="mb-4 flex justify-center">
+              <img 
+                src={currentEvent.invitationImageUrl} 
+                alt="תמונת האירוע"
+                className="max-w-full h-48 object-cover rounded-xl shadow-lg border-4 border-white"
+              />
             </div>
+          )}
+          
+          {/* Event Details */}
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 space-y-2">
+            <div className="flex items-center justify-center space-x-2 text-white/90">
+              <Calendar className="w-5 h-5" />
+              <span className="font-medium">{formatDate(currentEvent.eventDate)}</span>
+            </div>
+            {currentEvent.eventTime && (
+              <div className="flex items-center justify-center space-x-2 text-white/90">
+                <Clock className="w-5 h-5" />
+                <span className="font-medium">{currentEvent.eventTime}</span>
+              </div>
+            )}
+            {currentEvent.venue && (
+              <div className="flex items-center justify-center space-x-2 text-white/90">
+                <MapPin className="w-5 h-5" />
+                <span className="font-medium">{currentEvent.venue}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-12">
+      <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Main Content */}
-        <div className="text-center">
-          <div className="mb-8">
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+          <div className="text-center mb-8">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <span className="text-2xl">❤️</span>
-              <h1 className="text-2xl font-medium text-gray-800">
+              <Heart className="w-8 h-8 text-amber-500 fill-current" />
+              <h2 className="text-3xl font-bold text-gray-800">
                 שיניתם תכניות?
-              </h1>
+              </h2>
             </div>
-            <div className="flex items-center justify-center space-x-2">
-              <span className="text-2xl">👇</span>
-              <p className="text-lg text-gray-700">
-                נשמח שתעדכנו
-              </p>
-            </div>
+            <p className="text-lg text-gray-600">
+              נשמח שתעדכנו אותנו
+            </p>
           </div>
           {/* Simple Response Buttons */}
           {!showGuestCount ? (
-            <div className="flex justify-center space-x-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <button
                 onClick={() => {
                   setFormData(prev => ({ ...prev, response: 'attending' }));
                   setShowGuestCount(true);
                 }}
-                className="bg-white border-2 border-amber-200 rounded-xl px-8 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
+                className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
-                מגיע
+                <CheckCircle className="w-6 h-6" />
+                <span>מגיע</span>
               </button>
               
               <button
@@ -618,9 +633,10 @@ const GuestResponse = () => {
                     handleSubmit({ preventDefault: () => {} } as any);
                   }, 500);
                 }}
-                className="bg-white border-2 border-amber-200 rounded-xl px-8 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
+                className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
-                מתלבט
+                <MessageSquare className="w-6 h-6" />
+                <span>מתלבט</span>
               </button>
               
               <button
@@ -631,9 +647,10 @@ const GuestResponse = () => {
                     handleSubmit({ preventDefault: () => {} } as any);
                   }, 500);
                 }}
-                className="bg-white border-2 border-amber-200 rounded-xl px-8 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
+                className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
               >
-                לא מגיע
+                <XCircle className="w-6 h-6" />
+                <span>לא מגיע</span>
               </button>
             </div>
           ) : (
@@ -647,66 +664,64 @@ const GuestResponse = () => {
                 </p>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+              <div className="grid grid-cols-3 gap-3 max-w-lg mx-auto mb-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                  <button
+                    key={count}
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, guestCount: count }));
+                    }}
+                    className={`border-2 rounded-xl px-4 py-3 text-gray-800 font-medium transition-all ${
+                      formData.guestCount === count
+                        ? 'bg-amber-500 border-amber-600 text-white shadow-lg scale-105'
+                        : 'bg-white border-amber-200 hover:border-amber-300 hover:bg-amber-50'
+                    }`}
+                  >
+                    <div className="text-xl font-bold">{count}</div>
+                    <div className="text-xs">{count === 1 ? 'רק אני' : 'אנשים'}</div>
+                  </button>
+                ))}
+              </div>
+              
+              {/* Custom number input */}
+              <div className="max-w-lg mx-auto mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  או הזן מספר אחר:
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={formData.guestCount > 10 ? formData.guestCount : ''}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1;
+                    setFormData(prev => ({ ...prev, guestCount: Math.max(1, Math.min(50, value)) }));
+                  }}
+                  placeholder="מספר אורחים"
+                  className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none text-center text-lg"
+                />
+              </div>
+              
+              {/* Submit button */}
+              <div className="text-center">
                 <button
                   onClick={() => {
-                    setFormData(prev => ({ ...prev, guestCount: 1 }));
                     setTimeout(() => {
                       handleSubmit({ preventDefault: () => {} } as any);
-                    }, 500);
+                    }, 300);
                   }}
-                  className="bg-white border-2 border-amber-200 rounded-xl px-6 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105"
                 >
-                  <div className="text-2xl font-bold">1</div>
-                  <div className="text-sm">רק אני</div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, guestCount: 2 }));
-                    setTimeout(() => {
-                      handleSubmit({ preventDefault: () => {} } as any);
-                    }, 500);
-                  }}
-                  className="bg-white border-2 border-amber-200 rounded-xl px-6 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
-                >
-                  <div className="text-2xl font-bold">2</div>
-                  <div className="text-sm">אני + 1</div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, guestCount: 3 }));
-                    setTimeout(() => {
-                      handleSubmit({ preventDefault: () => {} } as any);
-                    }, 500);
-                  }}
-                  className="bg-white border-2 border-amber-200 rounded-xl px-6 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
-                >
-                  <div className="text-2xl font-bold">3</div>
-                  <div className="text-sm">אנשים</div>
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, guestCount: 4 }));
-                    setTimeout(() => {
-                      handleSubmit({ preventDefault: () => {} } as any);
-                    }, 500);
-                  }}
-                  className="bg-white border-2 border-amber-200 rounded-xl px-6 py-4 text-gray-800 font-medium hover:border-amber-300 hover:bg-amber-50 transition-colors"
-                >
-                  <div className="text-2xl font-bold">4</div>
-                  <div className="text-sm">אנשים</div>
+                  אישור - {formData.guestCount} {formData.guestCount === 1 ? 'אורח' : 'אורחים'}
                 </button>
               </div>
               
-              <div className="text-center">
+              <div className="text-center mt-6">
                 <button
                   onClick={() => setShowGuestCount(false)}
-                  className="text-gray-500 hover:text-gray-700 text-sm underline"
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
                 >
-                  ← חזרה
+                  ← חזרה לבחירת סטטוס
                 </button>
               </div>
             </div>
