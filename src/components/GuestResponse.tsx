@@ -95,6 +95,7 @@ const GuestResponse = () => {
   
   const [showGuestCount, setShowGuestCount] = useState(false);
   const [showStatusButtons, setShowStatusButtons] = useState(true); // Start with buttons visible
+  const [showConfirmButton, setShowConfirmButton] = useState(false); // Show confirm button after selecting maybe/not_attending
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
@@ -667,7 +668,8 @@ const GuestResponse = () => {
                   onClick={() => {
                     setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 })); // Reset to 1 for maybe
                     setShowGuestCount(false); // Don't show guest count for "maybe"
-                    setShowStatusButtons(false); // Hide status buttons to show notes/submit screen
+                    setShowStatusButtons(false); // Hide status buttons
+                    setShowConfirmButton(true); // Show confirm button
                   }}
                   className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -679,7 +681,8 @@ const GuestResponse = () => {
                   onClick={() => {
                     setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 })); // Reset to 1 for not attending
                     setShowGuestCount(false); // Don't show guest count for "not attending"
-                    setShowStatusButtons(false); // Hide status buttons to show notes/submit screen
+                    setShowStatusButtons(false); // Hide status buttons
+                    setShowConfirmButton(true); // Show confirm button
                   }}
                   className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
@@ -788,23 +791,29 @@ const GuestResponse = () => {
                 </button>
               </div>
             </div>
-          ) : !showStatusButtons && (formData.response === 'maybe' || formData.response === 'not_attending') ? (
-            // For "maybe" or "not_attending" - show notes and submit directly
+          ) : showConfirmButton && (formData.response === 'maybe' || formData.response === 'not_attending') ? (
+            // Show confirm button after selecting maybe/not_attending
             <div className="space-y-6">
               <div className="text-center mb-4">
                 <button
                   onClick={() => {
                     setShowStatusButtons(true);
                     setShowGuestCount(false);
+                    setShowConfirmButton(false);
                   }}
                   className="text-amber-600 hover:text-amber-700 font-medium text-sm underline mb-4 block"
                 >
                   ← חזרה לבחירת סטטוס
                 </button>
-                <p className="text-lg font-medium text-gray-700">
+                <p className="text-lg font-medium text-gray-700 mb-4">
                   {formData.response === 'maybe' 
-                    ? 'תודה על העדכון! נשמח לעדכון נוסף בהמשך.'
-                    : 'אנו מצטערים שלא תוכלו להגיע.'}
+                    ? 'האם אתם מתלבטים?'
+                    : 'האם אתם בטוחים שלא תוכלו להגיע?'}
+                </p>
+                <p className="text-sm text-gray-600 mb-6">
+                  {formData.response === 'maybe' 
+                    ? 'נוכל לעדכן אותכם בהמשך אם יש שינוי'
+                    : 'נשמח לעדכון אם יש שינוי בתכניות'}
                 </p>
               </div>
               
@@ -822,29 +831,24 @@ const GuestResponse = () => {
                 />
               </div>
               
-              {/* Submit button */}
+              {/* Confirm button */}
               <div className="text-center">
                 <button
-                  onClick={() => {
-                    setTimeout(() => {
-                      handleSubmit({ preventDefault: () => {} } as any);
-                    }, 300);
+                  onClick={async () => {
+                    setIsSubmitting(true);
+                    try {
+                      await handleSubmit({ preventDefault: () => {} } as any);
+                      // After successful submission, showConfirmButton will be reset by setSubmitStatus('success')
+                    } catch (error) {
+                      console.error('Error submitting:', error);
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-12 py-4 rounded-xl font-bold text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {formData.response === 'maybe' ? 'שלח עדכון' : 'שלח תשובה'}
-                </button>
-              </div>
-              
-              <div className="text-center mt-6">
-                <button
-                  onClick={() => {
-                    setShowStatusButtons(true);
-                    setShowGuestCount(false);
-                  }}
-                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
-                >
-                  ← חזרה לבחירת סטטוס
+                  {isSubmitting ? 'שולח...' : 'אישור'}
                 </button>
               </div>
             </div>
