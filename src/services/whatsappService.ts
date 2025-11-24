@@ -195,8 +195,11 @@ class WhatsAppService {
             console.log('🖼️ ✅ Adding header image to template:', headerImageUrl);
             console.log('🖼️ ✅ Image will be displayed with the message');
           } else {
-            // No valid image URL - check if template might require header image
-            // For templates like "aa" that require header, we'll add placeholder
+            // No valid image URL - DON'T add placeholder automatically
+            // Only add placeholder if we get error 132012 (template requires header)
+            // This prevents sending unwanted placeholder images
+            console.log('ℹ️ No header image URL provided - will send without header');
+            console.log('ℹ️ If template requires header image, error 132012 will occur and we'll retry with placeholder');
             // This will be handled in error handling if Meta rejects it
             console.log('ℹ️ No image URL provided - will try without header first');
             console.log('💡 If template requires header image, error 132012 will occur and we\'ll add placeholder');
