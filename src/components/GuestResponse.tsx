@@ -94,6 +94,7 @@ const GuestResponse = () => {
   });
   
   const [showGuestCount, setShowGuestCount] = useState(false);
+  const [showStatusButtons, setShowStatusButtons] = useState(false);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
@@ -611,41 +612,64 @@ const GuestResponse = () => {
               נשמח שתעדכנו אותנו
             </p>
           </div>
-          {/* Simple Response Buttons */}
-          {!showGuestCount ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Main Status Button */}
+          {!showStatusButtons && !showGuestCount ? (
+            <div className="text-center">
               <button
-                onClick={() => {
-                  setFormData(prev => ({ ...prev, response: 'attending' }));
-                  setShowGuestCount(true);
-                }}
-                className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                onClick={() => setShowStatusButtons(true)}
+                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl px-12 py-6 font-bold text-xl shadow-2xl hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-3 mx-auto"
               >
-                <CheckCircle className="w-6 h-6" />
-                <span>מגיע</span>
+                <Users className="w-7 h-7" />
+                <span>עדכן סטטוס הגעה</span>
+                <svg className="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </button>
-              
-              <button
-                onClick={() => {
-                  setFormData(prev => ({ ...prev, response: 'maybe' }));
-                  setShowGuestCount(true);
-                }}
-                className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
-              >
-                <MessageSquare className="w-6 h-6" />
-                <span>מתלבט</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  setFormData(prev => ({ ...prev, response: 'not_attending' }));
-                  setShowGuestCount(true);
-                }}
-                className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
-              >
-                <XCircle className="w-6 h-6" />
-                <span>לא מגיע</span>
-              </button>
+            </div>
+          ) : !showGuestCount ? (
+            <div className="space-y-4">
+              <div className="text-center mb-4">
+                <button
+                  onClick={() => setShowStatusButtons(false)}
+                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                >
+                  ← חזרה
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, response: 'attending' }));
+                    setShowGuestCount(true);
+                  }}
+                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                >
+                  <CheckCircle className="w-6 h-6" />
+                  <span>מגיע</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, response: 'maybe' }));
+                    setShowGuestCount(true);
+                  }}
+                  className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                >
+                  <MessageSquare className="w-6 h-6" />
+                  <span>מתלבט</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, response: 'not_attending' }));
+                    setShowGuestCount(true);
+                  }}
+                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                >
+                  <XCircle className="w-6 h-6" />
+                  <span>לא מגיע</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -732,7 +756,10 @@ const GuestResponse = () => {
               
               <div className="text-center mt-6">
                 <button
-                  onClick={() => setShowGuestCount(false)}
+                  onClick={() => {
+                    setShowGuestCount(false);
+                    setShowStatusButtons(true);
+                  }}
                   className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
                 >
                   ← חזרה לבחירת סטטוס
