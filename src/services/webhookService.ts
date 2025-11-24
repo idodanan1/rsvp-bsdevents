@@ -173,24 +173,46 @@ class WebhookService {
           console.log(`   Event ID: ${foundEventId}`);
           console.log(`   Is new update: ${isNewUpdate}`);
 
+          // Ensure status is correctly set
+          const newStatus = update.status as 'confirmed' | 'declined' | 'pending' | 'maybe';
+          
           const updatedGuest = {
             ...foundGuest,
-            rsvpStatus: update.status,
-            responseDate: new Date(update.responseDate)
+            rsvpStatus: newStatus,
+            responseDate: new Date(update.responseDate || Date.now())
           };
 
           console.log(`📤 Calling updateGuestResponse with:`, {
             eventId: foundEventId,
             guestId: foundGuest.id,
-            updates: {
-              rsvpStatus: update.status,
-              responseDate: updatedGuest.responseDate
+            oldStatus: foundGuest.rsvpStatus,
+            newStatus: newStatus,
+            updatedGuest: {
+              ...updatedGuest,
+              rsvpStatus: updatedGuest.rsvpStatus
             }
           });
 
           // Always update the guest status (even if we already showed toast)
           // This allows users to change their response multiple times
           await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+          
+          // Verify the update was applied
+          const verifyState = useEventStore.getState();
+          const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
+          const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
+          console.log(`🔍 Verification - Guest status after update: ${verifyGuest?.rsvpStatus} (expected: ${newStatus})`);
+          
+          if (verifyGuest?.rsvpStatus !== newStatus) {
+            console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
+            // Try to force update again
+            console.log('🔄 Attempting force update...');
+            await updateGuestResponse(foundEventId, foundGuest.id, {
+              ...foundGuest,
+              rsvpStatus: newStatus,
+              responseDate: new Date(update.responseDate || Date.now())
+            });
+          }
           
           console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
           
