@@ -8,6 +8,14 @@
     <meta name="theme-color" content="#14b8a6" />
     <title>מערכת ניהול הזמנות</title>
     <style>
+      /* Prevent black screen - always show background */
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(to bottom right, #f0fdfa, #fefce8);
+        min-height: 100vh;
+      }
+      
       /* Loading screen to prevent blank page */
       #root:empty::before {
         content: "טוען...";
