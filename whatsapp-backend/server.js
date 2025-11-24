@@ -661,8 +661,12 @@ async function handleIncomingMessage(message) {
     const buttonTitle = message.interactive.button_reply?.title;
     const phoneNumber = message.from;
     
-    console.log('🔘 Button clicked:', { buttonId, buttonTitle, phoneNumber });
+    console.log('🔘 ========== BUTTON CLICKED ==========');
+    console.log('🔘 Button ID:', buttonId);
+    console.log('🔘 Button Title:', buttonTitle);
+    console.log('🔘 Phone Number:', phoneNumber);
     console.log('🔘 Full interactive object:', JSON.stringify(message.interactive, null, 2));
+    console.log('🔘 ====================================');
     
     // Handle different button actions
     // Check both buttonId and buttonTitle for Hebrew text
@@ -687,14 +691,21 @@ async function handleIncomingMessage(message) {
       // Send automatic follow-up message asking for guest count
       await sendGuestCountQuestion(phoneNumber);
     } else if (buttonId === 'decline_attendance' || 
+               buttonId === 'לא אוכל להגיע' ||
+               buttonId === 'לא מגיע' ||
                buttonIdLower.includes('decline') ||
                buttonTitle === 'לא אוכל להגיע' ||
+               buttonTitle === 'לא מגיע' ||
                buttonTitle?.includes('לא אוכל') ||
+               buttonTitle?.includes('לא מגיע') ||
                buttonTitle?.includes('דחה') ||
-               buttonTitle?.includes('לא') ||
                buttonTitleLower.includes('לא אוכל') ||
+               buttonTitleLower.includes('לא מגיע') ||
                buttonTitleLower.includes('דחה')) {
       console.log('❌ Guest declined attendance via button!');
+      console.log(`   Button ID: "${buttonId}"`);
+      console.log(`   Button Title: "${buttonTitle}"`);
+      console.log(`   Phone number: ${phoneNumber}`);
       // Send confirmation message first, then update status
       await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -1006,10 +1017,11 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
     const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
     const formattedPhone = originalPhone.replace(/^972/, '0');
     
-    console.log(`🔄 Updating guest status:`);
-    console.log(`   Original phone: ${phoneNumber}`);
-    console.log(`   Formatted phone: ${formattedPhone}`);
-    console.log(`   Status: ${status}`);
+    console.log(`🔄 ========== UPDATING GUEST STATUS ==========`);
+    console.log(`🔄 Original phone: ${phoneNumber}`);
+    console.log(`🔄 Formatted phone: ${formattedPhone}`);
+    console.log(`🔄 Status: ${status}`);
+    console.log(`🔄 Timestamp: ${new Date().toISOString()}`);
     
     // Store update in pending updates array
     // Store both formats to increase chance of matching
@@ -1040,25 +1052,30 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
       
       // Add the new update
       pendingUpdates.push(updateData);
-      console.log('✅ Guest status update stored:', {
-        phone: formattedPhone,
-        originalPhone: originalPhone,
-        status: status,
-        timestamp: new Date(updateData.timestamp).toLocaleTimeString()
-      });
+      console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
+      console.log('✅ Phone (formatted):', formattedPhone);
+      console.log('✅ Phone (original):', originalPhone);
+      console.log('✅ Status:', status);
+      console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
       console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
       console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
         phone: u.phoneNumber,
+        originalPhone: u.originalPhoneNumber,
         status: u.status,
         time: new Date(u.timestamp).toLocaleTimeString()
       })));
+      console.log('✅ ===============================================');
     } else {
       console.log('⚠️ Update already exists, skipping duplicate');
       console.log(`   Existing update:`, pendingUpdates[existingSameStatusIndex]);
     }
     
   } catch (error) {
-    console.error('❌ Error updating guest status:', error);
+    console.error('❌ ========== ERROR UPDATING GUEST STATUS ==========');
+    console.error('❌ Error:', error);
+    console.error('❌ Phone:', phoneNumber);
+    console.error('❌ Status:', status);
+    console.error('❌ ==================================================');
   }
 }
 
