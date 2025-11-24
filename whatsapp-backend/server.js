@@ -666,6 +666,8 @@ async function handleIncomingMessage(message) {
                buttonTitleLower.includes('לא אוכל') ||
                buttonTitleLower.includes('דחה')) {
       console.log('❌ Guest declined attendance via button!');
+      // Send confirmation message first, then update status
+      await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
@@ -679,6 +681,8 @@ async function handleIncomingMessage(message) {
         await sendGuestCountQuestion(phoneNumber);
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
+        // Send confirmation message first, then update status
+        await sendDeclineConfirmation(phoneNumber);
         await updateGuestStatusByPhone(phoneNumber, 'declined');
       }
     }
@@ -716,6 +720,8 @@ async function handleIncomingMessage(message) {
              messageText.includes('לא מגיע') ||
              messageText.includes('לא מגיעים')) {
     console.log('❌ Guest declined attendance via text!');
+    // Send confirmation message first, then update status
+    await sendDeclineConfirmation(message.from);
     await updateGuestStatusByPhone(message.from, 'declined');
   } else {
     console.log('ℹ️ Message did not match confirmation/decline patterns:', originalMessageText);
@@ -786,6 +792,63 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     console.log('✅ Guest count update stored:', updateData);
   } catch (error) {
     console.error('❌ Error updating guest count:', error);
+  }
+}
+
+// Send confirmation message when guest declines
+async function sendDeclineConfirmation(phoneNumber) {
+  try {
+    const confirmationMessage = 'הבנתי, אתה לא מגיע. תודה על העדכון! 🙏';
+    
+    console.log(`📤 Sending decline confirmation to ${phoneNumber}`);
+    
+    // Use WhatsApp Business API to send the message
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    
+    if (!accessToken || !phoneNumberId) {
+      console.warn('⚠️ WhatsApp credentials not configured - cannot send decline confirmation');
+      return;
+    }
+    
+    // Format phone number
+    const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
+    
+    // Send as regular text message (follow-up after first message)
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: confirmationMessage
+      }
+    };
+    
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ Decline confirmation sent successfully');
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+    } else {
+      console.warn('⚠️ Failed to send decline confirmation:', response.status);
+      console.warn('⚠️ Response data:', response.data);
+    }
+  } catch (error) {
+    console.error('❌ Error sending decline confirmation:', error);
+    if (error.response) {
+      console.error('❌ Error response:', error.response.data);
+    }
+    // Don't throw - this is not critical
   }
 }
 
