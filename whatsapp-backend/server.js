@@ -678,7 +678,9 @@ async function handleIncomingMessage(message) {
   } else if (messageText.includes('לא') || 
              messageText.includes('דחה') ||
              messageText.includes('לא אוכל') ||
-             messageText.includes('לא אגיע')) {
+             messageText.includes('לא אגיע') ||
+             messageText.includes('לא מגיע') ||
+             messageText.includes('לא מגיעים')) {
     console.log('❌ Guest declined attendance via text!');
     await updateGuestStatusByPhone(message.from, 'declined');
   }

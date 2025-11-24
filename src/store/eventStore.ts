@@ -99,6 +99,25 @@ export const useEventStore = create<EventStore>()(
                 if (remainingLocalEvents.length > 0) {
                   allEvents.push(...remainingLocalEvents);
                   console.log(`🔄 Added ${remainingLocalEvents.length} remaining local events`);
+                  
+                  // Try to sync remaining events again
+                  try {
+                    const retrySyncResponse = await fetch(`${BACKEND_URL}/api/events/sync`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        events: remainingLocalEvents,
+                        userId: userId
+                      })
+                    });
+                    if (retrySyncResponse.ok) {
+                      console.log(`✅ Retry synced ${remainingLocalEvents.length} remaining events to API`);
+                    }
+                  } catch (retryError) {
+                    console.warn('⚠️ Retry sync failed:', retryError);
+                  }
                 }
                 
                 // Save merged events to localStorage
@@ -111,6 +130,11 @@ export const useEventStore = create<EventStore>()(
                     }
                   }));
                 }
+                
+                // Use API events as primary source (they're synced)
+                const filteredEvents = userId ? allEvents.filter((e: Event) => e.userId === userId) : allEvents;
+                set({ events: filteredEvents, isLoading: false });
+                return; // Exit early - we got events from API
               } else {
                 console.warn('⚠️ API fetch failed, using localStorage');
                 apiError = true;
@@ -593,21 +617,27 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          // Sync to API (for multi-computer access)
+          // Sync to API (for multi-computer access) - CRITICAL for data sync
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           try {
             console.log('🌐 Syncing new event to API...');
-            await fetch(`${BACKEND_URL}/api/events`, {
+            const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
               body: JSON.stringify(newEvent)
             });
-            console.log('✅ Event synced to API');
+            if (syncResponse.ok) {
+              console.log('✅ Event synced to API successfully');
+            } else {
+              const errorData = await syncResponse.json().catch(() => ({}));
+              console.error('❌ API sync failed:', errorData);
+            }
           } catch (error) {
-            console.warn('⚠️ Failed to sync event to API (will use localStorage):', error);
+            console.error('❌ Failed to sync event to API:', error);
             // Continue - localStorage is already updated by Zustand persist
+            // But log error so user knows sync failed
           }
         } catch (error) {
           set({ error: 'שגיאה ביצירת האירוע', isLoading: false });

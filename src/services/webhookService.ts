@@ -11,6 +11,7 @@ export interface WebhookUpdate {
 class WebhookService {
   private pollingInterval: number | null = null;
   private isPolling = false;
+  private processedUpdates = new Set<string>(); // Track processed updates to show toast only once
 
   // Start polling for webhook updates
   startPolling(intervalMs: number = 5000) {
@@ -158,11 +159,18 @@ class WebhookService {
         }
 
         if (foundGuest && foundEventId) {
+          // Create unique key for this update to avoid duplicate toasts
+          const updateKey = `${foundEventId}-${foundGuest.id}-${update.status}-${update.responseDate}`;
+          
+          // Check if we already processed this exact update
+          const isNewUpdate = !this.processedUpdates.has(updateKey);
+          
           console.log(`✅ Updating guest ${foundGuest.firstName} ${foundGuest.lastName} status to ${update.status}`);
           console.log(`   Current status: ${foundGuest.rsvpStatus}`);
           console.log(`   New status: ${update.status}`);
           console.log(`   Guest ID: ${foundGuest.id}`);
           console.log(`   Event ID: ${foundEventId}`);
+          console.log(`   Is new update: ${isNewUpdate}`);
 
           const updatedGuest = {
             ...foundGuest,
@@ -179,6 +187,8 @@ class WebhookService {
             }
           });
 
+          // Always update the guest status (even if we already showed toast)
+          // This allows users to change their response multiple times
           await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
           
           console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
@@ -189,9 +199,18 @@ class WebhookService {
           const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === foundGuest.id);
           console.log(`🔄 Refreshed guest status: ${refreshedGuest?.rsvpStatus}`);
           
-          // Show toast notification to user
-          const toast = await import('react-hot-toast');
-          toast.default.success(`סטטוס עודכן: ${foundGuest.firstName} ${foundGuest.lastName} - ${update.status === 'confirmed' ? 'אישר הגעה' : 'דחה הזמנה'}`);
+          // Show toast notification only once per unique update
+          if (isNewUpdate) {
+            this.processedUpdates.add(updateKey);
+            const toast = await import('react-hot-toast');
+            const statusText = update.status === 'confirmed' ? 'אישר הגעה' : 
+                             update.status === 'declined' ? 'דחה הזמנה' : 
+                             'עדכן סטטוס';
+            toast.default.success(`סטטוס עודכן: ${foundGuest.firstName} ${foundGuest.lastName} - ${statusText}`, {
+              duration: 4000,
+              id: updateKey // Use unique ID to prevent duplicate toasts
+            });
+          }
         } else {
           console.warn(`⚠️ Guest not found for phone number: ${update.phoneNumber}`);
           console.warn(`⚠️ Available guests:`, events.flatMap(e => e.guests?.map(g => ({
