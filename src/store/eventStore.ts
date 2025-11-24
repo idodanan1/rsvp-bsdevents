@@ -874,36 +874,59 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          // CRITICAL: Sync to API to prevent auto-refresh from overwriting manual changes
+          // CRITICAL: Sync to API immediately for real-time sync between devices
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
-            try {
-              console.log('🌐 Syncing guest update to API...');
-              console.log('📤 Sending updated event:', {
-                eventId: updatedEvent.id,
-                guestId: guestId,
-                updates: updates
-              });
-              
-              const response = await fetch(`${BACKEND_URL}/api/events`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updatedEvent)
-              });
-              
-              if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Guest update synced to API:', result);
-              } else {
-                const errorText = await response.text();
-                console.warn('⚠️ API sync failed:', response.status, errorText);
+            
+            // Retry logic for reliable sync
+            const syncToAPI = async (retries = 3): Promise<void> => {
+              try {
+                console.log('🌐 Syncing guest update to API...');
+                console.log('📤 Sending updated event:', {
+                  eventId: updatedEvent.id,
+                  guestId: guestId,
+                  updates: updates,
+                  allFields: Object.keys(updates)
+                });
+                
+                const response = await fetch(`${BACKEND_URL}/api/events`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(updatedEvent)
+                });
+                
+                if (response.ok) {
+                  const result = await response.json();
+                  console.log('✅ Guest update synced to API successfully:', {
+                    eventId: updatedEvent.id,
+                    guestId: guestId,
+                    syncedFields: Object.keys(updates)
+                  });
+                } else {
+                  const errorText = await response.text();
+                  console.warn('⚠️ API sync failed:', response.status, errorText);
+                  if (retries > 0) {
+                    console.log(`🔄 Retrying sync (${retries} retries left)...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return syncToAPI(retries - 1);
+                  }
+                }
+              } catch (error) {
+                console.warn('⚠️ Failed to sync guest update to API:', error);
+                if (retries > 0) {
+                  console.log(`🔄 Retrying sync (${retries} retries left)...`);
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                  return syncToAPI(retries - 1);
+                }
               }
-            } catch (error) {
-              console.warn('⚠️ Failed to sync guest update to API (will use localStorage):', error);
-              // Continue - localStorage is already updated by Zustand persist
-            }
+            };
+            
+            // Sync immediately (don't await to avoid blocking UI)
+            syncToAPI().catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
           }
         } catch (error) {
           console.error('❌ Error in updateGuest:', error);

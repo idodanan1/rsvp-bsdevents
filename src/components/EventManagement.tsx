@@ -56,16 +56,21 @@ const EventManagement: React.FC = () => {
     }
   }, [id, fetchEvents]);
 
-  // Auto-refresh events every 10 seconds to show real-time updates
+  // Auto-refresh events every 5 seconds for real-time sync between devices
   useEffect(() => {
     if (!id) return;
     
+    // Initial fetch
+    fetchEvents().catch(error => {
+      console.error('❌ Error initial fetch:', error);
+    });
+    
     const intervalId = setInterval(() => {
-      console.log('🔄 Auto-refreshing events for real-time updates...');
+      console.log('🔄 Auto-refreshing events for real-time sync...');
       fetchEvents().catch(error => {
         console.error('❌ Error auto-refreshing events:', error);
       });
-    }, 10000); // Refresh every 10 seconds
+    }, 5000); // Refresh every 5 seconds for faster sync
 
     return () => {
       clearInterval(intervalId);
