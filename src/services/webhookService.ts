@@ -106,6 +106,28 @@ class WebhookService {
         // Skip updates without status (these are guest count updates, not status updates)
         if (!update.status) {
           console.log(`⏭️ Skipping update without status (guest count update):`, update);
+          // Still try to remove it from backend if it's a guest count update
+          if (update.guestCount !== undefined) {
+            try {
+              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  status: update.status,
+                  responseDate: update.responseDate,
+                  guestCount: update.guestCount
+                })
+              });
+              if (removeResponse.ok) {
+                console.log(`✅ Removed guest count update from backend`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove guest count update from backend:', error);
+            }
+          }
           continue;
         }
         
@@ -181,10 +203,30 @@ class WebhookService {
             isNewUpdate: isNewUpdate
           });
           
-          // Only update if status is different OR if this is a new update
-          // This prevents overwriting manual changes if the status already matches
-          if (foundGuest.rsvpStatus === newStatus && !isNewUpdate) {
-            console.log(`⏭️ Skipping update - status already matches and update was already processed`);
+          // CRITICAL: Only update if status is DIFFERENT from current status
+          // This prevents overwriting manual changes - if status already matches, skip the update
+          if (foundGuest.rsvpStatus === newStatus) {
+            console.log(`⏭️ Skipping update - status already matches current status (${newStatus}). This prevents overwriting manual changes.`);
+            // Still remove from backend to prevent it from being processed again
+            try {
+              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  status: update.status,
+                  responseDate: update.responseDate,
+                  guestCount: update.guestCount
+                })
+              });
+              if (removeResponse.ok) {
+                console.log(`✅ Removed duplicate update from backend (status already matches)`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove duplicate update from backend:', error);
+            }
             continue; // Skip to next update
           }
           
