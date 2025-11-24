@@ -209,8 +209,17 @@ export const useEventStore = create<EventStore>()(
                     console.log(`✅ Using API data for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
                       actualAttendance: apiGuest.actualAttendance,
                       guestCount: apiGuest.guestCount,
-                      rsvpStatus: apiGuest.rsvpStatus
+                      rsvpStatus: apiGuest.rsvpStatus,
+                      note: 'No manual change - API is source of truth'
                     });
+                    
+                    // CRITICAL: Verify API has actualAttendance value
+                    if (apiGuest.actualAttendance && apiGuest.actualAttendance !== 'not_marked') {
+                      console.log(`✅ API has actualAttendance value: ${apiGuest.actualAttendance} - this will sync to other devices`);
+                    } else {
+                      console.warn(`⚠️ API does not have actualAttendance (or it's 'not_marked') - this might cause sync issues`);
+                    }
+                    
                     return apiGuest;
                   });
                   
