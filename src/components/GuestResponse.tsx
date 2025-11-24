@@ -336,18 +336,19 @@ const GuestResponse = () => {
     if (currentEvent && guestId && !finalGuest) {
       console.log('❌ Guest not found for ID:', guestId, 'in event:', currentEvent.id);
       setSubmitStatus('not_found');
-    } else if (finalGuest || !guestId) {
-      // Pre-fill form with guest data
+    } else if (finalGuest && !formData.fullName) {
+      // Pre-fill form with guest data ONLY if form is not already filled
+      // This prevents overwriting user's selections
       setFormData(prev => ({
         ...prev,
-        phoneNumber: finalGuest.phoneNumber,
-        fullName: `${finalGuest.firstName} ${finalGuest.lastName}`,
-        guestCount: finalGuest.guestCount || 1,
-        notes: finalGuest.notes || '',
+        phoneNumber: finalGuest.phoneNumber || prev.phoneNumber,
+        fullName: `${finalGuest.firstName} ${finalGuest.lastName}` || prev.fullName,
+        guestCount: finalGuest.guestCount || prev.guestCount || 1,
+        notes: finalGuest.notes || prev.notes || '',
         response: finalGuest.rsvpStatus === 'confirmed' ? 'attending' : 
                  finalGuest.rsvpStatus === 'declined' ? 'not_attending' : 
-                 finalGuest.rsvpStatus === 'maybe' ? 'maybe' : 'attending',
-        actualAttendance: finalGuest.actualAttendance || 'not_marked'
+                 finalGuest.rsvpStatus === 'maybe' ? 'maybe' : prev.response,
+        actualAttendance: finalGuest.actualAttendance || prev.actualAttendance || 'not_marked'
       }));
     }
   }, [event, directEvent, finalGuest, guestId]);
@@ -713,7 +714,7 @@ const GuestResponse = () => {
                   type="number"
                   min="1"
                   max="50"
-                  value={formData.guestCount > 10 ? formData.guestCount : ''}
+                  value={formData.guestCount > 10 ? formData.guestCount : (formData.guestCount || '')}
                   onChange={(e) => {
                     const value = parseInt(e.target.value) || 1;
                     setFormData(prev => ({ ...prev, guestCount: Math.max(1, Math.min(50, value)) }));
