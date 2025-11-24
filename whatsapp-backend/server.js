@@ -888,20 +888,18 @@ async function sendGuestCountQuestion(phoneNumber) {
     // Format phone number
     const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
     
-    // Use template "yes" as configured by user
-    const guestCountTemplateName = 'yes'; // Template name in Meta
+    // Send as regular text message (follow-up after first message)
+    // This works because the user already received the first message (template)
+    const questionMessage = 'כמה אנשים אתם מתכוונים להגיע?';
     
-    console.log(`📋 Using template: ${guestCountTemplateName}`);
+    console.log('📋 Sending regular text message (follow-up)');
     const messagePayload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
       to: formattedPhone,
-      type: 'template',
-      template: {
-        name: guestCountTemplateName,
-        language: {
-          code: 'he'
-        }
+      type: 'text',
+      text: {
+        body: questionMessage
       }
     };
     
