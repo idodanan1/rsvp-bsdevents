@@ -48,21 +48,27 @@ const Accessibility: React.FC = () => {
       const newY = e.clientY - dragStart.y;
       
       // Keep within viewport bounds
-      const maxX = window.innerWidth - (toolbarRef.current?.offsetWidth || 300);
-      const maxY = window.innerHeight - (toolbarRef.current?.offsetHeight || 400);
+      const toolbarWidth = toolbarRef.current?.offsetWidth || 200;
+      const toolbarHeight = toolbarRef.current?.offsetHeight || (isOpen ? 400 : 60);
+      const maxX = window.innerWidth - toolbarWidth;
+      const maxY = window.innerHeight - toolbarHeight;
+      
+      const clampedX = Math.max(0, Math.min(newX, maxX));
+      const clampedY = Math.max(0, Math.min(newY, maxY));
       
       setPosition({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY))
+        x: clampedX,
+        y: clampedY
       });
     };
 
     const handleMouseUp = () => {
       setIsDragging(false);
       // Save position to localStorage
-      if (toolbarRef.current) {
-        localStorage.setItem('rsvp-accessibility-position', JSON.stringify(position));
-      }
+      setPosition(prev => {
+        localStorage.setItem('rsvp-accessibility-position', JSON.stringify(prev));
+        return prev;
+      });
     };
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -72,9 +78,14 @@ const Accessibility: React.FC = () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, dragStart, position]);
+  }, [isDragging, dragStart, isOpen]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    // Only allow dragging from the header area, not from buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    
     if (toolbarRef.current) {
       setIsDragging(true);
       setDragStart({
@@ -120,7 +131,7 @@ const Accessibility: React.FC = () => {
       >
         {/* Main button - always visible */}
         <div
-          className="flex items-center justify-between p-3 cursor-move select-none"
+          className="flex items-center justify-between p-3 select-none"
           onMouseDown={handleMouseDown}
           style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
         >
