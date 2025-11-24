@@ -709,10 +709,21 @@ async function handleIncomingMessage(message) {
       messageText.includes('מגיע') ||
       messageText.includes('אגיע')) {
     console.log('✅ Guest confirmed attendance via text!');
+    console.log(`   Original message: "${originalMessageText}"`);
+    console.log(`   Phone number: ${message.from}`);
     await updateGuestStatusByPhone(message.from, 'confirmed');
     
     // Send automatic follow-up message asking for guest count
-    await sendGuestCountQuestion(message.from);
+    console.log('📤 About to send guest count question...');
+    try {
+      await sendGuestCountQuestion(message.from);
+      console.log('✅ Guest count question sent (or attempted)');
+    } catch (error) {
+      console.error('❌ Error sending guest count question:', error);
+      if (error.response) {
+        console.error('❌ Error response:', error.response.data);
+      }
+    }
   } else if (messageText.includes('לא אוכל להגיע') ||
              messageText.includes('לא מגיע') ||
              messageText.includes('לא מגיעים') ||
@@ -846,11 +857,17 @@ async function sendDeclineConfirmation(phoneNumber) {
       console.warn('⚠️ Response data:', response.data);
     }
   } catch (error) {
-    console.error('❌ Error sending decline confirmation:', error);
+    console.error('❌ Error sending guest count question:', error);
     if (error.response) {
-      console.error('❌ Error response:', error.response.data);
+      console.error('❌ Error response status:', error.response.status);
+      console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error('❌ No response received:', error.request);
+    } else {
+      console.error('❌ Error setting up request:', error.message);
     }
-    // Don't throw - this is not critical
+    // Don't throw - try fallback
+    throw error; // Re-throw to trigger fallback in caller
   }
 }
 
@@ -887,6 +904,9 @@ async function sendGuestCountQuestion(phoneNumber) {
         }
       }
     };
+    
+    console.log('📤 Sending request to WhatsApp API...');
+    console.log('📤 Payload:', JSON.stringify(messagePayload, null, 2));
     
     const response = await axios.post(
       `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
