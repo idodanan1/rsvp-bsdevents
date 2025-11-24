@@ -130,6 +130,16 @@ export const useEventStore = create<EventStore>()(
                     const lastManualChange = cleanedManualChanges.get(guestKey);
                     const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
                     
+                    // Log comparison for debugging
+                    if (apiGuest.actualAttendance !== localGuest.actualAttendance) {
+                      console.log(`🔄 actualAttendance mismatch for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
+                        api: apiGuest.actualAttendance,
+                        local: localGuest.actualAttendance,
+                        hasRecentManualChange: hasRecentManualChange,
+                        timeSinceChange: hasRecentManualChange ? `${Math.round((now - lastManualChange) / 1000)}s` : 'N/A'
+                      });
+                    }
+                    
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
                       console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id} (${Math.round((now - lastManualChange) / 1000)}s ago)`);
@@ -145,6 +155,11 @@ export const useEventStore = create<EventStore>()(
                     
                     // No recent manual change - merge: ALWAYS use API data (it's the source of truth)
                     // API has the latest data from all devices
+                    console.log(`✅ Using API data for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
+                      actualAttendance: apiGuest.actualAttendance,
+                      guestCount: apiGuest.guestCount,
+                      rsvpStatus: apiGuest.rsvpStatus
+                    });
                     return apiGuest;
                   });
                   
