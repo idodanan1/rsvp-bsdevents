@@ -713,13 +713,15 @@ async function handleIncomingMessage(message) {
     
     // Send automatic follow-up message asking for guest count
     await sendGuestCountQuestion(message.from);
-  } else if (messageText.includes('לא') || 
-             messageText.includes('דחה') ||
+  } else if (messageText.includes('לא אוכל להגיע') ||
+             messageText.includes('לא מגיע') ||
+             messageText.includes('לא מגיעים') ||
              messageText.includes('לא אוכל') ||
              messageText.includes('לא אגיע') ||
-             messageText.includes('לא מגיע') ||
-             messageText.includes('לא מגיעים')) {
+             messageText.includes('דחה') ||
+             (messageText.includes('לא') && (messageText.includes('מגיע') || messageText.includes('אוכל')))) {
     console.log('❌ Guest declined attendance via text!');
+    console.log(`   Message text: "${originalMessageText}"`);
     // Send confirmation message first, then update status
     await sendDeclineConfirmation(message.from);
     await updateGuestStatusByPhone(message.from, 'declined');
