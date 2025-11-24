@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateGlobalStats, formatDate, getStatusIcon, getStatusColor } from '../utils/helpers';
@@ -18,12 +18,41 @@ const Dashboard: React.FC = () => {
     restoreDeletedEvent,
     permanentlyDeleteEvent,
     recreateCampaigns,
-    updateExistingEventsCampaigns
+    updateExistingEventsCampaigns,
+    fetchEvents
   } = useEventStore();
   const globalStats = calculateGlobalStats(events);
   const [showDeletedEventsModal, setShowDeletedEventsModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<any>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update time every second
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
+
+  // Auto-refresh data every 30 seconds
+  useEffect(() => {
+    // Initial fetch
+    fetchEvents().catch(error => {
+      console.error('❌ Error fetching events:', error);
+    });
+
+    // Set up auto-refresh interval
+    const dataInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing data...');
+      fetchEvents().catch(error => {
+        console.error('❌ Error auto-refreshing events:', error);
+      });
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(dataInterval);
+  }, [fetchEvents]);
 
   const handleRestoreEvents = () => {
     // First, let's check what's in localStorage
@@ -130,8 +159,8 @@ const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">דשבורד 🚀 מעודכן עכשיו!</h1>
-          <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {new Date().toLocaleString('he-IL')}</p>
+          <h1 className="text-3xl font-bold text-gray-900">דשבורד</h1>
+          <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
           <button
