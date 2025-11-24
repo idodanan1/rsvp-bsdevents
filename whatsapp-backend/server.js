@@ -1375,23 +1375,38 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  const { phoneNumber, status, responseDate, guestCount } = req.body;
-  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount });
+  const { phoneNumber, status, responseDate, guestCount, removeAllForPhone } = req.body;
+  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone });
   
   const initialLength = pendingUpdates.length;
   
-  // Filter out the specific update that was processed
-  // Match by phone number, status, and responseDate (and guestCount if provided)
-  const filtered = pendingUpdates.filter(u => {
-    const phoneMatch = (u.phoneNumber === phoneNumber || u.originalPhoneNumber === phoneNumber);
-    const statusMatch = !status || u.status === status;
-    const dateMatch = !responseDate || u.responseDate === responseDate || 
-                      new Date(u.responseDate || u.timestamp).toISOString() === responseDate;
-    const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
+  let filtered;
+  
+  // If removeAllForPhone is true, remove ALL updates for this phone number (regardless of status)
+  // This is useful when we want to clear all old updates for a phone number
+  if (removeAllForPhone && phoneNumber) {
+    const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
+    const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
     
-    // Keep if it doesn't match all criteria
-    return !(phoneMatch && statusMatch && dateMatch && guestCountMatch);
-  });
+    filtered = pendingUpdates.filter(u => 
+      !(u.phoneNumber === formattedPhone || u.phoneNumber === phoneNumber || 
+        u.originalPhoneNumber === originalPhone || u.originalPhoneNumber === phoneNumber)
+    );
+    console.log(`🗑️ Removing ALL updates for phone ${phoneNumber} (${initialLength - filtered.length} updates)`);
+  } else {
+    // Filter out the specific update that was processed
+    // Match by phone number, status, and responseDate (and guestCount if provided)
+    filtered = pendingUpdates.filter(u => {
+      const phoneMatch = (u.phoneNumber === phoneNumber || u.originalPhoneNumber === phoneNumber);
+      const statusMatch = !status || u.status === status;
+      const dateMatch = !responseDate || u.responseDate === responseDate || 
+                        new Date(u.responseDate || u.timestamp).toISOString() === responseDate;
+      const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
+      
+      // Keep if it doesn't match all criteria
+      return !(phoneMatch && statusMatch && dateMatch && guestCountMatch);
+    });
+  }
   
   pendingUpdates.length = 0;
   pendingUpdates.push(...filtered);
