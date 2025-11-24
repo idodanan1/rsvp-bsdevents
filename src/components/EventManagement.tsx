@@ -116,8 +116,17 @@ const EventManagement: React.FC = () => {
             return currentGuest;
           }
           
-          // No recent manual change - use new data from API
-          return newGuest;
+                    // No recent manual change - merge: prefer new data but keep local if new is missing fields
+                    return {
+                      ...newGuest,
+                      // Only override with current if new value is missing or undefined
+                      guestCount: newGuest.guestCount !== undefined ? newGuest.guestCount : currentGuest.guestCount,
+                      rsvpStatus: newGuest.rsvpStatus || currentGuest.rsvpStatus,
+                      actualAttendance: newGuest.actualAttendance !== undefined ? newGuest.actualAttendance : currentGuest.actualAttendance,
+                      notes: newGuest.notes !== undefined ? newGuest.notes : currentGuest.notes,
+                      tableId: newGuest.tableId !== undefined ? newGuest.tableId : currentGuest.tableId,
+                      channel: newGuest.channel || currentGuest.channel
+                    };
         });
         
         // Add any new guests from API that aren't in currentEvent

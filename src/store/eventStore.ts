@@ -142,7 +142,10 @@ export const useEventStore = create<EventStore>()(
                       // Only override with local if API value is missing or undefined
                       guestCount: apiGuest.guestCount !== undefined ? apiGuest.guestCount : localGuest.guestCount,
                       rsvpStatus: apiGuest.rsvpStatus || localGuest.rsvpStatus,
-                      notes: apiGuest.notes !== undefined ? apiGuest.notes : localGuest.notes
+                      actualAttendance: apiGuest.actualAttendance !== undefined ? apiGuest.actualAttendance : localGuest.actualAttendance,
+                      notes: apiGuest.notes !== undefined ? apiGuest.notes : localGuest.notes,
+                      tableId: apiGuest.tableId !== undefined ? apiGuest.tableId : localGuest.tableId,
+                      channel: apiGuest.channel || localGuest.channel
                     };
                   });
                   
@@ -825,15 +828,15 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: If updating guestCount or rsvpStatus, mark as manual change
-          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined) {
+          // CRITICAL: If updating guestCount, rsvpStatus, or actualAttendance, mark as manual change
+          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined || updates.actualAttendance !== undefined) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);
               newManualChanges.set(guestKey, Date.now());
               return { manualChanges: newManualChanges };
             });
-            console.log(`🛡️ Marked manual change for ${guestKey}`);
+            console.log(`🛡️ Marked manual change for ${guestKey} (fields: ${Object.keys(updates).join(', ')})`);
           }
           
           let updatedEvent: Event | null = null;
