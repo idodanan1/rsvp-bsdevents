@@ -15,6 +15,7 @@ export const useEventStore = create<EventStore>()(
       currentEvent: null,
       isLoading: false,
       error: null,
+      manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
       fetchEvents: async () => {
         set({ isLoading: true, error: null });
@@ -92,10 +93,20 @@ export const useEventStore = create<EventStore>()(
                 }
                 
                 // CRITICAL: Merge API events with local events, but preserve manual changes
-                // Get webhook service to check for manual changes
-                const { webhookService } = await import('../services/webhookService');
+                const state = get();
                 const now = Date.now();
                 const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+                
+                // Clean up old manual changes
+                const cleanedManualChanges = new Map<string, number>();
+                for (const [key, timestamp] of state.manualChanges.entries()) {
+                  if (now - timestamp < MANUAL_CHANGE_PROTECTION_TIME) {
+                    cleanedManualChanges.set(key, timestamp);
+                  }
+                }
+                if (cleanedManualChanges.size !== state.manualChanges.size) {
+                  set({ manualChanges: cleanedManualChanges });
+                }
                 
                 // Merge API events with local events, preserving manual changes
                 const allEvents = apiEvents.map(apiEvent => {
@@ -116,12 +127,12 @@ export const useEventStore = create<EventStore>()(
                     
                     // Check if there was a manual change for this guest
                     const guestKey = `${apiEvent.id}-${apiGuest.id}`;
-                    const lastManualChange = (webhookService as any).manualChanges?.get?.(guestKey);
+                    const lastManualChange = cleanedManualChanges.get(guestKey);
                     const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
                     
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
-                      console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id}`);
+                      console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id} (${Math.round((now - lastManualChange) / 1000)}s ago)`);
                       return localGuest;
                     }
                     
@@ -814,6 +825,17 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
+          // CRITICAL: If updating guestCount or rsvpStatus, mark as manual change
+          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined) {
+            const guestKey = `${eventId}-${guestId}`;
+            set(state => {
+              const newManualChanges = new Map(state.manualChanges);
+              newManualChanges.set(guestKey, Date.now());
+              return { manualChanges: newManualChanges };
+            });
+            console.log(`🛡️ Marked manual change for ${guestKey}`);
+          }
+          
           let updatedEvent: Event | null = null;
           
           set(state => {
@@ -2409,6 +2431,7 @@ export const useEventStore = create<EventStore>()(
       partialize: (state) => {
         // CRITICAL: Always save ALL events from localStorage, not just filtered ones
         // Get all events from storage to preserve data for all users
+        // Note: manualChanges is NOT saved to localStorage (Map cannot be serialized)
         try {
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
