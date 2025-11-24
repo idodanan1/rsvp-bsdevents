@@ -243,8 +243,9 @@ const GuestResponse = () => {
       return () => clearTimeout(timeout);
     }
     
-    if (event && guestId && !finalGuest) {
-      console.log('❌ Guest not found for ID:', guestId, 'in event:', event.id);
+    const currentEvent = event || directEvent;
+    if (currentEvent && guestId && !finalGuest) {
+      console.log('❌ Guest not found for ID:', guestId, 'in event:', currentEvent.id);
       setSubmitStatus('not_found');
     } else if (finalGuest || !guestId) {
       // Pre-fill form with guest data
@@ -260,7 +261,7 @@ const GuestResponse = () => {
         actualAttendance: finalGuest.actualAttendance || 'not_marked'
       }));
     }
-  }, [event, finalGuest, guestId]);
+  }, [event, directEvent, finalGuest, guestId]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -272,7 +273,8 @@ const GuestResponse = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!event) return;
+    const currentEvent = event || directEvent;
+    if (!currentEvent) return;
     
     setIsSubmitting(true);
     setSubmitStatus('idle');
@@ -321,16 +323,32 @@ const GuestResponse = () => {
     }
   };
   
-  if (!event || (guestId && !guest)) {
+  // Show loading while trying to find event
+  if (!event && !directEvent && eventId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">טוען את האירוע...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Use directEvent if event is not found in store
+  const currentEvent = event || directEvent;
+  const currentGuest = guest || directGuest || finalGuest;
+  
+  if (!currentEvent || (guestId && !currentGuest)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            {!event ? 'אירוע לא נמצא' : 'אורח לא נמצא'}
+            {!currentEvent ? 'אירוע לא נמצא' : 'אורח לא נמצא'}
           </h1>
           <p className="text-gray-600 mb-6">
-            {!event ? 'הקוד שסופק לא תואם לאף אירוע במערכת' : 'האורח לא נמצא ברשימה או שהקישור שגוי.'}
+            {!currentEvent ? 'הקוד שסופק לא תואם לאף אירוע במערכת' : 'האורח לא נמצא ברשימה או שהקישור שגוי.'}
           </p>
           <button
             onClick={() => navigate('/')}
@@ -388,11 +406,11 @@ const GuestResponse = () => {
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="text-gray-800 font-medium text-lg">
-              {formatDate(event.eventDate)}
+              {formatDate(currentEvent.eventDate)}
             </div>
             <div className="w-px h-6 bg-gray-300"></div>
             <div className="text-gray-800 font-medium text-lg">
-              {event.coupleName}
+              {currentEvent.coupleName}
             </div>
           </div>
           <div className="flex items-center space-x-2 text-amber-600 font-medium">
