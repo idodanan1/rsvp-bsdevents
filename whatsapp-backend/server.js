@@ -735,11 +735,40 @@ async function handleIncomingMessage(message) {
   if (isDecline) {
     console.log('❌ Guest declined attendance via text!');
     console.log(`   Message text: "${originalMessageText}"`);
+    console.log(`   Lowercase message: "${messageText}"`);
     console.log(`   Phone number: ${message.from}`);
+    console.log(`   isDecline check result: ${isDecline}`);
+    
     // Send confirmation message first, then update status
-    await sendDeclineConfirmation(message.from);
-    await updateGuestStatusByPhone(message.from, 'declined');
-    console.log('✅ Decline status update sent to pendingUpdates');
+    try {
+      await sendDeclineConfirmation(message.from);
+      console.log('✅ Decline confirmation message sent');
+    } catch (error) {
+      console.error('❌ Error sending decline confirmation:', error);
+    }
+    
+    try {
+      await updateGuestStatusByPhone(message.from, 'declined');
+      console.log('✅ Decline status update sent to pendingUpdates');
+      
+      // Verify it was added
+      const verifyUpdate = pendingUpdates.find(u => 
+        (u.phoneNumber === message.from.replace(/^0/, '972').replace(/[^0-9]/g, '').replace(/^972/, '0') || 
+         u.originalPhoneNumber === message.from.replace(/[^0-9]/g, '')) &&
+        u.status === 'declined'
+      );
+      if (verifyUpdate) {
+        console.log('✅ Verified: Decline update is in pendingUpdates array');
+      } else {
+        console.error('❌ ERROR: Decline update NOT found in pendingUpdates!');
+        console.log('📋 Current pendingUpdates:', pendingUpdates.map(u => ({
+          phone: u.phoneNumber,
+          status: u.status
+        })));
+      }
+    } catch (error) {
+      console.error('❌ Error updating guest status to declined:', error);
+    }
   } else if (isConfirmation) {
     console.log('✅ Guest confirmed attendance via text!');
     console.log(`   Original message: "${originalMessageText}"`);
