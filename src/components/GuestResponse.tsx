@@ -5,14 +5,53 @@ import { formatDate } from '../utils/helpers';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare } from 'lucide-react';
 
 const GuestResponse = () => {
-  const { eventId } = useParams<{ eventId: string }>();
+  const { eventId: paramEventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { events, updateGuestResponse, fetchEvents } = useEventStore();
   
+  // Parse eventId from hash if not in params (HashRouter fallback)
+  const parseEventIdFromHash = () => {
+    if (paramEventId) return paramEventId;
+    
+    // Try to parse from hash
+    const hash = window.location.hash;
+    if (hash) {
+      // Hash format: #/guest-response/eventId?guest=guestId
+      const match = hash.match(/\/guest-response\/([^/?]+)/);
+      if (match && match[1]) {
+        console.log('✅ Parsed eventId from hash:', match[1]);
+        return match[1];
+      }
+    }
+    return null;
+  };
+  
+  const eventId = paramEventId || parseEventIdFromHash();
+  
+  // Parse guestId from hash or search params
+  const parseGuestId = () => {
+    const fromSearch = searchParams.get('guest');
+    if (fromSearch) return fromSearch;
+    
+    // Try to parse from hash
+    const hash = window.location.hash;
+    if (hash) {
+      const match = hash.match(/[?&]guest=([^&]+)/);
+      if (match && match[1]) {
+        console.log('✅ Parsed guestId from hash:', match[1]);
+        return decodeURIComponent(match[1]);
+      }
+    }
+    return null;
+  };
+  
+  const guestId = parseGuestId();
+  
   // Force fetch events on component mount
   React.useEffect(() => {
     console.log('🔄 GuestResponse mounted, fetching events...');
+    console.log('🔍 Parsed IDs:', { eventId, guestId, paramEventId, hash: window.location.hash });
     fetchEvents();
     
     // Also try to load directly from localStorage
@@ -35,9 +74,7 @@ const GuestResponse = () => {
         console.error('❌ Error parsing localStorage:', error);
       }
     }
-  }, [fetchEvents]);
-  
-  const guestId = searchParams.get('guest');
+  }, [fetchEvents, eventId, guestId]);
   
   // Debug URL parameters
   console.log('🔍 URL Parameters Debug:', {
