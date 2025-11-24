@@ -9,6 +9,8 @@ const Accessibility: React.FC = () => {
   const [position, setPosition] = useState({ x: 20, y: 20 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isLongPress, setIsLongPress] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -16,6 +18,16 @@ const Accessibility: React.FC = () => {
     const isMobile = window.innerWidth < 768;
     const isTablet = window.innerWidth >= 768 && window.innerWidth < 1024;
     const isDesktop = window.innerWidth >= 1024;
+    
+    // Calculate default position: top-right corner
+    const calculateDefaultPosition = () => {
+      const buttonWidth = 120;
+      const buttonHeight = 60;
+      return {
+        x: window.innerWidth - buttonWidth - 10, // Right side with 10px padding
+        y: 10 // Top with 10px padding
+      };
+    };
     
     // Load saved position from localStorage
     const savedPosition = localStorage.getItem('rsvp-accessibility-position');
@@ -25,16 +37,12 @@ const Accessibility: React.FC = () => {
         const pos = JSON.parse(savedPosition);
         setPosition(pos);
       } catch (e) {
-        console.warn('Failed to load accessibility position');
+        console.warn('Failed to load accessibility position, using default');
+        setPosition(calculateDefaultPosition());
       }
-    } else if (isMobile || isTablet) {
-      // On mobile/tablet, position at bottom-right corner
-      const buttonWidth = 120;
-      const buttonHeight = 80;
-      setPosition({ 
-        x: Math.max(10, window.innerWidth - buttonWidth - 10), // Ensure it's visible
-        y: Math.max(10, window.innerHeight - buttonHeight - 10)  // Ensure it's visible
-      });
+    } else {
+      // On mobile/tablet or if no saved position, use top-right as default
+      setPosition(calculateDefaultPosition());
     }
 
     // Apply font size
@@ -101,12 +109,14 @@ const Accessibility: React.FC = () => {
 
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchCancel);
 
     return () => {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchCancel);
     };
-  }, [isDragging, dragStart, isOpen]);
+  }, [isDragging, dragStart, isOpen, longPressTimer, isLongPress]);
 
   const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     // Only allow dragging from the header area, not from buttons
@@ -114,18 +124,77 @@ const Accessibility: React.FC = () => {
       return;
     }
     
-    if (toolbarRef.current) {
-      setIsDragging(true);
-      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      setDragStart({
-        x: clientX - position.x,
-        y: clientY - position.y
+    // For mouse events, allow immediate dragging
+    if (!('touches' in e)) {
+      if (toolbarRef.current) {
+        setIsDragging(true);
+        setDragStart({
+          x: e.clientX - position.x,
+          y: e.clientY - position.y
+        });
+      }
+      return;
+    }
+    
+    // For touch events, require long press (500ms) before allowing drag
+    const touch = e.touches[0];
+    setIsLongPress(false);
+    
+    const timer = setTimeout(() => {
+      setIsLongPress(true);
+      if (toolbarRef.current) {
+        setIsDragging(true);
+        setDragStart({
+          x: touch.clientX - position.x,
+          y: touch.clientY - position.y
+        });
+        // Provide haptic feedback if available
+        if (navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      }
+    }, 500); // 500ms long press
+    
+    setLongPressTimer(timer);
+  };
+  
+  const handleTouchEnd = () => {
+    // Clear long press timer if touch ended before long press
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    
+    // If it was a long press and we were dragging, save position
+    if (isLongPress && isDragging) {
+      setPosition(prev => {
+        localStorage.setItem('rsvp-accessibility-position', JSON.stringify(prev));
+        return prev;
       });
     }
+    
+    setIsDragging(false);
+    setIsLongPress(false);
+  };
+  
+  const handleTouchCancel = () => {
+    // Clear long press timer if touch was cancelled
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    setIsDragging(false);
+    setIsLongPress(false);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
+    // If not dragging yet (long press not completed), cancel the long press timer
+    if (!isDragging && longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+      return;
+    }
+    
     if (!isDragging) return;
     e.preventDefault(); // Prevent scrolling while dragging
     
@@ -145,14 +214,6 @@ const Accessibility: React.FC = () => {
     setPosition({
       x: clampedX,
       y: clampedY
-    });
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    setPosition(prev => {
-      localStorage.setItem('rsvp-accessibility-position', JSON.stringify(prev));
-      return prev;
     });
   };
 
@@ -197,7 +258,11 @@ const Accessibility: React.FC = () => {
           className="flex items-center justify-between p-2 sm:p-3 select-none"
           onMouseDown={handleMouseDown}
           onTouchStart={handleMouseDown}
-          style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+          style={{ 
+            cursor: isDragging ? 'grabbing' : 'grab',
+            userSelect: 'none',
+            WebkitUserSelect: 'none'
+          }}
         >
           <button
             onClick={() => setIsOpen(!isOpen)}
