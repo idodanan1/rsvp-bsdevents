@@ -1263,10 +1263,11 @@ const EventManagement: React.FC = () => {
 
       // Send messages using the message service
       const { messageService } = await import('../services/messageService');
+      // Import helper function once before map
+      const { generateGuestResponseLink } = await import('../utils/helpers');
       
       const recipients = guestsToSend.map(guest => {
         // Use helper function to ensure production URL (works on all devices)
-        const { generateGuestResponseLink } = await import('../utils/helpers');
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id);
       console.log('🔗 Generated guest link:', guestLink);
       console.log('🔗 Event ID:', currentEvent.id);
