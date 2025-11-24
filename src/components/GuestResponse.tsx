@@ -530,15 +530,22 @@ const GuestResponse = () => {
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">תגובתך התקבלה!</h1>
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            הבחירה התקבלה!
+          </h2>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <p className="text-green-800 font-medium">
+            <p className="text-green-800 font-medium mb-2">
               {formData.response === 'attending' 
                 ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!` 
                 : formData.response === 'maybe'
-                ? 'תודה על התגובה! נשמח לעדכון נוסף'
+                ? 'תודה על העדכון!'
                 : 'אנו מצטערים שלא תוכלו להגיע'
               }
+            </p>
+            <p className="text-green-700 text-sm font-medium mb-2">
+              {formData.response === 'maybe' || formData.response === 'not_attending'
+                ? 'נשמח לעדכון אם יש שינוי בתכניות'
+                : ''}
             </p>
             <p className="text-green-700 text-xs mt-2">
               סטטוס: {formData.response === 'attending' ? 'מגיע' : formData.response === 'maybe' ? 'מתלבט' : 'לא מגיע'} | מספר אורחים: {formData.guestCount}
@@ -549,12 +556,14 @@ const GuestResponse = () => {
               </p>
             )}
           </div>
-          <p className="text-gray-600 mb-6">
-            תודה רבה על התגובה. אנו מצפים לראות אתכם באירוע!
-          </p>
           <button
-            onClick={() => setSubmitStatus('idle')}
-            className="btn-primary w-full"
+            onClick={() => {
+              setSubmitStatus('idle');
+              setShowStatusButtons(true);
+              setShowGuestCount(false);
+              setShowConfirmButton(false);
+            }}
+            className="mt-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 w-full"
           >
             שליחת תגובה נוספת
           </button>
