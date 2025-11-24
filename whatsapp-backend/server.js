@@ -706,6 +706,9 @@ async function handleIncomingMessage(message) {
       messageText.includes('אגיע')) {
     console.log('✅ Guest confirmed attendance via text!');
     await updateGuestStatusByPhone(message.from, 'confirmed');
+    
+    // Send automatic follow-up message asking for guest count
+    await sendGuestCountQuestion(message.from);
   } else if (messageText.includes('לא') || 
              messageText.includes('דחה') ||
              messageText.includes('לא אוכל') ||
@@ -714,6 +717,8 @@ async function handleIncomingMessage(message) {
              messageText.includes('לא מגיעים')) {
     console.log('❌ Guest declined attendance via text!');
     await updateGuestStatusByPhone(message.from, 'declined');
+  } else {
+    console.log('ℹ️ Message did not match confirmation/decline patterns:', originalMessageText);
   }
 }
 
@@ -850,8 +855,10 @@ async function sendGuestCountQuestion(phoneNumber) {
     
     if (response.status === 200) {
       console.log('✅ Guest count question sent successfully');
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
     } else {
       console.warn('⚠️ Failed to send guest count question:', response.status);
+      console.warn('⚠️ Response data:', response.data);
       // If template failed, try regular message as fallback
       if (guestCountTemplateName) {
         console.log('🔄 Trying regular message as fallback...');
