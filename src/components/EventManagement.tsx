@@ -1272,7 +1272,7 @@ const EventManagement: React.FC = () => {
         
         // For production, use HTTPS. For local development, keep as-is
         // WhatsApp will make the link clickable if it's a valid URL format
-      const guestLink = `${baseUrl}/guest-response/${currentEvent.id}?guest=${guest.id}`;
+      const guestLink = `${baseUrl}/#/guest-response/${currentEvent.id}?guest=${guest.id}`;
       console.log('🔗 Generated guest link:', guestLink);
       console.log('🔗 Event ID:', currentEvent.id);
       console.log('🔗 Guest ID:', guest.id);
