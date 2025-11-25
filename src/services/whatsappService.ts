@@ -224,7 +224,13 @@ class WhatsAppService {
           }
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
-          if (messageData.buttons && messageData.buttons.length > 0) {
+          // IMPORTANT: If template already has buttons defined in Meta, we should NOT send button components
+          // Only send buttons if they are explicitly required by the template
+          // For templates "aa" and "a", buttons are already defined in Meta, so we skip sending them
+          const templatesWithPredefinedButtons = ['aa', 'a', 'reminer', 'reminder'];
+          const shouldSkipButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
+          
+          if (!shouldSkipButtons && messageData.buttons && messageData.buttons.length > 0) {
             // WhatsApp allows up to 3 buttons in a template
             // We can mix URL and Reply buttons, but they must be defined in the template in Meta
             const buttonComponents: any[] = [];
@@ -234,6 +240,8 @@ class WhatsAppService {
               
               if (btn.type === 'url' && btn.url) {
                 // URL button - opens a link
+                // Note: Some templates have URL buttons that don't require parameters (static URLs in template)
+                // We'll try with parameters first, and if it fails, retry without parameters
                 buttonComponents.push({
                   type: 'button',
                   sub_type: 'url',
@@ -264,6 +272,9 @@ class WhatsAppService {
             if (buttonComponents.length > 0) {
               console.log(`🔘 Added ${buttonComponents.length} button(s) to template`);
             }
+          } else if (shouldSkipButtons) {
+            console.log('ℹ️ Template has predefined buttons in Meta - skipping button components');
+            console.log('ℹ️ Buttons are already configured in the template definition');
           }
           
           // Only add components if we have parameters (Meta requirement)
