@@ -946,8 +946,8 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: If updating guestCount, rsvpStatus, or actualAttendance, mark as manual change
-          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined || updates.actualAttendance !== undefined) {
+          // CRITICAL: If updating guestCount, rsvpStatus, actualAttendance, or tableId, mark as manual change
+          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined || updates.actualAttendance !== undefined || updates.tableId !== undefined) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);

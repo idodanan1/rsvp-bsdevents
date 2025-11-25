@@ -123,6 +123,19 @@ const EventManagement: React.FC = () => {
             return currentGuest;
           }
           
+          // Check if any field changed that should trigger immediate update
+          const fieldsChanged = 
+            newGuest.guestCount !== currentGuest.guestCount ||
+            newGuest.rsvpStatus !== currentGuest.rsvpStatus ||
+            newGuest.actualAttendance !== currentGuest.actualAttendance ||
+            newGuest.tableId !== currentGuest.tableId ||
+            newGuest.notes !== currentGuest.notes;
+          
+          if (fieldsChanged) {
+            console.log(`🔄 Guest ${newGuest.id} fields changed, using new data from API`);
+            return newGuest;
+          }
+          
                     // No recent manual change - ALWAYS use new data from API (it's the source of truth)
                     // API has the latest data from all devices
                     return newGuest;
@@ -146,9 +159,20 @@ const EventManagement: React.FC = () => {
           currentEvent.guests.length !== mergedGuests.length + newGuestsFromAPI.length ||
           mergedGuests.some((mg, idx) => {
             const cg = currentEvent.guests[idx];
-            return !cg || cg.id !== mg.id || 
-                   (cg.rsvpStatus !== mg.rsvpStatus && !state.manualChanges?.get?.(`${event.id}-${mg.id}`)) ||
-                   (cg.guestCount !== mg.guestCount && !state.manualChanges?.get?.(`${event.id}-${mg.id}`));
+            if (!cg || cg.id !== mg.id) return true;
+            
+            // Check if any field changed (excluding manual changes)
+            const guestKey = `${event.id}-${mg.id}`;
+            const hasManualChange = state.manualChanges?.get?.(guestKey) && (now - state.manualChanges.get(guestKey)) < MANUAL_CHANGE_PROTECTION_TIME;
+            
+            if (hasManualChange) return false; // Skip if manual change is recent
+            
+            return (
+              cg.rsvpStatus !== mg.rsvpStatus ||
+              cg.guestCount !== mg.guestCount ||
+              cg.actualAttendance !== mg.actualAttendance ||
+              cg.tableId !== mg.tableId
+            );
           });
         
         if (campaignsChanged || guestsChanged || newGuestsFromAPI.length > 0) {
