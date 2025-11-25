@@ -1948,13 +1948,6 @@ const EventManagement: React.FC = () => {
             <Users className="w-4 h-4" />
             <span>ממשק לקוח</span>
           </Link>
-          <button 
-            onClick={() => setShowImportModal(true)}
-            className="btn-secondary flex items-center space-x-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span>ייבוא רשימת אורחים</span>
-          </button>
           <div className="relative" ref={exportMenuRef}>
             <button 
               onClick={() => {
@@ -1974,10 +1967,20 @@ const EventManagement: React.FC = () => {
                     handleExportGuests();
                     setShowExportMenu(false);
                   }}
-                  className="w-full text-right px-4 py-3 hover:bg-gray-50 flex items-center space-x-2 space-x-reverse transition-colors rounded-lg"
+                  className="w-full text-right px-4 py-3 hover:bg-gray-50 flex items-center space-x-2 space-x-reverse transition-colors rounded-t-lg border-b border-gray-100"
                 >
                   <Download className="w-4 h-4" />
                   <span>ייצוא רשימת אורחים</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowImportModal(true);
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full text-right px-4 py-3 hover:bg-gray-50 flex items-center space-x-2 space-x-reverse transition-colors rounded-b-lg"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>ייבוא רשימת אורחים</span>
                 </button>
               </div>
             )}
