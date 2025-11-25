@@ -2303,7 +2303,7 @@ export const useEventStore = create<EventStore>()(
                 type: 'url',
                 url: {
                   url: '{{guest_response_link}}',
-                  title: 'אישור הגעה'
+                  title: 'עדכון סטטוס הגעה'
                 }
               },
               {
@@ -2311,6 +2311,13 @@ export const useEventStore = create<EventStore>()(
                 reply: {
                   id: 'decline_attendance',
                   title: 'לא אוכל להגיע'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'confirm_attendance',
+                  title: 'מגיע'
                 }
               }
             ],

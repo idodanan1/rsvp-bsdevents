@@ -677,19 +677,13 @@ async function handleIncomingMessage(message) {
     if (buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
         buttonIdLower.includes('confirm') ||
-        buttonTitle === 'אישור הגעה' ||
         buttonTitle === 'מגיע' ||
-        buttonTitle?.includes('אישור') ||
-        buttonTitle?.includes('הגעה') ||
-        buttonTitle?.includes('מגיע') ||
-        buttonTitleLower.includes('אישור') ||
-        buttonTitleLower.includes('הגעה') ||
-        buttonTitleLower.includes('מגיע')) {
+        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
       console.log('✅ Guest confirmed attendance via button!');
       await updateGuestStatusByPhone(phoneNumber, 'confirmed');
       
-      // Send automatic follow-up message asking for guest count
-      await sendGuestCountQuestion(phoneNumber);
+      // Send message with template "yes" to the guest
+      await sendYesTemplateMessage(phoneNumber);
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
@@ -713,12 +707,12 @@ async function handleIncomingMessage(message) {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
       // Try to match anyway based on common patterns
-      if (buttonTitleLower.includes('כן') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')) {
+      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         await updateGuestStatusByPhone(phoneNumber, 'confirmed');
         
-        // Send automatic follow-up message asking for guest count
-        await sendGuestCountQuestion(phoneNumber);
+        // Send message with template "yes" to the guest
+        await sendYesTemplateMessage(phoneNumber);
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
         // Send confirmation message first, then update status
@@ -803,13 +797,13 @@ async function handleIncomingMessage(message) {
     await updateGuestStatusByPhone(message.from, 'confirmed');
     console.log('✅ Confirmation status update sent to pendingUpdates');
     
-    // Send automatic follow-up message asking for guest count
-    console.log('📤 About to send guest count question...');
+    // Send message with template "yes" to the guest
+    console.log('📤 About to send "yes" template message...');
     try {
-      await sendGuestCountQuestion(message.from);
-      console.log('✅ Guest count question sent (or attempted)');
+      await sendYesTemplateMessage(message.from);
+      console.log('✅ "yes" template message sent (or attempted)');
     } catch (error) {
-      console.error('❌ Error sending guest count question:', error);
+      console.error('❌ Error sending "yes" template message:', error);
       if (error.response) {
         console.error('❌ Error response:', error.response.data);
       }
@@ -947,6 +941,105 @@ async function sendDeclineConfirmation(phoneNumber) {
     }
     // Don't throw - try fallback
     throw error; // Re-throw to trigger fallback in caller
+  }
+}
+
+// Send message with template "yes" to guest who confirmed attendance
+async function sendYesTemplateMessage(phoneNumber) {
+  try {
+    console.log(`📤 Sending "yes" template message to ${phoneNumber}`);
+    
+    // Use WhatsApp Business API to send the message
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    
+    if (!accessToken || !phoneNumberId) {
+      console.warn('⚠️ WhatsApp credentials not configured - cannot send yes template message');
+      return;
+    }
+    
+    // Format phone number
+    const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
+    
+    // Find guest by phone number to get their name
+    const events = loadEvents();
+    let guestName = 'אורח'; // Default name
+    let guestFirstName = 'אורח';
+    
+    for (const event of events) {
+      if (event.guests && Array.isArray(event.guests)) {
+        const guest = event.guests.find(g => {
+          const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+          const formattedGuestPhone = guestPhone.replace(/^972/, '0');
+          const searchPhone = phoneNumber.replace(/[^0-9]/g, '');
+          const formattedSearchPhone = searchPhone.replace(/^972/, '0');
+          return guestPhone === searchPhone || 
+                 formattedGuestPhone === formattedSearchPhone ||
+                 guestPhone === formattedPhone.replace(/^972/, '0') ||
+                 formattedGuestPhone === formattedPhone.replace(/^972/, '0');
+        });
+        
+        if (guest) {
+          guestName = `${guest.firstName || ''} ${guest.lastName || ''}`.trim() || 'אורח';
+          guestFirstName = guest.firstName || 'אורח';
+          break;
+        }
+      }
+    }
+    
+    // Send template message "yes"
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'yes',
+        language: {
+          code: 'he'
+        },
+        components: [
+          {
+            type: 'body',
+            parameters: [
+              {
+                type: 'text',
+                text: guestFirstName
+              }
+            ]
+          }
+        ]
+      }
+    };
+    
+    console.log('📤 Sending "yes" template message...');
+    console.log('📤 Payload:', JSON.stringify(messagePayload, null, 2));
+    
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ "yes" template message sent successfully');
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+    } else {
+      console.warn('⚠️ Failed to send "yes" template message:', response.status);
+      console.warn('⚠️ Response data:', response.data);
+    }
+  } catch (error) {
+    console.error('❌ Error sending "yes" template message:', error);
+    if (error.response) {
+      console.error('❌ Error response status:', error.response.status);
+      console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    // Don't throw - this is not critical
   }
 }
 
