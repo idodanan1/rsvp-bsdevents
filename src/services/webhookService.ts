@@ -16,17 +16,24 @@ class WebhookService {
   private manualChanges = new Map<string, number>(); // Track manual changes: "eventId-guestId" -> timestamp
   private readonly MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds protection after manual change - reduced for faster sync
 
+  // Getter to check if polling is active
+  get pollingActive(): boolean {
+    return this.isPolling;
+  }
+
   // Start polling for webhook updates
   startPolling(intervalMs: number = 5000) {
+    // If already polling, restart with new interval (for faster updates after campaign send)
     if (this.isPolling) {
-      console.log('⚠️ Webhook polling already started');
-      return;
+      console.log(`🔄 Webhook polling already active - restarting with ${intervalMs}ms interval for faster updates`);
+      this.stopPolling();
     }
 
     this.isPolling = true;
     console.log(`🔄 Starting webhook polling every ${intervalMs}ms`);
     console.log(`📡 Backend URL: ${BACKEND_URL}`);
     console.log(`💡 Note: Backend must be running on port 3002 for button clicks to work`);
+    console.log(`👂 System is now actively listening for guest responses...`);
 
     this.pollingInterval = window.setInterval(async () => {
       await this.checkForUpdates();

@@ -1451,6 +1451,16 @@ export const useEventStore = create<EventStore>()(
       },
 
       sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
+        // CRITICAL: Ensure webhookService is running to receive updates after sending messages
+        const { webhookService } = await import('../services/webhookService');
+        if (!webhookService.pollingActive) {
+          console.log('🔄 Starting webhook polling to receive guest updates after campaign send...');
+          webhookService.startPolling(3000); // Poll every 3 seconds for faster updates after campaign
+        } else {
+          console.log('✅ Webhook polling already active - restarting with faster interval to receive updates immediately');
+          webhookService.startPolling(3000); // Restart with faster interval
+        }
+        console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
         try {
           const event = get().events.find(e => e.id === eventId);
@@ -1714,6 +1724,11 @@ export const useEventStore = create<EventStore>()(
           };
 
           const result = await messageService.sendBulkMessages(messageData);
+          
+          // After sending campaign, ensure webhookService is actively listening
+          console.log(`📤 Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
+          console.log(`👂 System is now actively waiting for guest responses...`);
+          console.log(`📡 Webhook polling is ${webhookService.pollingActive ? 'ACTIVE' : 'INACTIVE'} - checking every 3 seconds for updates`);
 
           set(state => ({
             events: state.events.map(event =>
