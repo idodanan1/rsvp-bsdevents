@@ -2187,6 +2187,24 @@ app.post('/api/events', async (req, res) => {
                                            (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe') &&
                                            hasResponseDate;
           
+          // DEBUG: Log all conditions for this guest
+          console.log(`🔍 Checking guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}):`, {
+            phoneNumber: newGuest.phoneNumber ? 'present' : 'MISSING',
+            existingGuest: existingGuest ? 'found' : 'not found',
+            statusChanged,
+            guestCountChanged,
+            hasValidStatus,
+            hasValidGuestCount,
+            hasResponseDate,
+            hasStatusWithNewResponse,
+            oldResponseDate,
+            newResponseDate,
+            newRsvpStatus: newGuest.rsvpStatus,
+            oldRsvpStatus: existingGuest?.rsvpStatus,
+            newGuestCount: newGuest.guestCount,
+            oldGuestCount: existingGuest?.guestCount
+          });
+          
           // Add to pendingUpdates if:
           // 1. Status changed (existing guest)
           // 2. Guest count changed (existing guest)
@@ -2200,11 +2218,13 @@ app.post('/api/events', async (req, res) => {
             const formattedPhone = originalPhone.replace(/^972/, '0');
             
             // Create update data similar to WhatsApp webhook updates
+            // Include 'maybe' status as well (not just 'confirmed' and 'declined')
             const updateData = {
               phoneNumber: formattedPhone,
               originalPhoneNumber: originalPhone,
               status: newGuest.rsvpStatus === 'confirmed' ? 'confirmed' : 
-                     newGuest.rsvpStatus === 'declined' ? 'declined' : undefined,
+                     newGuest.rsvpStatus === 'declined' ? 'declined' :
+                     newGuest.rsvpStatus === 'maybe' ? 'maybe' : undefined,
               guestCount: guestCountChanged || (newGuest.guestCount !== undefined && newGuest.guestCount > 0) ? newGuest.guestCount : undefined,
               responseDate: newGuest.responseDate || new Date().toISOString(),
               timestamp: Date.now(),
