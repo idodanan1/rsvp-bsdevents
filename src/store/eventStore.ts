@@ -7,6 +7,42 @@ import { generateQRCodeImage } from '../services/qrService';
 
 const mockEvents: Event[] = [];
 
+// Helper function to sync event to API for real-time cross-device sync
+const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+  
+  try {
+    console.log('🌐 Syncing event to API:', { eventId: event.id, guestsCount: event.guests?.length || 0 });
+    
+    const response = await fetch(`${BACKEND_URL}/api/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(event)
+    });
+    
+    if (response.ok) {
+      console.log('✅ Event synced to API successfully:', { eventId: event.id });
+    } else {
+      const errorText = await response.text();
+      console.warn('⚠️ API sync failed:', response.status, errorText);
+      if (retries > 0) {
+        console.log(`🔄 Retrying sync (${retries} retries left)...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return syncEventToAPI(event, retries - 1);
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to sync event to API:', error);
+    if (retries > 0) {
+      console.log(`🔄 Retrying sync (${retries} retries left)...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return syncEventToAPI(event, retries - 1);
+    }
+  }
+};
+
 export const useEventStore = create<EventStore>()(
   persist(
     (set, get) => ({
@@ -892,6 +928,14 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
+          
           console.log('✅ addGuest completed successfully');
         } catch (error) {
           console.error('❌ Error in addGuest:', error);
@@ -1182,6 +1226,14 @@ export const useEventStore = create<EventStore>()(
               isLoading: false
             };
           });
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה במחיקת מוזמן', isLoading: false });
         }
@@ -1211,6 +1263,14 @@ export const useEventStore = create<EventStore>()(
             ),
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בייבוא נתונים', isLoading: false });
         }
@@ -1615,6 +1675,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה ביצירת סקיצת אולם', isLoading: false });
         }
@@ -1642,6 +1710,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון סקיצת אולם', isLoading: false });
         }
@@ -1677,6 +1753,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון מיקום שולחן', isLoading: false });
         }
@@ -1712,6 +1796,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון גודל שולחן', isLoading: false });
         }
@@ -1747,6 +1839,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון סיבוב שולחן', isLoading: false });
         }
@@ -2326,6 +2426,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בהוספת השולחן', isLoading: false });
         }
@@ -2359,6 +2467,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון השולחן', isLoading: false });
         }
@@ -2394,6 +2510,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה במחיקת השולחן', isLoading: false });
         }
@@ -2427,6 +2551,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בהקצאת האורח לשולחן', isLoading: false });
         }
@@ -2460,6 +2592,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בהסרת האורח מהשולחן', isLoading: false });
         }
