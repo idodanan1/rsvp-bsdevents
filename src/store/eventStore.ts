@@ -1882,6 +1882,14 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent,
             isLoading: false
           }));
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בעדכון צורת שולחן', isLoading: false });
         }
