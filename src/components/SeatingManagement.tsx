@@ -464,43 +464,45 @@ const SeatingManagement: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 p-6">
-        <div className="flex justify-between items-center mb-6">
+      <div className="flex-1 p-6 bg-gradient-to-br from-gray-50 to-white">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="flex items-center gap-4">
-          <h2 className="text-2xl font-bold text-gray-800">סידורי הושבה</h2>
+          <h2 className="text-3xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            סידורי הושבה
+          </h2>
           <Link
             to={`/event/${eventId}/manage`}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all font-medium"
           >
             <Users className="w-4 h-4" />
             ניהול
           </Link>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Link
             to={`/event/${eventId}/venue`}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2"
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all font-medium"
           >
             <Layout className="w-4 h-4" />
             עורך סקיצה
           </Link>
           <button
             onClick={handleExportPDF}
-            className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2"
+            className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all font-medium"
           >
             <FileText className="w-4 h-4" />
             ייצא PDF
           </button>
           <button
             onClick={() => setShowBulkAddTables(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all font-medium"
           >
             <Plus className="w-4 h-4" />
             הוסף שולחנות מרובים
           </button>
           <button
             onClick={() => setShowAddTable(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 shadow-md hover:shadow-lg transition-all font-medium"
           >
             <Plus className="w-4 h-4" />
             הוסף שולחן יחיד
@@ -510,17 +512,17 @@ const SeatingManagement: React.FC = () => {
 
       {/* Guest Statistics */}
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-blue-50 p-4 rounded-lg text-center border border-blue-200">
-          <div className="text-2xl font-bold text-blue-600">{totalGuests}</div>
-          <div className="text-sm text-blue-500">סה"כ אורחים</div>
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-5 rounded-xl text-center border-2 border-blue-300 shadow-md hover:shadow-lg transition-shadow">
+          <div className="text-3xl font-bold text-blue-700 mb-1">{totalGuests}</div>
+          <div className="text-sm font-semibold text-blue-600">סה"כ אורחים</div>
         </div>
-        <div className="bg-green-50 p-4 rounded-lg text-center border border-green-200">
-          <div className="text-2xl font-bold text-green-600">{seatedGuests}</div>
-          <div className="text-sm text-green-500">יושבים</div>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-xl text-center border-2 border-green-300 shadow-md hover:shadow-lg transition-shadow">
+          <div className="text-3xl font-bold text-green-700 mb-1">{seatedGuests}</div>
+          <div className="text-sm font-semibold text-green-600">יושבים</div>
         </div>
-        <div className="bg-orange-50 p-4 rounded-lg text-center border border-orange-200">
-          <div className="text-2xl font-bold text-orange-600">{unassignedGuestsCount}</div>
-          <div className="text-sm text-orange-500">נותר להושיב</div>
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-5 rounded-xl text-center border-2 border-orange-300 shadow-md hover:shadow-lg transition-shadow">
+          <div className="text-3xl font-bold text-orange-700 mb-1">{unassignedGuestsCount}</div>
+          <div className="text-sm font-semibold text-orange-600">נותר להושיב</div>
         </div>
       </div>
 
@@ -784,66 +786,80 @@ const SeatingManagement: React.FC = () => {
           const availableSeats = getAvailableSeats(table);
           
           return (
-            <div key={table.id} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div key={table.id} className="bg-gradient-to-br from-green-50 to-white border-2 border-green-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex items-start gap-3">
                   
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-800">
+                  <div className="flex-1">
+                    <h3 className="text-base font-bold text-gray-900 mb-1">
                       שולחן {table.number}
-                      {table.name && <span className="text-gray-500"> - {table.name}</span>}
+                      {table.name && <span className="text-gray-600 font-normal"> - {table.name}</span>}
                     </h3>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-sm font-medium text-gray-700 mb-1">
                       {tableGuests.length} / {table.capacity} מושבים
                     </p>
                     {availableSeats > 0 && (
-                      <p className="text-xs text-green-600">
+                      <p className="text-sm font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-md inline-block">
                         {availableSeats} מושבים פנויים
+                      </p>
+                    )}
+                    {availableSeats === 0 && (
+                      <p className="text-sm font-semibold text-orange-700 bg-orange-100 px-2 py-1 rounded-md inline-block">
+                        שולחן מלא
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setEditingTable(table)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 p-1 rounded transition-colors"
+                    title="ערוך שולחן"
                   >
-                    <Edit className="w-3 h-3" />
+                    <Edit className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDeleteTable(table.id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-red-600 hover:text-red-800 hover:bg-red-50 p-1 rounded transition-colors"
+                    title="מחק שולחן"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
               {/* Table Guests */}
-              <div className="space-y-2">
-                {tableGuests.map((guest, index) => (
-                  <div key={guest.id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-600">
-                        {guest.seatNumber || index + 1}.
-                      </span>
-                      <span className="text-sm text-gray-800">
-                        {guest.firstName} {guest.lastName}
-                      </span>
-                      {guest.guestCount > 1 && (
-                        <span className="text-xs text-gray-500">
-                          +{guest.guestCount - 1}
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {tableGuests.length > 0 ? (
+                  tableGuests.map((guest, index) => (
+                    <div key={guest.id} className="flex items-center justify-between bg-white border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="text-sm font-bold text-blue-600 min-w-[20px]">
+                          {guest.seatNumber || index + 1}.
                         </span>
-                      )}
+                        <span className="text-sm font-medium text-gray-800">
+                          {guest.firstName} {guest.lastName}
+                        </span>
+                        {guest.guestCount > 1 && (
+                          <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                            +{guest.guestCount - 1}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveGuest(guest.id)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 text-xs font-medium px-2 py-1 rounded transition-colors"
+                        title="הסר אורח מהשולחן"
+                      >
+                        הסר
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleRemoveGuest(guest.id)}
-                      className="text-red-500 hover:text-red-700 text-xs"
-                    >
-                      הסר
-                    </button>
+                  ))
+                ) : (
+                  <div className="text-center text-gray-400 text-sm py-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    אין אורחים בשולחן זה
                   </div>
-                ))}
+                )}
               </div>
 
               {/* Add Guest to Table */}
@@ -875,16 +891,21 @@ const SeatingManagement: React.FC = () => {
 
       {/* Unassigned Guests */}
       {unassignedGuests.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="text-lg font-semibold text-yellow-800 mb-3 flex items-center gap-2">
-            <Users className="w-5 h-5" />
+        <div className="bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-xl p-6 shadow-md">
+          <h3 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-3">
+            <Users className="w-6 h-6 text-amber-700" />
             אורחים ללא שולחן ({unassignedGuests.length})
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {unassignedGuests.map((guest) => (
-              <div key={guest.id} className="flex items-center justify-between bg-white rounded-lg p-2 border border-yellow-200">
-                <span className="text-sm text-gray-800">
+              <div key={guest.id} className="flex items-center justify-between bg-white rounded-lg p-3 border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-sm font-semibold text-gray-900 flex-1 mr-2">
                   {guest.firstName} {guest.lastName}
+                  {guest.guestCount > 1 && (
+                    <span className="text-xs text-gray-500 block mt-1">
+                      {guest.guestCount} אנשים
+                    </span>
+                  )}
                 </span>
                 <select
                   onChange={(e) => {
@@ -893,7 +914,7 @@ const SeatingManagement: React.FC = () => {
                       e.target.value = '';
                     }
                   }}
-                  className="text-xs border border-gray-300 rounded px-2 py-1"
+                  className="text-sm border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-blue-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 min-w-[140px] font-medium"
                   defaultValue=""
                 >
                   <option value="">בחר שולחן</option>
