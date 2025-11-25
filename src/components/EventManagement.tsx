@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
@@ -21,7 +21,9 @@ import {
   Save,
   Send,
   X,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  FileSpreadsheet
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -47,6 +49,25 @@ const EventManagement: React.FC = () => {
     guestCount: 1,
     notes: ''
   });
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close export menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+
+    if (showExportMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportMenu]);
 
   // Load events when component mounts or id changes
   useEffect(() => {
@@ -1934,13 +1955,30 @@ const EventManagement: React.FC = () => {
             <Upload className="w-4 h-4" />
             <span>ייבוא רשימת אורחים</span>
           </button>
-          <button 
-            onClick={handleExportGuests}
-            className="btn-secondary flex items-center space-x-2"
-          >
-            <Download className="w-4 h-4" />
-            <span>ייצוא רשימת אורחים</span>
-          </button>
+          <div className="relative" ref={exportMenuRef}>
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>אקסל</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+            </button>
+            {showExportMenu && (
+              <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <button
+                  onClick={() => {
+                    handleExportGuests();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full text-right px-4 py-3 hover:bg-gray-50 flex items-center space-x-2 space-x-reverse transition-colors rounded-lg"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>ייצוא רשימת אורחים</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
