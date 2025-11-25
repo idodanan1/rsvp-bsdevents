@@ -11,7 +11,8 @@ import {
   Wifi,
   WifiOff,
   TrendingUp,
-  BarChart3
+  BarChart3,
+  XCircle
 } from 'lucide-react';
 
 interface SyncMonitoringPanelProps {
