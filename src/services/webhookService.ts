@@ -269,10 +269,14 @@ class WebhookService {
           
           const guest = event.guests.find(g => {
             // Normalize both phone numbers for comparison
-            const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
-            const updatePhone = update.phoneNumber.replace(/[^0-9]/g, '');
+            const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+            const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
             
-            console.log(`   🔍 Comparing: guest="${guestPhone}" vs update="${updatePhone}"`);
+            if (!guestPhone || !updatePhone) {
+              return false; // Skip if phone numbers are missing
+            }
+            
+            console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
             
             // Try multiple formats
             const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
@@ -290,6 +294,7 @@ class WebhookService {
             
             if (matches) {
               console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
+              console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
             }
             
             return matches;
