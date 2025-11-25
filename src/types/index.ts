@@ -227,7 +227,7 @@ export interface EventStore {
   sendCampaign: (eventId: string, campaignId: string) => Promise<any>;
   sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms') => Promise<boolean>;
   updateExistingEventsCampaigns: () => void;
-  recreateCampaigns: (eventId: string) => void;
+  recreateCampaigns: (eventId: string) => Promise<void>;
   
   // Table Management
   addTable: (eventId: string, table: Omit<Table, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;

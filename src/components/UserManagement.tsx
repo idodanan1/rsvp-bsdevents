@@ -99,7 +99,7 @@ const UserManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      recreateCampaigns(eventId);
+      await recreateCampaigns(eventId);
       await fetchEvents();
       toast.success('✅ קמפיינים נוצרו מחדש בהצלחה!');
       setShowRecreateCampaignsModal(false);

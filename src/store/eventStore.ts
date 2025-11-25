@@ -2257,7 +2257,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Function to recreate campaigns with correct links
-      recreateCampaigns: (eventId: string) => {
+      recreateCampaigns: async (eventId: string) => {
         console.log('🔄 recreateCampaigns called with eventId:', eventId);
         const event = get().events.find(e => e.id === eventId);
         if (!event) {
@@ -2574,18 +2574,32 @@ export const useEventStore = create<EventStore>()(
         ];
 
         // Update the event with new campaigns
+        let updatedEvent: Event | undefined;
         set(state => {
           const updatedEvents = state.events.map(e => 
             e.id === eventId 
-              ? { ...e, campaigns: newCampaigns }
+              ? { ...e, campaigns: newCampaigns, updatedAt: new Date() }
               : e
           );
           
+          updatedEvent = updatedEvents.find(e => e.id === eventId);
+          
           console.log('🔄 Updated events in state');
-          console.log('📊 Event campaigns after update:', updatedEvents.find(e => e.id === eventId)?.campaigns?.length || 0);
+          console.log('📊 Event campaigns after update:', updatedEvent?.campaigns?.length || 0);
           
           return { events: updatedEvents };
         });
+
+        // Sync to API immediately after state update
+        if (updatedEvent) {
+          try {
+            await syncEventToAPI(updatedEvent);
+            console.log('✅ Recreated campaigns synced to API successfully');
+          } catch (error) {
+            console.error('❌ Failed to sync recreated campaigns to API:', error);
+            // Don't throw - the campaigns were created locally, API sync is secondary
+          }
+        }
 
         console.log('🔄 Recreated campaigns with correct guest links');
         console.log('📊 New campaigns created:', newCampaigns.length);
