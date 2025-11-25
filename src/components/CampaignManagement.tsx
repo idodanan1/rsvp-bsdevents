@@ -205,24 +205,53 @@ const CampaignManagement: React.FC = () => {
         const failedResults = result.results.filter(r => !r.success);
         if (failedResults.length > 0) {
           message += '\n\n🔍 פרטי שגיאות:';
-          failedResults.forEach((failed, index) => {
-            if (index < 3) { // Show first 3 errors to avoid too long message
-              message += `\n\n${index + 1}. ${failed.recipientName} (${failed.phoneNumber}):`;
-              if (failed.error) {
-                // Show first 500 characters of error to avoid too long message
-                const errorMsg = failed.error.length > 500 
-                  ? failed.error.substring(0, 500) + '...' 
-                  : failed.error;
-                message += `\n   ${errorMsg}`;
-              }
+          
+          // Group errors by type to show patterns
+          const errorTypes: Record<string, number> = {};
+          failedResults.forEach(failed => {
+            if (failed.error) {
+              const errorKey = failed.error.substring(0, 100); // First 100 chars as key
+              errorTypes[errorKey] = (errorTypes[errorKey] || 0) + 1;
             }
           });
+          
+          // Show unique error types first
+          const uniqueErrors = Object.keys(errorTypes).slice(0, 3);
+          uniqueErrors.forEach((errorKey, index) => {
+            message += `\n\n${index + 1}. שגיאה נפוצה (${errorTypes[errorKey]} הודעות):`;
+            const errorMsg = errorKey.length > 400 
+              ? errorKey.substring(0, 400) + '...' 
+              : errorKey;
+            message += `\n   ${errorMsg}`;
+          });
+          
+          // Show first 3 individual errors
+          failedResults.slice(0, 3).forEach((failed, index) => {
+            message += `\n\n${index + 1 + uniqueErrors.length}. ${failed.recipientName} (${failed.phoneNumber}):`;
+            if (failed.error) {
+              // Show first 300 characters of error to avoid too long message
+              const errorMsg = failed.error.length > 300 
+                ? failed.error.substring(0, 300) + '...' 
+                : failed.error;
+              message += `\n   ${errorMsg}`;
+            }
+          });
+          
           if (failedResults.length > 3) {
             message += `\n\n...ועוד ${failedResults.length - 3} שגיאות נוספות`;
           }
+          
+          // Add troubleshooting tips
+          message += '\n\n💡 טיפים לפתרון:';
+          message += '\n1. בדוק את פרטי האימות של WhatsApp/Twilio';
+          message += '\n2. ודא שהתבנית ב-Meta Business Manager מאושרת';
+          message += '\n3. בדוק שהתמונה (אם נדרשת) היא HTTPS תקין';
+          message += '\n4. פתח את הקונסול בדפדפן לפרטים נוספים';
         }
       }
       
+      // Use a more user-friendly alert or console log
+      console.error('📊 Campaign send result:', result);
       alert(message);
       
       // No need to reload - the state will update automatically

@@ -197,8 +197,8 @@ class WhatsAppService {
             // No valid image URL - check if we should add placeholder
             // For templates that might require header image, add placeholder proactively
             // This prevents error 132012 from occurring
-            const templateName = messageData.templateName || '';
-            const templatesRequiringHeader = ['aa', 'a']; // Add template names that require header
+            const templateName = (messageData.templateName || '').toLowerCase();
+            const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder']; // Add template names that require header
             
             if (templatesRequiringHeader.includes(templateName)) {
               // Template requires header image - add placeholder
@@ -214,9 +214,11 @@ class WhatsAppService {
                 ]
               });
               console.log('🖼️ ✅ Adding placeholder header image (template requires it):', DEFAULT_PLACEHOLDER_IMAGE);
+              console.log('🖼️ Template name:', messageData.templateName);
             } else {
               // Template might not require header - try without it first
               console.log('ℹ️ No header image URL provided - will send without header');
+              console.log('ℹ️ Template name:', messageData.templateName);
               console.log('ℹ️ If template requires header image, error will occur and we will retry with placeholder');
             }
           }
@@ -339,15 +341,18 @@ class WhatsAppService {
         // Check if template requires header image (error 132012 or error message mentions header/image)
         const requiresHeaderImage = 
           errorCode === 132012 || 
-          (errorMessage && (errorMessage.includes('header') || errorMessage.includes('image'))) ||
-          (errorDetails && (errorDetails.includes('header') || errorDetails.includes('IMAGE')));
+          (errorMessage && (errorMessage.toLowerCase().includes('header') || errorMessage.toLowerCase().includes('image'))) ||
+          (errorDetails && (errorDetails.toLowerCase().includes('header') || errorDetails.toLowerCase().includes('image')));
         
         if (requiresHeaderImage) {
           console.warn('⚠️ Template requires header image but no image was provided');
           console.warn('💡 Adding placeholder image to satisfy template requirement...');
+          console.warn('📋 Error code:', errorCode);
+          console.warn('📋 Error message:', errorMessage);
+          console.warn('📋 Error details:', errorDetails);
           
           // Use the image URL from messageData if available, otherwise use placeholder
-          const headerImageUrl = messageData.imageUrl || 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
+          const headerImageUrl = messageData.imageUrl || finalImageUrl || DEFAULT_PLACEHOLDER_IMAGE;
           
           // Build components with placeholder header image
           const componentsWithHeader: any[] = [
@@ -409,11 +414,15 @@ class WhatsAppService {
               try {
                 const errorText = await retryResponseClone.text();
                 console.error('📋 Retry error response text:', errorText);
+                errorData2 = { error: { message: errorText } };
               } catch (e2) {
                 console.error('❌ Failed to read retry error response text:', e2);
+                errorData2 = { error: { message: 'Unknown error - failed to read response' } };
               }
             }
             console.error('❌ Retry with header image also failed:', errorData2);
+            console.error('❌ Retry error code:', errorData2.error?.code);
+            console.error('❌ Retry error message:', errorData2.error?.message);
           }
         }
         
