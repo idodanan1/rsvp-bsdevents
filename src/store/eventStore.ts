@@ -2360,10 +2360,24 @@ export const useEventStore = create<EventStore>()(
             templateName: 'a',
             whatsappButtons: [
               {
+                type: 'url',
+                url: {
+                  url: '{{guest_response_link}}',
+                  title: 'עדכון סטטוס הגעה'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'decline_attendance',
+                  title: 'לא אוכל להגיע'
+                }
+              },
+              {
                 type: 'reply',
                 reply: {
                   id: 'confirm_attendance',
-                  title: 'לעדכון סטטוס הגעה'
+                  title: 'מגיע'
                 }
               }
             ],
@@ -2412,10 +2426,24 @@ export const useEventStore = create<EventStore>()(
             templateName: 'a',
             whatsappButtons: [
               {
+                type: 'url',
+                url: {
+                  url: '{{guest_response_link}}',
+                  title: 'עדכון סטטוס הגעה'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'decline_attendance',
+                  title: 'לא אוכל להגיע'
+                }
+              },
+              {
                 type: 'reply',
                 reply: {
                   id: 'confirm_attendance',
-                  title: 'לעדכון סטטוס הגעה'
+                  title: 'מגיע'
                 }
               }
             ],
@@ -2466,10 +2494,24 @@ export const useEventStore = create<EventStore>()(
             templateName: 'reminer', // Template name in Meta is "reminer" (not "reminder")
             whatsappButtons: [
               {
+                type: 'url',
+                url: {
+                  url: '{{guest_response_link}}',
+                  title: 'עדכון סטטוס הגעה'
+                }
+              },
+              {
+                type: 'reply',
+                reply: {
+                  id: 'decline_attendance',
+                  title: 'לא אוכל להגיע'
+                }
+              },
+              {
                 type: 'reply',
                 reply: {
                   id: 'confirm_attendance',
-                  title: 'לעדכון סטטוס הגעה'
+                  title: 'מגיע'
                 }
               }
             ],
