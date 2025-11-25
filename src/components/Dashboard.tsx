@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateGlobalStats, formatDate, getStatusIcon, getStatusColor } from '../utils/helpers';
-import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings } from 'lucide-react';
+import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings, RefreshCw } from 'lucide-react';
 import DeletedEventsModal from './DeletedEventsModal';
 
 const Dashboard: React.FC = () => {
@@ -14,7 +14,8 @@ const Dashboard: React.FC = () => {
     deleteEvent,
     restoreDeletedEvent,
     permanentlyDeleteEvent,
-    fetchEvents
+    fetchEvents,
+    updateExistingEventsCampaigns
   } = useEventStore();
   const globalStats = calculateGlobalStats(events);
   const [showDeletedEventsModal, setShowDeletedEventsModal] = useState(false);
@@ -119,6 +120,22 @@ const Dashboard: React.FC = () => {
           <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
+          <button
+            onClick={async () => {
+              try {
+                updateExistingEventsCampaigns();
+                await fetchEvents();
+                alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
+              } catch (error) {
+                console.error('❌ Error updating campaigns:', error);
+                alert('❌ שגיאה בעדכון קמפיינים: ' + error);
+              }
+            }}
+            className="btn-primary flex items-center space-x-2"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>עדכן כל האירועים לתבנית חדשה</span>
+          </button>
           <Link
             to="/calendar"
             className="btn-secondary flex items-center space-x-2"

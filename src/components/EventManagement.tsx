@@ -30,7 +30,7 @@ import SyncMonitoringPanel from './SyncMonitoringPanel';
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents, assignGuestToTable, removeGuestFromTable, moveGuestToTable } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, fetchEvents, assignGuestToTable, removeGuestFromTable, moveGuestToTable } = useEventStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -1906,32 +1906,6 @@ const EventManagement: React.FC = () => {
           >
             <RefreshCw className="w-4 h-4" />
             <span>צור קמפיינים מחדש</span>
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                updateExistingEventsCampaigns();
-                await fetchEvents();
-                
-                // Update current event if exists
-                if (currentEvent) {
-                  const updatedEvents = useEventStore.getState().events;
-                  const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
-                  if (updatedEvent) {
-                    setCurrentEvent(updatedEvent);
-                  }
-                }
-                
-                alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
-              } catch (error) {
-                console.error('❌ Error updating campaigns:', error);
-                alert('❌ שגיאה בעדכון קמפיינים: ' + error);
-              }
-            }}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>עדכן כל האירועים לתבנית חדשה</span>
           </button>
           <Link
             to={`/event/${currentEvent.id}/seating`}
