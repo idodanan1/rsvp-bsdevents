@@ -23,6 +23,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
+import SyncMonitoringPanel from './SyncMonitoringPanel';
 
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1780,6 +1781,9 @@ const EventManagement: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
+        {/* Sync Monitoring Panel */}
+        {id && <SyncMonitoringPanel eventId={id} />}
+        
         {/* Header */}
         <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
