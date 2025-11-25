@@ -426,48 +426,94 @@ class WhatsAppService {
           }
         }
         
-        // Error 132018: Template doesn't support header image
-        if (errorCode === 132018 && errorDetails.includes('header') && errorDetails.includes('no parameters allowed')) {
-          console.warn('⚠️ Template does not support header image component');
-          console.warn('🔄 Retrying without header image...');
-          
-          // Remove header component and retry
-          if (messagePayload.template?.components) {
-            const componentsWithoutHeader = messagePayload.template.components.filter(
-              (comp: any) => comp.type !== 'header'
-            );
+        // Error 132018: Button type mismatch or header image issue
+        if (errorCode === 132018) {
+          // Check if it's a button issue
+          if (errorDetails.includes('Button') && errorDetails.includes('does not require parameters')) {
+            console.warn('⚠️ Button type mismatch detected');
+            console.warn('💡 Template expects different button configuration');
+            console.warn('🔄 Retrying without button parameters or with corrected button types...');
             
-            const retryPayload = {
-              ...messagePayload,
-              template: {
-                ...messagePayload.template,
-                components: componentsWithoutHeader.length > 0 ? componentsWithoutHeader : undefined
+            // Remove button components and retry (buttons are defined in template, not in payload)
+            if (messagePayload.template?.components) {
+              const componentsWithoutButtons = messagePayload.template.components.filter(
+                (comp: any) => comp.type !== 'button'
+              );
+              
+              const retryPayload = {
+                ...messagePayload,
+                template: {
+                  ...messagePayload.template,
+                  components: componentsWithoutButtons.length > 0 ? componentsWithoutButtons : undefined
+                }
+              };
+              
+              if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
+                delete retryPayload.template.components;
               }
-            };
-            
-            if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
-              delete retryPayload.template.components;
+              
+              console.log('📤 RETRY PAYLOAD (without buttons):');
+              console.log(JSON.stringify(retryPayload, null, 2));
+              
+              // Retry the request
+              response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(retryPayload)
+              });
+              
+              console.log('📊 Retry response status:', response.status);
+              
+              if (response.ok) {
+                console.log('✅ Message sent successfully without button parameters');
+                console.warn('💡 Note: Buttons are defined in the template in Meta Business Manager and do not need parameters in the API call.');
+              }
             }
+          } else if (errorDetails.includes('header') && errorDetails.includes('no parameters allowed')) {
+            console.warn('⚠️ Template does not support header image component');
+            console.warn('🔄 Retrying without header image...');
             
-            console.log('📤 RETRY PAYLOAD (without header):');
-            console.log(JSON.stringify(retryPayload, null, 2));
-            
-            // Retry the request
-            response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(retryPayload)
-            });
-            
-            console.log('📊 Retry response status:', response.status);
-            
-            if (response.ok) {
-              console.log('✅ Message sent successfully without header image');
-              console.warn('💡 Note: Template does not support header images. Image was not sent.');
-              console.warn('💡 To send images, configure the template in Meta Business Manager with a header image component.');
+            // Remove header component and retry
+            if (messagePayload.template?.components) {
+              const componentsWithoutHeader = messagePayload.template.components.filter(
+                (comp: any) => comp.type !== 'header'
+              );
+              
+              const retryPayload = {
+                ...messagePayload,
+                template: {
+                  ...messagePayload.template,
+                  components: componentsWithoutHeader.length > 0 ? componentsWithoutHeader : undefined
+                }
+              };
+              
+              if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
+                delete retryPayload.template.components;
+              }
+              
+              console.log('📤 RETRY PAYLOAD (without header):');
+              console.log(JSON.stringify(retryPayload, null, 2));
+              
+              // Retry the request
+              response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(retryPayload)
+              });
+              
+              console.log('📊 Retry response status:', response.status);
+              
+              if (response.ok) {
+                console.log('✅ Message sent successfully without header image');
+                console.warn('💡 Note: Template does not support header images. Image was not sent.');
+                console.warn('💡 To send images, configure the template in Meta Business Manager with a header image component.');
+              }
             }
           }
         }
