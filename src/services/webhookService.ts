@@ -14,7 +14,7 @@ class WebhookService {
   private isPolling = false;
   private processedUpdates = new Set<string>(); // Track processed updates to show toast only once
   private manualChanges = new Map<string, number>(); // Track manual changes: "eventId-guestId" -> timestamp
-  private readonly MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds protection after manual change
+  private readonly MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds protection after manual change - reduced for faster sync
 
   // Start polling for webhook updates
   startPolling(intervalMs: number = 5000) {

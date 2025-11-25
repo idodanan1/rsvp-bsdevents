@@ -56,7 +56,7 @@ const EventManagement: React.FC = () => {
     }
   }, [id, fetchEvents]);
 
-  // Auto-refresh events every 5 seconds for real-time sync between devices
+  // Auto-refresh events every 2 seconds for real-time sync between devices
   useEffect(() => {
     if (!id) return;
     
@@ -70,7 +70,7 @@ const EventManagement: React.FC = () => {
       fetchEvents().catch(error => {
         console.error('❌ Error auto-refreshing events:', error);
       });
-    }, 5000); // Refresh every 5 seconds for faster sync
+    }, 2000); // Refresh every 2 seconds for immediate sync
 
     return () => {
       clearInterval(intervalId);
@@ -96,7 +96,7 @@ const EventManagement: React.FC = () => {
         // CRITICAL: Check for manual changes before updating
         const state = useEventStore.getState();
         const now = Date.now();
-        const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+        const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
         
         // Merge guests, preserving manual changes
         const mergedGuests = event.guests.map(newGuest => {

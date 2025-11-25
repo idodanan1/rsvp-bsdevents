@@ -102,7 +102,7 @@ export const useEventStore = create<EventStore>()(
                 
                 const state = get();
                 const now = Date.now();
-                const MANUAL_CHANGE_PROTECTION_TIME = 30000; // 30 seconds
+                const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
                 
                 console.log('🔍 Manual changes before cleanup:', {
                   total: state.manualChanges.size,
