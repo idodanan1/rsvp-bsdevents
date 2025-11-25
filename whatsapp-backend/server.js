@@ -1331,13 +1331,9 @@ app.get('/api/guests/pending-updates', (req, res) => {
   pendingUpdates.length = 0;
   pendingUpdates.push(...filteredUpdates);
   
-  // IMPORTANT: Remove processed updates from pendingUpdates to prevent infinite loop
-  // After frontend processes an update, it should call DELETE endpoint to remove it
-  // But for now, we'll remove updates older than 1 minute that have been returned
-  const oneMinuteAgo = Date.now() - (60 * 1000);
-  const stillPending = pendingUpdates.filter(u => u.timestamp > oneMinuteAgo);
-  pendingUpdates.length = 0;
-  pendingUpdates.push(...stillPending);
+  // IMPORTANT: Don't remove updates here - let the DELETE endpoint handle it
+  // This ensures updates are available for webhookService to process
+  // Only remove very old updates (older than 1 hour) to prevent memory leaks
   
   console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
   if (formattedUpdates.length > 0) {
@@ -2171,15 +2167,22 @@ app.post('/api/events', async (req, res) => {
           // CRITICAL: If rsvpStatus or guestCount is set (and phone number exists), add to pendingUpdates
           // This allows updates from the guest response link to be synced across devices
           // Check both: if guest exists and status changed, OR if guest is new with status/guestCount
-          const statusChanged = existingGuest ? (newGuest.rsvpStatus && newGuest.rsvpStatus !== existingGuest.rsvpStatus) : (newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe'));
-          const guestCountChanged = existingGuest ? (newGuest.guestCount !== undefined && newGuest.guestCount !== existingGuest.guestCount) : (newGuest.guestCount !== undefined && newGuest.guestCount > 0);
+          const statusChanged = existingGuest ? (newGuest.rsvpStatus && newGuest.rsvpStatus !== existingGuest.rsvpStatus) : false;
+          const guestCountChanged = existingGuest ? (newGuest.guestCount !== undefined && newGuest.guestCount !== existingGuest.guestCount) : false;
+          
+          // For new guests or guests not found in existing event:
+          // Check if they have a valid status or guestCount (indicates a response from guest)
+          const hasValidStatus = !existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe');
+          const hasValidGuestCount = !existingGuest && newGuest.guestCount !== undefined && newGuest.guestCount > 0;
           const hasResponseDate = newGuest.responseDate && (!existingGuest || newGuest.responseDate !== existingGuest.responseDate);
           
           // Add to pendingUpdates if:
-          // 1. Status changed (or new guest with status)
-          // 2. Guest count changed (or new guest with guest count)
-          // 3. Has response date (indicates this is a response from guest)
-          if ((statusChanged || guestCountChanged || hasResponseDate) && newGuest.phoneNumber) {
+          // 1. Status changed (existing guest)
+          // 2. Guest count changed (existing guest)
+          // 3. New guest with valid status
+          // 4. New guest with valid guest count
+          // 5. Has response date (indicates this is a response from guest)
+          if ((statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate) && newGuest.phoneNumber) {
             // Format phone number (same logic as updateGuestStatusByPhone)
             const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
             const formattedPhone = originalPhone.replace(/^972/, '0');
@@ -2208,12 +2211,20 @@ app.post('/api/events', async (req, res) => {
               pendingUpdates.push(updateData);
               console.log(`✅ Added guest link update to pendingUpdates:`, {
                 phone: formattedPhone,
+                originalPhone: originalPhone,
                 status: updateData.status,
                 guestCount: updateData.guestCount,
                 responseDate: updateData.responseDate,
                 source: 'guest_link',
-                guestName: `${newGuest.firstName} ${newGuest.lastName}`
+                guestName: `${newGuest.firstName} ${newGuest.lastName}`,
+                guestId: newGuest.id,
+                statusChanged: statusChanged,
+                guestCountChanged: guestCountChanged,
+                hasValidStatus: hasValidStatus,
+                hasValidGuestCount: hasValidGuestCount,
+                hasResponseDate: hasResponseDate
               });
+              console.log(`📊 Total pending updates now: ${pendingUpdates.length}`);
             } else {
               // Update existing update with newer data
               pendingUpdates[existingSameIndex] = updateData;
