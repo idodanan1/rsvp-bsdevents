@@ -1473,11 +1473,14 @@ export const useEventStore = create<EventStore>()(
           // Otherwise, use default templates based on campaign name
           let templateNameForCampaign = campaign.templateName;
           if (!templateNameForCampaign) {
-            // Use template 'aa' for these campaigns:
-            if (campaign.name === 'הזמנה ראשונית' || 
-                campaign.name === 'תזכורת שנייה' || 
-                campaign.name === 'תזכורת שבועית') {
+            // Use template 'aa' for "הזמנה ראשונית"
+            if (campaign.name === 'הזמנה ראשונית') {
               templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
+            } else if (campaign.name === 'תזכורת שנייה') {
+              // Use template 'a' for "תזכורת שנייה"
+              templateNameForCampaign = 'a';
+            } else if (campaign.name === 'תזכורת שבועית') {
+              templateNameForCampaign = 'aa';
             } else if (campaign.name === 'תזכורת אחרונה') {
               // Use template 'reminer' for "תזכורת אחרונה" campaign
               templateNameForCampaign = 'reminer';
