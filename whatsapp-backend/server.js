@@ -2174,7 +2174,18 @@ app.post('/api/events', async (req, res) => {
           // Check if they have a valid status or guestCount (indicates a response from guest)
           const hasValidStatus = !existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe');
           const hasValidGuestCount = !existingGuest && newGuest.guestCount !== undefined && newGuest.guestCount > 0;
-          const hasResponseDate = newGuest.responseDate && (!existingGuest || newGuest.responseDate !== existingGuest.responseDate);
+          
+          // CRITICAL: Check if responseDate is new or different (indicates guest updated via link)
+          // Compare responseDate as strings or timestamps to detect changes
+          const oldResponseDate = existingGuest?.responseDate ? (typeof existingGuest.responseDate === 'string' ? existingGuest.responseDate : new Date(existingGuest.responseDate).toISOString()) : null;
+          const newResponseDate = newGuest.responseDate ? (typeof newGuest.responseDate === 'string' ? newGuest.responseDate : new Date(newGuest.responseDate).toISOString()) : null;
+          const hasResponseDate = newResponseDate && (!oldResponseDate || newResponseDate !== oldResponseDate);
+          
+          // Also check if guest has a valid status (even if not changed) but has a new responseDate
+          // This handles cases where guest updates to the same status but at a different time
+          const hasStatusWithNewResponse = existingGuest && newGuest.rsvpStatus && 
+                                           (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe') &&
+                                           hasResponseDate;
           
           // Add to pendingUpdates if:
           // 1. Status changed (existing guest)
@@ -2182,7 +2193,8 @@ app.post('/api/events', async (req, res) => {
           // 3. New guest with valid status
           // 4. New guest with valid guest count
           // 5. Has response date (indicates this is a response from guest)
-          if ((statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate) && newGuest.phoneNumber) {
+          // 6. Has status with new response date (handles same status but new update time)
+          if ((statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber) {
             // Format phone number (same logic as updateGuestStatusByPhone)
             const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
             const formattedPhone = originalPhone.replace(/^972/, '0');
@@ -2222,14 +2234,39 @@ app.post('/api/events', async (req, res) => {
                 guestCountChanged: guestCountChanged,
                 hasValidStatus: hasValidStatus,
                 hasValidGuestCount: hasValidGuestCount,
-                hasResponseDate: hasResponseDate
+                hasResponseDate: hasResponseDate,
+                hasStatusWithNewResponse: hasStatusWithNewResponse,
+                oldResponseDate: oldResponseDate,
+                newResponseDate: newResponseDate
               });
               console.log(`📊 Total pending updates now: ${pendingUpdates.length}`);
+              console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
+                phone: u.phoneNumber,
+                status: u.status,
+                guestCount: u.guestCount,
+                source: u.source,
+                age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
+              })));
             } else {
               // Update existing update with newer data
               pendingUpdates[existingSameIndex] = updateData;
               console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
             }
+          } else {
+            // Log why update was not added
+            console.log(`⏭️ Skipping guest link update for ${newGuest.firstName} ${newGuest.lastName}:`, {
+              phoneNumber: newGuest.phoneNumber,
+              statusChanged: statusChanged,
+              guestCountChanged: guestCountChanged,
+              hasValidStatus: hasValidStatus,
+              hasValidGuestCount: hasValidGuestCount,
+              hasResponseDate: hasResponseDate,
+              hasStatusWithNewResponse: hasStatusWithNewResponse,
+              existingGuest: existingGuest ? 'found' : 'not found',
+              rsvpStatus: newGuest.rsvpStatus,
+              responseDate: newResponseDate,
+              oldResponseDate: oldResponseDate
+            });
           }
         });
       }
