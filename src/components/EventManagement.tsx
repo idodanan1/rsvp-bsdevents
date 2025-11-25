@@ -30,7 +30,7 @@ import SyncMonitoringPanel from './SyncMonitoringPanel';
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, fetchEvents, assignGuestToTable, removeGuestFromTable, moveGuestToTable } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, fetchEvents, assignGuestToTable, removeGuestFromTable, moveGuestToTable } = useEventStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -1852,61 +1852,6 @@ const EventManagement: React.FC = () => {
             <MessageSquare className="w-4 h-4" />
             <span>ניהול קמפיינים</span>
           </Link>
-          <button
-            onClick={async () => {
-              if (currentEvent) {
-                console.log('🔄 Creating new campaigns for event:', currentEvent.id);
-                try {
-                  // Recreate campaigns - this updates the store
-                  recreateCampaigns(currentEvent.id);
-                  console.log('✅ Campaigns recreated successfully');
-                  
-                  // Force immediate state sync by reading directly from store
-                  // Zustand persist saves automatically, but we need to trigger a re-render
-                  const storeState = useEventStore.getState();
-                  const updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                  
-                  if (updatedEvent) {
-                    console.log('✅ Found updated event with', updatedEvent.campaigns?.length || 0, 'campaigns');
-                    // Force update the current event
-                    setCurrentEvent(updatedEvent);
-                    
-                    // Also trigger events update to ensure reactivity
-                    await fetchEvents();
-                    
-                    // Double-check after fetchEvents
-                    const finalState = useEventStore.getState();
-                    const finalEvent = finalState.events.find(e => e.id === currentEvent.id);
-                    if (finalEvent && finalEvent.campaigns?.length !== currentEvent.campaigns?.length) {
-                      setCurrentEvent(finalEvent);
-                      console.log('✅ Final update - campaigns:', finalEvent.campaigns?.length || 0);
-                    }
-                  } else {
-                    console.warn('⚠️ Updated event not found in store immediately');
-                    // Try fetching events and retry
-                    await fetchEvents();
-                    const retryState = useEventStore.getState();
-                    const retryEvent = retryState.events.find(e => e.id === currentEvent.id);
-                    if (retryEvent) {
-                      setCurrentEvent(retryEvent);
-                      console.log('✅ Event found after retry');
-                    }
-                  }
-                  
-                  alert('✅ קמפיינים נוצרו מחדש בהצלחה!');
-                } catch (error) {
-                  console.error('❌ Error recreating campaigns:', error);
-                  alert('❌ שגיאה ביצירת קמפיינים: ' + error);
-                }
-              } else {
-                alert('❌ לא נמצא אירוע נוכחי');
-              }
-            }}
-            className="btn-warning flex items-center space-x-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>צור קמפיינים מחדש</span>
-          </button>
           <Link
             to={`/event/${currentEvent.id}/seating`}
             className="btn-secondary flex items-center space-x-2"

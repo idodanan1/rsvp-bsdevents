@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUserStore } from '../store/userStore';
 import { useEventStore } from '../store/eventStore';
 import { User } from '../types';
-import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff } from 'lucide-react';
+import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff, RefreshCw, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface UserWithStats extends User {
@@ -14,7 +14,7 @@ interface UserWithStats extends User {
 
 const UserManagement: React.FC = () => {
   const { user: currentUser, getAllUsers, getAllUsersWithPasswords, addCreditsToUser } = useUserStore();
-  const { getAllEvents, getEventStatsByUserId } = useEventStore();
+  const { getAllEvents, getEventStatsByUserId, getEventsByUserId, recreateCampaigns, fetchEvents } = useEventStore();
   
   const [users, setUsers] = useState<UserWithStats[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,6 +22,9 @@ const UserManagement: React.FC = () => {
   const [creditsToAdd, setCreditsToAdd] = useState<number>(50);
   const [isLoading, setIsLoading] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
+  const [showRecreateCampaignsModal, setShowRecreateCampaignsModal] = useState(false);
+  const [selectedUserForCampaigns, setSelectedUserForCampaigns] = useState<UserWithStats | null>(null);
+  const [userEvents, setUserEvents] = useState<any[]>([]);
 
   useEffect(() => {
     if (!currentUser || !currentUser.isAdmin) {
@@ -79,6 +82,32 @@ const UserManagement: React.FC = () => {
     } catch (error: any) {
       console.error('❌ Add credits error:', error);
       toast.error(error.message || 'שגיאה בהוספת רשומות');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenRecreateCampaigns = (user: UserWithStats) => {
+    setSelectedUserForCampaigns(user);
+    const events = getEventsByUserId(user.id);
+    setUserEvents(events);
+    setShowRecreateCampaignsModal(true);
+  };
+
+  const handleRecreateCampaigns = async (eventId: string) => {
+    if (!selectedUserForCampaigns) return;
+
+    setIsLoading(true);
+    try {
+      recreateCampaigns(eventId);
+      await fetchEvents();
+      toast.success('✅ קמפיינים נוצרו מחדש בהצלחה!');
+      setShowRecreateCampaignsModal(false);
+      setSelectedUserForCampaigns(null);
+      setUserEvents([]);
+    } catch (error: any) {
+      console.error('❌ Error recreating campaigns:', error);
+      toast.error('❌ שגיאה ביצירת קמפיינים: ' + (error.message || error));
     } finally {
       setIsLoading(false);
     }
@@ -220,15 +249,26 @@ const UserManagement: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        {!user.isAdmin && (
-                          <button
-                            onClick={() => setSelectedUser(user)}
-                            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2 mx-auto"
-                          >
-                            <Plus className="w-4 h-4" />
-                            <span>הוסף רשומות</span>
-                          </button>
-                        )}
+                        <div className="flex items-center justify-center space-x-2">
+                          {!user.isAdmin && (
+                            <button
+                              onClick={() => setSelectedUser(user)}
+                              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>הוסף רשומות</span>
+                            </button>
+                          )}
+                          {user.totalEvents > 0 && (
+                            <button
+                              onClick={() => handleOpenRecreateCampaigns(user)}
+                              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              <span>צור קמפיינים מחדש</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -321,6 +361,94 @@ const UserManagement: React.FC = () => {
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Recreate Campaigns Modal */}
+        {showRecreateCampaignsModal && selectedUserForCampaigns && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800">
+                  צור קמפיינים מחדש - {selectedUserForCampaigns.name}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowRecreateCampaignsModal(false);
+                    setSelectedUserForCampaigns(null);
+                    setUserEvents([]);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  בחר אירוע ספציפי של המשתמש כדי ליצור מחדש את הקמפיינים שלו:
+                </p>
+              </div>
+
+              {userEvents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  למשתמש זה אין אירועים
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-800 mb-1">
+                            {event.coupleName || 'אירוע ללא שם'}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            {event.eventDate && (
+                              <div className="flex items-center space-x-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>{new Date(event.eventDate).toLocaleDateString('he-IL')}</span>
+                              </div>
+                            )}
+                            {event.guests && (
+                              <div className="flex items-center space-x-2">
+                                <Users className="w-4 h-4" />
+                                <span>{event.guests.length} מוזמנים</span>
+                              </div>
+                            )}
+                            {event.campaigns && (
+                              <div className="text-xs text-gray-500">
+                                {event.campaigns.length} קמפיינים קיימים
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRecreateCampaigns(event.id)}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                        >
+                          {isLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>יוצר...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4" />
+                              <span>צור מחדש</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
