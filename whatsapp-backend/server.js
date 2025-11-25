@@ -680,10 +680,27 @@ async function handleIncomingMessage(message) {
         buttonTitle === 'מגיע' ||
         (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
       console.log('✅ Guest confirmed attendance via button!');
-      await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+      console.log(`📞 Phone number received: ${phoneNumber}`);
+      
+      try {
+        await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+        console.log('✅ Status updated to confirmed');
+      } catch (error) {
+        console.error('❌ Error updating guest status:', error);
+      }
       
       // Send message with template "yes" to the guest
-      await sendYesTemplateMessage(phoneNumber);
+      console.log('📤 About to send "yes" template message...');
+      try {
+        await sendYesTemplateMessage(phoneNumber);
+        console.log('✅ "yes" template message sent successfully (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "yes" template message:', error);
+        if (error.response) {
+          console.error('❌ Error response status:', error.response.status);
+          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        }
+      }
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
@@ -709,10 +726,27 @@ async function handleIncomingMessage(message) {
       // Try to match anyway based on common patterns
       if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
-        await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+        console.log(`📞 Phone number received: ${phoneNumber}`);
+        
+        try {
+          await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+          console.log('✅ Status updated to confirmed');
+        } catch (error) {
+          console.error('❌ Error updating guest status:', error);
+        }
         
         // Send message with template "yes" to the guest
-        await sendYesTemplateMessage(phoneNumber);
+        console.log('📤 About to send "yes" template message...');
+        try {
+          await sendYesTemplateMessage(phoneNumber);
+          console.log('✅ "yes" template message sent successfully (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "yes" template message:', error);
+          if (error.response) {
+            console.error('❌ Error response status:', error.response.status);
+            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+          }
+        }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
         // Send confirmation message first, then update status
@@ -947,7 +981,8 @@ async function sendDeclineConfirmation(phoneNumber) {
 // Send message with template "yes" to guest who confirmed attendance
 async function sendYesTemplateMessage(phoneNumber) {
   try {
-    console.log(`📤 Sending "yes" template message to ${phoneNumber}`);
+    console.log(`📤 ========== SENDING "yes" TEMPLATE MESSAGE ==========`);
+    console.log(`📤 Original phone number: ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -955,11 +990,20 @@ async function sendYesTemplateMessage(phoneNumber) {
     
     if (!accessToken || !phoneNumberId) {
       console.warn('⚠️ WhatsApp credentials not configured - cannot send yes template message');
+      console.warn(`⚠️ Access Token: ${accessToken ? 'Set' : 'Missing'}`);
+      console.warn(`⚠️ Phone Number ID: ${phoneNumberId || 'Missing'}`);
       return;
     }
     
-    // Format phone number
-    const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
+    // Format phone number - handle different formats
+    let formattedPhone = phoneNumber.replace(/[^0-9]/g, ''); // Remove all non-digits first
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '972' + formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('972')) {
+      formattedPhone = '972' + formattedPhone;
+    }
+    
+    console.log(`📤 Formatted phone number: ${formattedPhone}`);
     
     // Find guest by phone number to get their name
     const events = loadEvents();
@@ -1013,7 +1057,8 @@ async function sendYesTemplateMessage(phoneNumber) {
     };
     
     console.log('📤 Sending "yes" template message...');
-    console.log('📤 Payload:', JSON.stringify(messagePayload, null, 2));
+    console.log('📤 Full Payload:', JSON.stringify(messagePayload, null, 2));
+    console.log('📤 API URL:', `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`);
     
     const response = await axios.post(
       `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
@@ -1027,19 +1072,28 @@ async function sendYesTemplateMessage(phoneNumber) {
     );
     
     if (response.status === 200) {
-      console.log('✅ "yes" template message sent successfully');
+      console.log('✅ "yes" template message sent successfully!');
       console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+      console.log('📤 ==========================================');
     } else {
       console.warn('⚠️ Failed to send "yes" template message:', response.status);
       console.warn('⚠️ Response data:', response.data);
+      console.log('📤 ==========================================');
     }
   } catch (error) {
-    console.error('❌ Error sending "yes" template message:', error);
+    console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
+    console.error('❌ Error:', error.message);
+    console.error('❌ Stack:', error.stack);
     if (error.response) {
       console.error('❌ Error response status:', error.response.status);
+      console.error('❌ Error response headers:', error.response.headers);
       console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error('❌ No response received from API');
+      console.error('❌ Request:', error.request);
     }
-    // Don't throw - this is not critical
+    console.error('❌ ========================================================');
+    // Don't throw - this is not critical, but log extensively for debugging
   }
 }
 
