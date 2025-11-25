@@ -172,8 +172,7 @@ class WhatsAppService {
           // Priority: headerImageUrl from templateParams > imageUrl from messageData
           let headerImageUrl = (messageData.templateParams as any)?.headerImageUrl || finalImageUrl;
           
-          // CRITICAL FIX: If template requires header image but no image provided,
-          // use a default placeholder image to prevent error 132012
+          // CRITICAL FIX: Always add header image if available, or use placeholder if template requires it
           // Some templates (like "aa") require header image - Meta will reject without it
           const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
@@ -195,12 +194,31 @@ class WhatsAppService {
             console.log('🖼️ ✅ Adding header image to template:', headerImageUrl);
             console.log('🖼️ ✅ Image will be displayed with the message');
           } else {
-            // No valid image URL - DON'T add placeholder automatically
-            // Only add placeholder if we get error 132012 (template requires header)
-            // This prevents sending unwanted placeholder images
-            console.log('ℹ️ No header image URL provided - will send without header');
-            console.log('ℹ️ If template requires header image, error 132012 will occur and we will retry with placeholder');
-            // This will be handled in error handling if Meta rejects it
+            // No valid image URL - check if we should add placeholder
+            // For templates that might require header image, add placeholder proactively
+            // This prevents error 132012 from occurring
+            const templateName = messageData.templateName || '';
+            const templatesRequiringHeader = ['aa', 'a']; // Add template names that require header
+            
+            if (templatesRequiringHeader.includes(templateName)) {
+              // Template requires header image - add placeholder
+              components.unshift({
+                type: 'header',
+                parameters: [
+                  {
+                    type: 'image',
+                    image: {
+                      link: DEFAULT_PLACEHOLDER_IMAGE
+                    }
+                  }
+                ]
+              });
+              console.log('🖼️ ✅ Adding placeholder header image (template requires it):', DEFAULT_PLACEHOLDER_IMAGE);
+            } else {
+              // Template might not require header - try without it first
+              console.log('ℹ️ No header image URL provided - will send without header');
+              console.log('ℹ️ If template requires header image, error will occur and we will retry with placeholder');
+            }
           }
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
@@ -298,18 +316,38 @@ class WhatsAppService {
       if (!response.ok && messagePayload.type === 'template') {
         // Clone response to read it without consuming it
         const responseClone = response.clone();
-        const errorData = await responseClone.json().catch(() => ({}));
+        let errorData: any = {};
+        try {
+          errorData = await responseClone.json();
+        } catch (e) {
+          console.error('❌ Failed to parse error response:', e);
+          // Try to read error message from response text
+          try {
+            const errorText = await responseClone.text();
+            console.error('📋 Error response text:', errorText);
+          } catch (e2) {
+            console.error('❌ Failed to read error response text:', e2);
+          }
+        }
+        
         const errorCode = errorData.error?.code;
         const errorDetails = errorData.error?.error_data?.details || '';
         const errorMessage = errorData.error?.message || '';
         
-        // Error 132012: Template expects header image but we're not sending one
-        if (errorCode === 132012 && errorDetails.includes('header') && errorDetails.includes('expected IMAGE')) {
+        console.log('🔍 Error details:', { errorCode, errorDetails, errorMessage });
+        
+        // Check if template requires header image (error 132012 or error message mentions header/image)
+        const requiresHeaderImage = 
+          errorCode === 132012 || 
+          (errorMessage && (errorMessage.includes('header') || errorMessage.includes('image'))) ||
+          (errorDetails && (errorDetails.includes('header') || errorDetails.includes('IMAGE')));
+        
+        if (requiresHeaderImage) {
           console.warn('⚠️ Template requires header image but no image was provided');
           console.warn('💡 Adding placeholder image to satisfy template requirement...');
           
-          // Template requires header image - add placeholder image
-          const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
+          // Use the image URL from messageData if available, otherwise use placeholder
+          const headerImageUrl = messageData.imageUrl || 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
           // Build components with placeholder header image
           const componentsWithHeader: any[] = [
@@ -319,7 +357,7 @@ class WhatsAppService {
                 {
                   type: 'image',
                   image: {
-                    link: DEFAULT_PLACEHOLDER_IMAGE
+                    link: headerImageUrl
                   }
                 }
               ]
@@ -342,8 +380,8 @@ class WhatsAppService {
             }
           };
           
-          console.log('🔄 Retrying with placeholder header image...');
-          console.log('📤 RETRY PAYLOAD (with placeholder image):');
+          console.log('🔄 Retrying with header image...');
+          console.log('📤 RETRY PAYLOAD (with header image):');
           console.log(JSON.stringify(retryPayload, null, 2));
           
           response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
@@ -358,13 +396,24 @@ class WhatsAppService {
           console.log('📊 Retry response status:', response.status);
           
           if (response.ok) {
-            console.log('✅ Message sent successfully with placeholder header image');
-            console.warn('💡 Note: Used placeholder image because template requires header image');
-            console.warn('💡 To use your own image, upload it to a public HTTPS URL and add it to the event/campaign');
+            console.log('✅ Message sent successfully with header image');
+            console.warn('💡 Note: Used header image because template requires it');
           } else {
-            // Still failed - log the error
-            const errorData2 = await response.json().catch(() => ({}));
-            console.error('❌ Retry with placeholder image also failed:', errorData2);
+            // Still failed - log the error (clone to avoid consuming)
+            const retryResponseClone = response.clone();
+            let errorData2: any = {};
+            try {
+              errorData2 = await retryResponseClone.json();
+            } catch (e) {
+              console.error('❌ Failed to parse retry error response:', e);
+              try {
+                const errorText = await retryResponseClone.text();
+                console.error('📋 Retry error response text:', errorText);
+              } catch (e2) {
+                console.error('❌ Failed to read retry error response text:', e2);
+              }
+            }
+            console.error('❌ Retry with header image also failed:', errorData2);
           }
         }
         
