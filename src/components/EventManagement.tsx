@@ -1957,7 +1957,10 @@ const EventManagement: React.FC = () => {
           </button>
           <div className="relative" ref={exportMenuRef}>
             <button 
-              onClick={() => setShowExportMenu(!showExportMenu)}
+              onClick={() => {
+                console.log('🔘 Excel button clicked, showExportMenu:', showExportMenu);
+                setShowExportMenu(!showExportMenu);
+              }}
               className="btn-secondary flex items-center space-x-2"
             >
               <FileSpreadsheet className="w-4 h-4" />
