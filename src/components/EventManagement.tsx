@@ -27,7 +27,7 @@ import {
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, addGuest, updateGuest, deleteGuest, recreateCampaigns, updateExistingEventsCampaigns, fetchEvents, assignGuestToTable, removeGuestFromTable, moveGuestToTable } = useEventStore();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -77,6 +77,18 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
+  // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
+  // This ensures UI updates immediately when actualAttendance, tableId, etc. change
+  const guestsKey = currentEvent?.guests?.map(g => 
+    `${g.id}:${g.actualAttendance}:${g.tableId}:${g.rsvpStatus}:${g.guestCount}`
+  ).join('|') || '';
+  
+  useEffect(() => {
+    if (!currentEvent || !id || currentEvent.id !== id) return;
+    // This effect runs whenever guestsKey changes, forcing a re-render
+    console.log('🔄 currentEvent guests changed, UI will update');
+  }, [guestsKey, currentEvent?.id, id]);
+
   // Set current event when id or events change
   useEffect(() => {
     if (!id) return;
@@ -123,6 +135,36 @@ const EventManagement: React.FC = () => {
             return currentGuest;
           }
           
+          // CRITICAL: For tableId and actualAttendance, always prefer currentEvent if it's different
+          // This ensures immediate UI updates even if API hasn't synced yet
+          const shouldPreserveLocalValue = (field: 'tableId' | 'actualAttendance') => {
+            const localValue = currentGuest[field];
+            const apiValue = newGuest[field];
+            
+            // If local value exists and is different from API, preserve it
+            // This handles the case where we just updated locally but API hasn't synced yet
+            if (localValue !== undefined && localValue !== apiValue) {
+              // Check if this is a recent manual change (within protection window)
+              const guestKey = `${event.id}-${newGuest.id}`;
+              const lastManualChange = state.manualChanges?.get?.(guestKey);
+              if (lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME * 2) {
+                // Even if outside the strict protection window, if values differ and change was recent, preserve local
+                return true;
+              }
+            }
+            return false;
+          };
+          
+          // Preserve local tableId and actualAttendance if they differ from API (likely due to recent local update)
+          if (shouldPreserveLocalValue('tableId') || shouldPreserveLocalValue('actualAttendance')) {
+            console.log(`🔄 Preserving local tableId/actualAttendance for guest ${newGuest.id} (API might not have synced yet)`);
+            return {
+              ...newGuest,
+              tableId: currentGuest.tableId !== undefined ? currentGuest.tableId : newGuest.tableId,
+              actualAttendance: currentGuest.actualAttendance !== undefined ? currentGuest.actualAttendance : newGuest.actualAttendance
+            };
+          }
+          
           // Check if any field changed that should trigger immediate update
           const fieldsChanged = 
             newGuest.guestCount !== currentGuest.guestCount ||
@@ -136,9 +178,9 @@ const EventManagement: React.FC = () => {
             return newGuest;
           }
           
-                    // No recent manual change - ALWAYS use new data from API (it's the source of truth)
-                    // API has the latest data from all devices
-                    return newGuest;
+          // No recent manual change - ALWAYS use new data from API (it's the source of truth)
+          // API has the latest data from all devices
+          return newGuest;
         });
         
         // Add any new guests from API that aren't in currentEvent
@@ -155,25 +197,46 @@ const EventManagement: React.FC = () => {
           JSON.stringify(currentCampaigns) !== JSON.stringify(newCampaigns);
         
         // Check if guests changed (excluding manual changes)
+        // CRITICAL: Check against original event.guests (from API) to detect ALL changes, not just mergedGuests
         const guestsChanged = 
-          currentEvent.guests.length !== mergedGuests.length + newGuestsFromAPI.length ||
-          mergedGuests.some((mg, idx) => {
-            const cg = currentEvent.guests[idx];
-            if (!cg || cg.id !== mg.id) return true;
+          currentEvent.guests.length !== event.guests.length ||
+          event.guests.some((apiGuest) => {
+            const currentGuest = currentEvent.guests.find(cg => cg.id === apiGuest.id);
+            if (!currentGuest) return true; // New guest from API
             
-            // Check if any field changed (excluding manual changes)
-            const guestKey = `${event.id}-${mg.id}`;
+            // Check if any field changed in API (excluding manual changes)
+            const guestKey = `${event.id}-${apiGuest.id}`;
             const hasManualChange = state.manualChanges?.get?.(guestKey) && (now - state.manualChanges.get(guestKey)) < MANUAL_CHANGE_PROTECTION_TIME;
             
             if (hasManualChange) return false; // Skip if manual change is recent
             
+            // CRITICAL: Check if critical fields changed - these should always trigger update
+            const actualAttendanceChanged = currentGuest.actualAttendance !== apiGuest.actualAttendance;
+            const tableIdChanged = currentGuest.tableId !== apiGuest.tableId;
+            const firstNameChanged = currentGuest.firstName !== apiGuest.firstName;
+            const lastNameChanged = currentGuest.lastName !== apiGuest.lastName;
+            const phoneNumberChanged = currentGuest.phoneNumber !== apiGuest.phoneNumber;
+            
+            // If any critical field changed, always trigger update
+            if (actualAttendanceChanged || tableIdChanged || firstNameChanged || lastNameChanged || phoneNumberChanged) {
+              console.log(`🔄 Detected change in critical fields for guest ${apiGuest.id}:`, {
+                actualAttendance: { from: currentGuest.actualAttendance, to: apiGuest.actualAttendance },
+                tableId: { from: currentGuest.tableId, to: apiGuest.tableId },
+                firstName: { from: currentGuest.firstName, to: apiGuest.firstName },
+                lastName: { from: currentGuest.lastName, to: apiGuest.lastName },
+                phoneNumber: { from: currentGuest.phoneNumber, to: apiGuest.phoneNumber }
+              });
+              return true;
+            }
+            
             return (
-              cg.rsvpStatus !== mg.rsvpStatus ||
-              cg.guestCount !== mg.guestCount ||
-              cg.actualAttendance !== mg.actualAttendance ||
-              cg.tableId !== mg.tableId
+              currentGuest.rsvpStatus !== apiGuest.rsvpStatus ||
+              currentGuest.guestCount !== apiGuest.guestCount ||
+              currentGuest.notes !== apiGuest.notes
             );
-          });
+          }) ||
+          // Also check if any guest was removed
+          currentEvent.guests.some(cg => !event.guests.find(ag => ag.id === cg.id));
         
         if (campaignsChanged || guestsChanged || newGuestsFromAPI.length > 0) {
           console.log('🔄 Event data changed, updating event (preserving manual changes)');
@@ -288,6 +351,19 @@ const EventManagement: React.FC = () => {
     }
 
     try {
+      console.log('🎯 handleUpdateGuest called:', { 
+        guestId: editingGuest.id, 
+        updates: {
+          firstName: newGuest.firstName,
+          lastName: newGuest.lastName,
+          phoneNumber: newGuest.phoneNumber,
+          guestCount: newGuest.guestCount,
+          notes: newGuest.notes
+        },
+        eventId: currentEvent.id 
+      });
+      
+      // Update in store first
       await updateGuest(currentEvent.id, editingGuest.id, {
         firstName: newGuest.firstName,
         lastName: newGuest.lastName,
@@ -295,6 +371,15 @@ const EventManagement: React.FC = () => {
         guestCount: newGuest.guestCount,
         notes: newGuest.notes
       });
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      const storeState = useEventStore.getState();
+      const updatedEvent = storeState.currentEvent;
+      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+        setCurrentEvent(updatedEvent);
+        console.log('✅ handleUpdateGuest - currentEvent updated immediately from store (name/phone/notes)');
+      }
       
       setEditingGuest(null);
       setNewGuest({
@@ -311,11 +396,22 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuestStatus = async (guestId: string, status: string) => {
     try {
-      // Manual change is now tracked in eventStore.updateGuest
+      console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: currentEvent.id });
+      
+      // Update in store first
       await updateGuest(currentEvent.id, guestId, {
         rsvpStatus: status as any,
         responseDate: new Date()
       });
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      const storeState = useEventStore.getState();
+      const updatedEvent = storeState.currentEvent;
+      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+        setCurrentEvent(updatedEvent);
+        console.log('✅ handleUpdateGuestStatus - currentEvent updated immediately from store');
+      }
     } catch (error) {
       console.error('Error updating guest:', error);
     }
@@ -324,10 +420,22 @@ const EventManagement: React.FC = () => {
   const handleUpdateAttendance = async (guestId: string, attendance: string) => {
     try {
       console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: currentEvent.id });
+      
+      // Update in store first
       await updateGuest(currentEvent.id, guestId, {
         actualAttendance: attendance as any,
         attendanceDate: new Date()
       });
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      const storeState = useEventStore.getState();
+      const updatedEvent = storeState.currentEvent;
+      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+        setCurrentEvent(updatedEvent);
+        console.log('✅ handleUpdateAttendance - currentEvent updated immediately from store');
+      }
+      
       console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {
       console.error('❌ Error updating attendance:', error);
@@ -336,8 +444,54 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuestField = async (guestId: string, updates: any) => {
     try {
-      // Manual change is now tracked in eventStore.updateGuest
-      await updateGuest(currentEvent.id, guestId, updates);
+      console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: currentEvent.id });
+      
+      // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
+      // This ensures seating management is updated correctly
+      if (updates.tableId !== undefined) {
+        const currentGuest = currentEvent.guests.find(g => g.id === guestId);
+        const oldTableId = currentGuest?.tableId;
+        const newTableId = updates.tableId;
+        
+        if (newTableId && newTableId !== oldTableId) {
+          // Moving to a new table
+          console.log(`🔄 Moving guest ${guestId} from table ${oldTableId || 'none'} to table ${newTableId}`);
+          await moveGuestToTable(currentEvent.id, guestId, newTableId);
+        } else if (!newTableId && oldTableId) {
+          // Removing from table
+          console.log(`🔄 Removing guest ${guestId} from table ${oldTableId}`);
+          await removeGuestFromTable(currentEvent.id, guestId);
+        } else if (newTableId && newTableId === oldTableId) {
+          // Same table, just update other fields if any
+          const otherUpdates = { ...updates };
+          delete otherUpdates.tableId;
+          if (Object.keys(otherUpdates).length > 0) {
+            await updateGuest(currentEvent.id, guestId, otherUpdates);
+          }
+        }
+      } else {
+        // Update other fields normally - always include responseDate for timestamp-based conflict resolution
+        // If updating guestCount, always use current timestamp
+        const updatesWithTimestamp = updates.guestCount !== undefined 
+          ? { ...updates, responseDate: new Date() }
+          : updates;
+        await updateGuest(currentEvent.id, guestId, updatesWithTimestamp);
+      }
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      // Important for: tableId, actualAttendance, guestCount, rsvpStatus, firstName, lastName, phoneNumber
+      const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
+      const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+      
+      if (hasCriticalField) {
+        const storeState = useEventStore.getState();
+        const updatedEvent = storeState.currentEvent;
+        if (updatedEvent && updatedEvent.id === currentEvent.id) {
+          setCurrentEvent(updatedEvent);
+          console.log('✅ handleUpdateGuestField - currentEvent updated immediately from store for:', Object.keys(updates).join(', '));
+        }
+      }
     } catch (error) {
       console.error('Error updating guest:', error);
     }
@@ -413,13 +567,19 @@ const EventManagement: React.FC = () => {
     currentEvent.tables.forEach(table => {
       const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
       
-      // Count actual attendance
-      const attended = tableGuests.filter(g => g.actualAttendance === 'attended').length;
-      const notAttended = tableGuests.filter(g => g.actualAttendance === 'not_attended').length;
-      const notMarked = tableGuests.filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked').length;
+      // Count actual attendance - use guestCount, not number of records
+      const totalGuests = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+      const attended = tableGuests
+        .filter(g => g.actualAttendance === 'attended')
+        .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+      const notAttended = tableGuests
+        .filter(g => g.actualAttendance === 'not_attended')
+        .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+      const notMarked = tableGuests
+        .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
+        .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
       
       // Calculate attendance percentage
-      const totalGuests = tableGuests.length;
       const attendancePercentage = totalGuests > 0 ? Math.round((attended / totalGuests) * 100) : 0;
       
       dataRows.push([
@@ -493,10 +653,11 @@ const EventManagement: React.FC = () => {
         return;
       }
 
-      // Count attendance
-      const attendedGuests = tableGuests.filter(g => g.actualAttendance === 'attended');
-      const totalGuests = tableGuests.length;
-      const attendedCount = attendedGuests.length;
+      // Count attendance - use guestCount, not number of records
+      const totalGuests = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+      const attendedCount = tableGuests
+        .filter(g => g.actualAttendance === 'attended')
+        .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
 
       // Table header with attendance summary
       dataRows.push([
@@ -1909,7 +2070,10 @@ const EventManagement: React.FC = () => {
         <div className="flex gap-2">
           <button className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
             <Users className="w-4 h-4" />
-            <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => acc + table.guests.length, 0) || 0)})</span>
+            <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => {
+              const tableGuests = currentEvent.guests?.filter(g => g.tableId === table.id) || [];
+              return acc + tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+            }, 0) || 0)})</span>
           </button>
           
           <button className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">

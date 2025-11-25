@@ -1342,7 +1342,7 @@ const VenueEditor: React.FC = () => {
                   <div>
                     <div className="text-sm font-semibold text-green-700">יושבים</div>
                     <div className="text-3xl font-bold text-green-600">
-                      {currentEvent?.guests?.filter(g => g.tableId).length || 0}
+                      {currentEvent?.guests?.filter(g => g.tableId).reduce((sum, guest) => sum + (guest.guestCount || 1), 0) || 0}
                     </div>
                   </div>
                   <CheckCircle className="w-8 h-8 text-green-500" />
@@ -1629,7 +1629,13 @@ const VenueEditor: React.FC = () => {
                 <div className="bg-blue-50 p-3 rounded-lg">
                   <div className="text-sm font-medium text-blue-800">מידע על השולחן</div>
                   <div className="text-sm text-blue-600">
-                    {currentEvent?.tables?.find(t => t.id === selectedTable)?.guests?.length || 0} / {currentEvent?.tables?.find(t => t.id === selectedTable)?.capacity} מושבים
+                    {(() => {
+                      const table = currentEvent?.tables?.find(t => t.id === selectedTable);
+                      if (!table) return '0';
+                      const tableGuests = currentEvent?.guests?.filter(g => g.tableId === table.id) || [];
+                      const totalGuestCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+                      return totalGuestCount;
+                    })()} / {currentEvent?.tables?.find(t => t.id === selectedTable)?.capacity} מושבים
                   </div>
                 </div>
               </div>

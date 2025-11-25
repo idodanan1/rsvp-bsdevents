@@ -240,21 +240,51 @@ export const useEventStore = create<EventStore>()(
                       return localGuest;
                     }
                     
+                    // CRITICAL: For tableId and actualAttendance, preserve local values if they differ from API
+                    // This handles the case where we just updated locally but API hasn't synced yet
+                    // Check if local value exists and differs from API, and change was made recently (within 2x protection window)
+                    const shouldPreserveLocalField = (field: 'tableId' | 'actualAttendance') => {
+                      const localValue = localGuest[field];
+                      const apiValue = apiGuest[field];
+                      
+                      if (localValue !== undefined && localValue !== apiValue) {
+                        // If there was a manual change (even if outside strict window), preserve local if values differ
+                        if (lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME * 2) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    };
+                    
+                    const preserveTableId = shouldPreserveLocalField('tableId');
+                    const preserveActualAttendance = shouldPreserveLocalField('actualAttendance');
+                    
+                    if (preserveTableId || preserveActualAttendance) {
+                      console.log(`🔄 Preserving local tableId/actualAttendance for guest ${apiGuest.id} (API might not have synced yet)`);
+                      return {
+                        ...apiGuest,
+                        tableId: preserveTableId ? localGuest.tableId : apiGuest.tableId,
+                        actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance
+                      };
+                    }
+                    
                     // No recent manual change - merge: ALWAYS use API data (it's the source of truth)
                     // API has the latest data from all devices
                     console.log(`✅ Using API data for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
                       actualAttendance: apiGuest.actualAttendance,
                       guestCount: apiGuest.guestCount,
                       rsvpStatus: apiGuest.rsvpStatus,
+                      tableId: apiGuest.tableId,
                       note: 'No manual change - API is source of truth'
                     });
                     
                     // CRITICAL: Verify API has actualAttendance value
-                    if (apiGuest.actualAttendance && apiGuest.actualAttendance !== 'not_marked') {
+                    if (apiGuest.actualAttendance === undefined || apiGuest.actualAttendance === null) {
+                      console.warn(`⚠️ API does not have actualAttendance field for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}) - this might cause sync issues`);
+                    } else if (apiGuest.actualAttendance !== 'not_marked') {
                       console.log(`✅ API has actualAttendance value: ${apiGuest.actualAttendance} - this will sync to other devices`);
-                    } else {
-                      console.warn(`⚠️ API does not have actualAttendance (or it's 'not_marked') - this might cause sync issues`);
                     }
+                    // Note: 'not_marked' is a valid state, no warning needed
                     
                     return apiGuest;
                   });
@@ -946,8 +976,11 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: If updating guestCount, rsvpStatus, actualAttendance, or tableId, mark as manual change
-          if (updates.guestCount !== undefined || updates.rsvpStatus !== undefined || updates.actualAttendance !== undefined || updates.tableId !== undefined) {
+          // CRITICAL: If updating guestCount, rsvpStatus, actualAttendance, tableId, firstName, lastName, or phoneNumber, mark as manual change
+          const criticalFields = ['guestCount', 'rsvpStatus', 'actualAttendance', 'tableId', 'firstName', 'lastName', 'phoneNumber'];
+          const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+          
+          if (hasCriticalField) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);
@@ -960,36 +993,82 @@ export const useEventStore = create<EventStore>()(
           let updatedEvent: Event | null = null;
           
           set(state => {
-            const updatedEvents = state.events.map(event =>
-              event.id === eventId
-                ? {
-                    ...event,
-                    guests: event.guests.map(guest =>
-                      guest.id === guestId
-                        ? { ...guest, ...updates }
-                        : guest
-                    ),
-                    updatedAt: new Date()
-                  }
-                : event
-            );
+            const event = state.events.find(e => e.id === eventId);
+            if (!event) {
+              set({ isLoading: false });
+              return;
+            }
+            
+            // Find current guest to get old tableId if tableId is being updated
+            const currentGuest = event.guests.find(g => g.id === guestId);
+            const oldTableId = currentGuest?.tableId;
+            const newTableId = updates.tableId;
+            
+            // Update guest - always add/update responseDate for timestamp-based conflict resolution
+            const updatedGuests = event.guests.map(guest => {
+              if (guest.id === guestId) {
+                // If updating critical fields, ensure we have a timestamp
+                const now = new Date();
+                const currentResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
+                const updateResponseDate = updates.responseDate ? new Date(updates.responseDate) : now;
+                
+                // Use the newer timestamp
+                const finalResponseDate = updateResponseDate.getTime() >= currentResponseDate.getTime() 
+                  ? updateResponseDate 
+                  : currentResponseDate;
+                
+                return { 
+                  ...guest, 
+                  ...updates,
+                  // Always update responseDate when critical fields change
+                  responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now)
+                };
+              }
+              return guest;
+            });
+            
+            // If tableId changed, update tables array
+            let updatedTables = event.tables || [];
+            if (updates.tableId !== undefined && newTableId !== oldTableId) {
+              updatedTables = event.tables?.map(table => {
+                // Remove guest from old table
+                const tableGuestsWithoutGuest = table.guests.filter(id => id !== guestId);
+                
+                // Add guest to new table if not already there
+                if (table.id === newTableId && !tableGuestsWithoutGuest.includes(guestId)) {
+                  return { ...table, guests: [...tableGuestsWithoutGuest, guestId] };
+                }
+                
+                // If removing from table (newTableId is undefined/null), just remove from old table
+                if (!newTableId && table.id === oldTableId) {
+                  return { ...table, guests: tableGuestsWithoutGuest };
+                }
+                
+                // Keep table as is
+                return { ...table, guests: tableGuestsWithoutGuest };
+              }) || [];
+            }
+            
+            const updatedEventObj = {
+              ...event,
+              guests: updatedGuests,
+              tables: updatedTables,
+              updatedAt: new Date()
+            };
             
             // Find the updated event for API sync
-            updatedEvent = updatedEvents.find(e => e.id === eventId) || null;
+            updatedEvent = updatedEventObj;
             
             const updatedCurrentEvent = state.currentEvent?.id === eventId 
               ? {
                   ...state.currentEvent,
-                  guests: state.currentEvent.guests.map(guest =>
-                    guest.id === guestId
-                      ? { ...guest, ...updates }
-                      : guest
-                  )
+                  guests: updatedGuests,
+                  tables: updatedTables
                 }
               : state.currentEvent;
             
             return {
-              events: updatedEvents,
+              events: state.events.map(e => e.id === eventId ? updatedEventObj : e),
               currentEvent: updatedCurrentEvent,
               isLoading: false
             };
@@ -1008,9 +1087,13 @@ export const useEventStore = create<EventStore>()(
                   guestId: guestId,
                   updates: updates,
                   allFields: Object.keys(updates),
+                  firstName: updates.firstName,
+                  lastName: updates.lastName,
+                  phoneNumber: updates.phoneNumber,
                   actualAttendance: updates.actualAttendance,
                   guestCount: updates.guestCount,
-                  rsvpStatus: updates.rsvpStatus
+                  rsvpStatus: updates.rsvpStatus,
+                  tableId: updates.tableId
                 });
                 
                 // Log the full guest object being sent
@@ -1020,6 +1103,7 @@ export const useEventStore = create<EventStore>()(
                     id: updatedGuest.id,
                     firstName: updatedGuest.firstName,
                     lastName: updatedGuest.lastName,
+                    phoneNumber: updatedGuest.phoneNumber,
                     actualAttendance: updatedGuest.actualAttendance,
                     guestCount: updatedGuest.guestCount,
                     rsvpStatus: updatedGuest.rsvpStatus,
@@ -1098,22 +1182,52 @@ export const useEventStore = create<EventStore>()(
                   ...event,
                   guests: event.guests.map(guest => {
                     if (guest.id === guestId) {
-                      // CRITICAL: Always use the new rsvpStatus from updatedGuest, don't merge with old
+                      // CRITICAL: Use timestamp-based conflict resolution - latest update wins
+                      const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
+                      const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
+                      
+                      // If new update is newer (or same), use it. Otherwise keep old values for that field
+                      const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
+                      
+                      // For guestCount and rsvpStatus: always use new value if provided and update is newer
+                      // This ensures the latest update (whether manual or via link) always wins
                       const mergedGuest = { 
                         ...guest, 
                         ...updatedGuest,
-                        // EXPLICITLY override rsvpStatus - don't let old value persist
-                        rsvpStatus: updatedGuest.rsvpStatus || guest.rsvpStatus, // Use new status, fallback to old only if new is missing
-                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1), // Use new count if provided
-                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''), // Use new notes if provided
-                        responseDate: updatedGuest.responseDate || guest.responseDate || new Date()
+                        // Always use new values if provided (latest update wins)
+                        rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
+                        // Use the newer responseDate
+                        responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
                       };
-                      console.log(`🔧 Merging guest:`, {
-                        old: { rsvpStatus: guest.rsvpStatus, guestCount: guest.guestCount },
-                        new: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount },
-                        merged: { rsvpStatus: mergedGuest.rsvpStatus, guestCount: mergedGuest.guestCount }
+                      
+                      console.log(`🔧 Merging guest (latest update wins):`, {
+                        old: { 
+                          rsvpStatus: guest.rsvpStatus, 
+                          guestCount: guest.guestCount,
+                          responseDate: oldResponseDate.toISOString()
+                        },
+                        new: { 
+                          rsvpStatus: updatedGuest.rsvpStatus, 
+                          guestCount: updatedGuest.guestCount,
+                          responseDate: newResponseDate.toISOString()
+                        },
+                        isNewer: isNewerUpdate,
+                        merged: { 
+                          rsvpStatus: mergedGuest.rsvpStatus, 
+                          guestCount: mergedGuest.guestCount,
+                          responseDate: mergedGuest.responseDate.toISOString()
+                        }
                       });
-                      console.log(`✅ FINAL merged guest rsvpStatus: ${mergedGuest.rsvpStatus} (should be ${updatedGuest.rsvpStatus})`);
+                      
+                      // Remove manual change protection if this update is newer
+                      if (isNewerUpdate) {
+                        const manualChangeKey = `${eventId}-${guestId}`;
+                        state.manualChanges.delete(manualChangeKey);
+                        console.log(`🔄 Removed manual change protection for ${manualChangeKey} - new update is newer`);
+                      }
+                      
                       return mergedGuest;
                     }
                     return guest;
@@ -1130,13 +1244,19 @@ export const useEventStore = create<EventStore>()(
                   ...state.currentEvent,
                   guests: state.currentEvent.guests.map(guest => {
                     if (guest.id === guestId) {
+                      // Use timestamp-based conflict resolution - latest update wins
+                      const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
+                      const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
+                      const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
+                      
                       return {
                         ...guest,
                         ...updatedGuest,
-                        rsvpStatus: updatedGuest.rsvpStatus,
-                        guestCount: updatedGuest.guestCount || guest.guestCount || 1,
-                        notes: updatedGuest.notes || guest.notes || '',
-                        responseDate: updatedGuest.responseDate
+                        // Always use new values if provided (latest update wins)
+                        rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
+                        responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
                       };
                     }
                     return guest;
@@ -2534,31 +2654,51 @@ export const useEventStore = create<EventStore>()(
       assignGuestToTable: async (eventId: string, guestId: string, tableId: string, seatNumber?: number) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
-            events: state.events.map(e => 
-              e.id === eventId 
+          set(state => {
+            const event = state.events.find(e => e.id === eventId);
+            if (!event) {
+              set({ isLoading: false });
+              return;
+            }
+            
+            // Update guest's tableId
+            const updatedGuests = event.guests?.map(guest => 
+              guest.id === guestId 
+                ? { ...guest, tableId: tableId, seatNumber: seatNumber }
+                : guest
+            ) || [];
+            
+            // Update tables: remove guest from old table, add to new table
+            const updatedTables = event.tables?.map(table => {
+              // Remove guest from old table if it was assigned
+              const oldTableGuests = table.guests.filter(id => id !== guestId);
+              
+              // Add guest to new table if not already there
+              if (table.id === tableId && !oldTableGuests.includes(guestId)) {
+                return { ...table, guests: [...oldTableGuests, guestId] };
+              }
+              
+              return { ...table, guests: oldTableGuests };
+            }) || [];
+            
+            const updatedEvent = {
+              ...event,
+              guests: updatedGuests,
+              tables: updatedTables
+            };
+            
+            return {
+              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              currentEvent: state.currentEvent?.id === eventId 
                 ? { 
-                    ...e, 
-                    guests: e.guests?.map(guest => 
-                      guest.id === guestId 
-                        ? { ...guest, tableId: tableId, seatNumber: seatNumber }
-                        : guest
-                    ) || []
+                    ...state.currentEvent, 
+                    guests: updatedGuests,
+                    tables: updatedTables
                   }
-                : e
-            ),
-            currentEvent: state.currentEvent?.id === eventId 
-              ? { 
-                  ...state.currentEvent, 
-                  guests: state.currentEvent.guests?.map(guest => 
-                    guest.id === guestId 
-                      ? { ...guest, tableId: tableId, seatNumber: seatNumber }
-                      : guest
-                  ) || []
-                }
-              : state.currentEvent,
-            isLoading: false
-          }));
+                : state.currentEvent,
+              isLoading: false
+            };
+          });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
           const updatedEvent = get().events.find(e => e.id === eventId);
@@ -2575,31 +2715,44 @@ export const useEventStore = create<EventStore>()(
       removeGuestFromTable: async (eventId: string, guestId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
-            events: state.events.map(e => 
-              e.id === eventId 
+          set(state => {
+            const event = state.events.find(e => e.id === eventId);
+            if (!event) {
+              set({ isLoading: false });
+              return;
+            }
+            
+            // Update guest's tableId to undefined
+            const updatedGuests = event.guests?.map(guest => 
+              guest.id === guestId 
+                ? { ...guest, tableId: undefined, seatNumber: undefined }
+                : guest
+            ) || [];
+            
+            // Remove guest from all tables
+            const updatedTables = event.tables?.map(table => ({
+              ...table,
+              guests: table.guests.filter(id => id !== guestId)
+            })) || [];
+            
+            const updatedEvent = {
+              ...event,
+              guests: updatedGuests,
+              tables: updatedTables
+            };
+            
+            return {
+              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              currentEvent: state.currentEvent?.id === eventId 
                 ? { 
-                    ...e, 
-                    guests: e.guests?.map(guest => 
-                      guest.id === guestId 
-                        ? { ...guest, tableId: undefined, seatNumber: undefined }
-                        : guest
-                    ) || []
+                    ...state.currentEvent, 
+                    guests: updatedGuests,
+                    tables: updatedTables
                   }
-                : e
-            ),
-            currentEvent: state.currentEvent?.id === eventId 
-              ? { 
-                  ...state.currentEvent, 
-                  guests: state.currentEvent.guests?.map(guest => 
-                    guest.id === guestId 
-                      ? { ...guest, tableId: undefined, seatNumber: undefined }
-                      : guest
-                  ) || []
-                }
-              : state.currentEvent,
-            isLoading: false
-          }));
+                : state.currentEvent,
+              isLoading: false
+            };
+          });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
           const updatedEvent = get().events.find(e => e.id === eventId);
@@ -2616,31 +2769,64 @@ export const useEventStore = create<EventStore>()(
       moveGuestToTable: async (eventId: string, guestId: string, newTableId: string, newSeatNumber?: number) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
-            events: state.events.map(e => 
-              e.id === eventId 
+          set(state => {
+            const event = state.events.find(e => e.id === eventId);
+            if (!event) {
+              set({ isLoading: false });
+              return;
+            }
+            
+            // Find current guest to get old tableId
+            const currentGuest = event.guests?.find(g => g.id === guestId);
+            const oldTableId = currentGuest?.tableId;
+            
+            // Update guest's tableId
+            const updatedGuests = event.guests?.map(guest => 
+              guest.id === guestId 
+                ? { ...guest, tableId: newTableId, seatNumber: newSeatNumber }
+                : guest
+            ) || [];
+            
+            // Update tables: remove guest from old table, add to new table
+            const updatedTables = event.tables?.map(table => {
+              // Remove guest from old table if it was assigned
+              const tableGuestsWithoutGuest = table.guests.filter(id => id !== guestId);
+              
+              // Add guest to new table if not already there
+              if (table.id === newTableId && !tableGuestsWithoutGuest.includes(guestId)) {
+                return { ...table, guests: [...tableGuestsWithoutGuest, guestId] };
+              }
+              
+              // Keep old table without the guest
+              return { ...table, guests: tableGuestsWithoutGuest };
+            }) || [];
+            
+            const updatedEvent = {
+              ...event,
+              guests: updatedGuests,
+              tables: updatedTables
+            };
+            
+            return {
+              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              currentEvent: state.currentEvent?.id === eventId 
                 ? { 
-                    ...e, 
-                    guests: e.guests?.map(guest => 
-                      guest.id === guestId 
-                        ? { ...guest, tableId: newTableId, seatNumber: newSeatNumber }
-                        : guest
-                    ) || []
+                    ...state.currentEvent, 
+                    guests: updatedGuests,
+                    tables: updatedTables
                   }
-                : e
-            ),
-            currentEvent: state.currentEvent?.id === eventId 
-              ? { 
-                  ...state.currentEvent, 
-                  guests: state.currentEvent.guests?.map(guest => 
-                    guest.id === guestId 
-                      ? { ...guest, tableId: newTableId, seatNumber: newSeatNumber }
-                      : guest
-                  ) || []
-                }
-              : state.currentEvent,
-            isLoading: false
-          }));
+                : state.currentEvent,
+              isLoading: false
+            };
+          });
+          
+          // CRITICAL: Sync to API immediately for real-time sync between devices
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.error('❌ Final sync attempt failed:', err);
+            });
+          }
         } catch (error) {
           set({ error: 'שגיאה בהעברת האורח לשולחן', isLoading: false });
         }

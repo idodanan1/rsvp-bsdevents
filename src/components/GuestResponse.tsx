@@ -20,7 +20,6 @@ const GuestResponse = () => {
       // Hash format: #/guest-response/eventId?guest=guestId
       const match = hash.match(/\/guest-response\/([^/?]+)/);
       if (match && match[1]) {
-        console.log('✅ Parsed eventId from hash:', match[1]);
         return match[1];
       }
     }
@@ -39,7 +38,6 @@ const GuestResponse = () => {
     if (hash) {
       const match = hash.match(/[?&]guest=([^&]+)/);
       if (match && match[1]) {
-        console.log('✅ Parsed guestId from hash:', match[1]);
         return decodeURIComponent(match[1]);
       }
     }
@@ -48,41 +46,88 @@ const GuestResponse = () => {
   
   const guestId = parseGuestId();
   
-  // Force fetch events on component mount
+  // Load event IMMEDIATELY from localStorage first (fast, no waiting)
   React.useEffect(() => {
-    console.log('🔄 GuestResponse mounted, fetching events...');
-    console.log('🔍 Parsed IDs:', { eventId, guestId, paramEventId, hash: window.location.hash });
-    fetchEvents();
+    if (!eventId) {
+      setIsLoadingEvent(false);
+      return;
+    }
     
-    // Also try to load directly from localStorage
+    // CRITICAL: Load from localStorage FIRST (instant, no API delay)
     const stored = localStorage.getItem('rsvp-events-storage');
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        console.log('📋 Direct localStorage check:', parsed);
         if (parsed.state && parsed.state.events) {
-          console.log('📋 Found events in localStorage:', parsed.state.events.length);
-          parsed.state.events.forEach((event: any, index: number) => {
-            console.log(`📅 Event ${index + 1}:`, {
-              id: event.id,
-              coupleName: event.coupleName,
-              guestsCount: event.guests?.length || 0
-            });
-          });
+          const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+          if (foundEvent) {
+            setDirectEvent(foundEvent);
+            setIsLoadingEvent(false);
+            
+            // Find guest immediately
+            if (guestId) {
+              const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
+              if (foundGuest) {
+                setDirectGuest(foundGuest);
+              } else {
+                // Try fallback - partial match
+                const fallbackGuest = foundEvent.guests?.find((g: any) => 
+                  guestId && (g.id.includes(guestId) || guestId.includes(g.id))
+                );
+                if (fallbackGuest) {
+                  setDirectGuest(fallbackGuest);
+                }
+              }
+            }
+            return; // Found in localStorage, show page immediately
+          }
         }
       } catch (error) {
         console.error('❌ Error parsing localStorage:', error);
       }
     }
-  }, [fetchEvents, eventId, guestId]);
+    
+    // If not found in localStorage, try API (but don't block page rendering)
+    // This runs in background
+    const loadFromAPI = async () => {
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000) // Shorter timeout
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const allEvents = data.events || [];
+          const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          if (foundEvent) {
+            setDirectEvent(foundEvent);
+            setIsLoadingEvent(false);
+            
+            if (guestId) {
+              const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
+              if (foundGuest) {
+                setDirectGuest(foundGuest);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silent fail - don't block page
+        setIsLoadingEvent(false);
+      }
+    };
+    
+    // Try API in background (non-blocking)
+    loadFromAPI();
+    
+    // Also try fetchEvents (non-blocking)
+    fetchEvents().catch(() => {}); // Don't wait for it
+  }, [eventId, guestId, fetchEvents]);
   
-  // Debug URL parameters
-  console.log('🔍 URL Parameters Debug:', {
-    eventId,
-    guestId,
-    searchParams: Object.fromEntries(searchParams.entries()),
-    allSearchParams: searchParams.toString()
-  });
+  // Removed debug logging for performance
   
   const [formData, setFormData] = useState({
     phoneNumber: '',
@@ -118,241 +163,32 @@ const GuestResponse = () => {
   // Use fallback guest if main guest not found
   const finalGuest = guest || fallbackGuest || directGuest;
   
-  // Debug logging
-  console.log('🔍 GuestResponse Debug:', {
-    currentUrl: window.location.href,
-    eventId,
-    guestId,
-    eventsCount: events.length,
-    events: events.map(e => ({ id: e.id, coupleName: e.coupleName, guestsCount: e.guests?.length || 0 })),
-    foundEvent: event ? { id: event.id, coupleName: event.coupleName, guestsCount: event.guests?.length || 0 } : null,
-    foundGuest: guest ? { id: guest.id, name: `${guest.firstName} ${guest.lastName}` } : null,
-    finalGuest: finalGuest ? { id: finalGuest.id, name: `${finalGuest.firstName} ${finalGuest.lastName}` } : null
-  });
+  // Removed debug logging for performance
   
-  // Debug: Show all guests in the event
-  if (event) {
-    console.log('🔍 All guests in event:', event.guests.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
-    console.log('🔍 Fallback guest found:', fallbackGuest ? { id: fallbackGuest.id, name: `${fallbackGuest.firstName} ${fallbackGuest.lastName}` } : null);
-  }
-  
-  // Additional debug for URL parsing
-  console.log('🔍 URL Debug:', {
-    pathname: window.location.pathname,
-    search: window.location.search,
-    hash: window.location.hash,
-    fullUrl: window.location.href
-  });
-  
+  // Pre-fill form when guest is found (only once, don't overwrite user input)
   useEffect(() => {
-    console.log('🔍 useEffect triggered:', { event, finalGuest, eventId, guestId });
-    
-    // Try to load event from API first (for cross-device access)
-    const loadEventFromAPI = async () => {
-      if (!eventId) {
-        setIsLoadingEvent(false);
-        return;
-      }
-      
-      try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-        console.log('🌐 Attempting to load event from API:', `${BACKEND_URL}/api/events/all`);
-        
-        // Try to fetch all events and find the one we need (public access)
-        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          // Add timeout
-          signal: AbortSignal.timeout(8000) // 8 second timeout
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log('📋 API response:', { success: data.success, total: data.total });
-          const allEvents = data.events || [];
-          console.log(`📋 Found ${allEvents.length} events in API`);
-          
-          const foundEvent = allEvents.find((e: any) => e.id === eventId);
-          if (foundEvent) {
-            console.log('✅ Found event from API:', foundEvent.id);
-            setDirectEvent(foundEvent);
-            setIsLoadingEvent(false);
-            
-            // Find guest in the found event
-            if (guestId) {
-              const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
-              if (foundGuest) {
-                console.log('✅ Found guest from API:', foundGuest.id);
-                setDirectGuest(foundGuest);
-              } else {
-                // Try fallback - partial match
-                const fallbackGuest = foundEvent.guests?.find((g: any) => 
-                  guestId && (g.id.includes(guestId) || guestId.includes(g.id))
-                );
-                if (fallbackGuest) {
-                  console.log('✅ Found guest with fallback match from API:', fallbackGuest.id);
-                  setDirectGuest(fallbackGuest);
-                } else {
-                  console.warn('⚠️ Guest not found in event from API:', guestId);
-                }
-              }
-            }
-            return; // Found in API, don't check localStorage
-          } else {
-            console.warn('⚠️ Event not found in API. Looking for:', eventId);
-            console.log('📋 Available event IDs:', allEvents.map((e: any) => e.id));
-          }
-        } else {
-          console.warn('⚠️ API response not OK:', response.status, response.statusText);
-        }
-      } catch (error: any) {
-        if (error.name === 'TimeoutError' || error.name === 'AbortError') {
-          console.warn('⚠️ API request timed out, trying localStorage...');
-        } else {
-          console.warn('⚠️ Could not load event from API, trying localStorage:', error);
-        }
-      }
-      
-      // Fallback: Try to load event directly from localStorage (public access, no userId filter)
-      const stored = localStorage.getItem('rsvp-events-storage');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.state && parsed.state.events) {
-            console.log(`📋 Found ${parsed.state.events.length} events in localStorage`);
-            // Find event by ID without filtering by userId (public access)
-            const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-            if (foundEvent) {
-              console.log('✅ Found event directly from localStorage:', foundEvent.id);
-              setDirectEvent(foundEvent);
-              setIsLoadingEvent(false);
-              
-              // Find guest in the found event
-              if (guestId) {
-                const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
-                if (foundGuest) {
-                  console.log('✅ Found guest directly from localStorage:', foundGuest.id);
-                  setDirectGuest(foundGuest);
-                } else {
-                  // Try fallback - partial match
-                  const fallbackGuest = foundEvent.guests?.find((g: any) => 
-                    guestId && (g.id.includes(guestId) || guestId.includes(g.id))
-                  );
-                  if (fallbackGuest) {
-                    console.log('✅ Found guest with fallback match:', fallbackGuest.id);
-                    setDirectGuest(fallbackGuest);
-                  } else {
-                    console.warn('⚠️ Guest not found in event from localStorage:', guestId);
-                  }
-                }
-              }
-            } else {
-              console.warn('⚠️ Event not found in localStorage. Looking for:', eventId);
-              console.log('📋 Available event IDs:', parsed.state.events.map((e: any) => e.id));
-              setIsLoadingEvent(false);
-            }
-          } else {
-            setIsLoadingEvent(false);
-          }
-        } catch (error) {
-          console.error('❌ Error parsing localStorage:', error);
-          setIsLoadingEvent(false);
-        }
-      } else {
-        console.warn('⚠️ No events found in localStorage');
-        setIsLoadingEvent(false);
-      }
-    };
-    
-    if (eventId) {
-      loadEventFromAPI();
-    }
-    
-    // Force load events from localStorage if not loaded
-    if (events.length === 0) {
-      console.log('🔄 No events loaded, trying to load from localStorage...');
-      fetchEvents();
-    }
-    
-    // If we have events but the specific event is not found, try to find it
-    if (events.length > 0 && !event && eventId) {
-      console.log('🔍 Event not found in current events, checking localStorage directly...');
-      const stored = localStorage.getItem('rsvp-events-storage');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.state && parsed.state.events) {
-            const targetEvent = parsed.state.events.find((e: any) => e.id === eventId);
-            if (targetEvent) {
-              console.log('✅ Found target event in localStorage:', targetEvent);
-              console.log('🔄 Refreshing page to load correct event...');
-              // Refresh events without full page reload
-            fetchEvents();
-              return;
-            } else {
-              console.log('❌ Target event not found in localStorage');
-              console.log('Available events:', parsed.state.events.map((e: any) => e.id));
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error parsing localStorage:', error);
-        }
-      }
-    }
-    
-    // If no events at all, try to load from localStorage
-    if (events.length === 0) {
-      console.log('🔄 No events loaded, trying direct localStorage access...');
-      const stored = localStorage.getItem('rsvp-events-storage');
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.state && parsed.state.events) {
-            console.log('📋 Found events in localStorage, refreshing...');
-            // Refresh events without full page reload
-            fetchEvents();
-            return;
-          }
-        } catch (error) {
-          console.error('❌ Error parsing localStorage:', error);
-        }
-      }
-    }
-    
-    // Wait a bit for directEvent to load before showing error
-    if (!event && eventId) {
-      // Give it a moment to load from localStorage
-      const timeout = setTimeout(() => {
-        if (!directEvent) {
-          console.log('❌ Event not found for ID:', eventId);
-          setSubmitStatus('not_found');
-        }
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-    
     const currentEvent = event || directEvent;
-    if (currentEvent && guestId && !finalGuest) {
-      console.log('❌ Guest not found for ID:', guestId, 'in event:', currentEvent.id);
-      setSubmitStatus('not_found');
-    } else if (finalGuest && !formData.fullName) {
-      // Pre-fill form with guest data ONLY if form is not already filled
-      // This prevents overwriting user's selections
+    const currentGuest = guest || directGuest || finalGuest;
+    
+    if (currentGuest && !formData.fullName && currentGuest.firstName) {
       setFormData(prev => ({
         ...prev,
-        phoneNumber: finalGuest.phoneNumber || prev.phoneNumber,
-        fullName: `${finalGuest.firstName} ${finalGuest.lastName}` || prev.fullName,
-        guestCount: finalGuest.guestCount || prev.guestCount || 1,
-        notes: finalGuest.notes || prev.notes || '',
-        response: finalGuest.rsvpStatus === 'confirmed' ? 'attending' : 
-                 finalGuest.rsvpStatus === 'declined' ? 'not_attending' : 
-                 finalGuest.rsvpStatus === 'maybe' ? 'maybe' : prev.response,
-        actualAttendance: finalGuest.actualAttendance || prev.actualAttendance || 'not_marked'
+        phoneNumber: currentGuest.phoneNumber || prev.phoneNumber,
+        fullName: `${currentGuest.firstName} ${currentGuest.lastName || ''}`.trim() || prev.fullName,
+        guestCount: currentGuest.guestCount || prev.guestCount || 1,
+        notes: currentGuest.notes || prev.notes || '',
+        response: currentGuest.rsvpStatus === 'confirmed' ? 'attending' : 
+                 currentGuest.rsvpStatus === 'declined' ? 'not_attending' : 
+                 currentGuest.rsvpStatus === 'maybe' ? 'maybe' : prev.response,
+        actualAttendance: currentGuest.actualAttendance || prev.actualAttendance || 'not_marked'
       }));
     }
-  }, [event, directEvent, finalGuest, guestId]);
+    
+    // Set error if guest not found
+    if (currentEvent && guestId && !currentGuest) {
+      setSubmitStatus('not_found');
+    }
+  }, [event, directEvent, guest, directGuest, finalGuest, guestId, formData.fullName]);
   
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -386,15 +222,6 @@ const GuestResponse = () => {
       const responseStatus = formData.response === 'attending' ? 'confirmed' : 
                             formData.response === 'maybe' ? 'maybe' : 'declined';
       
-      console.log('📝 Submitting response:', {
-        eventId: currentEvent.id,
-        guestId: guestToUpdate?.id || guestId,
-        response: formData.response,
-        responseStatus: responseStatus,
-        guestCount: formData.guestCount,
-        currentGuestStatus: guestToUpdate?.rsvpStatus
-      });
-      
       if (guestToUpdate) {
         // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
         const updatedGuest = {
@@ -406,12 +233,6 @@ const GuestResponse = () => {
           actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
         };
         
-        console.log('✅ Updating guest:', {
-          oldStatus: guestToUpdate.rsvpStatus,
-          newStatus: updatedGuest.rsvpStatus,
-          guestCount: updatedGuest.guestCount,
-          fullGuest: updatedGuest
-        });
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
       } else if (guestId) {
         // Try to find guest by ID in event
@@ -426,7 +247,6 @@ const GuestResponse = () => {
             actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
           };
           
-          console.log('✅ Updating found guest:', updatedGuest);
           await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
         } else {
           // Create new guest (fallback for direct access)
@@ -443,7 +263,6 @@ const GuestResponse = () => {
             actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
           };
           
-          console.log('✅ Creating new guest:', newGuest);
           await updateGuestResponse(currentEvent.id, newGuest.id, newGuest);
         }
       } else {
@@ -453,18 +272,11 @@ const GuestResponse = () => {
         return;
       }
       
-      console.log('✅ Response submitted successfully');
-      
       // Reset confirm button state
       setShowConfirmButton(false);
       
-      // Force refresh events to ensure the table is updated
-      try {
-        await fetchEvents();
-        console.log('✅ Events refreshed after guest response update');
-      } catch (error) {
-        console.warn('⚠️ Failed to refresh events:', error);
-      }
+      // Refresh events in background (non-blocking)
+      fetchEvents().catch(() => {}); // Don't wait for it
       
       setSubmitStatus('success');
       
@@ -484,13 +296,13 @@ const GuestResponse = () => {
     }
   }, [event, directEvent]);
   
-  // Show loading while trying to find event (with timeout)
+  // Stop loading after short timeout if event not found
   useEffect(() => {
     if (eventId && !event && !directEvent) {
-      // Set timeout to stop loading after 10 seconds
+      // Much shorter timeout - show page quickly
       const timeout = setTimeout(() => {
         setIsLoadingEvent(false);
-      }, 10000);
+      }, 1000); // Only 1 second - don't make user wait
       
       return () => clearTimeout(timeout);
     }

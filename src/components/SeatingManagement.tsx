@@ -288,12 +288,14 @@ const SeatingManagement: React.FC = () => {
             const guestNames = tableGuests.map(guest => 
               `${guest.firstName} ${guest.lastName}${guest.guestCount > 1 ? ` (${guest.guestCount})` : ''}`
             ).join(', ') || 'אין אורחים';
+            // Calculate total guest count (sum of guestCount, not number of records)
+            const totalGuestCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
             
             return `
               <tr style="background-color: ${sortedTables.indexOf(table) % 2 === 0 ? '#f8f9fa' : 'white'};">
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">שולחן ${table.number}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${table.name || ''}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${table.guests.length}/${table.capacity}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${totalGuestCount}/${table.capacity}</td>
                 <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${guestNames}</td>
               </tr>
             `;
@@ -305,8 +307,17 @@ const SeatingManagement: React.FC = () => {
         <h3 style="margin: 0 0 10px 0; font-size: 16px;">סיכום כללי</h3>
         <p style="margin: 5px 0; font-size: 12px;"><strong>סה"כ שולחנות:</strong> ${sortedTables.length}</p>
         <p style="margin: 5px 0; font-size: 12px;"><strong>סה"כ מושבים:</strong> ${sortedTables.reduce((sum, table) => sum + table.capacity, 0)}</p>
-        <p style="margin: 5px 0; font-size: 12px;"><strong>אורחים יושבים:</strong> ${sortedTables.reduce((sum, table) => sum + table.guests.length, 0)}</p>
-        <p style="margin: 5px 0; font-size: 12px;"><strong>מושבים פנויים:</strong> ${sortedTables.reduce((sum, table) => sum + table.capacity, 0) - sortedTables.reduce((sum, table) => sum + table.guests.length, 0)}</p>
+        <p style="margin: 5px 0; font-size: 12px;"><strong>אורחים יושבים:</strong> ${sortedTables.reduce((sum, table) => {
+          const tableGuests = event.guests.filter(guest => table.guests.includes(guest.id));
+          return sum + tableGuests.reduce((guestSum, guest) => guestSum + (guest.guestCount || 1), 0);
+        }, 0)}</p>
+        <p style="margin: 5px 0; font-size: 12px;"><strong>מושבים פנויים:</strong> ${sortedTables.reduce((sum, table) => {
+          const totalCapacity = sum + table.capacity;
+          return totalCapacity;
+        }, 0) - sortedTables.reduce((sum, table) => {
+          const tableGuests = event.guests.filter(guest => table.guests.includes(guest.id));
+          return sum + tableGuests.reduce((guestSum, guest) => guestSum + (guest.guestCount || 1), 0);
+        }, 0)}</p>
       </div>
 
       <div style="text-align: center; font-size: 10px; color: #7f8c8d; margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
@@ -372,8 +383,19 @@ const SeatingManagement: React.FC = () => {
   const getAvailableSeats = (table: Table) => {
     const assignedGuests = getTableGuests(table.id);
     const totalSeats = table.capacity;
-    const occupiedSeats = assignedGuests.length;
+    // Calculate occupied seats by summing guestCount, not counting records
+    const occupiedSeats = assignedGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
     return totalSeats - occupiedSeats;
+  };
+
+  // Helper function to get total guest count for a table
+  const getTableGuestCount = (tableId: string) => {
+    const tableGuests = getTableGuests(tableId);
+    const totalCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    // Debug log to verify calculation
+    console.log(`📊 Table ${tableId} - Records: ${tableGuests.length}, Total guests: ${totalCount}`, 
+      tableGuests.map(g => ({ name: `${g.firstName} ${g.lastName}`, count: g.guestCount || 1 })));
+    return totalCount;
   };
 
   // Calculate guest statistics
@@ -784,6 +806,13 @@ const SeatingManagement: React.FC = () => {
         {tables.map((table) => {
           const tableGuests = getTableGuests(table.id);
           const availableSeats = getAvailableSeats(table);
+          // CRITICAL: Calculate total guest count (sum of guestCount, not number of records)
+          const totalGuestCount = tableGuests.reduce((sum, guest) => {
+            const guestCount = guest.guestCount || 1;
+            console.log(`🔢 Guest ${guest.firstName} ${guest.lastName}: guestCount = ${guestCount}`);
+            return sum + guestCount;
+          }, 0);
+          console.log(`📊 Table ${table.number} (${table.id}): ${tableGuests.length} records, ${totalGuestCount} total guests`);
           
           return (
             <div key={table.id} className="bg-gradient-to-br from-green-50 to-white border-2 border-green-200 rounded-xl p-5 shadow-md hover:shadow-lg transition-shadow">
@@ -796,7 +825,7 @@ const SeatingManagement: React.FC = () => {
                       {table.name && <span className="text-gray-600 font-normal"> - {table.name}</span>}
                     </h3>
                     <p className="text-sm font-medium text-gray-700 mb-1">
-                      {tableGuests.length} / {table.capacity} מושבים
+                      {totalGuestCount} / {table.capacity} מושבים
                     </p>
                     {availableSeats > 0 && (
                       <p className="text-sm font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-md inline-block">
