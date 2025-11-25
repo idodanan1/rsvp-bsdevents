@@ -2148,7 +2148,7 @@ app.post('/api/events', async (req, res) => {
       console.log(`🔄 Updating event ${event.id}`);
       console.log(`📤 Incoming event has ${event.guests?.length || 0} guests`);
       
-      // Check for actualAttendance updates
+      // Check for actualAttendance updates and add to pendingUpdates if rsvpStatus or guestCount changed
       if (event.guests && event.guests.length > 0) {
         event.guests.forEach((newGuest, idx) => {
           const existingGuest = existingEvent.guests?.find(g => g.id === newGuest.id);
@@ -2161,6 +2161,52 @@ app.post('/api/events', async (req, res) => {
             }
             if (newGuest.rsvpStatus !== existingGuest.rsvpStatus) {
               console.log(`📊 Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}): rsvpStatus changed from "${existingGuest.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
+            }
+            
+            // CRITICAL: If rsvpStatus or guestCount changed, add to pendingUpdates so webhookService can detect it
+            // This allows updates from the guest response link to be synced across devices
+            const statusChanged = newGuest.rsvpStatus && newGuest.rsvpStatus !== existingGuest.rsvpStatus;
+            const guestCountChanged = newGuest.guestCount !== undefined && newGuest.guestCount !== existingGuest.guestCount;
+            const hasResponseDate = newGuest.responseDate && newGuest.responseDate !== existingGuest.responseDate;
+            
+            if ((statusChanged || guestCountChanged) && newGuest.phoneNumber) {
+              // Format phone number (same logic as updateGuestStatusByPhone)
+              const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
+              const formattedPhone = originalPhone.replace(/^972/, '0');
+              
+              // Create update data similar to WhatsApp webhook updates
+              const updateData = {
+                phoneNumber: formattedPhone,
+                originalPhoneNumber: originalPhone,
+                status: newGuest.rsvpStatus === 'confirmed' ? 'confirmed' : 
+                       newGuest.rsvpStatus === 'declined' ? 'declined' : undefined,
+                guestCount: guestCountChanged ? newGuest.guestCount : undefined,
+                responseDate: newGuest.responseDate || new Date().toISOString(),
+                timestamp: Date.now(),
+                source: 'guest_link' // Mark as coming from guest response link
+              };
+              
+              // Remove any existing updates for this phone number with the same status/guestCount
+              const existingSameIndex = pendingUpdates.findIndex(
+                u => (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) && 
+                     u.status === updateData.status &&
+                     u.guestCount === updateData.guestCount &&
+                     (Date.now() - u.timestamp) < 60000 // Within last minute
+              );
+              
+              if (existingSameIndex === -1) {
+                pendingUpdates.push(updateData);
+                console.log(`✅ Added guest link update to pendingUpdates:`, {
+                  phone: formattedPhone,
+                  status: updateData.status,
+                  guestCount: updateData.guestCount,
+                  source: 'guest_link'
+                });
+              } else {
+                // Update existing update with newer data
+                pendingUpdates[existingSameIndex] = updateData;
+                console.log(`🔄 Updated existing pending update for phone ${formattedPhone}`);
+              }
             }
           }
         });
