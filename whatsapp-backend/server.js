@@ -2146,6 +2146,7 @@ app.post('/api/events', async (req, res) => {
       
       // Check for actualAttendance updates and add to pendingUpdates if rsvpStatus or guestCount changed
       if (event.guests && event.guests.length > 0) {
+        console.log(`🔍 Processing ${event.guests.length} guests for pendingUpdates check...`);
         event.guests.forEach((newGuest, idx) => {
           const existingGuest = existingEvent.guests?.find(g => g.id === newGuest.id);
           
@@ -2275,7 +2276,7 @@ app.post('/api/events', async (req, res) => {
           } else {
             // Log why update was not added
             console.log(`⏭️ Skipping guest link update for ${newGuest.firstName} ${newGuest.lastName}:`, {
-              phoneNumber: newGuest.phoneNumber,
+              phoneNumber: newGuest.phoneNumber ? `present (${newGuest.phoneNumber})` : 'MISSING - THIS IS THE PROBLEM!',
               statusChanged: statusChanged,
               guestCountChanged: guestCountChanged,
               hasValidStatus: hasValidStatus,
@@ -2285,8 +2286,15 @@ app.post('/api/events', async (req, res) => {
               existingGuest: existingGuest ? 'found' : 'not found',
               rsvpStatus: newGuest.rsvpStatus,
               responseDate: newResponseDate,
-              oldResponseDate: oldResponseDate
+              oldResponseDate: oldResponseDate,
+              conditionMet: (statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate || hasStatusWithNewResponse),
+              hasPhoneNumber: !!newGuest.phoneNumber
             });
+            
+            // CRITICAL: If phone number is missing, this is a critical issue
+            if (!newGuest.phoneNumber) {
+              console.error(`❌ CRITICAL: Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}) has NO phone number! Cannot add to pendingUpdates.`);
+            }
           }
         });
       }
