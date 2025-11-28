@@ -437,3 +437,93 @@ export interface UserStore {
   getAllUsers: () => User[];
   getAllUsersWithPasswords: () => Promise<(User & { password: string })[]>; // קבלת כל המשתמשים (רק למנהל)
 }
+
+// Budget and Vendor Management Types
+export interface Vendor {
+  id: string;
+  eventId: string;
+  name: string;
+  category: VendorCategory;
+  contactName?: string;
+  phoneNumber?: string;
+  email?: string;
+  budget: number; // תקציב מתוכנן
+  paid: number; // סכום ששולם
+  remaining: number; // סכום נותר (מחושב אוטומטית)
+  notes?: string;
+  paymentSchedule?: PaymentSchedule[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type VendorCategory = 
+  | 'venue' // אולם
+  | 'catering' // קייטרינג
+  | 'photography' // צילום
+  | 'videography' // וידאו
+  | 'music' // מוזיקה/DJ
+  | 'flowers' // פרחים
+  | 'decoration' // קישוטים
+  | 'transportation' // הסעות
+  | 'hair_makeup' // שיער ואיפור
+  | 'dress' // שמלה
+  | 'suit' // חליפה
+  | 'rings' // טבעות
+  | 'invitations' // הזמנות
+  | 'other'; // אחר
+
+export interface PaymentSchedule {
+  id: string;
+  amount: number;
+  dueDate: Date;
+  paid: boolean;
+  paidDate?: Date;
+  notes?: string;
+}
+
+export interface Budget {
+  id: string;
+  eventId: string;
+  totalBudget: number; // תקציב כולל
+  allocated: number; // תקציב מוקצה (סכום כל הספקים)
+  spent: number; // סכום ששולם בפועל
+  remaining: number; // תקציב נותר (מחושב אוטומטית)
+  vendors: Vendor[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BudgetStore {
+  budgets: Budget[];
+  currentBudget: Budget | null;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
+  createBudget: (eventId: string, totalBudget: number) => Promise<void>;
+  updateBudget: (budgetId: string, updates: Partial<Budget>) => Promise<void>;
+  deleteBudget: (budgetId: string) => Promise<void>;
+  getBudgetByEventId: (eventId: string) => Budget | null;
+  setCurrentBudget: (budget: Budget | null) => void;
+  
+  // Vendor Actions
+  addVendor: (budgetId: string, vendor: Omit<Vendor, 'id' | 'eventId' | 'remaining' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateVendor: (budgetId: string, vendorId: string, updates: Partial<Vendor>) => Promise<void>;
+  deleteVendor: (budgetId: string, vendorId: string) => Promise<void>;
+  
+  // Payment Actions
+  addPayment: (budgetId: string, vendorId: string, amount: number, notes?: string) => Promise<void>;
+  addPaymentSchedule: (budgetId: string, vendorId: string, payment: Omit<PaymentSchedule, 'id'>) => Promise<void>;
+  markPaymentAsPaid: (budgetId: string, vendorId: string, paymentId: string, paidDate?: Date) => Promise<void>;
+  deletePaymentSchedule: (budgetId: string, vendorId: string, paymentId: string) => Promise<void>;
+  
+  // Calculations
+  calculateBudgetStats: (budgetId: string) => {
+    totalBudget: number;
+    allocated: number;
+    spent: number;
+    remaining: number;
+    percentageSpent: number;
+    percentageAllocated: number;
+  };
+}

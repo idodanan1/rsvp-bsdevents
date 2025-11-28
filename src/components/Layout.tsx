@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User } from 'lucide-react';
+import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User, Wallet } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import toast from 'react-hot-toast';
 import Footer from './Footer';
@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const logout = useUserStore(state => state.logout);
 
   const isActive = (path: string) => {
-    return location.pathname === path;
+    return location.pathname === path || location.pathname.startsWith(path + '/');
   };
 
   const handleLogout = () => {
@@ -107,6 +107,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <Bell className="w-5 h-5" />
               <span>תזכורות</span>
+            </Link>
+            
+            <Link
+              to="/budget"
+              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                isActive('/budget') 
+                  ? 'bg-teal-100 text-teal-700 font-medium' 
+                  : 'text-gray-600 hover:bg-yellow-50'
+              }`}
+            >
+              <Wallet className="w-5 h-5" />
+              <span>ניהול תקציב וספקים</span>
             </Link>
             
             {user?.isAdmin && (

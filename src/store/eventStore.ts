@@ -4,6 +4,7 @@ import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, Venu
 import { generateId, formatDate } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
+import { cacheService, CACHE_KEYS } from '../services/cacheService';
 
 const mockEvents: Event[] = [];
 
@@ -53,7 +54,7 @@ export const useEventStore = create<EventStore>()(
       error: null,
       manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
-      fetchEvents: async () => {
+      fetchEvents: async (forceRefresh: boolean = false) => {
         set({ isLoading: true, error: null });
         try {
           // Get current user ID and email
@@ -66,7 +67,7 @@ export const useEventStore = create<EventStore>()(
             userEmail = parsed.state?.user?.email || '';
           }
 
-          console.log('🔍 Fetching events for user:', { userId, userEmail });
+          console.log('🔍 Fetching events for user:', { userId, userEmail, forceRefresh });
 
           // Try to fetch from API first (for syncing between computers)
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
@@ -74,13 +75,30 @@ export const useEventStore = create<EventStore>()(
           let apiError = false;
 
           if (userId) {
-            try {
-              console.log('🌐 Fetching events from API...');
-              const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
-              if (response.ok) {
-                const data = await response.json();
-                apiEvents = data.events || [];
-                console.log(`✅ Fetched ${apiEvents.length} events from API`);
+            // Check cache first (unless force refresh)
+            const cacheKey = CACHE_KEYS.EVENTS(userId);
+            if (!forceRefresh) {
+              const cachedEvents = cacheService.get<Event[]>(cacheKey);
+              if (cachedEvents) {
+                console.log(`💾 Using cached events (${cachedEvents.length} events)`);
+                // Still merge with local events to preserve manual changes
+                apiEvents = cachedEvents;
+              }
+            }
+
+            // If no cache or force refresh, fetch from API
+            if (forceRefresh || !apiEvents.length) {
+              try {
+                console.log('🌐 Fetching events from API...');
+                const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                if (response.ok) {
+                  const data = await response.json();
+                  apiEvents = data.events || [];
+                  console.log(`✅ Fetched ${apiEvents.length} events from API`);
+                  
+                  // Cache the API response (5 seconds TTL for fast updates)
+                  cacheService.set(cacheKey, apiEvents, 5000);
+                  console.log(`💾 Cached events for user ${userId}`);
                 
                 // Get local events to merge
                 const stored = localStorage.getItem('rsvp-events-storage');
@@ -1150,6 +1168,23 @@ export const useEventStore = create<EventStore>()(
             syncToAPI().catch(err => {
               console.error('❌ Final sync attempt failed:', err);
             });
+            
+            // CRITICAL: Invalidate cache when guest is manually updated
+            // This ensures immediate updates are reflected
+            const userStorage = localStorage.getItem('rsvp-user-storage');
+            if (userStorage) {
+              try {
+                const parsed = JSON.parse(userStorage);
+                const userId = parsed.state?.user?.id || '';
+                if (userId) {
+                  const cacheKey = CACHE_KEYS.EVENTS(userId);
+                  cacheService.invalidate(cacheKey);
+                  console.log(`🗑️ Invalidated cache for user ${userId} (manual guest update)`);
+                }
+              } catch (e) {
+                // Ignore parsing errors
+              }
+            }
           }
         } catch (error) {
           console.error('❌ Error in updateGuest:', error);
@@ -1275,6 +1310,23 @@ export const useEventStore = create<EventStore>()(
               isLoading: false
             };
           });
+          
+          // CRITICAL: Invalidate cache when guest response is updated (from link or WhatsApp)
+          // This ensures immediate updates are reflected
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              const userId = parsed.state?.user?.id || '';
+              if (userId) {
+                const cacheKey = CACHE_KEYS.EVENTS(userId);
+                cacheService.invalidate(cacheKey);
+                console.log(`🗑️ Invalidated cache for user ${userId} (guest response update)`);
+              }
+            } catch (e) {
+              // Ignore parsing errors
+            }
+          }
           
           // Sync to API (for multi-computer access)
           if (updatedEvent) {

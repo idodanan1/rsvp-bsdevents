@@ -20,6 +20,7 @@ import SignUp from './components/SignUp';
 import Pricing from './components/Pricing';
 import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
+import BudgetManagement from './components/BudgetManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
 import AccessibilityPage from './pages/AccessibilityPage';
@@ -114,6 +115,8 @@ function App() {
           <Route path="/clients" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
           <Route path="/calendar" element={<ProtectedRoute><Layout><CalendarView /></Layout></ProtectedRoute>} />
           <Route path="/reminders" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
+          <Route path="/budget" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
+          <Route path="/budget/:id" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
           <Route path="/settings" element={<ProtectedRoute><Layout><div>הגדרות</div></Layout></ProtectedRoute>} />
