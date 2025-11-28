@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useBudgetStore } from '../store/budgetStore';
 import { useEventStore } from '../store/eventStore';
+import { useUserStore } from '../store/userStore';
 import { VendorCategory } from '../types';
 import {
   Plus,
@@ -43,6 +44,7 @@ const BudgetManagement: React.FC = () => {
   const { id: eventId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { events } = useEventStore();
+  const { user } = useUserStore();
   const {
     budgets,
     currentBudget,
@@ -68,7 +70,18 @@ const BudgetManagement: React.FC = () => {
   const [totalBudgetInput, setTotalBudgetInput] = useState('');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(eventId || null);
 
-  const event = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
+  // CRITICAL SECURITY: Filter events by current user (admin can see all)
+  const filteredEvents = useMemo(() => {
+    if (!user) return [];
+    const isAdmin = user.isAdmin === true || user.id === 'admin-fixed-id';
+    if (isAdmin) {
+      return events; // Admin sees all events
+    }
+    // Regular user sees only their events
+    return events.filter(e => e.userId === user.id);
+  }, [events, user]);
+
+  const event = selectedEventId ? filteredEvents.find(e => e.id === selectedEventId) : null;
   const budget = selectedEventId ? getBudgetByEventId(selectedEventId) : null;
   const stats = budget ? calculateBudgetStats(budget.id) : null;
 
@@ -137,7 +150,7 @@ const BudgetManagement: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-800 mb-6">ניהול תקציב וספקים</h2>
         <p className="text-gray-600 mb-6">בחר אירוע כדי לנהל את התקציב והספקים שלו</p>
         
-        {events.length === 0 ? (
+        {filteredEvents.length === 0 ? (
           <div className="text-center py-12">
             <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
             <p className="text-lg text-gray-600 mb-4">אין אירועים במערכת</p>
@@ -150,7 +163,7 @@ const BudgetManagement: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.map((ev) => (
+            {filteredEvents.map((ev) => (
               <button
                 key={ev.id}
                 onClick={() => {
@@ -172,20 +185,62 @@ const BudgetManagement: React.FC = () => {
     );
   }
 
+  // SECURITY CHECK: Verify user has access to this event
   if (!event) {
+    // Check if event exists but user doesn't have access
+    const eventExists = events.find(e => e.id === selectedEventId);
+    if (eventExists && user) {
+      const isAdmin = user.isAdmin === true || user.id === 'admin-fixed-id';
+      if (!isAdmin && eventExists.userId !== user.id) {
+        return (
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-800 mb-2">אין הרשאה</h2>
+            <p className="text-gray-600 mb-4">אין לך הרשאה לגשת לאירוע זה</p>
+            <button
+              onClick={() => navigate('/budget')}
+              className="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 transition-colors"
+            >
+              חזרה לניהול תקציב
+            </button>
+          </div>
+        );
+      }
+    }
+    
     return (
       <div className="bg-white rounded-lg shadow-lg p-8 text-center">
         <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-gray-800 mb-2">אירוע לא נמצא</h2>
         <p className="text-gray-600 mb-4">האירוע המבוקש לא קיים במערכת</p>
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/budget')}
           className="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 transition-colors"
         >
-          חזרה לדשבורד
+          חזרה לניהול תקציב
         </button>
       </div>
     );
+  }
+
+  // SECURITY CHECK: Double-check user has access to this event
+  if (user) {
+    const isAdmin = user.isAdmin === true || user.id === 'admin-fixed-id';
+    if (!isAdmin && event.userId !== user.id) {
+      return (
+        <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">אין הרשאה</h2>
+          <p className="text-gray-600 mb-4">אין לך הרשאה לגשת לאירוע זה</p>
+          <button
+            onClick={() => navigate('/budget')}
+            className="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            חזרה לניהול תקציב
+          </button>
+        </div>
+      );
+    }
   }
 
   if (!budget) {

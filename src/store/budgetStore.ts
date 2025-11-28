@@ -79,6 +79,8 @@ export const useBudgetStore = create<BudgetStore>()(
 
       getBudgetByEventId: (eventId: string) => {
         const state = get();
+        // SECURITY: This function should be used with filtered events only
+        // The component should verify user has access to the event before calling this
         return state.budgets.find(b => b.eventId === eventId) || null;
       },
 
