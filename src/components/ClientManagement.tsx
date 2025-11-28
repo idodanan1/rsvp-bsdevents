@@ -68,11 +68,7 @@ const ClientManagement: React.FC = () => {
   const upcomingReminders = getUpcomingReminders(7);
   const overdueReminders = getOverdueReminders();
 
-  // Debug logging
-  console.log('ClientManagement - clients:', clients.length);
-  console.log('ClientManagement - reminders:', reminders.length);
-  console.log('ClientManagement - isLoading:', isLoading);
-  console.log('ClientManagement - error:', error);
+  // Debug logging removed for production performance
 
   useEffect(() => {
     if (searchTerm) {

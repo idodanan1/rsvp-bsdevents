@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
@@ -69,16 +69,7 @@ const EventManagement: React.FC = () => {
     };
   }, [showExportMenu]);
 
-  // Load events when component mounts or id changes
-  useEffect(() => {
-    if (id) {
-      fetchEvents().catch(error => {
-        console.error('❌ Error fetching events:', error);
-      });
-    }
-  }, [id, fetchEvents]);
-
-  // Auto-refresh events every 2 seconds for real-time sync between devices
+  // Load events when component mounts or id changes, and auto-refresh for real-time sync
   useEffect(() => {
     if (!id) return;
     
@@ -87,6 +78,7 @@ const EventManagement: React.FC = () => {
       console.error('❌ Error initial fetch:', error);
     });
     
+    // Auto-refresh events every 2 seconds for real-time sync between devices
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing events for real-time sync...');
       fetchEvents().catch(error => {
@@ -101,14 +93,18 @@ const EventManagement: React.FC = () => {
 
   // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
   // This ensures UI updates immediately when actualAttendance, tableId, etc. change
-  const guestsKey = currentEvent?.guests?.map(g => 
-    `${g.id}:${g.actualAttendance}:${g.tableId}:${g.rsvpStatus}:${g.guestCount}`
-  ).join('|') || '';
+  // Use useMemo to avoid recalculating on every render
+  const guestsKey = useMemo(() => {
+    if (!currentEvent?.guests) return '';
+    return currentEvent.guests.map(g => 
+      `${g.id}:${g.actualAttendance}:${g.tableId}:${g.rsvpStatus}:${g.guestCount}`
+    ).join('|');
+  }, [currentEvent?.guests]);
   
   useEffect(() => {
     if (!currentEvent || !id || currentEvent.id !== id) return;
     // This effect runs whenever guestsKey changes, forcing a re-render
-    console.log('🔄 currentEvent guests changed, UI will update');
+    // Removed console.log for performance
   }, [guestsKey, currentEvent?.id, id]);
 
   // Set current event when id or events change

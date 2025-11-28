@@ -101,26 +101,35 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
     return () => clearInterval(interval);
   }, []);
 
-  // Track sync time
+  // Track sync time - use subscription instead of modifying store function
   useEffect(() => {
-    const handleSync = () => {
-      setLastSyncTime(new Date());
-      setIsSyncing(true);
-      setTimeout(() => setIsSyncing(false), 1000);
-    };
-
-    // Listen for fetchEvents calls
-    const originalFetchEvents = useEventStore.getState().fetchEvents;
-    useEventStore.setState({
-      fetchEvents: async (...args) => {
-        handleSync();
-        return originalFetchEvents(...args);
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    // Subscribe to store changes to detect when fetchEvents is called
+    const unsubscribe = useEventStore.subscribe(
+      (state) => state.events,
+      () => {
+        // When events change, it means fetchEvents was called
+        setLastSyncTime(new Date());
+        setIsSyncing(true);
+        
+        // Clear existing timeout
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        
+        // Set syncing to false after 1 second
+        timeoutId = setTimeout(() => {
+          setIsSyncing(false);
+        }, 1000);
       }
-    });
+    );
 
     return () => {
-      // Restore original
-      useEventStore.setState({ fetchEvents: originalFetchEvents });
+      unsubscribe();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
