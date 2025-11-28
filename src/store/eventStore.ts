@@ -374,6 +374,7 @@ export const useEventStore = create<EventStore>()(
               apiError = true;
             }
           }
+          }
 
           // Check if there are events in localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
