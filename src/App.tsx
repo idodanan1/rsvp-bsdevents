@@ -21,6 +21,7 @@ import Pricing from './components/Pricing';
 import AdminDashboard from './components/AdminDashboard';
 import UserManagement from './components/UserManagement';
 import BudgetManagement from './components/BudgetManagement';
+import Settings from './components/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
 import AccessibilityPage from './pages/AccessibilityPage';
@@ -119,7 +120,7 @@ function App() {
           <Route path="/budget/:id" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Layout><div>הגדרות</div></Layout></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
           <Route path="*" element={
             <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
