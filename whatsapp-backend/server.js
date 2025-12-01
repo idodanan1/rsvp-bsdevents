@@ -74,6 +74,20 @@ const transactions = [];
 // MongoDB connection string - use environment variable or default to local MongoDB
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rsvp-system';
 
+// Log MongoDB URI status (without exposing credentials)
+if (process.env.MONGODB_URI) {
+  const uriParts = MONGODB_URI.split('@');
+  if (uriParts.length > 1) {
+    console.log('📊 MongoDB URI configured:', uriParts[1]); // Show only the host part
+  } else {
+    console.log('📊 MongoDB URI configured:', MONGODB_URI);
+  }
+} else {
+  console.log('⚠️  MONGODB_URI not set in environment variables');
+  console.log('💡 Using default local MongoDB: mongodb://localhost:27017/rsvp-system');
+  console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file');
+}
+
 // User Schema
 const userSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
@@ -110,24 +124,71 @@ const VerificationCode = mongoose.model('VerificationCode', verificationCodeSche
 
 // Connect to MongoDB
 let isMongoConnected = false;
+let mongoConnectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 3;
+
 async function connectMongoDB() {
   try {
-    if (isMongoConnected) {
+    if (isMongoConnected || mongoose.connection.readyState === 1) {
+      isMongoConnected = true;
       return;
     }
     
+    // Check if MONGODB_URI is set
+    if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/rsvp-system') {
+      console.log('⚠️  MONGODB_URI not configured. Using default local MongoDB.');
+      console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file');
+    }
+    
+    mongoConnectionAttempts++;
+    console.log(`🔌 Attempting to connect to MongoDB (attempt ${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})...`);
+    
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
     });
+    
     isMongoConnected = true;
+    mongoConnectionAttempts = 0;
     console.log('✅ Connected to MongoDB');
+    
+    // Set up connection event handlers
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error:', err);
+      isMongoConnected = false;
+    });
+    
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️  MongoDB disconnected. Attempting to reconnect...');
+      isMongoConnected = false;
+      // Try to reconnect after 5 seconds
+      setTimeout(() => {
+        if (!isMongoConnected) {
+          connectMongoDB();
+        }
+      }, 5000);
+    });
     
     // Migrate users from file to MongoDB if file exists
     await migrateUsersFromFile();
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
-    console.log('⚠️  Falling back to in-memory storage (users will be lost on restart)');
     isMongoConnected = false;
+    
+    if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+      console.log(`🔄 Retrying connection in 5 seconds... (${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+      setTimeout(() => {
+        connectMongoDB();
+      }, 5000);
+    } else {
+      console.error('❌ Failed to connect to MongoDB after multiple attempts');
+      console.log('⚠️  The server will continue running, but user management features will be unavailable');
+      console.log('💡 Please check:');
+      console.log('   1. MONGODB_URI is set correctly in .env file');
+      console.log('   2. MongoDB server is running (if using local MongoDB)');
+      console.log('   3. Network connection is available (if using MongoDB Atlas)');
+      console.log('   4. IP address is whitelisted in MongoDB Atlas (if using MongoDB Atlas)');
+    }
   }
 }
 
@@ -188,8 +249,18 @@ async function migrateUsersFromFile() {
   }
 }
 
-// Initialize MongoDB connection
-connectMongoDB();
+// Initialize MongoDB connection (non-blocking)
+connectMongoDB().catch(err => {
+  console.error('❌ Failed to initialize MongoDB connection:', err);
+});
+
+// Also try to reconnect periodically if not connected
+setInterval(() => {
+  if (!isMongoConnected && mongoose.connection.readyState !== 1) {
+    console.log('🔄 Attempting to reconnect to MongoDB...');
+    connectMongoDB();
+  }
+}, 30000); // Try every 30 seconds
 
 // Temporary storage for events (in production, use a database)
 // Load events from file if exists
@@ -2262,7 +2333,12 @@ app.post('/api/users/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     // In production, add authentication check here
-    if (isMongoConnected) {
+    // Check connection status
+    if (mongoose.connection.readyState === 1) {
+      isMongoConnected = true;
+    }
+    
+    if (isMongoConnected && mongoose.connection.readyState === 1) {
       const dbUsers = await User.find({}).sort({ createdAt: -1 });
       const usersWithPasswords = dbUsers.map(u => ({
         id: u.id,
@@ -2294,11 +2370,26 @@ app.get('/api/users', async (req, res) => {
         users: [adminUser, ...usersWithPasswords]
       });
     } else {
-      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+      // Try to reconnect
+      if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+        connectMongoDB();
+      }
+      return res.status(503).json({ 
+        error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
+        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.',
+        retry: true
+      });
     }
   } catch (error) {
     console.error('❌ Get users error:', error);
-    res.status(500).json({ error: 'שגיאה בטעינת משתמשים' });
+    // Try to reconnect on error
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError') {
+      isMongoConnected = false;
+      if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+        connectMongoDB();
+      }
+    }
+    res.status(500).json({ error: 'שגיאה בטעינת משתמשים', details: error.message });
   }
 });
 
