@@ -2386,11 +2386,25 @@ app.post('/api/users/signup', async (req, res) => {
     }
     
     // Return more detailed error message
+    console.error('❌ Returning 500 error to client:', {
+      errorName: error.name,
+      errorMessage: error.message,
+      errorCode: error.code,
+      hasErrors: !!error.errors,
+      errorKeys: error.errors ? Object.keys(error.errors) : []
+    });
+    
     res.status(500).json({ 
       error: 'שגיאה ביצירת משתמש',
       details: error.message || 'Unknown error',
       type: error.name || 'Error',
-      code: error.code || 'NO_CODE'
+      code: error.code || 'NO_CODE',
+      // Include more details for debugging (remove in production)
+      debug: process.env.NODE_ENV !== 'production' ? {
+        name: error.name,
+        message: error.message,
+        code: error.code
+      } : undefined
     });
   }
 });
