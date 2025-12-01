@@ -2374,10 +2374,25 @@ app.get('/api/users', async (req, res) => {
       if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
         connectMongoDB();
       }
-      return res.status(503).json({ 
-        error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
-        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.',
-        retry: true
+      
+      // Return at least the admin user even if MongoDB is not available
+      const adminUser = {
+        id: 'admin-fixed-id',
+        email: ADMIN_EMAIL,
+        name: 'מנהל המערכת',
+        credits: 999999,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: new Date().toISOString(),
+        isAdmin: true,
+        password: ADMIN_PASSWORD
+      };
+      
+      // Return admin user with warning
+      res.json({
+        success: true,
+        users: [adminUser],
+        warning: 'MongoDB לא זמין. רק המנהל מוצג. אנא הגדר MONGODB_URI כדי לראות את כל המשתמשים.',
+        mongoDbAvailable: false
       });
     }
   } catch (error) {

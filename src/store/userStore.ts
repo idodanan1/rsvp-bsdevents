@@ -287,11 +287,21 @@ export const useUserStore = create<UserStore>()(
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || 'שגיאה בטעינת משתמשים');
+            // If we get a warning about MongoDB but still have users, show warning but continue
+            if (data.warning && data.users && data.users.length > 0) {
+              console.warn('⚠️ MongoDB warning:', data.warning);
+            } else {
+              throw new Error(data.error || 'שגיאה בטעינת משתמשים');
+            }
           }
 
           if (!data.success || !data.users) {
             throw new Error('שגיאה בטעינת משתמשים - תגובה לא תקינה מהשרת');
+          }
+          
+          // Show warning if MongoDB is not available
+          if (data.warning && !data.mongoDbAvailable) {
+            console.warn('⚠️ MongoDB לא זמין:', data.warning);
           }
 
           // Convert dates from ISO strings to Date objects
