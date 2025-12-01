@@ -2193,8 +2193,20 @@ app.post('/api/users/signup', async (req, res) => {
       return res.status(400).json({ error: 'לא ניתן להירשם עם אימייל זה. אנא השתמש בדף ההתחברות למנהל.' });
     }
     
+    // Check MongoDB connection
+    if (!isMongoConnected || mongoose.connection.readyState !== 1) {
+      // Try to reconnect
+      if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+        connectMongoDB();
+      }
+      return res.status(503).json({ 
+        error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
+        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.'
+      });
+    }
+    
     // Check if user already exists
-    if (isMongoConnected) {
+    try {
       const existingUserByEmail = await User.findOne({ email: normalizedEmail });
       if (existingUserByEmail) {
         return res.status(400).json({ error: 'משתמש עם אימייל זה כבר קיים' });
@@ -2204,6 +2216,17 @@ app.post('/api/users/signup', async (req, res) => {
       if (existingUserByPhone) {
         return res.status(400).json({ error: 'משתמש עם מספר טלפון זה כבר קיים' });
       }
+    } catch (dbError: any) {
+      console.error('❌ Error checking existing users:', dbError);
+      if (dbError.name === 'MongoNetworkError' || dbError.name === 'MongoServerSelectionError') {
+        isMongoConnected = false;
+        if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+          connectMongoDB();
+        }
+        return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+      }
+      throw dbError;
+    }
       
       // Create new user (phone not verified during signup)
       const newUser = new User({
@@ -2219,36 +2242,69 @@ app.post('/api/users/signup', async (req, res) => {
         isAdmin: false
       });
       
-      await newUser.save();
-      
-      console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone} (not verified)`);
-      
-      // Return user without password
-      const userResponse = {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-        phoneNumber: newUser.phoneNumber,
-        phoneVerified: newUser.phoneVerified,
-        credits: newUser.credits,
-        createdAt: newUser.createdAt,
-        updatedAt: newUser.updatedAt,
-        isAdmin: newUser.isAdmin
-      };
-      
-      res.status(201).json({
-        success: true,
-        user: userResponse
-      });
-    } else {
-      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
-    }
-  } catch (error) {
+      try {
+        await newUser.save();
+        
+        console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone} (not verified)`);
+        
+        // Return user without password
+        const userResponse = {
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
+          phoneNumber: newUser.phoneNumber,
+          phoneVerified: newUser.phoneVerified,
+          credits: newUser.credits,
+          createdAt: newUser.createdAt,
+          updatedAt: newUser.updatedAt,
+          isAdmin: newUser.isAdmin
+        };
+        
+        res.status(201).json({
+          success: true,
+          user: userResponse
+        });
+      } catch (saveError: any) {
+        console.error('❌ Error saving user to MongoDB:', saveError);
+        if (saveError.name === 'ValidationError') {
+          const errors = Object.values(saveError.errors || {}).map((e: any) => e.message).join(', ');
+          return res.status(400).json({ error: `שגיאת אימות: ${errors}` });
+        }
+        if (saveError.name === 'MongoNetworkError' || saveError.name === 'MongoServerSelectionError') {
+          isMongoConnected = false;
+          if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+            connectMongoDB();
+          }
+          return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+        }
+        throw saveError; // Re-throw to be caught by outer catch
+      }
+  } catch (error: any) {
     console.error('❌ Signup error:', error);
+    console.error('❌ Signup error details:', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+      errors: error.errors
+    });
+    
     if (error.code === 11000) {
-      return res.status(400).json({ error: 'משתמש עם אימייל או מספר טלפון זה כבר קיים' });
+      // Duplicate key error
+      const field = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'field';
+      return res.status(400).json({ error: `משתמש עם ${field === 'email' ? 'אימייל' : 'מספר טלפון'} זה כבר קיים` });
     }
-    res.status(500).json({ error: 'שגיאה ביצירת משתמש' });
+    
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');
+      return res.status(400).json({ error: `שגיאת אימות: ${errors}` });
+    }
+    
+    // Return more detailed error message
+    res.status(500).json({ 
+      error: 'שגיאה ביצירת משתמש',
+      details: error.message || 'Unknown error',
+      type: error.name || 'Error'
+    });
   }
 });
 
