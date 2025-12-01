@@ -391,6 +391,8 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  phoneNumber?: string; // מספר טלפון
+  phoneVerified?: boolean; // האם הטלפון מאומת
   credits: number; // יתרת רשומות
   createdAt: Date;
   updatedAt: Date;
@@ -421,7 +423,7 @@ export interface UserStore {
   error: string | null;
   
   // Actions
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, phoneNumber: string, verificationCode: string) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   updateCredits: (credits: number) => void;

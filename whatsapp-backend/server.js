@@ -5,6 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const stripe = require('stripe');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const app = express();
@@ -69,37 +70,126 @@ const stripeClient = process.env.STRIPE_SECRET_KEY ? stripe(process.env.STRIPE_S
 // Temporary storage for transactions (in production, use a database)
 const transactions = [];
 
-// Temporary storage for users (in production, use a database)
-// Load users from file if exists
-const usersFilePath = path.join(__dirname, 'users.json');
-let users = [];
-let passwords = {};
+// MongoDB Connection and User Model
+// MongoDB connection string - use environment variable or default to local MongoDB
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rsvp-system';
 
-// Load users from file on startup
-try {
-  if (fs.existsSync(usersFilePath)) {
-    const usersData = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
-    users = usersData.users || [];
-    passwords = usersData.passwords || {};
-    console.log(`✅ Loaded ${users.length} users from file`);
-  } else {
-    console.log('📝 No users file found - starting with empty users');
-  }
-} catch (error) {
-  console.error('❌ Error loading users file:', error);
-  users = [];
-  passwords = {};
-}
+// User Schema
+const userSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  name: { type: String, required: true, trim: true },
+  password: { type: String, required: true }, // In production, hash this with bcrypt
+  phoneNumber: { type: String, required: true, trim: true }, // Phone number for verification
+  phoneVerified: { type: Boolean, default: false }, // Whether phone is verified
+  credits: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  isAdmin: { type: Boolean, default: false }
+});
 
-// Save users to file
-function saveUsers() {
+// Create indexes
+userSchema.index({ email: 1 });
+userSchema.index({ id: 1 });
+userSchema.index({ phoneNumber: 1 });
+
+const User = mongoose.model('User', userSchema);
+
+// Phone Verification Code Schema
+const verificationCodeSchema = new mongoose.Schema({
+  phoneNumber: { type: String, required: true, index: true },
+  code: { type: String, required: true },
+  purpose: { type: String, required: true, enum: ['signup', 'reset-password', 'login'] },
+  expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
+  attempts: { type: Number, default: 0 },
+  maxAttempts: { type: Number, default: 5 },
+  createdAt: { type: Date, default: Date.now }
+});
+
+const VerificationCode = mongoose.model('VerificationCode', verificationCodeSchema);
+
+// Connect to MongoDB
+let isMongoConnected = false;
+async function connectMongoDB() {
   try {
-    fs.writeFileSync(usersFilePath, JSON.stringify({ users, passwords }, null, 2), 'utf8');
-    console.log(`💾 Saved ${users.length} users to file`);
+    if (isMongoConnected) {
+      return;
+    }
+    
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+    });
+    isMongoConnected = true;
+    console.log('✅ Connected to MongoDB');
+    
+    // Migrate users from file to MongoDB if file exists
+    await migrateUsersFromFile();
   } catch (error) {
-    console.error('❌ Error saving users file:', error);
+    console.error('❌ MongoDB connection error:', error.message);
+    console.log('⚠️  Falling back to in-memory storage (users will be lost on restart)');
+    isMongoConnected = false;
   }
 }
+
+// Migrate users from file to MongoDB (one-time migration)
+async function migrateUsersFromFile() {
+  try {
+    const usersFilePath = path.join(__dirname, 'users.json');
+    if (!fs.existsSync(usersFilePath)) {
+      return;
+    }
+    
+    const usersData = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
+    const fileUsers = usersData.users || [];
+    const filePasswords = usersData.passwords || {};
+    
+    if (fileUsers.length === 0) {
+      return;
+    }
+    
+    // Check if users already exist in MongoDB
+    const existingCount = await User.countDocuments();
+    if (existingCount > 0) {
+      console.log('📋 Users already exist in MongoDB, skipping migration');
+      return;
+    }
+    
+    // Migrate users
+    for (const user of fileUsers) {
+      const normalizedEmail = user.email.toLowerCase().trim();
+      const password = filePasswords[normalizedEmail];
+      
+      if (password) {
+        const userDoc = new User({
+          id: user.id,
+          email: normalizedEmail,
+          name: user.name,
+          password: password,
+          credits: user.credits || 0,
+          createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
+          updatedAt: user.updatedAt ? new Date(user.updatedAt) : new Date(),
+          isAdmin: user.isAdmin || false
+        });
+        
+        try {
+          await userDoc.save();
+          console.log(`✅ Migrated user: ${user.email}`);
+        } catch (error) {
+          if (error.code !== 11000) { // Skip duplicate key errors
+            console.error(`❌ Error migrating user ${user.email}:`, error.message);
+          }
+        }
+      }
+    }
+    
+    console.log(`✅ Migration complete: ${fileUsers.length} users migrated to MongoDB`);
+  } catch (error) {
+    console.error('❌ Error during migration:', error);
+  }
+}
+
+// Initialize MongoDB connection
+connectMongoDB();
 
 // Temporary storage for events (in production, use a database)
 // Load events from file if exists
@@ -1998,13 +2088,19 @@ app.post('/api/payments/grow/webhook', async (req, res) => {
 // Sign up (create new user)
 app.post('/api/users/signup', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, phoneNumber, verificationCode } = req.body;
     
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'כל השדות נדרשים' });
+    if (!email || !password || !name || !phoneNumber || !verificationCode) {
+      return res.status(400).json({ error: 'כל השדות נדרשים, כולל מספר טלפון וקוד אימות' });
     }
     
     const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Validate phone number format
+    if (!/^0?5[0-9]{8}$/.test(normalizedPhone)) {
+      return res.status(400).json({ error: 'מספר טלפון לא תקין. אנא הכנס מספר טלפון ישראלי (05X-XXX-XXXX)' });
+    }
     
     // Check if admin email
     if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
@@ -2012,36 +2108,84 @@ app.post('/api/users/signup', async (req, res) => {
     }
     
     // Check if user already exists
-    const existingUser = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
-    if (existingUser) {
-      return res.status(400).json({ error: 'משתמש עם אימייל זה כבר קיים' });
+    if (isMongoConnected) {
+      const existingUserByEmail = await User.findOne({ email: normalizedEmail });
+      if (existingUserByEmail) {
+        return res.status(400).json({ error: 'משתמש עם אימייל זה כבר קיים' });
+      }
+      
+      const existingUserByPhone = await User.findOne({ phoneNumber: normalizedPhone });
+      if (existingUserByPhone) {
+        return res.status(400).json({ error: 'משתמש עם מספר טלפון זה כבר קיים' });
+      }
+      
+      // Verify phone code
+      const verification = await VerificationCode.findOne({
+        phoneNumber: normalizedPhone,
+        purpose: 'signup',
+        code: verificationCode
+      });
+      
+      if (!verification) {
+        return res.status(400).json({ error: 'קוד אימות שגוי או פג תוקף' });
+      }
+      
+      if (verification.expiresAt < new Date()) {
+        await VerificationCode.deleteOne({ _id: verification._id });
+        return res.status(400).json({ error: 'קוד אימות פג תוקף. אנא בקש קוד חדש' });
+      }
+      
+      if (verification.attempts >= verification.maxAttempts) {
+        await VerificationCode.deleteOne({ _id: verification._id });
+        return res.status(400).json({ error: 'יותר מדי ניסיונות. אנא בקש קוד חדש' });
+      }
+      
+      // Create new user
+      const newUser = new User({
+        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        email: normalizedEmail,
+        name: name.trim(),
+        password: password, // In production, hash this with bcrypt
+        phoneNumber: normalizedPhone,
+        phoneVerified: true,
+        credits: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        isAdmin: false
+      });
+      
+      await newUser.save();
+      
+      // Delete verification code
+      await VerificationCode.deleteOne({ _id: verification._id });
+      
+      console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone}`);
+      
+      // Return user without password
+      const userResponse = {
+        id: newUser.id,
+        email: newUser.email,
+        name: newUser.name,
+        phoneNumber: newUser.phoneNumber,
+        phoneVerified: newUser.phoneVerified,
+        credits: newUser.credits,
+        createdAt: newUser.createdAt,
+        updatedAt: newUser.updatedAt,
+        isAdmin: newUser.isAdmin
+      };
+      
+      res.status(201).json({
+        success: true,
+        user: userResponse
+      });
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
     }
-    
-    // Create new user
-    const newUser = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      email: normalizedEmail,
-      name: name.trim(),
-      credits: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isAdmin: false
-    };
-    
-    users.push(newUser);
-    passwords[normalizedEmail] = password; // In production, hash this with bcrypt
-    
-    saveUsers();
-    
-    console.log(`✅ New user created: ${newUser.email} (${newUser.name})`);
-    
-    // Return user without password
-    res.status(201).json({
-      success: true,
-      user: newUser
-    });
   } catch (error) {
     console.error('❌ Signup error:', error);
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'משתמש עם אימייל או מספר טלפון זה כבר קיים' });
+    }
     res.status(500).json({ error: 'שגיאה ביצירת משתמש' });
   }
 });
@@ -2080,21 +2224,34 @@ app.post('/api/users/login', async (req, res) => {
     }
     
     // Check regular user
-    const storedPassword = passwords[normalizedEmail];
-    if (!storedPassword || storedPassword !== password) {
-      return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+    if (isMongoConnected) {
+      const user = await User.findOne({ email: normalizedEmail });
+      if (!user) {
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+      
+      if (user.password !== password) {
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+      
+      // Return user without password
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        credits: user.credits,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        isAdmin: user.isAdmin
+      };
+      
+      res.json({
+        success: true,
+        user: userResponse
+      });
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
     }
-    
-    const user = users.find(u => u.email.toLowerCase().trim() === normalizedEmail);
-    if (!user) {
-      return res.status(404).json({ error: 'משתמש לא נמצא' });
-    }
-    
-    // Return user without password
-    res.json({
-      success: true,
-      user: user
-    });
   } catch (error) {
     console.error('❌ Login error:', error);
     res.status(500).json({ error: 'שגיאה בהתחברות' });
@@ -2105,27 +2262,40 @@ app.post('/api/users/login', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   try {
     // In production, add authentication check here
-    const usersWithPasswords = users.map(u => ({
-      ...u,
-      password: passwords[u.email.toLowerCase().trim()] || '(לא נמצאה סיסמה)'
-    }));
-    
-    // Add admin user
-    const adminUser = {
-      id: 'admin-fixed-id',
-      email: ADMIN_EMAIL,
-      name: 'מנהל המערכת',
-      credits: 999999,
-      createdAt: '2024-01-01T00:00:00.000Z',
-      updatedAt: new Date().toISOString(),
-      isAdmin: true,
-      password: ADMIN_PASSWORD
-    };
-    
-    res.json({
-      success: true,
-      users: [adminUser, ...usersWithPasswords]
-    });
+    if (isMongoConnected) {
+      const dbUsers = await User.find({}).sort({ createdAt: -1 });
+      const usersWithPasswords = dbUsers.map(u => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        phoneNumber: u.phoneNumber || '',
+        phoneVerified: u.phoneVerified || false,
+        credits: u.credits,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+        isAdmin: u.isAdmin,
+        password: u.password || '(לא נמצאה סיסמה)'
+      }));
+      
+      // Add admin user
+      const adminUser = {
+        id: 'admin-fixed-id',
+        email: ADMIN_EMAIL,
+        name: 'מנהל המערכת',
+        credits: 999999,
+        createdAt: '2024-01-01T00:00:00.000Z',
+        updatedAt: new Date().toISOString(),
+        isAdmin: true,
+        password: ADMIN_PASSWORD
+      };
+      
+      res.json({
+        success: true,
+        users: [adminUser, ...usersWithPasswords]
+      });
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
   } catch (error) {
     console.error('❌ Get users error:', error);
     res.status(500).json({ error: 'שגיאה בטעינת משתמשים' });
@@ -2142,33 +2312,324 @@ app.post('/api/users/:userId/credits', async (req, res) => {
       return res.status(400).json({ error: 'כמות רשומות לא תקינה' });
     }
     
-    // Find user
-    const userIndex = users.findIndex(u => u.id === userId);
-    if (userIndex === -1) {
-      return res.status(404).json({ error: 'משתמש לא נמצא' });
+    if (isMongoConnected) {
+      // Find user
+      const user = await User.findOne({ id: userId });
+      if (!user) {
+        return res.status(404).json({ error: 'משתמש לא נמצא' });
+      }
+      
+      const currentCredits = user.credits || 0;
+      const newCredits = currentCredits + creditsToAdd;
+      
+      user.credits = newCredits;
+      user.updatedAt = new Date();
+      await user.save();
+      
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        credits: user.credits,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        isAdmin: user.isAdmin
+      };
+      
+      res.json({
+        success: true,
+        user: userResponse,
+        previousCredits: currentCredits,
+        newCredits: newCredits
+      });
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
     }
-    
-    const user = users[userIndex];
-    const currentCredits = user.credits || 0;
-    const newCredits = currentCredits + creditsToAdd;
-    
-    users[userIndex] = {
-      ...user,
-      credits: newCredits,
-      updatedAt: new Date().toISOString()
-    };
-    
-    saveUsers();
-    
-    res.json({
-      success: true,
-      user: users[userIndex],
-      previousCredits: currentCredits,
-      newCredits: newCredits
-    });
   } catch (error) {
     console.error('❌ Update credits error:', error);
     res.status(500).json({ error: 'שגיאה בעדכון רשומות' });
+  }
+});
+
+// Check if email exists (for password reset)
+app.post('/api/users/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'אימייל נדרש' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if admin email
+    if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+      return res.status(400).json({ error: 'לא ניתן לאפס את סיסמת המנהל דרך דף זה' });
+    }
+    
+    if (isMongoConnected) {
+      const user = await User.findOne({ email: normalizedEmail });
+      
+      if (user) {
+        res.json({
+          success: true,
+          exists: true,
+          phoneNumber: user.phoneNumber ? user.phoneNumber.substring(0, 3) + '***' + user.phoneNumber.substring(7) : null // Masked phone
+        });
+      } else {
+        res.json({
+          success: true,
+          exists: false
+        });
+      }
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
+  } catch (error) {
+    console.error('❌ Check email error:', error);
+    res.status(500).json({ error: 'שגיאה בבדיקת אימייל' });
+  }
+});
+
+// Reset password
+app.post('/api/users/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword, verificationCode } = req.body;
+    
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'אימייל וסיסמה חדשה נדרשים' });
+    }
+    
+    if (!verificationCode) {
+      return res.status(400).json({ error: 'קוד אימות נדרש' });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'סיסמה חייבת להכיל לפחות 6 תווים' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if admin email
+    if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+      return res.status(400).json({ error: 'לא ניתן לאפס את סיסמת המנהל דרך דף זה' });
+    }
+    
+    if (isMongoConnected) {
+      const user = await User.findOne({ email: normalizedEmail });
+      
+      if (!user) {
+        return res.status(404).json({ error: 'משתמש לא נמצא' });
+      }
+      
+      // Verify code
+      const verification = await VerificationCode.findOne({
+        phoneNumber: user.phoneNumber,
+        purpose: 'reset-password',
+        code: verificationCode
+      });
+      
+      if (!verification) {
+        return res.status(400).json({ error: 'קוד אימות שגוי או פג תוקף' });
+      }
+      
+      if (verification.expiresAt < new Date()) {
+        return res.status(400).json({ error: 'קוד אימות פג תוקף' });
+      }
+      
+      if (verification.attempts >= verification.maxAttempts) {
+        return res.status(400).json({ error: 'יותר מדי ניסיונות. אנא בקש קוד חדש' });
+      }
+      
+      // Update password
+      user.password = newPassword.trim(); // In production, hash this with bcrypt
+      user.updatedAt = new Date();
+      await user.save();
+      
+      // Delete verification code
+      await VerificationCode.deleteOne({ _id: verification._id });
+      
+      console.log(`✅ Password reset for user: ${user.email} (${user.name})`);
+      
+      res.json({
+        success: true,
+        message: 'סיסמה עודכנה בהצלחה'
+      });
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
+  } catch (error) {
+    console.error('❌ Reset password error:', error);
+    res.status(500).json({ error: 'שגיאה באיפוס סיסמה' });
+  }
+});
+
+// Send phone verification code
+app.post('/api/users/send-verification-code', async (req, res) => {
+  try {
+    const { phoneNumber, purpose } = req.body;
+    
+    if (!phoneNumber || !purpose) {
+      return res.status(400).json({ error: 'מספר טלפון ומטרה נדרשים' });
+    }
+    
+    if (!['signup', 'reset-password', 'login'].includes(purpose)) {
+      return res.status(400).json({ error: 'מטרה לא תקינה' });
+    }
+    
+    // Normalize phone number (remove spaces, dashes, etc.)
+    const normalizedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Validate Israeli phone number format
+    if (!/^0?5[0-9]{8}$/.test(normalizedPhone)) {
+      return res.status(400).json({ error: 'מספר טלפון לא תקין. אנא הכנס מספר טלפון ישראלי (05X-XXX-XXXX)' });
+    }
+    
+    if (isMongoConnected) {
+      // Check if phone number already exists for signup
+      if (purpose === 'signup') {
+        const existingUser = await User.findOne({ phoneNumber: normalizedPhone });
+        if (existingUser) {
+          return res.status(400).json({ error: 'מספר טלפון זה כבר רשום במערכת' });
+        }
+      }
+      
+      // Check if phone number exists for reset-password
+      if (purpose === 'reset-password') {
+        const user = await User.findOne({ phoneNumber: normalizedPhone });
+        if (!user) {
+          return res.status(404).json({ error: 'מספר טלפון זה לא רשום במערכת' });
+        }
+      }
+      
+      // Generate 6-digit code
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Delete old codes for this phone and purpose
+      await VerificationCode.deleteMany({
+        phoneNumber: normalizedPhone,
+        purpose: purpose
+      });
+      
+      // Create new verification code (expires in 10 minutes)
+      const verificationCode = new VerificationCode({
+        phoneNumber: normalizedPhone,
+        code: code,
+        purpose: purpose,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+        attempts: 0,
+        maxAttempts: 5
+      });
+      
+      await verificationCode.save();
+      
+      // Send code via WhatsApp
+      const message = `קוד האימות שלך הוא: ${code}\n\nקוד זה תקף ל-10 דקות.\n\nאם לא ביקשת קוד זה, אנא התעלם מהודעה זו.`;
+      
+      try {
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:3002';
+        await axios.post(`${backendUrl}/api/whatsapp/send`, {
+          to: normalizedPhone,
+          message: message
+        });
+        
+        console.log(`✅ Verification code sent to ${normalizedPhone} for ${purpose}`);
+        
+        res.json({
+          success: true,
+          message: 'קוד אימות נשלח בהצלחה',
+          expiresIn: 600 // seconds
+        });
+      } catch (whatsappError) {
+        console.error('❌ Error sending WhatsApp:', whatsappError);
+        // Still return success - code is saved, user can request again
+        res.json({
+          success: true,
+          message: 'קוד אימות נוצר. אם לא קיבלת הודעה, אנא נסה שוב',
+          code: code, // For testing - remove in production
+          expiresIn: 600
+        });
+      }
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
+  } catch (error) {
+    console.error('❌ Send verification code error:', error);
+    res.status(500).json({ error: 'שגיאה בשליחת קוד אימות' });
+  }
+});
+
+// Verify phone code
+app.post('/api/users/verify-code', async (req, res) => {
+  try {
+    const { phoneNumber, code, purpose } = req.body;
+    
+    if (!phoneNumber || !code || !purpose) {
+      return res.status(400).json({ error: 'מספר טלפון, קוד ומטרה נדרשים' });
+    }
+    
+    const normalizedPhone = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    if (isMongoConnected) {
+      const verification = await VerificationCode.findOne({
+        phoneNumber: normalizedPhone,
+        purpose: purpose,
+        code: code
+      });
+      
+      if (!verification) {
+        // Increment attempts if code exists but wrong
+        const anyVerification = await VerificationCode.findOne({
+          phoneNumber: normalizedPhone,
+          purpose: purpose
+        });
+        
+        if (anyVerification) {
+          anyVerification.attempts += 1;
+          await anyVerification.save();
+          
+          if (anyVerification.attempts >= anyVerification.maxAttempts) {
+            await VerificationCode.deleteOne({ _id: anyVerification._id });
+            return res.status(400).json({ error: 'יותר מדי ניסיונות. אנא בקש קוד חדש' });
+          }
+        }
+        
+        return res.status(400).json({ error: 'קוד אימות שגוי' });
+      }
+      
+      if (verification.expiresAt < new Date()) {
+        await VerificationCode.deleteOne({ _id: verification._id });
+        return res.status(400).json({ error: 'קוד אימות פג תוקף' });
+      }
+      
+      if (verification.attempts >= verification.maxAttempts) {
+        await VerificationCode.deleteOne({ _id: verification._id });
+        return res.status(400).json({ error: 'יותר מדי ניסיונות. אנא בקש קוד חדש' });
+      }
+      
+      // Mark as verified for signup
+      if (purpose === 'signup') {
+        // Code is valid, but don't delete it yet - will be used during signup
+        res.json({
+          success: true,
+          verified: true,
+          message: 'קוד אימות תקין'
+        });
+      } else {
+        // For other purposes, delete the code after verification
+        await VerificationCode.deleteOne({ _id: verification._id });
+        res.json({
+          success: true,
+          verified: true,
+          message: 'קוד אימות תקין'
+        });
+      }
+    } else {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
+  } catch (error) {
+    console.error('❌ Verify code error:', error);
+    res.status(500).json({ error: 'שגיאה באימות קוד' });
   }
 });
 

@@ -18,7 +18,7 @@ export const useUserStore = create<UserStore>()(
       isLoading: false,
       error: null,
 
-      signUp: async (email: string, password: string, name: string) => {
+      signUp: async (email: string, password: string, name: string, phoneNumber: string, verificationCode: string) => {
         set({ isLoading: true, error: null });
         try {
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
@@ -31,7 +31,9 @@ export const useUserStore = create<UserStore>()(
             body: JSON.stringify({
               email: email.trim(),
               password: password.trim(),
-              name: name.trim()
+              name: name.trim(),
+              phoneNumber: phoneNumber.trim(),
+              verificationCode: verificationCode.trim()
             })
           });
 

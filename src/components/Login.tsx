@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
-import { Mail, Lock, LogIn, UserPlus } from 'lucide-react';
+import { Mail, Lock, LogIn, UserPlus, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TermsAndPrivacy from './TermsAndPrivacy';
 import Footer from './Footer';
@@ -15,6 +15,7 @@ const Login: React.FC = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useUserStore(state => state.login);
@@ -115,9 +116,19 @@ const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                סיסמה
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  סיסמה
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPasswordModal(true)}
+                  className="text-sm text-teal-600 hover:text-teal-700 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 rounded"
+                  aria-label="שכחתי סיסמה"
+                >
+                  שכחתי סיסמה?
+                </button>
+              </div>
               <div className="relative">
                 <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
@@ -226,9 +237,439 @@ const Login: React.FC = () => {
             onClose={() => setShowPrivacyModal(false)}
             type="privacy"
           />
+
+          {/* Forgot Password Modal */}
+          {showForgotPasswordModal && (
+            <ForgotPasswordModal
+              isOpen={showForgotPasswordModal}
+              onClose={() => setShowForgotPasswordModal(false)}
+            />
+          )}
         </div>
       </div>
       <Footer />
+    </div>
+  );
+};
+
+// Forgot Password Modal Component
+interface ForgotPasswordModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({ isOpen, onClose }) => {
+  const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeVerified, setCodeVerified] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState<'email' | 'verify' | 'password'>('email');
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!resetEmail.trim()) {
+      toast.error('אנא הכנס אימייל');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const response = await fetch(`${backendUrl}/api/users/check-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resetEmail.trim() })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'שגיאה בבדיקת אימייל');
+      }
+
+      if (data.exists) {
+        setStep('verify');
+        toast.success('אימייל נמצא במערכת. אנא אמת את מספר הטלפון');
+      } else {
+        toast.error('אימייל זה לא קיים במערכת');
+      }
+    } catch (error: any) {
+      console.error('❌ Check email error:', error);
+      toast.error(error.message || 'שגיאה בבדיקת אימייל');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSendVerificationCode = async () => {
+    setSendingCode(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const response = await fetch(`${backendUrl}/api/users/check-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: resetEmail.trim() })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.exists) {
+        throw new Error('אימייל לא נמצא במערכת');
+      }
+
+      // Get user's phone number from backend
+      const userResponse = await fetch(`${backendUrl}/api/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const usersData = await userResponse.json();
+      const user = usersData.users?.find((u: any) => u.email.toLowerCase() === resetEmail.toLowerCase().trim());
+      
+      if (!user || !user.phoneNumber) {
+        throw new Error('מספר טלפון לא נמצא לחשבון זה');
+      }
+
+      // Send verification code
+      const codeResponse = await fetch(`${backendUrl}/api/users/send-verification-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: user.phoneNumber,
+          purpose: 'reset-password'
+        })
+      });
+
+      const codeData = await codeResponse.json();
+
+      if (!codeResponse.ok) {
+        throw new Error(codeData.error || 'שגיאה בשליחת קוד אימות');
+      }
+
+      setCodeSent(true);
+      toast.success('קוד אימות נשלח לחשבון WhatsApp שלך');
+    } catch (error: any) {
+      console.error('❌ Send verification code error:', error);
+      toast.error(error.message || 'שגיאה בשליחת קוד אימות');
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      toast.error('אנא הכנס קוד אימות');
+      return;
+    }
+
+    setVerifyingCode(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      
+      // Get user's phone number
+      const userResponse = await fetch(`${backendUrl}/api/users`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      const usersData = await userResponse.json();
+      const user = usersData.users?.find((u: any) => u.email.toLowerCase() === resetEmail.toLowerCase().trim());
+      
+      if (!user || !user.phoneNumber) {
+        throw new Error('מספר טלפון לא נמצא');
+      }
+
+      const response = await fetch(`${backendUrl}/api/users/verify-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: user.phoneNumber,
+          code: verificationCode.trim(),
+          purpose: 'reset-password'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'שגיאה באימות קוד');
+      }
+
+      setCodeVerified(true);
+      setStep('password');
+      toast.success('קוד אימות תקין! אנא הכנס סיסמה חדשה');
+    } catch (error: any) {
+      console.error('❌ Verify code error:', error);
+      toast.error(error.message || 'שגיאה באימות קוד');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!codeVerified) {
+      toast.error('אנא אמת את מספר הטלפון תחילה');
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      toast.error('אנא מלא את כל השדות');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast.error('סיסמה חייבת להכיל לפחות 6 תווים');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('הסיסמאות לא תואמות');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const response = await fetch(`${backendUrl}/api/users/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: resetEmail.trim(),
+          newPassword: newPassword.trim(),
+          verificationCode: verificationCode.trim()
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'שגיאה באיפוס סיסמה');
+      }
+
+      toast.success('הסיסמה עודכנה בהצלחה!');
+      onClose();
+      setStep('email');
+      setResetEmail('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setVerificationCode('');
+      setCodeSent(false);
+      setCodeVerified(false);
+    } catch (error: any) {
+      console.error('❌ Reset password error:', error);
+      toast.error(error.message || 'שגיאה באיפוס סיסמה');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="סגור"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+          איפוס סיסמה
+        </h2>
+
+        {step === 'email' ? (
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                אימייל
+              </label>
+              <div className="relative">
+                <Mail className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="email"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  required
+                  className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="הכנס את האימייל שלך"
+                  dir="ltr"
+                  autoComplete="email"
+                />
+              </div>
+              <p className="text-sm text-gray-500 mt-2">
+                נבדוק אם האימייל קיים במערכת
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                ביטול
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'בודק...' : 'המשך'}
+              </button>
+            </div>
+          </form>
+        ) : step === 'verify' ? (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                קוד אימות נשלח לחשבון WhatsApp שלך. אנא הכנס את הקוד שקיבלת.
+              </p>
+            </div>
+
+            {!codeSent ? (
+              <button
+                type="button"
+                onClick={handleSendVerificationCode}
+                disabled={sendingCode}
+                className="w-full px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sendingCode ? 'שולח...' : 'שלח קוד אימות'}
+              </button>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    קוד אימות
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="הכנס קוד אימות (6 ספרות)"
+                    className="w-full pr-4 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent text-center text-2xl tracking-widest"
+                    dir="ltr"
+                    maxLength={6}
+                  />
+                </div>
+
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('email');
+                      setVerificationCode('');
+                      setCodeSent(false);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    חזור
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleVerifyCode}
+                    disabled={verifyingCode || verificationCode.length !== 6}
+                    className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {verifyingCode ? 'מאמת...' : 'אמת קוד'}
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500 text-center">
+                  לא קיבלת קוד? <button type="button" onClick={handleSendVerificationCode} className="text-teal-600 hover:underline">שלח שוב</button>
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handlePasswordReset} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                סיסמה חדשה
+              </label>
+              <div className="relative">
+                <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="הכנס סיסמה חדשה (לפחות 6 תווים)"
+                  dir="ltr"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                אימות סיסמה
+              </label>
+              <div className="relative">
+                <Lock className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  placeholder="הכנס שוב את הסיסמה"
+                  dir="ltr"
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('verify');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                חזור
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'מעדכן...' : 'אפס סיסמה'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

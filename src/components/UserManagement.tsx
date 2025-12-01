@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUserStore } from '../store/userStore';
 import { useEventStore } from '../store/eventStore';
 import { User } from '../types';
-import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff, RefreshCw, X } from 'lucide-react';
+import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff, RefreshCw, X, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface UserWithStats extends User {
@@ -199,6 +199,15 @@ const UserManagement: React.FC = () => {
                               <Mail className="w-3 h-3" />
                               <span>{user.email}</span>
                             </div>
+                            {user.phoneNumber && (
+                              <div className="text-sm text-gray-500 flex items-center space-x-1 mt-1">
+                                <Phone className="w-3 h-3" />
+                                <span>{user.phoneNumber}</span>
+                                {user.phoneVerified && (
+                                  <span className="text-green-600 text-xs">✓ מאומת</span>
+                                )}
+                              </div>
+                            )}
                             {user.isAdmin && (
                               <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-purple-100 text-purple-800 rounded">
                                 מנהל
