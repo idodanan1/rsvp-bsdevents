@@ -53,11 +53,18 @@ const SignUp: React.FC = () => {
     setIsLoading(true);
 
     try {
+      console.log('📝 Signup attempt - NO phone verification required');
       await signUp(email, password, name, normalizedPhone);
       toast.success('נרשמת בהצלחה!');
       navigate('/');
     } catch (error: any) {
-      toast.error(error.message || 'שגיאה בהרשמה');
+      console.error('❌ Signup error:', error);
+      // Check if error mentions verification code
+      if (error.message && error.message.includes('אימות') && error.message.includes('קוד')) {
+        toast.error('שגיאה: המערכת עדיין מנסה לאמת טלפון. אנא רענן את הדף (Ctrl+F5)');
+      } else {
+        toast.error(error.message || 'שגיאה בהרשמה');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +133,7 @@ const SignUp: React.FC = () => {
                 />
               </div>
               <p className="text-xs text-gray-500 mt-1">
-                מספר הטלפון נדרש לרישום. אימות הטלפון יתבצע רק באיפוס סיסמה.
+                מספר הטלפון נדרש לרישום בלבד. <strong>אין צורך באימות</strong> - רק רישום המספר.
               </p>
             </div>
 

@@ -2159,10 +2159,25 @@ app.post('/api/payments/grow/webhook', async (req, res) => {
 // Sign up (create new user)
 app.post('/api/users/signup', async (req, res) => {
   try {
-    const { email, password, name, phoneNumber } = req.body;
+    const { email, password, name, phoneNumber, verificationCode } = req.body;
+    
+    // Log what we received (for debugging)
+    console.log('📝 Signup request received:', {
+      email: email ? 'provided' : 'missing',
+      password: password ? 'provided' : 'missing',
+      name: name ? 'provided' : 'missing',
+      phoneNumber: phoneNumber ? 'provided' : 'missing',
+      verificationCode: verificationCode ? 'provided (should NOT be required)' : 'not provided (correct)'
+    });
+    
+    // Explicitly reject if verificationCode is provided (old behavior)
+    if (verificationCode) {
+      console.warn('⚠️ Signup received verificationCode - this should not be required anymore');
+      return res.status(400).json({ error: 'אימות טלפון לא נדרש בהרשמה. אנא הירשם ללא קוד אימות.' });
+    }
     
     if (!email || !password || !name || !phoneNumber) {
-      return res.status(400).json({ error: 'כל השדות נדרשים, כולל מספר טלפון' });
+      return res.status(400).json({ error: 'כל השדות נדרשים, כולל מספר טלפון (ללא אימות)' });
     }
     
     const normalizedEmail = email.toLowerCase().trim();
