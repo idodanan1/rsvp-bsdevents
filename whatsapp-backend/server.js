@@ -2287,44 +2287,89 @@ app.post('/api/users/signup', async (req, res) => {
         });
       } catch (saveError: any) {
         console.error('❌ Error saving user to MongoDB:', saveError);
+        console.error('❌ Save error details:', {
+          name: saveError.name,
+          message: saveError.message,
+          code: saveError.code,
+          errors: saveError.errors,
+          stack: saveError.stack
+        });
+        
         if (saveError.name === 'ValidationError') {
           const errors = Object.values(saveError.errors || {}).map((e: any) => e.message).join(', ');
-          return res.status(400).json({ error: `שגיאת אימות: ${errors}` });
+          console.error('❌ Validation errors:', errors);
+          return res.status(400).json({ 
+            error: `שגיאת אימות: ${errors}`,
+            details: saveError.message
+          });
         }
-        if (saveError.name === 'MongoNetworkError' || saveError.name === 'MongoServerSelectionError') {
+        
+        if (saveError.name === 'MongoNetworkError' || saveError.name === 'MongoServerSelectionError' || saveError.name === 'MongoTimeoutError') {
+          console.error('❌ MongoDB connection error during save');
           isMongoConnected = false;
           if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
             connectMongoDB();
           }
-          return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+          return res.status(503).json({ 
+            error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
+            details: saveError.message
+          });
         }
+        
+        // For other errors, return detailed error
+        console.error('❌ Unknown error during save, re-throwing...');
         throw saveError; // Re-throw to be caught by outer catch
       }
   } catch (error: any) {
-    console.error('❌ Signup error:', error);
+    console.error('❌ Signup error (outer catch):', error);
     console.error('❌ Signup error details:', {
       name: error.name,
       message: error.message,
       code: error.code,
-      errors: error.errors
+      errors: error.errors,
+      stack: error.stack?.substring(0, 500) // First 500 chars of stack
     });
+    
+    // Make sure we haven't already sent a response
+    if (res.headersSent) {
+      console.error('⚠️ Response already sent, cannot send error response');
+      return;
+    }
     
     if (error.code === 11000) {
       // Duplicate key error
       const field = error.keyPattern ? Object.keys(error.keyPattern)[0] : 'field';
-      return res.status(400).json({ error: `משתמש עם ${field === 'email' ? 'אימייל' : 'מספר טלפון'} זה כבר קיים` });
+      return res.status(400).json({ 
+        error: `משתמש עם ${field === 'email' ? 'אימייל' : 'מספר טלפון'} זה כבר קיים`,
+        details: error.message
+      });
     }
     
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');
-      return res.status(400).json({ error: `שגיאת אימות: ${errors}` });
+      return res.status(400).json({ 
+        error: `שגיאת אימות: ${errors}`,
+        details: error.message
+      });
+    }
+    
+    if (error.name === 'MongoNetworkError' || error.name === 'MongoServerSelectionError' || error.name === 'MongoTimeoutError') {
+      isMongoConnected = false;
+      if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+        connectMongoDB();
+      }
+      return res.status(503).json({ 
+        error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
+        details: error.message
+      });
     }
     
     // Return more detailed error message
     res.status(500).json({ 
       error: 'שגיאה ביצירת משתמש',
       details: error.message || 'Unknown error',
-      type: error.name || 'Error'
+      type: error.name || 'Error',
+      code: error.code || 'NO_CODE'
     });
   }
 });
