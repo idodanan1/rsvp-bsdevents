@@ -2159,10 +2159,10 @@ app.post('/api/payments/grow/webhook', async (req, res) => {
 // Sign up (create new user)
 app.post('/api/users/signup', async (req, res) => {
   try {
-    const { email, password, name, phoneNumber, verificationCode } = req.body;
+    const { email, password, name, phoneNumber } = req.body;
     
-    if (!email || !password || !name || !phoneNumber || !verificationCode) {
-      return res.status(400).json({ error: 'כל השדות נדרשים, כולל מספר טלפון וקוד אימות' });
+    if (!email || !password || !name || !phoneNumber) {
+      return res.status(400).json({ error: 'כל השדות נדרשים, כולל מספר טלפון' });
     }
     
     const normalizedEmail = email.toLowerCase().trim();
@@ -2190,35 +2190,14 @@ app.post('/api/users/signup', async (req, res) => {
         return res.status(400).json({ error: 'משתמש עם מספר טלפון זה כבר קיים' });
       }
       
-      // Verify phone code
-      const verification = await VerificationCode.findOne({
-        phoneNumber: normalizedPhone,
-        purpose: 'signup',
-        code: verificationCode
-      });
-      
-      if (!verification) {
-        return res.status(400).json({ error: 'קוד אימות שגוי או פג תוקף' });
-      }
-      
-      if (verification.expiresAt < new Date()) {
-        await VerificationCode.deleteOne({ _id: verification._id });
-        return res.status(400).json({ error: 'קוד אימות פג תוקף. אנא בקש קוד חדש' });
-      }
-      
-      if (verification.attempts >= verification.maxAttempts) {
-        await VerificationCode.deleteOne({ _id: verification._id });
-        return res.status(400).json({ error: 'יותר מדי ניסיונות. אנא בקש קוד חדש' });
-      }
-      
-      // Create new user
+      // Create new user (phone not verified during signup)
       const newUser = new User({
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         email: normalizedEmail,
         name: name.trim(),
         password: password, // In production, hash this with bcrypt
         phoneNumber: normalizedPhone,
-        phoneVerified: true,
+        phoneVerified: false, // Phone not verified during signup
         credits: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -2227,10 +2206,7 @@ app.post('/api/users/signup', async (req, res) => {
       
       await newUser.save();
       
-      // Delete verification code
-      await VerificationCode.deleteOne({ _id: verification._id });
-      
-      console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone}`);
+      console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone} (not verified)`);
       
       // Return user without password
       const userResponse = {
