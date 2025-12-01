@@ -75,17 +75,26 @@ const transactions = [];
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rsvp-system';
 
 // Log MongoDB URI status (without exposing credentials)
+console.log('🔍 Checking MongoDB configuration...');
 if (process.env.MONGODB_URI) {
   const uriParts = MONGODB_URI.split('@');
   if (uriParts.length > 1) {
+    console.log('✅ MONGODB_URI is set in environment variables');
     console.log('📊 MongoDB URI configured:', uriParts[1]); // Show only the host part
+    // Check if it contains the database name
+    if (MONGODB_URI.includes('/rsvp-system') || MONGODB_URI.includes('/?') || MONGODB_URI.includes('?retryWrites')) {
+      console.log('✅ Database name appears to be configured in URI');
+    } else {
+      console.warn('⚠️  Database name might be missing from URI. Expected format: mongodb+srv://.../rsvp-system?...');
+    }
   } else {
+    console.log('✅ MONGODB_URI is set in environment variables');
     console.log('📊 MongoDB URI configured:', MONGODB_URI);
   }
 } else {
-  console.log('⚠️  MONGODB_URI not set in environment variables');
+  console.error('❌ MONGODB_URI NOT SET in environment variables!');
   console.log('💡 Using default local MongoDB: mongodb://localhost:27017/rsvp-system');
-  console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file');
+  console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file or Render Environment Variables');
 }
 
 // User Schema
@@ -2196,23 +2205,35 @@ app.post('/api/users/signup', async (req, res) => {
     // Check MongoDB connection
     const mongoReady = mongoose.connection.readyState === 1;
     if (!isMongoConnected || !mongoReady) {
-      console.error('❌ MongoDB not connected:', {
+      console.error('❌ MongoDB not connected during signup:', {
         isMongoConnected,
         readyState: mongoose.connection.readyState,
-        readyStateText: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+        readyStateText: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown',
+        mongoConnectionAttempts,
+        maxAttempts: MAX_CONNECTION_ATTEMPTS,
+        hasMongoUri: !!process.env.MONGODB_URI,
+        mongoUriPreview: process.env.MONGODB_URI ? (process.env.MONGODB_URI.split('@')[1] || 'configured') : 'NOT SET'
       });
       
       // Try to reconnect
       if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
         console.log('🔄 Attempting to reconnect to MongoDB...');
         connectMongoDB();
+      } else {
+        console.error('❌ Max connection attempts reached. MongoDB connection failed.');
+        console.error('💡 Please check:');
+        console.error('   1. MONGODB_URI is set correctly in Render Environment Variables');
+        console.error('   2. MongoDB Atlas Network Access allows 0.0.0.0/0 (all IPs)');
+        console.error('   3. MongoDB Atlas Database User credentials are correct');
+        console.error('   4. MongoDB Atlas cluster is running');
       }
       
       return res.status(503).json({ 
         error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
-        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.',
+        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration in Render.',
         readyState: mongoose.connection.readyState,
-        connectionAttempts: mongoConnectionAttempts
+        connectionAttempts: mongoConnectionAttempts,
+        hasMongoUri: !!process.env.MONGODB_URI
       });
     }
     
