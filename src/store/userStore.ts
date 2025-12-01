@@ -80,6 +80,11 @@ export const useUserStore = create<UserStore>()(
               isAdmin: true,
             };
 
+            // Create session ID for admin login
+            const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            sessionStorage.setItem('rsvp-session-id', sessionId);
+            localStorage.setItem('rsvp-last-session-id', sessionId);
+            
             set({ user: adminUser, isAuthenticated: true, isLoading: false });
             return;
           }
@@ -103,6 +108,11 @@ export const useUserStore = create<UserStore>()(
               
               if (user) {
                 console.log('✅ Login successful via localStorage (fast):', { id: user.id, email: user.email, name: user.name });
+                // Create session ID for this login
+                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                sessionStorage.setItem('rsvp-session-id', sessionId);
+                localStorage.setItem('rsvp-last-session-id', sessionId);
+                
                 set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
                 
                 // נסה לסנכרן עם backend ברקע (לא חוסם)
@@ -146,6 +156,11 @@ export const useUserStore = create<UserStore>()(
                 };
                 
                 console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
+                // Create session ID for this login
+                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                sessionStorage.setItem('rsvp-session-id', sessionId);
+                localStorage.setItem('rsvp-last-session-id', sessionId);
+                
                 set({ user, isAuthenticated: true, isLoading: false });
                 return;
               }
@@ -165,6 +180,9 @@ export const useUserStore = create<UserStore>()(
       },
 
       logout: () => {
+        // Clear session ID on logout
+        sessionStorage.removeItem('rsvp-session-id');
+        localStorage.removeItem('rsvp-last-session-id');
         set({ user: null, isAuthenticated: false, error: null });
       },
 
@@ -365,11 +383,29 @@ export const useUserStore = create<UserStore>()(
       name: 'rsvp-user-storage',
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
-        // Rehydrate user state from localStorage (fast, no delay)
+        // CRITICAL SECURITY FIX: Check if this is a new session
+        // If sessionStorage doesn't have the session ID, clear authentication
+        // This prevents sharing links from auto-logging in as the previous user
+        const sessionId = sessionStorage.getItem('rsvp-session-id');
+        const storedSessionId = localStorage.getItem('rsvp-last-session-id');
+        
         if (state) {
-          console.log('🔄 Rehydrating user state...');
-          // Keep authentication state - don't clear it on page load
-          // ProtectedRoute will handle invalid states
+          // If no session ID in sessionStorage, this is a new browser session
+          // OR if session ID doesn't match, this is a different browser/device
+          if (!sessionId || sessionId !== storedSessionId) {
+            console.log('🔒 New session detected - clearing authentication state for security');
+            // Clear authentication state for security
+            state.user = null;
+            state.isAuthenticated = false;
+            
+            // Generate new session ID
+            const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            sessionStorage.setItem('rsvp-session-id', newSessionId);
+            localStorage.setItem('rsvp-last-session-id', newSessionId);
+          } else {
+            console.log('🔄 Rehydrating user state for existing session...');
+            // Session matches - keep authentication state
+          }
         }
       },
     }
