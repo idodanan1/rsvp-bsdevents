@@ -2194,14 +2194,25 @@ app.post('/api/users/signup', async (req, res) => {
     }
     
     // Check MongoDB connection
-    if (!isMongoConnected || mongoose.connection.readyState !== 1) {
+    const mongoReady = mongoose.connection.readyState === 1;
+    if (!isMongoConnected || !mongoReady) {
+      console.error('❌ MongoDB not connected:', {
+        isMongoConnected,
+        readyState: mongoose.connection.readyState,
+        readyStateText: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+      });
+      
       // Try to reconnect
       if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+        console.log('🔄 Attempting to reconnect to MongoDB...');
         connectMongoDB();
       }
+      
       return res.status(503).json({ 
         error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.',
-        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.'
+        details: 'MongoDB connection is not available. Please check your MONGODB_URI configuration.',
+        readyState: mongoose.connection.readyState,
+        connectionAttempts: mongoConnectionAttempts
       });
     }
     
@@ -2229,6 +2240,13 @@ app.post('/api/users/signup', async (req, res) => {
     }
       
       // Create new user (phone not verified during signup)
+      console.log('📝 Creating new user:', {
+        email: normalizedEmail,
+        name: name.trim(),
+        phoneNumber: normalizedPhone,
+        phoneVerified: false
+      });
+      
       const newUser = new User({
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         email: normalizedEmail,
@@ -2242,8 +2260,11 @@ app.post('/api/users/signup', async (req, res) => {
         isAdmin: false
       });
       
+      console.log('📝 User object created, attempting to save...');
+      
       try {
         await newUser.save();
+        console.log('✅ User saved successfully');
         
         console.log(`✅ New user created: ${newUser.email} (${newUser.name}) - Phone: ${normalizedPhone} (not verified)`);
         
