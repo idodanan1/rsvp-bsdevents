@@ -2262,7 +2262,7 @@ app.post('/api/users/signup', async (req, res) => {
       if (existingUserByPhone) {
         return res.status(400).json({ error: 'משתמש עם מספר טלפון זה כבר קיים' });
       }
-    } catch (dbError: any) {
+    } catch (dbError) {
       console.error('❌ Error checking existing users:', dbError);
       if (dbError.name === 'MongoNetworkError' || dbError.name === 'MongoServerSelectionError') {
         isMongoConnected = false;
@@ -2320,7 +2320,7 @@ app.post('/api/users/signup', async (req, res) => {
           success: true,
           user: userResponse
         });
-      } catch (saveError: any) {
+      } catch (saveError) {
         console.error('❌ Error saving user to MongoDB:', saveError);
         console.error('❌ Save error details:', {
           name: saveError.name,
@@ -2331,7 +2331,7 @@ app.post('/api/users/signup', async (req, res) => {
         });
         
         if (saveError.name === 'ValidationError') {
-          const errors = Object.values(saveError.errors || {}).map((e: any) => e.message).join(', ');
+          const errors = Object.values(saveError.errors || {}).map((e) => e.message).join(', ');
           console.error('❌ Validation errors:', errors);
           return res.status(400).json({ 
             error: `שגיאת אימות: ${errors}`,
@@ -2355,7 +2355,7 @@ app.post('/api/users/signup', async (req, res) => {
         console.error('❌ Unknown error during save, re-throwing...');
         throw saveError; // Re-throw to be caught by outer catch
       }
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Signup error (outer catch):', error);
     console.error('❌ Signup error details:', {
       name: error.name,
@@ -2381,7 +2381,7 @@ app.post('/api/users/signup', async (req, res) => {
     }
     
     if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors || {}).map((e: any) => e.message).join(', ');
+      const errors = Object.values(error.errors || {}).map((e) => e.message).join(', ');
       return res.status(400).json({ 
         error: `שגיאת אימות: ${errors}`,
         details: error.message

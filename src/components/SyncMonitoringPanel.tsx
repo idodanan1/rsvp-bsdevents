@@ -110,12 +110,13 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
   // Track sync time - use subscription instead of modifying store function
   useEffect(() => {
     let timeoutId: NodeJS.Timeout | null = null;
+    let previousEventsLength = events.length;
     
     // Subscribe to store changes to detect when fetchEvents is called
-    const unsubscribe = useEventStore.subscribe(
-      (state) => state.events,
-      () => {
-        // When events change, it means fetchEvents was called
+    const unsubscribe = useEventStore.subscribe((state) => {
+      // When events change, it means fetchEvents was called
+      if (state.events.length !== previousEventsLength || state.events !== events) {
+        previousEventsLength = state.events.length;
         setLastSyncTime(new Date());
         setIsSyncing(true);
         
@@ -129,7 +130,7 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
           setIsSyncing(false);
         }, 1000);
       }
-    );
+    });
 
     return () => {
       unsubscribe();
@@ -137,7 +138,7 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
         clearTimeout(timeoutId);
       }
     };
-  }, []);
+  }, [events]);
 
   // Monitor guest changes
   useEffect(() => {
