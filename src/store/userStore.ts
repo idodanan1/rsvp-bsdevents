@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, UserStore } from '../types';
-import { generateId } from '../utils/helpers';
+import { generateId, createTimeoutSignal } from '../utils/helpers';
 
 // Mock users database (בפועל זה יהיה ב-backend)
 const mockUsers: User[] = [];
@@ -23,41 +23,100 @@ export const useUserStore = create<UserStore>()(
         try {
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
-          const response = await fetch(`${backendUrl}/api/users/signup`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: email.trim(),
-              password: password.trim(),
-              name: name.trim(),
-              phoneNumber: phoneNumber.trim()
-            })
-          });
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(data.error || 'שגיאה בהרשמה');
+          // Check backend health first
+          try {
+            const healthResponse = await fetch(`${backendUrl}/api/health`, {
+              signal: createTimeoutSignal(5000) // 5 second timeout
+            });
+            if (healthResponse.ok) {
+              const healthData = await healthResponse.json();
+              if (!healthData.mongodb?.connected) {
+                console.warn('⚠️ Backend is running but MongoDB is not connected');
+                throw new Error('מסד הנתונים לא זמין כרגע. השרת מנסה להתחבר. אנא נסה שוב בעוד כמה שניות.');
+              }
+            }
+          } catch (healthError: any) {
+            // If health check fails, still try signup (might be temporary)
+            console.warn('⚠️ Health check failed, proceeding with signup:', healthError.message);
           }
+          
+          // Retry logic for 503 errors (database unavailable)
+          let lastError: any = null;
+          const maxRetries = 3;
+          const retryDelay = 2000; // 2 seconds
+          
+          for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+              const response = await fetch(`${backendUrl}/api/users/signup`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  email: email.trim(),
+                  password: password.trim(),
+                  name: name.trim(),
+                  phoneNumber: phoneNumber.trim()
+                }),
+                signal: createTimeoutSignal(15000) // 15 second timeout
+              });
 
-          if (!data.success || !data.user) {
-            throw new Error('שגיאה בהרשמה - תגובה לא תקינה מהשרת');
+              const data = await response.json();
+
+              if (!response.ok) {
+                // If it's a 503 error and we have retries left, wait and retry
+                if (response.status === 503 && attempt < maxRetries) {
+                  console.log(`🔄 Database unavailable (attempt ${attempt}/${maxRetries}), retrying in ${retryDelay/1000} seconds...`);
+                  await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+                  lastError = new Error(data.error || 'מסד הנתונים לא זמין. מנסה שוב...');
+                  continue;
+                }
+                throw new Error(data.error || 'שגיאה בהרשמה');
+              }
+
+              if (!data.success || !data.user) {
+                throw new Error('שגיאה בהרשמה - תגובה לא תקינה מהשרת');
+              }
+
+              // Convert dates from ISO strings to Date objects
+              const newUser: User = {
+                ...data.user,
+                createdAt: new Date(data.user.createdAt),
+                updatedAt: new Date(data.user.updatedAt)
+              };
+
+              set({ user: newUser, isAuthenticated: true, isLoading: false });
+              return; // Success, exit retry loop
+            } catch (error: any) {
+              lastError = error;
+              // If it's a network error or 503 and we have retries left, continue
+              if ((error.name === 'TypeError' || error.message?.includes('מסד הנתונים לא זמין')) && attempt < maxRetries) {
+                console.log(`🔄 Network/database error (attempt ${attempt}/${maxRetries}), retrying in ${retryDelay/1000} seconds...`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+                continue;
+              }
+              // Otherwise, throw immediately
+              throw error;
+            }
           }
-
-          // Convert dates from ISO strings to Date objects
-          const newUser: User = {
-            ...data.user,
-            createdAt: new Date(data.user.createdAt),
-            updatedAt: new Date(data.user.updatedAt)
-          };
-
-          set({ user: newUser, isAuthenticated: true, isLoading: false });
+          
+          // If we exhausted all retries, throw the last error
+          throw lastError || new Error('שגיאה בהרשמה - נכשל לאחר מספר ניסיונות');
         } catch (error: any) {
           console.error('❌ Signup error:', error);
-          set({ error: error.message || 'שגיאה בהרשמה', isLoading: false });
-          throw error;
+          let errorMessage = error.message || 'שגיאה בהרשמה';
+          
+          // Provide more helpful error messages
+          if (errorMessage.includes('מסד הנתונים לא זמין')) {
+            errorMessage = 'מסד הנתונים לא זמין כרגע. אנא נסה שוב בעוד כמה דקות. אם הבעיה נמשכת, אנא צור קשר עם התמיכה.';
+          } else if (error.name === 'AbortError' || errorMessage.includes('timeout')) {
+            errorMessage = 'הבקשה ארכה זמן רב מדי. אנא בדוק את החיבור לאינטרנט ונסה שוב.';
+          } else if (error.name === 'TypeError' && errorMessage.includes('Failed to fetch')) {
+            errorMessage = 'לא ניתן להתחבר לשרת. אנא בדוק את החיבור לאינטרנט ונסה שוב.';
+          }
+          
+          set({ error: errorMessage, isLoading: false });
+          throw new Error(errorMessage);
         }
       },
 

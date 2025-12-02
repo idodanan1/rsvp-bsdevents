@@ -59,9 +59,15 @@ class WebhookService {
   // Check for updates from backend
   private async checkForUpdates() {
     try {
+      // Use AbortController for timeout (compatible with older browsers)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
       const response = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-        signal: AbortSignal.timeout(3000) // 3 second timeout
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.error('❌ Failed to fetch pending updates:', response.status);

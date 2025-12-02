@@ -287,3 +287,24 @@ export const exportToCSV = (data: any[], filename: string): void => {
   link.click();
   document.body.removeChild(link);
 };
+
+// Create AbortSignal with timeout (compatible with older browsers)
+export const createTimeoutSignal = (timeoutMs: number): AbortSignal => {
+  // Use AbortSignal.timeout if available (newer browsers)
+  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs);
+  }
+  
+  // Fallback for older browsers using AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+  
+  // Clean up timeout if signal is aborted manually
+  controller.signal.addEventListener('abort', () => {
+    clearTimeout(timeoutId);
+  });
+  
+  return controller.signal;
+};

@@ -1736,7 +1736,21 @@ app.delete('/api/guests/pending-updates', (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'WhatsApp Backend is running' });
+  const mongoReady = mongoose.connection.readyState === 1;
+  const mongoStatus = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
+  
+  res.json({ 
+    status: 'OK', 
+    message: 'WhatsApp Backend is running',
+    mongodb: {
+      connected: isMongoConnected && mongoReady,
+      readyState: mongoose.connection.readyState,
+      status: mongoStatus,
+      hasUri: !!process.env.MONGODB_URI,
+      connectionAttempts: mongoConnectionAttempts
+    },
+    timestamp: new Date().toISOString()
+  });
 });
 
 // ========================================
@@ -2386,25 +2400,11 @@ app.post('/api/users/signup', async (req, res) => {
     }
     
     // Return more detailed error message
-    console.error('❌ Returning 500 error to client:', {
-      errorName: error.name,
-      errorMessage: error.message,
-      errorCode: error.code,
-      hasErrors: !!error.errors,
-      errorKeys: error.errors ? Object.keys(error.errors) : []
-    });
-    
     res.status(500).json({ 
       error: 'שגיאה ביצירת משתמש',
       details: error.message || 'Unknown error',
       type: error.name || 'Error',
-      code: error.code || 'NO_CODE',
-      // Include more details for debugging (remove in production)
-      debug: process.env.NODE_ENV !== 'production' ? {
-        name: error.name,
-        message: error.message,
-        code: error.code
-      } : undefined
+      code: error.code || 'NO_CODE'
     });
   }
 });

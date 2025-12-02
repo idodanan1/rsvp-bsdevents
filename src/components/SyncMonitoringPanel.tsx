@@ -80,9 +80,15 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
     const checkPendingUpdates = async () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        // Use AbortController for timeout (compatible with older browsers)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
         const response = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-          signal: AbortSignal.timeout(3000)
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
