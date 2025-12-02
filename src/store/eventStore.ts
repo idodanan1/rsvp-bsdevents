@@ -350,19 +350,64 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                // Save merged events to localStorage
-                if (allEvents.length > 0) {
-                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
-                    state: {
-                      events: allEvents,
-                      deletedEvents: data.deletedEvents || [],
-                      currentEvent: null
+                // CRITICAL FIX: If API returns empty but we have local events, preserve local events
+                // This prevents data loss when API is empty or has sync issues
+                if (apiEvents.length === 0 && localEvents.length > 0) {
+                  console.warn('⚠️ API returned empty events but local events exist - preserving local events');
+                  // Use local events instead of empty API response
+                  const localEventsForUser = localEvents.filter((e: Event) => !userId || e.userId === userId);
+                  if (localEventsForUser.length > 0) {
+                    console.log(`🛡️ Preserving ${localEventsForUser.length} local events (API returned empty)`);
+                    // Get deletedEvents from stored data
+                    let deletedEvents: any[] = [];
+                    try {
+                      const stored = localStorage.getItem('rsvp-events-storage');
+                      if (stored) {
+                        const parsed = JSON.parse(stored);
+                        deletedEvents = parsed.state?.deletedEvents || [];
+                      }
+                    } catch (e) {
+                      // Ignore parsing errors
                     }
-                  }));
+                    // Save local events to localStorage
+                    localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                      state: {
+                        events: localEvents, // Save ALL local events, not just filtered
+                        deletedEvents: deletedEvents,
+                        currentEvent: null
+                      }
+                    }));
+                    set({ events: localEventsForUser, isLoading: false });
+                    return; // Exit early - preserve local events
+                  }
                 }
                 
+                // Save merged events to localStorage
+                // CRITICAL: Always save, even if allEvents is empty (to preserve state)
+                localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                  state: {
+                    events: allEvents.length > 0 ? allEvents : localEvents, // Fallback to local if merge is empty
+                    deletedEvents: data.deletedEvents || [],
+                    currentEvent: null
+                  }
+                }));
+                
                 // Use API events as primary source (they're synced)
-                const filteredEvents = userId ? allEvents.filter((e: Event) => e.userId === userId) : allEvents;
+                // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
+                const finalEvents = allEvents.length > 0 ? allEvents : localEvents;
+                const filteredEvents = userId ? finalEvents.filter((e: Event) => e.userId === userId) : finalEvents;
+                
+                // CRITICAL: If filteredEvents is empty but we have local events, preserve them
+                if (filteredEvents.length === 0 && localEvents.length > 0) {
+                  console.warn('⚠️ Filtered events is empty but local events exist - preserving local events');
+                  const localEventsForUser = localEvents.filter((e: Event) => !userId || e.userId === userId);
+                  if (localEventsForUser.length > 0) {
+                    console.log(`🛡️ Preserving ${localEventsForUser.length} local events (filtered was empty)`);
+                    set({ events: localEventsForUser, isLoading: false });
+                    return; // Exit early - preserve local events
+                  }
+                }
+                
                 set({ events: filteredEvents, isLoading: false });
                 return; // Exit early - we got events from API
               } else {

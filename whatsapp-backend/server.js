@@ -111,9 +111,7 @@ const userSchema = new mongoose.Schema({
   isAdmin: { type: Boolean, default: false }
 });
 
-// Create indexes
-userSchema.index({ email: 1 });
-userSchema.index({ id: 1 });
+// Create indexes (unique already creates index, so we only add non-unique indexes)
 userSchema.index({ phoneNumber: 1 });
 
 const User = mongoose.model('User', userSchema);
@@ -134,7 +132,7 @@ const VerificationCode = mongoose.model('VerificationCode', verificationCodeSche
 // Connect to MongoDB
 let isMongoConnected = false;
 let mongoConnectionAttempts = 0;
-const MAX_CONNECTION_ATTEMPTS = 3;
+const MAX_CONNECTION_ATTEMPTS = 10; // Increased attempts for Render
 
 async function connectMongoDB() {
   try {
@@ -146,24 +144,53 @@ async function connectMongoDB() {
     // Check if MONGODB_URI is set
     if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/rsvp-system') {
       console.log('⚠️  MONGODB_URI not configured. Using default local MongoDB.');
-      console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file');
+      console.log('💡 To use MongoDB Atlas, set MONGODB_URI in Render Environment Variables');
+      // Don't try to connect if URI is not set
+      return;
+    }
+    
+    // Validate URI format
+    if (!MONGODB_URI.includes('mongodb+srv://') && !MONGODB_URI.includes('mongodb://')) {
+      console.error('❌ Invalid MONGODB_URI format. Must start with mongodb:// or mongodb+srv://');
+      return;
+    }
+    
+    // Check if URI contains placeholder values
+    if (MONGODB_URI.includes('<db_username>') || MONGODB_URI.includes('<db_password>')) {
+      console.error('❌ MONGODB_URI contains placeholder values (<db_username> or <db_password>)');
+      console.error('💡 Please replace <db_username> and <db_password> with your actual MongoDB Atlas credentials');
+      return;
     }
     
     mongoConnectionAttempts++;
     console.log(`🔌 Attempting to connect to MongoDB (attempt ${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})...`);
     
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
+    // Show URI preview (without password)
+    const uriPreview = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
+    console.log(`📊 MONGODB_URI preview: ${uriPreview.split('@')[1] || 'configured'}`);
+    
+    // Ensure database name is in URI
+    let connectionUri = MONGODB_URI;
+    if (!connectionUri.includes('/rsvp-system') && !connectionUri.includes('/?') && !connectionUri.includes('?retryWrites')) {
+      // Add database name if not present
+      const separator = connectionUri.includes('?') ? '&' : '?';
+      connectionUri = connectionUri.replace(/\/$/, '') + '/rsvp-system' + (connectionUri.includes('?') ? '' : separator + 'retryWrites=true&w=majority');
+      console.log('📝 Added database name to connection URI');
+    }
+    
+    await mongoose.connect(connectionUri, {
+      serverSelectionTimeoutMS: 30000, // Increased timeout for Render
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000,
     });
     
     isMongoConnected = true;
     mongoConnectionAttempts = 0;
-    console.log('✅ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB successfully!');
     
     // Set up connection event handlers
     mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err);
+      console.error('❌ MongoDB connection error:', err.message);
       isMongoConnected = false;
     });
     
@@ -172,7 +199,7 @@ async function connectMongoDB() {
       isMongoConnected = false;
       // Try to reconnect after 5 seconds
       setTimeout(() => {
-        if (!isMongoConnected) {
+        if (!isMongoConnected && mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
           connectMongoDB();
         }
       }, 5000);
@@ -182,21 +209,56 @@ async function connectMongoDB() {
     await migrateUsersFromFile();
   } catch (error) {
     console.error('❌ MongoDB connection error:', error.message);
+    console.error('❌ Error details:', {
+      name: error.name,
+      code: error.code,
+      message: error.message
+    });
     isMongoConnected = false;
     
+    // Provide specific help for authentication errors
+    if (error.message && error.message.includes('bad auth') || error.message.includes('Authentication failed')) {
+      console.error('');
+      console.error('🔐 AUTHENTICATION ERROR - How to fix:');
+      console.error('');
+      console.error('1. Go to MongoDB Atlas → Database Access');
+      console.error('2. Find your database user and check the username');
+      console.error('3. Click "Edit" on the user and reset the password if needed');
+      console.error('4. Copy the NEW password');
+      console.error('5. Go to Render → Environment Variables');
+      console.error('6. Update MONGODB_URI with the correct password');
+      console.error('');
+      console.error('📝 MONGODB_URI format should be:');
+      console.error('   mongodb+srv://USERNAME:PASSWORD@cluster0.rywfr9c.mongodb.net/rsvp-system?retryWrites=true&w=majority');
+      console.error('');
+      console.error('⚠️  IMPORTANT: If password contains special characters, encode them:');
+      console.error('   @ → %40, # → %23, % → %25, ! → %21, : → %3A, / → %2F');
+      console.error('');
+      console.error('💡 TIP: Get connection string from MongoDB Atlas:');
+      console.error('   Database → Connect → Connect your application → Copy connection string');
+      console.error('   Replace <password> with your actual password');
+      console.error('');
+    }
+    
     if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
-      console.log(`🔄 Retrying connection in 5 seconds... (${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
+      const retryDelay = Math.min(5000 * mongoConnectionAttempts, 30000); // Exponential backoff, max 30s
+      console.log(`🔄 Retrying connection in ${retryDelay/1000} seconds... (${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
       setTimeout(() => {
         connectMongoDB();
-      }, 5000);
+      }, retryDelay);
     } else {
       console.error('❌ Failed to connect to MongoDB after multiple attempts');
       console.log('⚠️  The server will continue running, but user management features will be unavailable');
       console.log('💡 Please check:');
-      console.log('   1. MONGODB_URI is set correctly in .env file');
-      console.log('   2. MongoDB server is running (if using local MongoDB)');
-      console.log('   3. Network connection is available (if using MongoDB Atlas)');
-      console.log('   4. IP address is whitelisted in MongoDB Atlas (if using MongoDB Atlas)');
+      console.log('   1. MONGODB_URI is set correctly in Render Environment Variables');
+      console.log('   2. MongoDB Atlas Network Access allows 0.0.0.0/0 (all IPs)');
+      console.log('   3. MongoDB Atlas Database User credentials are correct');
+      console.log('   4. MongoDB Atlas cluster is running');
+      // Reset attempts after a while to allow retry
+      setTimeout(() => {
+        mongoConnectionAttempts = 0;
+        console.log('🔄 Resetting connection attempts counter. Will try again...');
+      }, 60000); // Reset after 1 minute
     }
   }
 }

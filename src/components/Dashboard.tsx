@@ -120,6 +120,15 @@ const Dashboard: React.FC = () => {
           <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
+          {deletedEvents.length > 0 && (
+            <button
+              onClick={() => setShowDeletedEventsModal(true)}
+              className="btn-secondary flex items-center space-x-2 space-x-reverse bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-300"
+            >
+              <RotateCcw className="w-5 h-5" />
+              <span>שחזר אירועים ({deletedEvents.length})</span>
+            </button>
+          )}
           <button
             onClick={async () => {
               try {
@@ -199,7 +208,18 @@ const Dashboard: React.FC = () => {
 
       {/* Events Grid */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">האירועים שלי</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">האירועים שלי</h2>
+          {deletedEvents.length > 0 && (
+            <button
+              onClick={() => setShowDeletedEventsModal(true)}
+              className="btn-secondary flex items-center space-x-2 space-x-reverse"
+            >
+              <RotateCcw className="w-5 h-5" />
+              <span>שחזר אירועים שנמחקו ({deletedEvents.length})</span>
+            </button>
+          )}
+        </div>
         
         {events.length === 0 ? (
           <div className="text-center py-12">
