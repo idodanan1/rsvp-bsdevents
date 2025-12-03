@@ -458,8 +458,16 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL FIX: Only save events that belong to current user!
                 // Don't save events from other users at all!
+                // IMPORTANT: Exclude admin events (admin-fixed-id) for regular users
                 const eventsToSaveFiltered = userId 
-                  ? eventsToSave.filter((e: Event) => e.userId === userId || !e.userId || e.userId === 'anonymous')
+                  ? eventsToSave.filter((e: Event) => {
+                      // If event belongs to admin, exclude it for regular users
+                      if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+                        return false;
+                      }
+                      // Keep events that belong to current user or have no userId/anonymous
+                      return e.userId === userId || !e.userId || e.userId === 'anonymous';
+                    })
                   : eventsToSave;
                 
                 // Save ONLY current user's events to localStorage
@@ -491,15 +499,30 @@ export const useEventStore = create<EventStore>()(
                   
                   // CRITICAL FIX: If events don't have matching userId, update them to current userId
                   // This handles the case where events were created before userId was properly set
-                  const eventsToShow = localEvents.map((e: Event) => {
-                    if (!e.userId || e.userId === 'anonymous' || (userId && e.userId !== userId)) {
-                      console.log(`🔄 Updating event ${e.id} userId from "${e.userId}" to "${userId}" (mismatch detected)`);
-                      return { ...e, userId: userId || e.userId };
-                    }
-                    return e;
-                  });
+                  // IMPORTANT: Exclude admin events for regular users
+                  const eventsToShow = localEvents
+                    .filter((e: Event) => {
+                      // Exclude admin events for regular users
+                      if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((e: Event) => {
+                      if (!e.userId || e.userId === 'anonymous' || (userId && e.userId !== userId && e.userId !== 'admin-fixed-id')) {
+                        console.log(`🔄 Updating event ${e.id} userId from "${e.userId}" to "${userId}" (mismatch detected)`);
+                        return { ...e, userId: userId || e.userId };
+                      }
+                      return e;
+                    });
                   
-                  const localEventsForUser = eventsToShow.filter((e: Event) => !userId || e.userId === userId);
+                  const localEventsForUser = eventsToShow.filter((e: Event) => {
+                    // Exclude admin events for regular users
+                    if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+                      return false;
+                    }
+                    return !userId || e.userId === userId;
+                  });
                   
                   if (localEventsForUser.length > 0) {
                     console.log(`🛡️ Preserving ${localEventsForUser.length} local events (filtered was empty)`);
@@ -665,13 +688,20 @@ export const useEventStore = create<EventStore>()(
                   filteredEvents = allEvents;
                   console.log('👑 Admin user - showing all events');
                 } else {
-                  // Regular user sees only their events
-                  filteredEvents = allEvents.filter((event: Event) => event.userId === userId);
+                  // Regular user sees only their events (exclude admin events)
+                  filteredEvents = allEvents.filter((event: Event) => {
+                    // CRITICAL: Exclude admin events for regular users
+                    if (event.userId === 'admin-fixed-id') {
+                      return false;
+                    }
+                    return event.userId === userId;
+                  });
                   console.log('🔍 Filtering events by userId:', {
                     userId,
                     totalEvents: allEvents.length,
                     filteredCount: filteredEvents.length,
-                    eventUserIds: allEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                    eventUserIds: allEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })),
+                    adminEventsExcluded: allEvents.filter(e => e.userId === 'admin-fixed-id').length
                   });
                 }
               }
@@ -3363,12 +3393,18 @@ export const useEventStore = create<EventStore>()(
           })));
           
           // Filter: keep only events that belong to current user or have no userId/anonymous
-          const userEvents = allEvents.filter((e: Event) => 
-            !e.userId || e.userId === userId || e.userId === 'anonymous'
-          );
+          // CRITICAL: Exclude admin events (admin-fixed-id) for regular users
+          const userEvents = allEvents.filter((e: Event) => {
+            // If event belongs to admin, exclude it for regular users
+            if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+              return false;
+            }
+            // Keep events that belong to current user or have no userId/anonymous
+            return !e.userId || e.userId === userId || e.userId === 'anonymous';
+          });
           
           const removedEvents = allEvents.filter((e: Event) => 
-            e.userId && e.userId !== userId && e.userId !== 'anonymous'
+            e.userId && e.userId !== userId && e.userId !== 'anonymous' && e.userId !== 'admin-fixed-id' || (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id')
           );
           
           console.log(`📊 Analysis:`);
@@ -3509,9 +3545,17 @@ export const useEventStore = create<EventStore>()(
             if (parsed.state?.events && parsed.state.events.length > 0) {
               // CRITICAL FIX: Only save current user's events!
               // Filter events from storage - keep only current user's events
+              // IMPORTANT: Exclude admin events (admin-fixed-id) for regular users
               const allEventsFromStorage = parsed.state.events;
               const currentUserEventsFromStorage = currentUserId 
-                ? allEventsFromStorage.filter((e: Event) => e.userId === currentUserId || !e.userId || e.userId === 'anonymous')
+                ? allEventsFromStorage.filter((e: Event) => {
+                    // If event belongs to admin, exclude it for regular users
+                    if (e.userId === 'admin-fixed-id' && currentUserId !== 'admin-fixed-id') {
+                      return false;
+                    }
+                    // Keep events that belong to current user or have no userId/anonymous
+                    return e.userId === currentUserId || !e.userId || e.userId === 'anonymous';
+                  })
                 : allEventsFromStorage;
               
               const currentEventsFromState = state.events || [];
