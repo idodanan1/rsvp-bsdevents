@@ -2550,8 +2550,8 @@ app.post('/api/users/login', async (req, res) => {
         
         // Delete old sessions for this user (keep only last 10 sessions)
         const userSessions = await UserSession.find({ userId: user.id }).sort({ lastActivity: -1 });
-        if (userSessions.length > 10) {
-          const sessionsToDelete = userSessions.slice(10); // Keep only 10 most recent (indices 0-9)
+        if (userSessions.length >= 10) {
+          const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
           await UserSession.deleteMany({ 
             _id: { $in: sessionsToDelete.map(s => s._id) } 
           });
