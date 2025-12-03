@@ -140,21 +140,7 @@ const EventManagement: React.FC = () => {
     }
   }, [id, events, currentEvent, setCurrentEvent]);
   
-  // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
-  // This ensures UI updates immediately when actualAttendance, tableId, etc. change
-  // Use useMemo to avoid recalculating on every render
-  const guestsKey = useMemo(() => {
-    if (!currentEvent?.guests) return '';
-    return currentEvent.guests.map(g => 
-      `${g.id}:${g.actualAttendance}:${g.tableId}:${g.rsvpStatus}:${g.guestCount}`
-    ).join('|');
-  }, [currentEvent?.guests]);
-  
-  useEffect(() => {
-    if (!currentEvent || !id || currentEvent.id !== id) return;
-    // This effect runs whenever guestsKey changes, forcing a re-render
-    // Removed console.log for performance
-  }, [guestsKey, currentEvent?.id, id]);
+  // Removed duplicate guestsKey definition - using the one below that reads from events directly
 
   // Set current event when id or events change
   useEffect(() => {
