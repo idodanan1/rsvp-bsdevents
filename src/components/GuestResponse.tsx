@@ -506,40 +506,122 @@ const GuestResponse = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, response: 'attending' }));
-                    setShowGuestCount(true);
+                  onClick={async () => {
+                    console.log('🟢 "מגיע" button clicked - submitting immediately');
+                    const currentEvent = event || directEvent;
+                    const currentGuest = guest || directGuest || finalGuest;
+                    if (currentEvent && currentGuest) {
+                      setIsSubmitting(true);
+                      try {
+                        const updatedGuest = {
+                          ...currentGuest,
+                          guestCount: 1,
+                          notes: '',
+                          rsvpStatus: 'confirmed' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const
+                        };
+                        console.log('🔄 Calling updateGuestResponse directly from "מגיע" button');
+                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        await fetchEvents();
+                        setSubmitStatus('success');
+                      } catch (error) {
+                        console.error('❌ Error submitting:', error);
+                        setSubmitStatus('error');
+                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    } else {
+                      setFormData(prev => ({ ...prev, response: 'attending' }));
+                      setShowGuestCount(true);
+                    }
                   }}
-                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <CheckCircle className="w-6 h-6" />
-                  <span>מגיע</span>
+                  <span>{isSubmitting ? 'שולח...' : 'מגיע'}</span>
                 </button>
                 
                 <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 })); // Reset to 1 for maybe
-                    setShowGuestCount(false); // Don't show guest count for "maybe"
-                    setShowStatusButtons(false); // Hide status buttons
-                    setShowConfirmButton(true); // Show confirm button
+                  onClick={async () => {
+                    console.log('🟡 "מתלבט" button clicked - submitting immediately');
+                    const currentEvent = event || directEvent;
+                    const currentGuest = guest || directGuest || finalGuest;
+                    if (currentEvent && currentGuest) {
+                      setIsSubmitting(true);
+                      try {
+                        const updatedGuest = {
+                          ...currentGuest,
+                          guestCount: 1,
+                          notes: '',
+                          rsvpStatus: 'maybe' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const
+                        };
+                        console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
+                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        await fetchEvents();
+                        setSubmitStatus('success');
+                      } catch (error) {
+                        console.error('❌ Error submitting:', error);
+                        setSubmitStatus('error');
+                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    } else {
+                      setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
+                      setShowStatusButtons(false);
+                      setShowConfirmButton(true);
+                    }
                   }}
-                  className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <MessageSquare className="w-6 h-6" />
-                  <span>מתלבט</span>
+                  <span>{isSubmitting ? 'שולח...' : 'מתלבט'}</span>
                 </button>
                 
                 <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 })); // Reset to 1 for not attending
-                    setShowGuestCount(false); // Don't show guest count for "not attending"
-                    setShowStatusButtons(false); // Hide status buttons
-                    setShowConfirmButton(true); // Show confirm button
+                  onClick={async () => {
+                    console.log('🔴 "לא מגיע" button clicked - submitting immediately');
+                    const currentEvent = event || directEvent;
+                    const currentGuest = guest || directGuest || finalGuest;
+                    if (currentEvent && currentGuest) {
+                      setIsSubmitting(true);
+                      try {
+                        const updatedGuest = {
+                          ...currentGuest,
+                          guestCount: 1,
+                          notes: '',
+                          rsvpStatus: 'declined' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const
+                        };
+                        console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
+                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        await fetchEvents();
+                        setSubmitStatus('success');
+                      } catch (error) {
+                        console.error('❌ Error submitting:', error);
+                        setSubmitStatus('error');
+                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    } else {
+                      setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
+                      setShowStatusButtons(false);
+                      setShowConfirmButton(true);
+                    }
                   }}
-                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <XCircle className="w-6 h-6" />
-                  <span>לא מגיע</span>
+                  <span>{isSubmitting ? 'שולח...' : 'לא מגיע'}</span>
                 </button>
               </div>
             </div>
