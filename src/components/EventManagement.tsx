@@ -159,11 +159,33 @@ const EventManagement: React.FC = () => {
     
     const event = events.find(e => e.id === id);
     if (event) {
-      // Always update if it's a different event
-      if (!currentEvent || currentEvent.id !== event.id) {
-        console.log('🔄 Setting new current event:', event.id);
-        setCurrentEvent(event);
-      } else {
+      // CRITICAL: Always check if guests changed and update immediately
+      // This ensures UI updates when guest status changes via link or WhatsApp buttons
+      const currentGuestsKey = currentEvent?.guests?.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+      ).join('|') || '';
+      
+      const newGuestsKey = event.guests?.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+      ).join('|') || '';
+      
+      // Always update if it's a different event or if guests changed
+      if (!currentEvent || currentEvent.id !== event.id || currentGuestsKey !== newGuestsKey) {
+        if (currentGuestsKey !== newGuestsKey) {
+          console.log('🔄 Guests changed in events array, updating currentEvent immediately');
+          console.log('📊 Old status:', currentEvent?.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus);
+          console.log('📊 New status:', event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus);
+        }
+        // Always create new reference to force React re-render
+        setCurrentEvent({ 
+          ...event,
+          guests: [...event.guests] // New array reference
+        });
+        return; // Skip manual change protection for guest response updates
+      }
+      
+      // If guests didn't change, check for manual changes
+      if (currentEvent && currentEvent.id === event.id) {
         // CRITICAL: Check for manual changes before updating
         const state = useEventStore.getState();
         const now = Date.now();
