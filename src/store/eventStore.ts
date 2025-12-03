@@ -149,13 +149,13 @@ export const useEventStore = create<EventStore>()(
                     for (const event of localOnlyEvents) {
                       try {
                         const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
                           body: JSON.stringify(event)
-                        });
-                        if (syncResponse.ok) {
+                    });
+                    if (syncResponse.ok) {
                           syncedCount++;
                           console.log(`✅ Synced event ${event.id} (${event.coupleName}) to API`);
                         } else {
@@ -168,12 +168,12 @@ export const useEventStore = create<EventStore>()(
                     }
                     console.log(`✅ Synced ${syncedCount}/${localOnlyEvents.length} events to API`);
                     
-                    // Re-fetch from API to get all events
-                    const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
-                    if (reFetchResponse.ok) {
-                      const reFetchData = await reFetchResponse.json();
-                      apiEvents = reFetchData.events || [];
-                      console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
+                      // Re-fetch from API to get all events
+                      const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                      if (reFetchResponse.ok) {
+                        const reFetchData = await reFetchResponse.json();
+                        apiEvents = reFetchData.events || [];
+                        console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
                     }
                   } catch (syncError) {
                     console.warn('⚠️ Failed to sync local events to API:', syncError);
@@ -404,13 +404,13 @@ export const useEventStore = create<EventStore>()(
                       // Ignore parsing errors
                     }
                     // Save local events to localStorage
-                    localStorage.setItem('rsvp-events-storage', JSON.stringify({
-                      state: {
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                    state: {
                         events: localEvents, // Save ALL local events, not just filtered
                         deletedEvents: deletedEvents,
-                        currentEvent: null
-                      }
-                    }));
+                      currentEvent: null
+                    }
+                  }));
                     set({ events: localEventsForUser, isLoading: false });
                     return; // Exit early - preserve local events
                   }
@@ -1051,9 +1051,9 @@ export const useEventStore = create<EventStore>()(
           let userEmail = '';
           if (userStorage) {
             try {
-              const parsed = JSON.parse(userStorage);
-              userId = parsed.state?.user?.id || '';
-              userEmail = parsed.state?.user?.email || '';
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+            userEmail = parsed.state?.user?.email || '';
               console.log('👤 Current user info:', { userId, userEmail });
             } catch (e) {
               console.error('❌ Error parsing user storage:', e);
