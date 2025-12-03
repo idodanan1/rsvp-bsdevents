@@ -51,18 +51,25 @@ const Dashboard: React.FC = () => {
 
   // Fetch connected devices count
   useEffect(() => {
+    const abortController = new AbortController();
+    
     const fetchConnectedDevices = async () => {
       if (!user?.id) return;
       
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
-        const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/count`);
+        const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/count`, {
+          signal: abortController.signal
+        });
         if (response.ok) {
           const data = await response.json();
           setConnectedDevicesCount(data.count || 0);
         }
-      } catch (error) {
-        console.error('❌ Error fetching connected devices:', error);
+      } catch (error: any) {
+        // Ignore abort errors (component unmounted)
+        if (error.name !== 'AbortError') {
+          console.error('❌ Error fetching connected devices:', error);
+        }
       }
     };
 
@@ -70,16 +77,20 @@ const Dashboard: React.FC = () => {
     
     // Update session activity every 5 minutes
     const activityInterval = setInterval(async () => {
-      if (user?.id && sessionId) {
+      if (user?.id && sessionId && !abortController.signal.aborted) {
         try {
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/activity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId })
+            body: JSON.stringify({ sessionId }),
+            signal: abortController.signal
           });
-        } catch (error) {
-          console.error('❌ Error updating session activity:', error);
+        } catch (error: any) {
+          // Ignore abort errors (component unmounted)
+          if (error.name !== 'AbortError') {
+            console.error('❌ Error updating session activity:', error);
+          }
         }
       }
     }, 5 * 60 * 1000); // 5 minutes
@@ -88,6 +99,7 @@ const Dashboard: React.FC = () => {
     const devicesInterval = setInterval(fetchConnectedDevices, 30000);
 
     return () => {
+      abortController.abort(); // Cancel all pending fetch requests
       clearInterval(activityInterval);
       clearInterval(devicesInterval);
     };
@@ -197,7 +209,7 @@ const Dashboard: React.FC = () => {
                 cleanupOtherUsersEvents();
                 
                 // Then, force refresh from API (this will load only current user's events)
-                await fetchEvents();
+                await fetchEvents(true);
                 
                 alert('✅ ניקיתי את האירועים שלא שייכים לך וטענתי מחדש מה-API.\n\nעכשיו תראה רק את האירועים שלך.');
               } catch (error: any) {
