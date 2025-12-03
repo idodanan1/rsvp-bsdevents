@@ -499,6 +499,7 @@ export const useEventStore = create<EventStore>()(
                   
                   // CRITICAL FIX: If events don't have matching userId, update them to current userId
                   // This handles the case where events were created before userId was properly set
+                  // IMPORTANT: Only update events with missing or anonymous userId, NOT events from other users
                   // IMPORTANT: Exclude admin events for regular users
                   const eventsToShow = localEvents
                     .filter((e: Event) => {
@@ -509,9 +510,11 @@ export const useEventStore = create<EventStore>()(
                       return true;
                     })
                     .map((e: Event) => {
-                      if (!e.userId || e.userId === 'anonymous' || (userId && e.userId !== userId && e.userId !== 'admin-fixed-id')) {
-                        console.log(`🔄 Updating event ${e.id} userId from "${e.userId}" to "${userId}" (mismatch detected)`);
-                        return { ...e, userId: userId || e.userId };
+                      // CRITICAL: Only update events with missing or anonymous userId
+                      // Do NOT reassign events that belong to other users (have a valid userId that's not current user)
+                      if ((!e.userId || e.userId === 'anonymous') && userId) {
+                        console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                        return { ...e, userId: userId };
                       }
                       return e;
                     });
@@ -3392,20 +3395,35 @@ export const useEventStore = create<EventStore>()(
             belongsToCurrentUser: e.userId === userId || !e.userId || e.userId === 'anonymous'
           })));
           
-          // Filter: keep only events that belong to current user or have no userId/anonymous
+          // Filter: keep only events that belong to current user
           // CRITICAL: Exclude admin events (admin-fixed-id) for regular users
-          const userEvents = allEvents.filter((e: Event) => {
-            // If event belongs to admin, exclude it for regular users
-            if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
-              return false;
-            }
-            // Keep events that belong to current user or have no userId/anonymous
-            return !e.userId || e.userId === userId || e.userId === 'anonymous';
-          });
+          // CRITICAL: Also update events with missing/anonymous userId to current userId before filtering
+          const userEvents = allEvents
+            .map((e: Event) => {
+              // Update events with missing or anonymous userId to current userId
+              if ((!e.userId || e.userId === 'anonymous') && userId) {
+                console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                return { ...e, userId: userId };
+              }
+              return e;
+            })
+            .filter((e: Event) => {
+              // If event belongs to admin, exclude it for regular users
+              if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+                return false;
+              }
+              // Keep only events that belong to current user (after updating anonymous/missing)
+              return e.userId === userId;
+            });
           
-          const removedEvents = allEvents.filter((e: Event) => 
-            e.userId && e.userId !== userId && e.userId !== 'anonymous' && e.userId !== 'admin-fixed-id' || (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id')
-          );
+          const removedEvents = allEvents.filter((e: Event) => {
+            // Include admin events in removed list for regular users
+            if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
+              return true;
+            }
+            // Include other users' events (but not current user's or anonymous/missing - those are updated above)
+            return e.userId && e.userId !== userId && e.userId !== 'anonymous';
+          });
           
           console.log(`📊 Analysis:`);
           console.log(`   - Current user events: ${userEvents.length}`);
@@ -3418,15 +3436,14 @@ export const useEventStore = create<EventStore>()(
             // Save cleaned events (ONLY current user's events)
             localStorage.setItem('rsvp-events-storage', JSON.stringify({
               state: {
-                events: userEvents, // ONLY current user's events
+                events: userEvents, // ONLY current user's events (with updated userId for anonymous/missing)
                 deletedEvents: parsed.state.deletedEvents || [],
                 currentEvent: parsed.state.currentEvent || null
               }
             }));
             
-            // Update state with filtered events
-            const filteredUserEvents = userEvents.filter((e: Event) => e.userId === userId);
-            set({ events: filteredUserEvents });
+            // Update state with filtered events (should match userEvents since we already filtered)
+            set({ events: userEvents });
             
             console.log(`✅ Cleaned up ${removedEvents.length} events. Kept ${userEvents.length} events for current user.`);
             console.log(`✅ State updated with ${filteredUserEvents.length} events`);
