@@ -1697,9 +1697,19 @@ const EventManagement: React.FC = () => {
 
       const { messageService } = await import('../services/messageService');
       
+      // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
+      // Priority: event.invitationImageUrl > campaign.imageUrl
+      const finalImageUrl = currentEvent.invitationImageUrl || campaignImageUrl;
+      
+      console.log('🖼️ Image URL priority check:', {
+        eventInvitationImageUrl: currentEvent.invitationImageUrl,
+        campaignImageUrl: campaignImageUrl,
+        finalImageUrl: finalImageUrl
+      });
+      
       const result = await messageService.sendBulkMessages({
         message,
-        imageUrl: campaignImageUrl || currentEvent.invitationImageUrl,
+        imageUrl: finalImageUrl,
         // Use template from campaign if it's the first campaign
         templateName: firstCampaign?.templateName,
         recipients: [{
@@ -1719,7 +1729,7 @@ const EventManagement: React.FC = () => {
             eventDate: formatDate(currentEvent.eventDate),
             eventTime: currentEvent.eventTime,
             venue: currentEvent.venue,
-            invitationImageUrl: campaignImageUrl || currentEvent.invitationImageUrl
+            invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
               // Add template params if using template "aa"
               // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name

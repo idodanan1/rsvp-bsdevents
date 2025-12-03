@@ -443,11 +443,52 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: If filteredEvents is empty but we have local events, preserve them
                 if (filteredEvents.length === 0 && localEvents.length > 0) {
                   console.warn('⚠️ Filtered events is empty but local events exist - preserving local events');
-                  const localEventsForUser = localEvents.filter((e: Event) => !userId || e.userId === userId);
+                  console.log('🔍 Debug info:', {
+                    userId: userId,
+                    localEventsCount: localEvents.length,
+                    localEventUserIds: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })),
+                    finalEventsCount: finalEvents.length,
+                    finalEventUserIds: finalEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                  });
+                  
+                  // CRITICAL FIX: If events don't have matching userId, update them to current userId
+                  // This handles the case where events were created before userId was properly set
+                  const eventsToShow = localEvents.map((e: Event) => {
+                    if (!e.userId || e.userId === 'anonymous' || (userId && e.userId !== userId)) {
+                      console.log(`🔄 Updating event ${e.id} userId from "${e.userId}" to "${userId}" (mismatch detected)`);
+                      return { ...e, userId: userId || e.userId };
+                    }
+                    return e;
+                  });
+                  
+                  const localEventsForUser = eventsToShow.filter((e: Event) => !userId || e.userId === userId);
+                  
                   if (localEventsForUser.length > 0) {
                     console.log(`🛡️ Preserving ${localEventsForUser.length} local events (filtered was empty)`);
+                    
+                    // CRITICAL: Update events in localStorage with correct userId
+                    const updatedLocalEvents = localEvents.map((e: Event) => {
+                      if (!e.userId || e.userId === 'anonymous' || (userId && e.userId !== userId)) {
+                        return { ...e, userId: userId || e.userId };
+                      }
+                      return e;
+                    });
+                    
+                    localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                      state: {
+                        events: updatedLocalEvents,
+                        deletedEvents: data.deletedEvents || [],
+                        currentEvent: null
+                      }
+                    }));
+                    
                     set({ events: localEventsForUser, isLoading: false });
                     return; // Exit early - preserve local events
+                  } else {
+                    console.error('❌ CRITICAL: No events match userId even after update!', {
+                      userId,
+                      events: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                    });
                   }
                 }
                 
@@ -473,16 +514,22 @@ export const useEventStore = create<EventStore>()(
               // Only filter for display in state, but keep all events in storage
               let allEvents = parsed.state.events;
               
-              // IMPORTANT: If user logged in, update events to match current userId
-              // This ensures that if user re-registered with same email, events are connected
-              if (userId && userEmail) {
+              // CRITICAL FIX: Update events to match current userId
+              // This ensures that events created before login or with wrong userId are fixed
+              if (userId) {
                 let eventsUpdated = false;
                 const updatedEvents = allEvents.map((event: Event) => {
                   // If event has userEmail matching current user, update userId
-                  if (event.userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim() && event.userId !== userId) {
-                    console.log(`🔄 Updating event ${event.id} userId from ${event.userId} to ${userId} (email match)`);
+                  if (event.userEmail && userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim() && event.userId !== userId) {
+                    console.log(`🔄 Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
                     eventsUpdated = true;
                     return { ...event, userId };
+                  }
+                  // CRITICAL: If event has no userId or anonymous userId, and we have current userId, update it
+                  if ((!event.userId || event.userId === 'anonymous') && userId) {
+                    console.log(`🔄 Updating event ${event.id} userId from "${event.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                    eventsUpdated = true;
+                    return { ...event, userId, userEmail: userEmail || event.userEmail };
                   }
                   // Also check if event has old userId but we can match by email from user storage
                   // This handles case where event was created before userEmail field existed
@@ -494,8 +541,8 @@ export const useEventStore = create<EventStore>()(
                         const oldParsed = JSON.parse(oldUserStorage);
                         const oldUsers = oldParsed.state?.users || [];
                         const oldUser = oldUsers.find((u: any) => u.id === event.userId);
-                        if (oldUser && oldUser.email && oldUser.email.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
-                          console.log(`🔄 Updating event ${event.id} userId from ${event.userId} to ${userId} (found matching email in old users)`);
+                        if (oldUser && oldUser.email && userEmail && oldUser.email.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
+                          console.log(`🔄 Updating event ${event.id} userId from "${event.userId}" to "${userId}" (found matching email in old users)`);
                           eventsUpdated = true;
                           return { ...event, userId, userEmail };
                         }
@@ -508,6 +555,7 @@ export const useEventStore = create<EventStore>()(
                 });
                 
                 if (eventsUpdated) {
+                  console.log('✅ Updated events with correct userId');
                   // Save updated events
                   localStorage.setItem('rsvp-events-storage', JSON.stringify({
                     state: {
@@ -517,6 +565,48 @@ export const useEventStore = create<EventStore>()(
                     }
                   }));
                   allEvents = updatedEvents;
+                } else {
+                  // Log if events don't match userId
+                  const mismatchedEvents = allEvents.filter(e => e.userId && e.userId !== userId && e.userId !== 'anonymous');
+                  if (mismatchedEvents.length > 0) {
+                    console.warn('⚠️ Found events with different userId:', mismatchedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                  }
+                }
+              }
+              
+              // CRITICAL FIX: Update events that don't have matching userId BEFORE filtering
+              // This handles the case where events were created before userId was properly set
+              if (userId) {
+                let eventsUpdated = false;
+                const updatedEvents = allEvents.map((event: Event) => {
+                  if (!event.userId || event.userId === 'anonymous' || event.userId !== userId) {
+                    // Check if event belongs to current user by email
+                    if (event.userEmail && userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
+                      console.log(`🔄 Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
+                      eventsUpdated = true;
+                      return { ...event, userId };
+                    }
+                    // If no userId or anonymous, and we have current userId, update it
+                    if ((!event.userId || event.userId === 'anonymous') && userId) {
+                      console.log(`🔄 Updating event ${event.id} userId from "${event.userId}" to "${userId}" (was anonymous/missing)`);
+                      eventsUpdated = true;
+                      return { ...event, userId, userEmail: userEmail || event.userEmail };
+                    }
+                  }
+                  return event;
+                });
+                
+                if (eventsUpdated) {
+                  allEvents = updatedEvents;
+                  // Save updated events
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                    state: {
+                      events: allEvents,
+                      deletedEvents: parsed.state.deletedEvents || [],
+                      currentEvent: parsed.state.currentEvent || null
+                    }
+                  }));
+                  console.log('✅ Updated events with correct userId');
                 }
               }
               
@@ -539,6 +629,12 @@ export const useEventStore = create<EventStore>()(
                 } else {
                   // Regular user sees only their events
                   filteredEvents = allEvents.filter((event: Event) => event.userId === userId);
+                  console.log('🔍 Filtering events by userId:', {
+                    userId,
+                    totalEvents: allEvents.length,
+                    filteredCount: filteredEvents.length,
+                    eventUserIds: allEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                  });
                 }
               }
               
@@ -905,9 +1001,20 @@ export const useEventStore = create<EventStore>()(
           let userId = '';
           let userEmail = '';
           if (userStorage) {
-            const parsed = JSON.parse(userStorage);
-            userId = parsed.state?.user?.id || '';
-            userEmail = parsed.state?.user?.email || '';
+            try {
+              const parsed = JSON.parse(userStorage);
+              userId = parsed.state?.user?.id || '';
+              userEmail = parsed.state?.user?.email || '';
+              console.log('👤 Current user info:', { userId, userEmail });
+            } catch (e) {
+              console.error('❌ Error parsing user storage:', e);
+            }
+          }
+          
+          // CRITICAL: If no userId found, log warning
+          if (!userId) {
+            console.warn('⚠️ WARNING: No userId found! Event will be created with "anonymous" userId');
+            console.warn('⚠️ This may cause events to disappear after refresh. Please ensure user is logged in.');
           }
 
           // Calculate credits needed (minimum 50, based on guest count)
@@ -924,6 +1031,8 @@ export const useEventStore = create<EventStore>()(
             createdAt: new Date(),
             updatedAt: new Date()
           };
+          
+          console.log('📝 New event created with userId:', newEvent.userId, 'userEmail:', newEvent.userEmail);
           
           // CRITICAL: Save to state first
           set(state => {
@@ -1944,10 +2053,19 @@ export const useEventStore = create<EventStore>()(
             };
           });
 
-          // For event day reminder, use QR code image, otherwise use campaign image
+          // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
+          // Priority: event.invitationImageUrl > campaign.imageUrl
+          // For event day reminder, use QR code image (already set in recipients), otherwise use event image
           const imageUrlForCampaign = isEventDayReminder 
             ? undefined // QR codes will be in individual recipients
-            : (campaign.imageUrl || undefined);
+            : (event.invitationImageUrl || campaign.imageUrl || undefined);
+          
+          console.log('🖼️ Image URL priority check:', {
+            eventInvitationImageUrl: event.invitationImageUrl,
+            campaignImageUrl: campaign.imageUrl,
+            finalImageUrl: imageUrlForCampaign,
+            isEventDayReminder
+          });
           
           const messageData: MessageData = {
             message: '', // Will be overridden by individual messages
