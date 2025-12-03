@@ -3446,7 +3446,7 @@ export const useEventStore = create<EventStore>()(
             set({ events: userEvents });
             
             console.log(`✅ Cleaned up ${removedEvents.length} events. Kept ${userEvents.length} events for current user.`);
-            console.log(`✅ State updated with ${filteredUserEvents.length} events`);
+            console.log(`✅ State updated with ${userEvents.length} events`);
           } else {
             console.log('ℹ️ No events from other users found - nothing to clean up');
           }
