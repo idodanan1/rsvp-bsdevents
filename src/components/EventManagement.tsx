@@ -97,9 +97,11 @@ const EventManagement: React.FC = () => {
     if (!id) return '';
     const event = events.find(e => e.id === id);
     if (!event) return '';
-    return event.guests?.map(g => 
+    const key = event.guests?.map(g => 
       `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
     ).join('|') || '';
+    console.log('🔑 eventsGuestsKey calculated:', key.substring(0, 50) + '...');
+    return key;
   }, [id, events]);
   
   // CRITICAL: Update currentEvent when guests change in events array
@@ -107,15 +109,25 @@ const EventManagement: React.FC = () => {
     if (!id || !eventsGuestsKey) return;
     
     const event = events.find(e => e.id === id);
-    if (!event) return;
+    if (!event) {
+      console.log('⚠️ Event not found in events array:', id);
+      return;
+    }
     
     // Check if currentEvent needs updating
     const currentGuestsKey = currentEvent?.guests?.map(g => 
       `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
     ).join('|') || '';
     
+    console.log('🔍 Comparing guests keys:', {
+      eventsKey: eventsGuestsKey.substring(0, 50) + '...',
+      currentKey: currentGuestsKey.substring(0, 50) + '...',
+      areEqual: eventsGuestsKey === currentGuestsKey
+    });
+    
     if (eventsGuestsKey !== currentGuestsKey) {
       console.log('🔄 Guests changed in events array, updating currentEvent immediately');
+      console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus })));
       setCurrentEvent({ ...event }); // Create new reference to force re-render
     }
   }, [id, eventsGuestsKey, events, currentEvent, setCurrentEvent]);
