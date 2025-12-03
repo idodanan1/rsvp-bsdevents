@@ -360,11 +360,24 @@ const EventManagement: React.FC = () => {
   const guestsToDisplay = eventFromStore?.guests || currentEvent?.guests || [];
   
   // CRITICAL: Create a key that changes when guests change to force re-render
+  // Include all relevant fields to detect any change
   const guestsKey = useMemo(() => {
+    if (!guestsToDisplay || guestsToDisplay.length === 0) return 'empty';
     return guestsToDisplay.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}`
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
     ).join('|');
   }, [guestsToDisplay]);
+  
+  // CRITICAL: Force component re-render when guestsKey changes
+  // This ensures the table updates immediately when guest status changes
+  const [tableUpdateKey, setTableUpdateKey] = useState(0);
+  
+  useEffect(() => {
+    if (guestsKey) {
+      console.log('🔄 Guests key changed, forcing table update:', guestsKey.substring(0, 50) + '...');
+      setTableUpdateKey(prev => prev + 1);
+    }
+  }, [guestsKey]);
   
   const filteredGuests = guestsToDisplay.filter(guest => {
     const matchesSearch = 
@@ -2325,7 +2338,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={guestsKey} className="bg-white divide-y divide-gray-200">
+            <tbody key={`${guestsKey}-${tableUpdateKey}`} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
