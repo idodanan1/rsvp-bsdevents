@@ -506,42 +506,15 @@ const GuestResponse = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <button
-                  onClick={async () => {
-                    console.log('🟢 "מגיע" button clicked - submitting immediately');
-                    const currentEvent = event || directEvent;
-                    const currentGuest = guest || directGuest || finalGuest;
-                    if (currentEvent && currentGuest) {
-                      setIsSubmitting(true);
-                      try {
-                        const updatedGuest = {
-                          ...currentGuest,
-                          guestCount: 1,
-                          notes: '',
-                          rsvpStatus: 'confirmed' as const,
-                          responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const
-                        };
-                        console.log('🔄 Calling updateGuestResponse directly from "מגיע" button');
-                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
-                        await fetchEvents();
-                        setSubmitStatus('success');
-                      } catch (error) {
-                        console.error('❌ Error submitting:', error);
-                        setSubmitStatus('error');
-                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    } else {
-                      setFormData(prev => ({ ...prev, response: 'attending' }));
-                      setShowGuestCount(true);
-                    }
+                  onClick={() => {
+                    console.log('🟢 "מגיע" button clicked - showing guest count selection');
+                    setFormData(prev => ({ ...prev, response: 'attending' }));
+                    setShowGuestCount(true);
                   }}
-                  disabled={isSubmitting}
-                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                 >
                   <CheckCircle className="w-6 h-6" />
-                  <span>{isSubmitting ? 'שולח...' : 'מגיע'}</span>
+                  <span>מגיע</span>
                 </button>
                 
                 <button
