@@ -197,7 +197,7 @@ const Dashboard: React.FC = () => {
                 cleanupOtherUsersEvents();
                 
                 // Then, force refresh from API (this will load only current user's events)
-                await fetchEvents(true);
+                await fetchEvents();
                 
                 alert('✅ ניקיתי את האירועים שלא שייכים לך וטענתי מחדש מה-API.\n\nעכשיו תראה רק את האירועים שלך.');
               } catch (error: any) {

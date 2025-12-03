@@ -202,6 +202,8 @@ export interface APIResponse<T> {
 
 // סוגי Store (Zustand)
 export interface EventStore {
+  cleanupOtherUsersEvents: () => void;
+  syncAllEventsToAPI: () => Promise<{ synced: number; failed: number }>;
   events: Event[];
   deletedEvents: (Event & { deletedAt: Date })[];
   currentEvent: Event | null;
@@ -210,7 +212,7 @@ export interface EventStore {
   manualChanges: Map<string, number>; // Track manual changes: "eventId-guestId" -> timestamp
   
   // Actions
-  fetchEvents: () => Promise<void>;
+  fetchEvents: (forceRefresh?: boolean) => Promise<void>;
   createEvent: (event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;

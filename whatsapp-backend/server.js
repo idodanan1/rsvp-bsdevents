@@ -3414,11 +3414,15 @@ app.delete('/api/events/:eventId', async (req, res) => {
     // Save to file
     saveEvents();
     
+    // Update last update timestamp for this user
+    updateUserLastUpdateTimestamp(event.userId);
+    
     console.log(`🗑️ Deleted event ${eventId}`);
     
     res.json({
       success: true,
-      message: 'Event deleted'
+      message: 'Event deleted',
+      lastUpdateTimestamp: userLastUpdateTimestamps.get(event.userId) || Date.now()
     });
   } catch (error) {
     console.error('❌ Error deleting event:', error);
