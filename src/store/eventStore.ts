@@ -1614,30 +1614,40 @@ export const useEventStore = create<EventStore>()(
               return event;
             });
             
-            const updatedCurrentEvent = state.currentEvent?.id === eventId 
-              ? {
-                  ...state.currentEvent,
-                  guests: state.currentEvent.guests.map(guest => {
-                    if (guest.id === guestId) {
-                      // Use timestamp-based conflict resolution - latest update wins
-                      const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
-                      const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
-                      const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
-                      
-                      return {
-                        ...guest,
-                        ...updatedGuest,
-                        // Always use new values if provided (latest update wins)
-                        rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
-                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
-                        responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
-                      };
-                    }
-                    return guest;
-                  })
-                }
-              : state.currentEvent;
+            // CRITICAL: Update currentEvent if it matches eventId, OR if currentEvent is not set but we have the event
+            // This ensures that updates from guest response links are reflected even if currentEvent wasn't set
+            let updatedCurrentEvent = state.currentEvent;
+            
+            if (state.currentEvent?.id === eventId) {
+              // Update existing currentEvent
+              updatedCurrentEvent = {
+                ...state.currentEvent,
+                guests: state.currentEvent.guests.map(guest => {
+                  if (guest.id === guestId) {
+                    // Use timestamp-based conflict resolution - latest update wins
+                    const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
+                    const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
+                    const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
+                    
+                    return {
+                      ...guest,
+                      ...updatedGuest,
+                      // Always use new values if provided (latest update wins)
+                      rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                      guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                      notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
+                      responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
+                    };
+                  }
+                  return guest;
+                })
+              };
+            } else if (updatedEvent) {
+              // If currentEvent is not set or doesn't match, but we have the updated event, set it
+              // This ensures updates from guest response links are visible even if currentEvent wasn't set
+              updatedCurrentEvent = updatedEvent;
+              console.log('🔄 Setting/updating currentEvent from guest response update:', eventId);
+            }
             
             // Verify the update
             const verifyEvent = updatedEvents.find(e => e.id === eventId);

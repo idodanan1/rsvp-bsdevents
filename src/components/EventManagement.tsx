@@ -96,30 +96,45 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     
-    let previousCurrentEvent = useEventStore.getState().currentEvent;
-    let previousGuestsKey = previousCurrentEvent?.guests?.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-    ).join('|') || '';
-    
-    // Subscribe to store changes
-    const unsubscribe = useEventStore.subscribe((state) => {
-      const newCurrentEvent = state.currentEvent;
-      
-      // Only update if this is the event we're viewing and guests actually changed
-      if (newCurrentEvent && newCurrentEvent.id === id) {
-        const newGuestsKey = newCurrentEvent.guests?.map(g => 
+    // Subscribe to currentEvent changes using selector
+    const unsubscribe = useEventStore.subscribe(
+      (state) => state.currentEvent,
+      (newCurrentEvent, previousCurrentEvent) => {
+        // Only update if this is the event we're viewing
+        if (newCurrentEvent && newCurrentEvent.id === id) {
+          // Check if guests actually changed
+          const newGuestsKey = newCurrentEvent.guests?.map(g => 
+            `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+          ).join('|') || '';
+          
+          const previousGuestsKey = previousCurrentEvent?.guests?.map(g => 
+            `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+          ).join('|') || '';
+          
+          // Only update if guests actually changed
+          if (newGuestsKey !== previousGuestsKey) {
+            console.log('🔄 currentEvent guests updated in store, updating local state');
+            setCurrentEvent(newCurrentEvent);
+          }
+        }
+      },
+      { equalityFn: (a, b) => {
+        // Custom equality check - compare guests keys
+        if (!a && !b) return true;
+        if (!a || !b) return false;
+        if (a.id !== b.id) return false;
+        
+        const aKey = a.guests?.map(g => 
           `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
         ).join('|') || '';
         
-        // Only update if guests actually changed
-        if (newGuestsKey !== previousGuestsKey) {
-          console.log('🔄 currentEvent guests updated in store, updating local state');
-          setCurrentEvent(newCurrentEvent);
-          previousGuestsKey = newGuestsKey;
-        }
-        previousCurrentEvent = newCurrentEvent;
-      }
-    });
+        const bKey = b.guests?.map(g => 
+          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+        ).join('|') || '';
+        
+        return aKey === bKey;
+      }}
+    );
     
     return () => {
       unsubscribe();
