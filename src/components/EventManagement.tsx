@@ -91,18 +91,17 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
-  // CRITICAL: Force re-render when currentEvent.guests changes
+  // CRITICAL: Subscribe to events array changes to update currentEvent when guest status changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-  const [refreshKey, setRefreshKey] = useState(0);
-  
   useEffect(() => {
-    if (!id || !currentEvent || currentEvent.id !== id) return;
+    if (!id) return;
     
-    // Subscribe to currentEvent changes - watch for guest changes
+    // Subscribe to events array changes - watch for guest changes in the event we're viewing
     const unsubscribe = useEventStore.subscribe(
       (state) => {
-        const event = state.currentEvent;
-        if (!event || event.id !== id) return '';
+        // Find the event we're viewing in the events array
+        const event = state.events.find(e => e.id === id);
+        if (!event) return '';
         
         // Return a key that changes when guests change
         return event.guests?.map(g => 
@@ -110,10 +109,14 @@ const EventManagement: React.FC = () => {
         ).join('|') || '';
       },
       (newKey, previousKey) => {
-        // When the key changes, force re-render
+        // When the key changes, update currentEvent from events array
         if (newKey !== previousKey && newKey !== '') {
-          console.log('🔄 currentEvent guests updated in store, forcing re-render');
-          setRefreshKey(prev => prev + 1);
+          console.log('🔄 Event guests updated in events array, updating currentEvent');
+          const storeState = useEventStore.getState();
+          const updatedEvent = storeState.events.find(e => e.id === id);
+          if (updatedEvent) {
+            setCurrentEvent({ ...updatedEvent }); // Create new reference to force re-render
+          }
         }
       }
     );
@@ -121,7 +124,7 @@ const EventManagement: React.FC = () => {
     return () => {
       unsubscribe();
     };
-  }, [id, currentEvent]);
+  }, [id, setCurrentEvent]);
   
   // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
   // This ensures UI updates immediately when actualAttendance, tableId, etc. change
@@ -258,6 +261,23 @@ const EventManagement: React.FC = () => {
             const guestKey = `${event.id}-${apiGuest.id}`;
             const hasManualChange = state.manualChanges?.get?.(guestKey) && (now - state.manualChanges.get(guestKey)) < MANUAL_CHANGE_PROTECTION_TIME;
             
+            // CRITICAL: Always check rsvpStatus, guestCount, notes - these come from guest response links
+            // Don't skip these even if there's a manual change (guest response links override manual changes)
+            const rsvpStatusChanged = currentGuest.rsvpStatus !== apiGuest.rsvpStatus;
+            const guestCountChanged = currentGuest.guestCount !== apiGuest.guestCount;
+            const notesChanged = currentGuest.notes !== apiGuest.notes;
+            
+            if (rsvpStatusChanged || guestCountChanged || notesChanged) {
+              console.log(`🔄 Detected change in guest response fields for guest ${apiGuest.id}:`, {
+                rsvpStatus: { from: currentGuest.rsvpStatus, to: apiGuest.rsvpStatus },
+                guestCount: { from: currentGuest.guestCount, to: apiGuest.guestCount },
+                notes: { from: currentGuest.notes, to: apiGuest.notes },
+                hasManualChange
+              });
+              return true; // Always update if guest response fields changed
+            }
+            
+            // For other fields, check if manual change is recent
             if (hasManualChange) return false; // Skip if manual change is recent
             
             // CRITICAL: Check if critical fields changed - these should always trigger update
@@ -279,11 +299,7 @@ const EventManagement: React.FC = () => {
               return true;
             }
             
-            return (
-              currentGuest.rsvpStatus !== apiGuest.rsvpStatus ||
-              currentGuest.guestCount !== apiGuest.guestCount ||
-              currentGuest.notes !== apiGuest.notes
-            );
+            return false; // No changes detected
           }) ||
           // Also check if any guest was removed
           currentEvent.guests.some(cg => !event.guests.find(ag => ag.id === cg.id));
