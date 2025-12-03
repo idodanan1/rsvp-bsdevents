@@ -360,8 +360,12 @@ export const useEventStore = create<EventStore>()(
                 const remainingLocalEvents = localEvents.filter((e: Event) => 
                   e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
                 );
+                // CRITICAL: Create new array reference after adding remaining events
+                // This ensures React detects changes when events are added
+                const allEventsWithRemaining = remainingLocalEvents.length > 0 
+                  ? [...allEvents, ...remainingLocalEvents]
+                  : allEvents;
                 if (remainingLocalEvents.length > 0) {
-                  allEvents.push(...remainingLocalEvents);
                   console.log(`🔄 Added ${remainingLocalEvents.length} remaining local events`);
                   
                   // Try to sync remaining events again
@@ -411,15 +415,16 @@ export const useEventStore = create<EventStore>()(
                       currentEvent: null
                     }
                   }));
-                    set({ events: localEventsForUser, isLoading: false });
+                    // CRITICAL: Create new array reference to force React re-render
+                    set({ events: [...localEventsForUser], isLoading: false });
                     return; // Exit early - preserve local events
                   }
                 }
                 
                 // CRITICAL: Before saving, check if we're about to lose any events
-                // Compare allEvents with localEvents to ensure we're not losing data
+                // Compare allEventsWithRemaining with localEvents to ensure we're not losing data
                 // BUT: Only preserve events that belong to the current user!
-                const eventsToSave = allEvents.length > 0 ? allEvents : localEvents;
+                const eventsToSave = allEventsWithRemaining.length > 0 ? allEventsWithRemaining : localEvents;
                 const localEventIds = new Set(localEvents.map(e => e.id));
                 const savedEventIds = new Set(eventsToSave.map(e => e.id));
                 
@@ -483,7 +488,8 @@ export const useEventStore = create<EventStore>()(
                 
                 // Use API events as primary source (they're synced)
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
-                const finalEvents = allEvents.length > 0 ? allEvents : localEvents;
+                // CRITICAL: Always create new array reference to ensure React detects changes
+                const finalEvents = allEventsWithRemaining.length > 0 ? [...allEventsWithRemaining] : [...localEvents];
                 const filteredEvents = userId ? finalEvents.filter((e: Event) => e.userId === userId) : finalEvents;
                 
                 // CRITICAL: If filteredEvents is empty but we have local events, preserve them
@@ -546,7 +552,8 @@ export const useEventStore = create<EventStore>()(
                       }
                     }));
                     
-                    set({ events: localEventsForUser, isLoading: false });
+                    // CRITICAL: Create new array reference to force React re-render
+                    set({ events: [...localEventsForUser], isLoading: false });
                     return; // Exit early - preserve local events
                   } else {
                     console.error('❌ CRITICAL: No events match userId even after update!', {
@@ -556,7 +563,10 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                set({ events: filteredEvents, isLoading: false });
+                // CRITICAL: Create new array reference to force React re-render
+                // This ensures the table updates when events are synced from API (other devices)
+                console.log('🔄 Creating new events array reference from API sync to force React re-render');
+                set({ events: [...filteredEvents], isLoading: false });
                 return; // Exit early - we got events from API
               } else {
                 console.warn('⚠️ API fetch failed, using localStorage');
@@ -714,7 +724,9 @@ export const useEventStore = create<EventStore>()(
               
               // IMPORTANT: Set only filtered events in state for display
               // The persist middleware will handle saving correctly (only current user's events)
-              set({ events: filteredEvents, isLoading: false });
+              // CRITICAL: Create new array reference to force React re-render
+              console.log('🔄 Creating new events array reference from localStorage to force React re-render');
+              set({ events: [...filteredEvents], isLoading: false });
               
               return;
             }
@@ -722,6 +734,7 @@ export const useEventStore = create<EventStore>()(
           
           // If no events found, don't create sample events
           console.log('📝 No events found in localStorage');
+          // CRITICAL: Create new array reference (even if empty) to force React re-render
           set({ events: [], isLoading: false });
         } catch (error) {
           console.error('❌ Error fetching events:', error);
