@@ -93,52 +93,39 @@ const EventManagement: React.FC = () => {
 
   // CRITICAL: Update currentEvent immediately when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
+  // Use a ref to track the last guests key to avoid unnecessary updates
+  const lastGuestsKeyRef = useRef<string>('');
+  
   useEffect(() => {
     if (!id) return;
     
     const event = events.find(e => e.id === id);
     if (!event) return;
     
-    // ALWAYS update currentEvent to match events array (source of truth)
-    // This ensures immediate UI updates when guest status changes
-    if (!currentEvent || currentEvent.id !== event.id) {
+    // Create a key from guests to detect changes
+    const newGuestsKey = event.guests?.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+    ).join('|') || '';
+    
+    // Only update if guests actually changed
+    if (newGuestsKey !== lastGuestsKeyRef.current) {
+      console.log('🔄 Guests changed detected, updating currentEvent immediately');
+      console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+      lastGuestsKeyRef.current = newGuestsKey;
+      
+      setCurrentEvent({ 
+        ...event,
+        guests: [...event.guests] // New array reference
+      });
+    } else if (!currentEvent || currentEvent.id !== event.id) {
+      // If event changed but guests didn't, still update currentEvent
       console.log('🔄 Setting currentEvent from events array:', event.id);
       setCurrentEvent({ 
         ...event,
         guests: [...event.guests] // New array reference
       });
-      return;
     }
-    
-    // Check if guests changed by comparing each guest individually
-    const currentGuests = currentEvent.guests || [];
-    const newGuests = event.guests || [];
-    
-    // Check if any guest changed
-    const guestsChanged = 
-      currentGuests.length !== newGuests.length ||
-      newGuests.some((newGuest) => {
-        const currentGuest = currentGuests.find(cg => cg.id === newGuest.id);
-        if (!currentGuest) return true; // New guest
-        return (
-          newGuest.rsvpStatus !== currentGuest.rsvpStatus ||
-          newGuest.guestCount !== currentGuest.guestCount ||
-          newGuest.actualAttendance !== currentGuest.actualAttendance ||
-          newGuest.tableId !== currentGuest.tableId ||
-          newGuest.notes !== currentGuest.notes
-        );
-      });
-    
-    if (guestsChanged) {
-      console.log('🔄 Guests changed detected, updating currentEvent immediately');
-      console.log('📊 Old guests:', currentGuests.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
-      console.log('📊 New guests:', newGuests.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
-      setCurrentEvent({ 
-        ...event,
-        guests: [...event.guests] // New array reference
-      });
-    }
-  }, [id, events, currentEvent, setCurrentEvent]);
+  }, [id, events, setCurrentEvent]); // Removed currentEvent from dependencies to avoid loops
   
   // Removed duplicate guestsKey definition - using the one below that reads from events directly
 
@@ -2338,7 +2325,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody key={guestsKey} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
@@ -2366,7 +2353,7 @@ const EventManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredGuests.map((guest, index) => (
-                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <tr key={`${guest.id}-${guest.rsvpStatus}-${guest.guestCount}-${guest.actualAttendance}-${guest.tableId}`} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
                     {index + 1}
                   </td>
