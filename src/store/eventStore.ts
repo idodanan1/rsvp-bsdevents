@@ -101,15 +101,37 @@ export const useEventStore = create<EventStore>()(
                   console.log(`💾 Cached events for user ${userId}`);
                 
                 // Get local events to merge
+                // CRITICAL: Always read from localStorage to get the latest events (including newly created ones)
                 const stored = localStorage.getItem('rsvp-events-storage');
                 let localEvents: Event[] = [];
                 if (stored) {
                   try {
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
+                    console.log('📦 Loaded local events from storage:', localEvents.length);
+                    // Log recently created events (within last 5 minutes)
+                    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+                    const recentEvents = localEvents.filter((e: Event) => {
+                      const createdAt = e.createdAt ? new Date(e.createdAt).getTime() : 0;
+                      return createdAt > fiveMinutesAgo;
+                    });
+                    if (recentEvents.length > 0) {
+                      console.log('🆕 Found recently created events:', recentEvents.map(e => ({ id: e.id, name: e.coupleName })));
+                    }
                   } catch (e) {
                     console.warn('⚠️ Error parsing local events:', e);
                   }
+                }
+                
+                // CRITICAL: Also check current state for newly created events that might not be in storage yet
+                const currentState = get();
+                if (currentState.events && currentState.events.length > 0) {
+                  currentState.events.forEach((stateEvent: Event) => {
+                    if (!localEvents.find(e => e.id === stateEvent.id)) {
+                      console.log('🆕 Found new event in state not in storage:', stateEvent.id);
+                      localEvents.push(stateEvent);
+                    }
+                  });
                 }
                 
                 // Find local events that aren't in API (need to sync)
@@ -382,15 +404,36 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
+                // CRITICAL: Before saving, check if we're about to lose any events
+                // Compare allEvents with localEvents to ensure we're not losing data
+                const eventsToSave = allEvents.length > 0 ? allEvents : localEvents;
+                const localEventIds = new Set(localEvents.map(e => e.id));
+                const savedEventIds = new Set(eventsToSave.map(e => e.id));
+                const lostEvents = localEvents.filter(e => !savedEventIds.has(e.id));
+                
+                if (lostEvents.length > 0) {
+                  console.warn(`⚠️ CRITICAL: About to lose ${lostEvents.length} events! Preserving them...`);
+                  console.warn('⚠️ Lost events:', lostEvents.map(e => ({ id: e.id, name: e.coupleName })));
+                  // Add lost events back
+                  lostEvents.forEach(lostEvent => {
+                    if (!eventsToSave.find(e => e.id === lostEvent.id)) {
+                      eventsToSave.push(lostEvent);
+                      console.log(`✅ Preserved lost event: ${lostEvent.id}`);
+                    }
+                  });
+                }
+                
                 // Save merged events to localStorage
                 // CRITICAL: Always save, even if allEvents is empty (to preserve state)
                 localStorage.setItem('rsvp-events-storage', JSON.stringify({
                   state: {
-                    events: allEvents.length > 0 ? allEvents : localEvents, // Fallback to local if merge is empty
+                    events: eventsToSave, // Use eventsToSave which includes preserved events
                     deletedEvents: data.deletedEvents || [],
                     currentEvent: null
                   }
                 }));
+                
+                console.log('💾 Saved events to localStorage:', eventsToSave.length, 'events');
                 
                 // Use API events as primary source (they're synced)
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
@@ -882,6 +925,7 @@ export const useEventStore = create<EventStore>()(
             updatedAt: new Date()
           };
           
+          // CRITICAL: Save to state first
           set(state => {
             console.log('🔍 Before createEvent - events count:', state.events.length);
             const updatedEvents = [...state.events, newEvent];
@@ -892,6 +936,98 @@ export const useEventStore = create<EventStore>()(
               isLoading: false
             };
           });
+          
+          // CRITICAL: Immediately save to localStorage to prevent data loss
+          // This ensures the event is saved even if fetchEvents is called right after
+          try {
+            const stored = localStorage.getItem('rsvp-events-storage');
+            let allEvents: Event[] = [];
+            let deletedEvents: any[] = [];
+            
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                allEvents = parsed.state?.events || [];
+                deletedEvents = parsed.state?.deletedEvents || [];
+              } catch (e) {
+                console.warn('⚠️ Error parsing stored events:', e);
+              }
+            }
+            
+            // Add new event if not already present
+            if (!allEvents.find(e => e.id === newEvent.id)) {
+              allEvents.push(newEvent);
+              console.log('💾 Saved new event directly to localStorage:', newEvent.id);
+              
+              // Get current state to preserve currentEvent
+              const currentState = get();
+              
+              localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                state: {
+                  events: allEvents,
+                  deletedEvents: deletedEvents,
+                  currentEvent: currentState.currentEvent || null
+                }
+              }));
+              
+              console.log('✅ Event saved to localStorage successfully. Total events:', allEvents.length);
+              
+              // CRITICAL: Verify the event was saved correctly
+              setTimeout(() => {
+                const verifyStored = localStorage.getItem('rsvp-events-storage');
+                if (verifyStored) {
+                  try {
+                    const verifyParsed = JSON.parse(verifyStored);
+                    const verifyEvents = verifyParsed.state?.events || [];
+                    const eventFound = verifyEvents.find((e: Event) => e.id === newEvent.id);
+                    if (!eventFound) {
+                      console.error('❌ CRITICAL: Event was not found in localStorage after save! Re-saving...');
+                      // Re-save the event
+                      verifyEvents.push(newEvent);
+                      localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                        state: {
+                          events: verifyEvents,
+                          deletedEvents: verifyParsed.state?.deletedEvents || [],
+                          currentEvent: verifyParsed.state?.currentEvent || null
+                        }
+                      }));
+                      console.log('✅ Event re-saved to localStorage');
+                    } else {
+                      console.log('✅ Verified: Event found in localStorage');
+                    }
+                  } catch (e) {
+                    console.error('❌ Error verifying event save:', e);
+                  }
+                }
+              }, 100); // Check after 100ms
+            } else {
+              console.log('⚠️ Event already exists in localStorage:', newEvent.id);
+            }
+          } catch (error) {
+            console.error('❌ Error saving event to localStorage:', error);
+            // Try to save again as fallback
+            try {
+              const fallbackStored = localStorage.getItem('rsvp-events-storage');
+              let fallbackEvents: Event[] = [];
+              if (fallbackStored) {
+                const fallbackParsed = JSON.parse(fallbackStored);
+                fallbackEvents = fallbackParsed.state?.events || [];
+              }
+              if (!fallbackEvents.find(e => e.id === newEvent.id)) {
+                fallbackEvents.push(newEvent);
+                localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                  state: {
+                    events: fallbackEvents,
+                    deletedEvents: [],
+                    currentEvent: null
+                  }
+                }));
+                console.log('✅ Event saved via fallback method');
+              }
+            } catch (fallbackError) {
+              console.error('❌ Fallback save also failed:', fallbackError);
+            }
+          }
           
           // Sync to API (for multi-computer access) - CRITICAL for data sync
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
@@ -912,7 +1048,7 @@ export const useEventStore = create<EventStore>()(
             }
           } catch (error) {
             console.error('❌ Failed to sync event to API:', error);
-            // Continue - localStorage is already updated by Zustand persist
+            // Continue - localStorage is already updated
             // But log error so user knows sync failed
           }
         } catch (error) {
@@ -3081,9 +3217,11 @@ export const useEventStore = create<EventStore>()(
                 return updatedEvent || storedEvent;
               });
               
-              // Add any new events from state that aren't in storage
+              // CRITICAL: Add any new events from state that aren't in storage
+              // This ensures newly created events are preserved
               currentEventsFromState.forEach((stateEvent: Event) => {
                 if (!allEventsFromStorage.find((e: Event) => e.id === stateEvent.id)) {
+                  console.log('💾 Adding new event from state to storage:', stateEvent.id);
                   mergedEvents.push(stateEvent);
                 }
               });
@@ -3091,6 +3229,7 @@ export const useEventStore = create<EventStore>()(
               console.log('💾 Saving to storage - Total events:', mergedEvents.length);
               console.log('💾 Events from storage:', allEventsFromStorage.length);
               console.log('💾 Events from state:', currentEventsFromState.length);
+              console.log('💾 New events added:', currentEventsFromState.filter(e => !allEventsFromStorage.find(se => se.id === e.id)).length);
               
               return {
                 events: mergedEvents, // Save ALL events, preserving all users' data
@@ -3099,15 +3238,25 @@ export const useEventStore = create<EventStore>()(
               };
             }
           }
+          
+          // If no storage exists, save current state (for first-time users)
+          if (state.events && state.events.length > 0) {
+            console.log('💾 No storage found, saving current state events:', state.events.length);
+            return {
+              events: state.events,
+              deletedEvents: state.deletedEvents || [],
+              currentEvent: state.currentEvent || null
+            };
+          }
         } catch (error) {
-          console.error('Error in partialize:', error);
+          console.error('❌ Error in partialize:', error);
         }
         
         // Fallback: if we can't merge, at least save what we have
         return { 
-          events: state.events,
-          deletedEvents: state.deletedEvents,
-          currentEvent: state.currentEvent 
+          events: state.events || [],
+          deletedEvents: state.deletedEvents || [],
+          currentEvent: state.currentEvent || null
         };
       },
       onRehydrateStorage: () => (state) => {
