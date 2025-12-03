@@ -1676,8 +1676,11 @@ export const useEventStore = create<EventStore>()(
             console.log(`✅ After update - Guest status:`, verifyGuest?.rsvpStatus);
             console.log(`✅ Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
             
+            // CRITICAL: Always create new array reference for events to force React re-render
+            // This ensures React detects changes even if array contents are similar
+            console.log(`🔄 Creating new events array reference to force React re-render`);
             return {
-              events: updatedEvents,
+              events: [...updatedEvents], // New array reference - CRITICAL for React re-render
               currentEvent: updatedCurrentEvent,
               isLoading: false
             };

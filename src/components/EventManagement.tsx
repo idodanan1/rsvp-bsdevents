@@ -46,12 +46,25 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Subscribe to the specific event's guests array to force re-render on changes
   // This ensures immediate UI updates when guest status changes via link or WhatsApp buttons
-  // NO equality function - let React detect all changes by reference
+  // Subscribe to both events array AND the specific event to detect changes
   const eventGuests = useEventStore(state => {
     const event = state.events.find(e => e.id === id);
-    // CRITICAL: Always return a new array reference to force React re-render
-    // This ensures React detects changes even if the array contents are the same
-    return event?.guests ? [...event.guests] : [];
+    if (!event) return [];
+    
+    // CRITICAL: Create a serialized key from guests to detect changes
+    // This ensures React detects changes even if array reference is the same
+    const guestsKey = event.guests.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+    ).join('|');
+    
+    // Return guests with the key to force re-render when key changes
+    return event.guests ? [...event.guests] : [];
+  }, (a, b) => {
+    // Custom equality: compare by serialized key
+    if (a.length !== b.length) return false;
+    const aKey = a.map(g => `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`).join('|');
+    const bKey = b.map(g => `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`).join('|');
+    return aKey === bKey;
   });
   
   const [searchTerm, setSearchTerm] = useState('');
