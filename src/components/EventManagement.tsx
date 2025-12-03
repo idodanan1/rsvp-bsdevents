@@ -91,55 +91,37 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
-  // CRITICAL: Subscribe to currentEvent changes from store to trigger immediate UI updates
+  // CRITICAL: Force re-render when currentEvent.guests changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
+  const [refreshKey, setRefreshKey] = useState(0);
+  
   useEffect(() => {
-    if (!id) return;
+    if (!id || !currentEvent || currentEvent.id !== id) return;
     
-    // Subscribe to currentEvent changes using selector
+    // Subscribe to currentEvent changes - watch for guest changes
     const unsubscribe = useEventStore.subscribe(
-      (state) => state.currentEvent,
-      (newCurrentEvent, previousCurrentEvent) => {
-        // Only update if this is the event we're viewing
-        if (newCurrentEvent && newCurrentEvent.id === id) {
-          // Check if guests actually changed
-          const newGuestsKey = newCurrentEvent.guests?.map(g => 
-            `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-          ).join('|') || '';
-          
-          const previousGuestsKey = previousCurrentEvent?.guests?.map(g => 
-            `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-          ).join('|') || '';
-          
-          // Only update if guests actually changed
-          if (newGuestsKey !== previousGuestsKey) {
-            console.log('🔄 currentEvent guests updated in store, updating local state');
-            setCurrentEvent(newCurrentEvent);
-          }
-        }
+      (state) => {
+        const event = state.currentEvent;
+        if (!event || event.id !== id) return '';
+        
+        // Return a key that changes when guests change
+        return event.guests?.map(g => 
+          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+        ).join('|') || '';
       },
-      { equalityFn: (a, b) => {
-        // Custom equality check - compare guests keys
-        if (!a && !b) return true;
-        if (!a || !b) return false;
-        if (a.id !== b.id) return false;
-        
-        const aKey = a.guests?.map(g => 
-          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-        ).join('|') || '';
-        
-        const bKey = b.guests?.map(g => 
-          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-        ).join('|') || '';
-        
-        return aKey === bKey;
-      }}
+      (newKey, previousKey) => {
+        // When the key changes, force re-render
+        if (newKey !== previousKey && newKey !== '') {
+          console.log('🔄 currentEvent guests updated in store, forcing re-render');
+          setRefreshKey(prev => prev + 1);
+        }
+      }
     );
     
     return () => {
       unsubscribe();
     };
-  }, [id, setCurrentEvent]);
+  }, [id, currentEvent]);
   
   // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
   // This ensures UI updates immediately when actualAttendance, tableId, etc. change

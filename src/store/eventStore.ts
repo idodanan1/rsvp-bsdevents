@@ -1649,10 +1649,23 @@ export const useEventStore = create<EventStore>()(
               console.log('🔄 Setting/updating currentEvent from guest response update:', eventId);
             }
             
+            // CRITICAL: Always create a new object reference for currentEvent to force React re-render
+            // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
+            if (updatedEvent) {
+              // Always create a new object reference with new guests array to force React re-render
+              // This forces React to detect the change and re-render
+              updatedCurrentEvent = {
+                ...updatedEvent,
+                guests: [...updatedEvent.guests] // New array reference
+              };
+              console.log('🔄 Created new currentEvent reference to force React re-render');
+            }
+            
             // Verify the update
             const verifyEvent = updatedEvents.find(e => e.id === eventId);
             const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
             console.log(`✅ After update - Guest status:`, verifyGuest?.rsvpStatus);
+            console.log(`✅ Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
             
             return {
               events: updatedEvents,
