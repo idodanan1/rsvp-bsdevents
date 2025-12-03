@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
+import { useUserStore } from '../store/userStore';
 import { calculateGlobalStats, formatDate, getStatusIcon, getStatusColor } from '../utils/helpers';
-import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings, RefreshCw } from 'lucide-react';
+import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings, RefreshCw, Monitor } from 'lucide-react';
 import DeletedEventsModal from './DeletedEventsModal';
 
 const Dashboard: React.FC = () => {
@@ -19,11 +20,14 @@ const Dashboard: React.FC = () => {
     syncAllEventsToAPI,
     cleanupOtherUsersEvents
   } = useEventStore();
+  const { user } = useUserStore();
   const globalStats = calculateGlobalStats(events);
   const [showDeletedEventsModal, setShowDeletedEventsModal] = useState(false);
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [connectedDevicesCount, setConnectedDevicesCount] = useState<number>(0);
+  const [sessionId, setSessionId] = useState<string>('');
 
   // Update time every second
   useEffect(() => {
@@ -33,6 +37,61 @@ const Dashboard: React.FC = () => {
 
     return () => clearInterval(timeInterval);
   }, []);
+
+  // Get or create session ID
+  useEffect(() => {
+    let currentSessionId = sessionStorage.getItem('rsvp-session-id');
+    if (!currentSessionId) {
+      currentSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem('rsvp-session-id', currentSessionId);
+      localStorage.setItem('rsvp-last-session-id', currentSessionId);
+    }
+    setSessionId(currentSessionId);
+  }, []);
+
+  // Fetch connected devices count
+  useEffect(() => {
+    const fetchConnectedDevices = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+        const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/count`);
+        if (response.ok) {
+          const data = await response.json();
+          setConnectedDevicesCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching connected devices:', error);
+      }
+    };
+
+    fetchConnectedDevices();
+    
+    // Update session activity every 5 minutes
+    const activityInterval = setInterval(async () => {
+      if (user?.id && sessionId) {
+        try {
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/activity`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId })
+          });
+        } catch (error) {
+          console.error('❌ Error updating session activity:', error);
+        }
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    // Refresh devices count every 30 seconds
+    const devicesInterval = setInterval(fetchConnectedDevices, 30000);
+
+    return () => {
+      clearInterval(activityInterval);
+      clearInterval(devicesInterval);
+    };
+  }, [user?.id, sessionId]);
 
   // Auto-refresh data every 30 seconds (data already loaded from localStorage via persist)
   useEffect(() => {
@@ -202,7 +261,17 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">מחשבים מחוברים</p>
+              <p className="text-3xl font-bold text-blue-600">{connectedDevicesCount}</p>
+            </div>
+            <Monitor className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
         <div className="stat-card">
           <div className="flex items-center justify-between">
             <div>

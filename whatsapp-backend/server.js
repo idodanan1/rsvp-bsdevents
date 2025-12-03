@@ -129,6 +129,22 @@ const verificationCodeSchema = new mongoose.Schema({
 
 const VerificationCode = mongoose.model('VerificationCode', verificationCodeSchema);
 
+// User Session Schema - Track active sessions/devices per user
+const userSessionSchema = new mongoose.Schema({
+  userId: { type: String, required: true, index: true },
+  sessionId: { type: String, required: true, unique: true },
+  deviceInfo: { type: String }, // Browser/device info
+  ipAddress: { type: String },
+  lastActivity: { type: Date, default: Date.now, index: true },
+  createdAt: { type: Date, default: Date.now },
+  expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } // 30 days
+});
+
+// Auto-delete expired sessions
+userSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const UserSession = mongoose.model('UserSession', userSessionSchema);
+
 // Connect to MongoDB
 let isMongoConnected = false;
 let mongoConnectionAttempts = 0;
@@ -2526,6 +2542,38 @@ app.post('/api/users/login', async (req, res) => {
         isAdmin: user.isAdmin
       };
       
+      // Create or update session for this login
+      try {
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const deviceInfo = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+        
+        // Delete old sessions for this user (keep only last 10 sessions)
+        const userSessions = await UserSession.find({ userId: user.id }).sort({ lastActivity: -1 });
+        if (userSessions.length >= 10) {
+          const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
+          await UserSession.deleteMany({ 
+            _id: { $in: sessionsToDelete.map(s => s._id) } 
+          });
+        }
+        
+        // Create new session
+        const newSession = new UserSession({
+          userId: user.id,
+          sessionId: sessionId,
+          deviceInfo: deviceInfo.substring(0, 200), // Limit length
+          ipAddress: ipAddress,
+          lastActivity: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        });
+        await newSession.save();
+        
+        console.log(`✅ Created session for user ${user.id} (${user.email})`);
+      } catch (sessionError) {
+        console.error('⚠️ Error creating session (non-critical):', sessionError.message);
+        // Don't fail login if session creation fails
+      }
+      
       res.json({
         success: true,
         user: userResponse
@@ -2946,6 +2994,78 @@ app.post('/api/users/verify-code', async (req, res) => {
   } catch (error) {
     console.error('❌ Verify code error:', error);
     res.status(500).json({ error: 'שגיאה באימות קוד' });
+  }
+});
+
+// ========================================
+// User Sessions API Endpoints
+// ========================================
+
+// Get active sessions count for current user
+app.get('/api/users/:userId/sessions/count', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!isMongoConnected) {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין' });
+    }
+    
+    // Count active sessions (not expired)
+    const activeSessions = await UserSession.countDocuments({
+      userId: userId,
+      expiresAt: { $gt: new Date() }
+    });
+    
+    // Get session details
+    const sessions = await UserSession.find({
+      userId: userId,
+      expiresAt: { $gt: new Date() }
+    }).sort({ lastActivity: -1 }).limit(10);
+    
+    res.json({
+      success: true,
+      count: activeSessions,
+      sessions: sessions.map(s => ({
+        sessionId: s.sessionId,
+        deviceInfo: s.deviceInfo,
+        ipAddress: s.ipAddress,
+        lastActivity: s.lastActivity,
+        createdAt: s.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Error getting sessions count:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת מספר מחשבים מחוברים' });
+  }
+});
+
+// Update session activity (called periodically from frontend)
+app.post('/api/users/:userId/sessions/activity', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId נדרש' });
+    }
+    
+    if (!isMongoConnected) {
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין' });
+    }
+    
+    // Update session last activity
+    await UserSession.updateOne(
+      { userId: userId, sessionId: sessionId },
+      { 
+        lastActivity: new Date(),
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Extend expiry
+      }
+    );
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('❌ Error updating session activity:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון פעילות session' });
   }
 });
 
