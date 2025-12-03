@@ -91,43 +91,52 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
-  // CRITICAL: Force re-render when events array changes
+  // CRITICAL: Update currentEvent immediately when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-  const [forceUpdateKey, setForceUpdateKey] = useState(0);
-  
   useEffect(() => {
     if (!id) return;
     
     const event = events.find(e => e.id === id);
     if (!event) return;
     
+    // ALWAYS update currentEvent to match events array (source of truth)
+    // This ensures immediate UI updates when guest status changes
+    if (!currentEvent || currentEvent.id !== event.id) {
+      console.log('🔄 Setting currentEvent from events array:', event.id);
+      setCurrentEvent({ 
+        ...event,
+        guests: [...event.guests] // New array reference
+      });
+      return;
+    }
+    
     // Check if guests changed by comparing each guest individually
-    const currentGuests = currentEvent?.guests || [];
+    const currentGuests = currentEvent.guests || [];
     const newGuests = event.guests || [];
     
     // Check if any guest changed
     const guestsChanged = 
       currentGuests.length !== newGuests.length ||
-      newGuests.some((newGuest, index) => {
-        const currentGuest = currentGuests[index];
-        if (!currentGuest) return true;
+      newGuests.some((newGuest) => {
+        const currentGuest = currentGuests.find(cg => cg.id === newGuest.id);
+        if (!currentGuest) return true; // New guest
         return (
           newGuest.rsvpStatus !== currentGuest.rsvpStatus ||
           newGuest.guestCount !== currentGuest.guestCount ||
           newGuest.actualAttendance !== currentGuest.actualAttendance ||
-          newGuest.tableId !== currentGuest.tableId
+          newGuest.tableId !== currentGuest.tableId ||
+          newGuest.notes !== currentGuest.notes
         );
       });
     
     if (guestsChanged) {
       console.log('🔄 Guests changed detected, updating currentEvent immediately');
-      console.log('📊 Old guests:', currentGuests.map(g => ({ id: g.id, status: g.rsvpStatus })));
-      console.log('📊 New guests:', newGuests.map(g => ({ id: g.id, status: g.rsvpStatus })));
+      console.log('📊 Old guests:', currentGuests.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+      console.log('📊 New guests:', newGuests.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
       setCurrentEvent({ 
         ...event,
         guests: [...event.guests] // New array reference
       });
-      setForceUpdateKey(prev => prev + 1); // Force re-render
     }
   }, [id, events, currentEvent, setCurrentEvent]);
   
@@ -372,7 +381,19 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  const filteredGuests = (currentEvent.guests || []).filter(guest => {
+  // CRITICAL: Get guests directly from events array, not from currentEvent
+  // This ensures immediate updates when events change (e.g., from guest response links)
+  const eventFromStore = events.find(e => e.id === id);
+  const guestsToDisplay = eventFromStore?.guests || currentEvent?.guests || [];
+  
+  // CRITICAL: Create a key that changes when guests change to force re-render
+  const guestsKey = useMemo(() => {
+    return guestsToDisplay.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}`
+    ).join('|');
+  }, [guestsToDisplay]);
+  
+  const filteredGuests = guestsToDisplay.filter(guest => {
     const matchesSearch = 
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
