@@ -46,29 +46,13 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Subscribe to the specific event's guests array to force re-render on changes
   // This ensures immediate UI updates when guest status changes via link or WhatsApp buttons
-  // Using shallow comparison from Zustand to detect array changes
-  const eventGuests = useEventStore(
-    state => {
-      const event = state.events.find(e => e.id === id);
-      return event?.guests || [];
-    },
-    (a, b) => {
-      // Custom equality function - return true if equal (skip re-render), false if different (trigger re-render)
-      if (a.length !== b.length) return false;
-      return a.every((guest, index) => {
-        const otherGuest = b[index];
-        if (!otherGuest || guest.id !== otherGuest.id) return false;
-        // Compare all relevant fields
-        return (
-          guest.rsvpStatus === otherGuest.rsvpStatus &&
-          guest.guestCount === otherGuest.guestCount &&
-          guest.actualAttendance === otherGuest.actualAttendance &&
-          guest.tableId === otherGuest.tableId &&
-          (guest.notes || '') === (otherGuest.notes || '')
-        );
-      });
-    }
-  );
+  // NO equality function - let React detect all changes by reference
+  const eventGuests = useEventStore(state => {
+    const event = state.events.find(e => e.id === id);
+    // CRITICAL: Always return a new array reference to force React re-render
+    // This ensures React detects changes even if the array contents are the same
+    return event?.guests ? [...event.guests] : [];
+  });
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');

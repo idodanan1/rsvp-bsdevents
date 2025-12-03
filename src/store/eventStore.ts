@@ -1552,6 +1552,7 @@ export const useEventStore = create<EventStore>()(
             console.log(`📋 Before update - Guest status:`, guest?.rsvpStatus);
             
             // CRITICAL: Create new array reference to force React re-render
+            // Always create a completely new events array to ensure React detects the change
             const updatedEvents = state.events.map(event => {
               if (event.id === eventId) {
                 updatedEvent = {
@@ -1604,9 +1605,11 @@ export const useEventStore = create<EventStore>()(
                         console.log(`🔄 Removed manual change protection for ${manualChangeKey} - new update is newer`);
                       }
                       
-                      return mergedGuest;
+                      // CRITICAL: Always return a new object reference for the guest
+                      return { ...mergedGuest };
                     }
-                    return guest;
+                    // CRITICAL: Return new object reference even for unchanged guests
+                    return { ...guest };
                   }),
                   updatedAt: new Date()
                 };
@@ -1616,7 +1619,8 @@ export const useEventStore = create<EventStore>()(
                   guests: [...updatedEvent.guests] // New array reference
                 };
               }
-              return event;
+              // CRITICAL: Return new object reference even for unchanged events
+              return { ...event };
             });
             
             // CRITICAL: Update currentEvent if it matches eventId, OR if currentEvent is not set but we have the event
