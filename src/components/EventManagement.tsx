@@ -91,6 +91,41 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
+  // CRITICAL: Subscribe to currentEvent changes from store to trigger immediate UI updates
+  // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
+  useEffect(() => {
+    if (!id) return;
+    
+    let previousCurrentEvent = useEventStore.getState().currentEvent;
+    let previousGuestsKey = previousCurrentEvent?.guests?.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+    ).join('|') || '';
+    
+    // Subscribe to store changes
+    const unsubscribe = useEventStore.subscribe((state) => {
+      const newCurrentEvent = state.currentEvent;
+      
+      // Only update if this is the event we're viewing and guests actually changed
+      if (newCurrentEvent && newCurrentEvent.id === id) {
+        const newGuestsKey = newCurrentEvent.guests?.map(g => 
+          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+        ).join('|') || '';
+        
+        // Only update if guests actually changed
+        if (newGuestsKey !== previousGuestsKey) {
+          console.log('🔄 currentEvent guests updated in store, updating local state');
+          setCurrentEvent(newCurrentEvent);
+          previousGuestsKey = newGuestsKey;
+        }
+        previousCurrentEvent = newCurrentEvent;
+      }
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, [id, setCurrentEvent]);
+  
   // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
   // This ensures UI updates immediately when actualAttendance, tableId, etc. change
   // Use useMemo to avoid recalculating on every render
