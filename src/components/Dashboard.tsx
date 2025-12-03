@@ -15,7 +15,8 @@ const Dashboard: React.FC = () => {
     restoreDeletedEvent,
     permanentlyDeleteEvent,
     fetchEvents,
-    updateExistingEventsCampaigns
+    updateExistingEventsCampaigns,
+    syncAllEventsToAPI
   } = useEventStore();
   const globalStats = calculateGlobalStats(events);
   const [showDeletedEventsModal, setShowDeletedEventsModal] = useState(false);
@@ -129,6 +130,22 @@ const Dashboard: React.FC = () => {
               <span>שחזר אירועים ({deletedEvents.length})</span>
             </button>
           )}
+          <button
+            onClick={async () => {
+              try {
+                const result = await syncAllEventsToAPI();
+                alert(`✅ סנכרנו ${result.synced} אירועים ל-API בהצלחה!\n\nעכשיו תוכל לראות אותם גם במחשבים אחרים.`);
+              } catch (error: any) {
+                console.error('❌ Error syncing events:', error);
+                alert(`❌ שגיאה בסנכרון: ${error?.message || 'שגיאה לא ידועה'}`);
+              }
+            }}
+            className="btn-warning flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white"
+            title="סנכרן את כל האירועים מה-localStorage ל-API כדי לראות אותם במחשבים אחרים"
+          >
+            <RefreshCw className="w-5 h-5" />
+            <span>סנכרן אירועים ל-API</span>
+          </button>
           <button
             onClick={async () => {
               try {

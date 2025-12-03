@@ -143,25 +143,37 @@ export const useEventStore = create<EventStore>()(
                 if (localOnlyEvents.length > 0) {
                   console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing...`);
                   try {
-                    const syncResponse = await fetch(`${BACKEND_URL}/api/events/sync`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        events: localOnlyEvents,
-                        userId: userId
-                      })
-                    });
-                    if (syncResponse.ok) {
-                      console.log(`✅ Synced ${localOnlyEvents.length} events to API`);
-                      // Re-fetch from API to get all events
-                      const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
-                      if (reFetchResponse.ok) {
-                        const reFetchData = await reFetchResponse.json();
-                        apiEvents = reFetchData.events || [];
-                        console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
+                    // CRITICAL FIX: Sync each event individually to ensure all are saved
+                    // This is more reliable than syncing all at once
+                    let syncedCount = 0;
+                    for (const event of localOnlyEvents) {
+                      try {
+                        const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(event)
+                        });
+                        if (syncResponse.ok) {
+                          syncedCount++;
+                          console.log(`✅ Synced event ${event.id} (${event.coupleName}) to API`);
+                        } else {
+                          const errorText = await syncResponse.text();
+                          console.warn(`⚠️ Failed to sync event ${event.id}:`, errorText);
+                        }
+                      } catch (eventSyncError) {
+                        console.warn(`⚠️ Error syncing event ${event.id}:`, eventSyncError);
                       }
+                    }
+                    console.log(`✅ Synced ${syncedCount}/${localOnlyEvents.length} events to API`);
+                    
+                    // Re-fetch from API to get all events
+                    const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                    if (reFetchResponse.ok) {
+                      const reFetchData = await reFetchResponse.json();
+                      apiEvents = reFetchData.events || [];
+                      console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
                     }
                   } catch (syncError) {
                     console.warn('⚠️ Failed to sync local events to API:', syncError);
@@ -3308,6 +3320,88 @@ export const useEventStore = create<EventStore>()(
           totalGuests,
           totalCreditsUsed
         };
+      },
+
+      // CRITICAL: Sync all events from localStorage to API (for multi-computer access)
+      syncAllEventsToAPI: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          // Get current user ID
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+          }
+
+          if (!userId) {
+            throw new Error('לא נמצא userId - אנא התחבר מחדש');
+          }
+
+          // Get all events from localStorage
+          const stored = localStorage.getItem('rsvp-events-storage');
+          if (!stored) {
+            throw new Error('לא נמצאו אירועים ב-localStorage');
+          }
+
+          const parsed = JSON.parse(stored);
+          const allEvents = parsed.state?.events || [];
+          
+          // Filter events for current user
+          const userEvents = allEvents.filter((e: Event) => e.userId === userId);
+          
+          if (userEvents.length === 0) {
+            throw new Error('לא נמצאו אירועים למשתמש הנוכחי');
+          }
+
+          console.log(`🔄 Syncing ${userEvents.length} events to API for user ${userId}...`);
+
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          let syncedCount = 0;
+          let failedCount = 0;
+
+          // Sync each event individually
+          for (const event of userEvents) {
+            try {
+              const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(event)
+              });
+              
+              if (syncResponse.ok) {
+                syncedCount++;
+                console.log(`✅ Synced event "${event.coupleName}" (${event.id}) to API`);
+              } else {
+                failedCount++;
+                const errorText = await syncResponse.text();
+                console.error(`❌ Failed to sync event "${event.coupleName}":`, errorText);
+              }
+            } catch (error) {
+              failedCount++;
+              console.error(`❌ Error syncing event "${event.coupleName}":`, error);
+            }
+          }
+
+          console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
+
+          // Refresh events from API after sync
+          await get().fetchEvents(true);
+
+          set({ isLoading: false });
+          
+          if (failedCount > 0) {
+            throw new Error(`סנכרנו ${syncedCount} אירועים, ${failedCount} נכשלו`);
+          }
+          
+          return { synced: syncedCount, failed: failedCount };
+        } catch (error) {
+          console.error('❌ Error syncing all events:', error);
+          set({ error: error instanceof Error ? error.message : 'שגיאה בסנכרון אירועים', isLoading: false });
+          throw error;
+        }
       },
 
     }),
