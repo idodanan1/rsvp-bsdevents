@@ -91,40 +91,34 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
-  // CRITICAL: Subscribe to events array changes to update currentEvent when guest status changes
+  // CRITICAL: Track guests key from events array to detect changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
+  const eventsGuestsKey = useMemo(() => {
+    if (!id) return '';
+    const event = events.find(e => e.id === id);
+    if (!event) return '';
+    return event.guests?.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+    ).join('|') || '';
+  }, [id, events]);
+  
+  // CRITICAL: Update currentEvent when guests change in events array
   useEffect(() => {
-    if (!id) return;
+    if (!id || !eventsGuestsKey) return;
     
-    // Subscribe to events array changes - watch for guest changes in the event we're viewing
-    const unsubscribe = useEventStore.subscribe(
-      (state) => {
-        // Find the event we're viewing in the events array
-        const event = state.events.find(e => e.id === id);
-        if (!event) return '';
-        
-        // Return a key that changes when guests change
-        return event.guests?.map(g => 
-          `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-        ).join('|') || '';
-      },
-      (newKey, previousKey) => {
-        // When the key changes, update currentEvent from events array
-        if (newKey !== previousKey && newKey !== '') {
-          console.log('🔄 Event guests updated in events array, updating currentEvent');
-          const storeState = useEventStore.getState();
-          const updatedEvent = storeState.events.find(e => e.id === id);
-          if (updatedEvent) {
-            setCurrentEvent({ ...updatedEvent }); // Create new reference to force re-render
-          }
-        }
-      }
-    );
+    const event = events.find(e => e.id === id);
+    if (!event) return;
     
-    return () => {
-      unsubscribe();
-    };
-  }, [id, setCurrentEvent]);
+    // Check if currentEvent needs updating
+    const currentGuestsKey = currentEvent?.guests?.map(g => 
+      `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
+    ).join('|') || '';
+    
+    if (eventsGuestsKey !== currentGuestsKey) {
+      console.log('🔄 Guests changed in events array, updating currentEvent immediately');
+      setCurrentEvent({ ...event }); // Create new reference to force re-render
+    }
+  }, [id, eventsGuestsKey, events, currentEvent, setCurrentEvent]);
   
   // CRITICAL: Subscribe to currentEvent.guests changes to trigger immediate UI updates
   // This ensures UI updates immediately when actualAttendance, tableId, etc. change

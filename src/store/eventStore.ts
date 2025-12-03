@@ -1551,6 +1551,7 @@ export const useEventStore = create<EventStore>()(
             
             console.log(`📋 Before update - Guest status:`, guest?.rsvpStatus);
             
+            // CRITICAL: Create new array reference to force React re-render
             const updatedEvents = state.events.map(event => {
               if (event.id === eventId) {
                 updatedEvent = {
@@ -1609,7 +1610,11 @@ export const useEventStore = create<EventStore>()(
                   }),
                   updatedAt: new Date()
                 };
-                return updatedEvent;
+                // CRITICAL: Create new object reference with new guests array to force React re-render
+                return {
+                  ...updatedEvent,
+                  guests: [...updatedEvent.guests] // New array reference
+                };
               }
               return event;
             });
