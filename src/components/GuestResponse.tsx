@@ -206,8 +206,12 @@ const GuestResponse = () => {
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 handleSubmit called!', { formData, guestId, eventId });
+    
     const currentEvent = event || directEvent;
     const currentGuest = guest || directGuest || finalGuest;
+    
+    console.log('📋 Current event:', currentEvent?.id, 'Current guest:', currentGuest?.id);
     
     if (!currentEvent) {
       console.error('❌ No event found');
@@ -224,9 +228,13 @@ const GuestResponse = () => {
       // Determine the guest to update
       const guestToUpdate = currentGuest || (guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null);
       
+      console.log('👤 Guest to update:', guestToUpdate?.id, guestToUpdate?.firstName);
+      
       // Determine the response status
       const responseStatus = formData.response === 'attending' ? 'confirmed' : 
                             formData.response === 'maybe' ? 'maybe' : 'declined';
+      
+      console.log('📝 Response status:', responseStatus);
       
       if (guestToUpdate) {
         // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
@@ -239,7 +247,15 @@ const GuestResponse = () => {
           actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
         };
         
+        console.log('🔄 Calling updateGuestResponse with:', {
+          eventId: currentEvent.id,
+          guestId: guestToUpdate.id,
+          updatedGuest: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount }
+        });
+        
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
+        
+        console.log('✅ updateGuestResponse completed!');
       } else if (guestId) {
         // Try to find guest by ID in event
         const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
