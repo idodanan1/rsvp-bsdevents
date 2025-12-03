@@ -418,21 +418,42 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Before saving, check if we're about to lose any events
                 // Compare allEvents with localEvents to ensure we're not losing data
+                // BUT: Only preserve events that belong to the current user!
                 const eventsToSave = allEvents.length > 0 ? allEvents : localEvents;
                 const localEventIds = new Set(localEvents.map(e => e.id));
                 const savedEventIds = new Set(eventsToSave.map(e => e.id));
-                const lostEvents = localEvents.filter(e => !savedEventIds.has(e.id));
+                
+                // CRITICAL FIX: Only check for lost events that belong to current user
+                // Don't preserve events from other users!
+                const lostEvents = localEvents.filter(e => 
+                  !savedEventIds.has(e.id) && 
+                  (!userId || e.userId === userId || !e.userId || e.userId === 'anonymous')
+                );
                 
                 if (lostEvents.length > 0) {
-                  console.warn(`⚠️ CRITICAL: About to lose ${lostEvents.length} events! Preserving them...`);
-                  console.warn('⚠️ Lost events:', lostEvents.map(e => ({ id: e.id, name: e.coupleName })));
-                  // Add lost events back
+                  console.warn(`⚠️ CRITICAL: About to lose ${lostEvents.length} events for current user! Preserving them...`);
+                  console.warn('⚠️ Lost events:', lostEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                  // Add lost events back (only if they belong to current user)
                   lostEvents.forEach(lostEvent => {
                     if (!eventsToSave.find(e => e.id === lostEvent.id)) {
-                      eventsToSave.push(lostEvent);
-                      console.log(`✅ Preserved lost event: ${lostEvent.id}`);
+                      // CRITICAL: Only preserve if event belongs to current user
+                      if (!userId || lostEvent.userId === userId || !lostEvent.userId || lostEvent.userId === 'anonymous') {
+                        eventsToSave.push(lostEvent);
+                        console.log(`✅ Preserved lost event: ${lostEvent.id} (belongs to current user)`);
+                      } else {
+                        console.log(`⏭️ Skipping event ${lostEvent.id} - belongs to different user (${lostEvent.userId} vs ${userId})`);
+                      }
                     }
                   });
+                } else {
+                  // Log events that don't belong to current user (for debugging)
+                  const otherUserEvents = localEvents.filter(e => 
+                    userId && e.userId && e.userId !== userId && e.userId !== 'anonymous' && !savedEventIds.has(e.id)
+                  );
+                  if (otherUserEvents.length > 0) {
+                    console.log(`ℹ️ Found ${otherUserEvents.length} events from other users (not preserving):`, 
+                      otherUserEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                  }
                 }
                 
                 // Save merged events to localStorage
@@ -658,25 +679,54 @@ export const useEventStore = create<EventStore>()(
               set({ events: filteredEvents, isLoading: false });
               
               // CRITICAL FIX: Ensure all events are preserved in localStorage
-              // Don't let persist middleware overwrite with filtered events
-              // We need to manually ensure all events stay in storage
+              // BUT: Only preserve events that belong to current user or have no userId
+              // Don't preserve events from other users!
               const currentStorage = localStorage.getItem('rsvp-events-storage');
               if (currentStorage) {
                 const currentParsed = JSON.parse(currentStorage);
-                // If storage has more events than what we're setting, preserve them
-                if (currentParsed.state?.events?.length > allEvents.length) {
-                  console.log('⚠️ Storage has more events, preserving them');
-                  // Don't overwrite - keep existing storage
-                } else {
-                  // Ensure all events are saved
-                  localStorage.setItem('rsvp-events-storage', JSON.stringify({
-                    state: {
-                      events: allEvents, // Save ALL events, not filtered
-                      deletedEvents: parsed.state.deletedEvents || [],
-                      currentEvent: parsed.state.currentEvent || null
-                    }
-                  }));
+                const currentStorageEvents = currentParsed.state?.events || [];
+                
+                // Filter out events from other users (keep only current user's events + events with no userId)
+                const eventsToKeep = currentStorageEvents.filter((e: Event) => 
+                  !userId || !e.userId || e.userId === userId || e.userId === 'anonymous'
+                );
+                
+                // Merge: keep events from other users (if any), add current user's events
+                const otherUserEvents = currentStorageEvents.filter((e: Event) => 
+                  userId && e.userId && e.userId !== userId && e.userId !== 'anonymous'
+                );
+                
+                // Combine: current user's events + other users' events (preserve multi-user support)
+                const finalEventsToSave = [
+                  ...allEvents.filter((e: Event) => !userId || e.userId === userId || !e.userId || e.userId === 'anonymous'),
+                  ...otherUserEvents // Preserve events from other users
+                ];
+                
+                // Remove duplicates
+                const uniqueEvents = finalEventsToSave.filter((event: Event, index: number, self: Event[]) => 
+                  index === self.findIndex(e => e.id === event.id)
+                );
+                
+                if (otherUserEvents.length > 0) {
+                  console.log(`ℹ️ Preserving ${otherUserEvents.length} events from other users in storage`);
                 }
+                
+                localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                  state: {
+                    events: uniqueEvents, // Save current user's events + other users' events
+                    deletedEvents: parsed.state.deletedEvents || [],
+                    currentEvent: parsed.state.currentEvent || null
+                  }
+                }));
+              } else {
+                // No existing storage - save only current user's events
+                localStorage.setItem('rsvp-events-storage', JSON.stringify({
+                  state: {
+                    events: allEvents.filter((e: Event) => !userId || e.userId === userId || !e.userId || e.userId === 'anonymous'),
+                    deletedEvents: parsed.state.deletedEvents || [],
+                    currentEvent: parsed.state.currentEvent || null
+                  }
+                }));
               }
               
               return;
@@ -3320,6 +3370,63 @@ export const useEventStore = create<EventStore>()(
           totalGuests,
           totalCreditsUsed
         };
+      },
+
+      // CRITICAL: Clean up events that don't belong to current user
+      cleanupOtherUsersEvents: () => {
+        try {
+          // Get current user ID
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+          }
+
+          if (!userId) {
+            console.warn('⚠️ No userId found - cannot clean up events');
+            return;
+          }
+
+          // Get all events from localStorage
+          const stored = localStorage.getItem('rsvp-events-storage');
+          if (!stored) {
+            return;
+          }
+
+          const parsed = JSON.parse(stored);
+          const allEvents = parsed.state?.events || [];
+          
+          // Filter: keep only events that belong to current user or have no userId/anonymous
+          const userEvents = allEvents.filter((e: Event) => 
+            !e.userId || e.userId === userId || e.userId === 'anonymous'
+          );
+          
+          const removedEvents = allEvents.filter((e: Event) => 
+            e.userId && e.userId !== userId && e.userId !== 'anonymous'
+          );
+          
+          if (removedEvents.length > 0) {
+            console.log(`🧹 Cleaning up ${removedEvents.length} events from other users:`, 
+              removedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+            
+            // Save cleaned events
+            localStorage.setItem('rsvp-events-storage', JSON.stringify({
+              state: {
+                events: userEvents,
+                deletedEvents: parsed.state.deletedEvents || [],
+                currentEvent: parsed.state.currentEvent || null
+              }
+            }));
+            
+            // Update state
+            set({ events: userEvents.filter((e: Event) => e.userId === userId) });
+            
+            console.log(`✅ Cleaned up ${removedEvents.length} events. Kept ${userEvents.length} events for current user.`);
+          }
+        } catch (error) {
+          console.error('❌ Error cleaning up events:', error);
+        }
       },
 
       // CRITICAL: Sync all events from localStorage to API (for multi-computer access)

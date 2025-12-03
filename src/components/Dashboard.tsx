@@ -16,7 +16,8 @@ const Dashboard: React.FC = () => {
     permanentlyDeleteEvent,
     fetchEvents,
     updateExistingEventsCampaigns,
-    syncAllEventsToAPI
+    syncAllEventsToAPI,
+    cleanupOtherUsersEvents
   } = useEventStore();
   const globalStats = calculateGlobalStats(events);
   const [showDeletedEventsModal, setShowDeletedEventsModal] = useState(false);
@@ -130,6 +131,18 @@ const Dashboard: React.FC = () => {
               <span>שחזר אירועים ({deletedEvents.length})</span>
             </button>
           )}
+          <button
+            onClick={() => {
+              cleanupOtherUsersEvents();
+              fetchEvents(true);
+              alert('✅ ניקיתי את האירועים שלא שייכים לך.\n\nעכשיו תראה רק את האירועים שלך.');
+            }}
+            className="btn-secondary flex items-center space-x-2 bg-red-100 text-red-700 hover:bg-red-200 border-red-300"
+            title="נקה אירועים שלא שייכים למשתמש הנוכחי"
+          >
+            <Trash2 className="w-5 h-5" />
+            <span>נקה אירועים של משתמשים אחרים</span>
+          </button>
           <button
             onClick={async () => {
               try {
