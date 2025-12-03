@@ -132,16 +132,25 @@ const Dashboard: React.FC = () => {
             </button>
           )}
           <button
-            onClick={() => {
-              cleanupOtherUsersEvents();
-              fetchEvents(true);
-              alert('✅ ניקיתי את האירועים שלא שייכים לך.\n\nעכשיו תראה רק את האירועים שלך.');
+            onClick={async () => {
+              try {
+                // First, clean up localStorage
+                cleanupOtherUsersEvents();
+                
+                // Then, force refresh from API (this will load only current user's events)
+                await fetchEvents(true);
+                
+                alert('✅ ניקיתי את האירועים שלא שייכים לך וטענתי מחדש מה-API.\n\nעכשיו תראה רק את האירועים שלך.');
+              } catch (error: any) {
+                console.error('❌ Error cleaning up:', error);
+                alert(`❌ שגיאה בניקוי: ${error?.message || 'שגיאה לא ידועה'}`);
+              }
             }}
             className="btn-secondary flex items-center space-x-2 bg-red-100 text-red-700 hover:bg-red-200 border-red-300"
-            title="נקה אירועים שלא שייכים למשתמש הנוכחי"
+            title="נקה אירועים שלא שייכים למשתמש הנוכחי וטען מחדש מה-API"
           >
             <Trash2 className="w-5 h-5" />
-            <span>נקה אירועים של משתמשים אחרים</span>
+            <span>נקה וטען מחדש</span>
           </button>
           <button
             onClick={async () => {
