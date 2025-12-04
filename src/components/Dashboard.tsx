@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, startTransition } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { useUserStore } from '../store/userStore';
@@ -95,6 +95,7 @@ const Dashboard: React.FC = () => {
 
   // CRITICAL: Auto-refresh data every 2 seconds to ensure real-time sync between devices
   // This ensures that changes made on one device are immediately visible on other devices
+  // Using startTransition to make updates smooth and non-blocking
   useEffect(() => {
     // Fetch immediately on mount to get latest data from API
     console.log('🔄 Initial fetch from API for real-time sync...');
@@ -103,10 +104,13 @@ const Dashboard: React.FC = () => {
     });
     
     // Set up auto-refresh interval - fetch every 2 seconds for real-time sync
+    // Using startTransition to mark updates as non-urgent, preventing visual jumps
     const dataInterval = setInterval(() => {
       console.log('🔄 Auto-refreshing events for real-time sync...');
-      fetchEvents(true).catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
+      startTransition(() => {
+        fetchEvents(true).catch(error => {
+          console.error('❌ Error auto-refreshing events:', error);
+        });
       });
     }, 2000); // 2 seconds - fast sync between devices
 
@@ -273,7 +277,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">מחשבים מחוברים</p>
-              <p className="text-3xl font-bold text-blue-600">{connectedDevicesCount}</p>
+              <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
             </div>
             <Monitor className="w-8 h-8 text-blue-600" />
           </div>
@@ -283,7 +287,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">אירועים פעילים</p>
-              <p className="text-3xl font-bold text-teal-600">{globalStats.activeEvents}</p>
+              <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
             </div>
             <Calendar className="w-8 h-8 text-teal-600" />
           </div>
@@ -293,7 +297,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">מוזמנים סה"כ</p>
-              <p className="text-3xl font-bold text-yellow-500">{globalStats.totalGuests}</p>
+              <p className="text-3xl font-bold text-yellow-500 stat-number">{globalStats.totalGuests}</p>
             </div>
             <Users className="w-8 h-8 text-yellow-500" />
           </div>
@@ -303,7 +307,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">אחוז תגובה</p>
-              <p className="text-3xl font-bold text-yellow-600">{globalStats.averageResponseRate}%</p>
+              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.averageResponseRate}%</p>
             </div>
             <CheckCircle className="w-8 h-8 text-yellow-600" />
           </div>
@@ -313,7 +317,7 @@ const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">אישרו הגעה</p>
-              <p className="text-3xl font-bold text-purple-600">{globalStats.totalConfirmed}</p>
+              <p className="text-3xl font-bold text-purple-600 stat-number">{globalStats.totalConfirmed}</p>
             </div>
             <CheckCircle className="w-8 h-8 text-purple-600" />
           </div>
@@ -378,7 +382,7 @@ const Dashboard: React.FC = () => {
                     </div>
                     <div className="text-right bg-blue-50 rounded-lg p-3 border border-blue-200">
                       <p className="text-sm text-blue-700 font-medium">סה"כ מוזמנים</p>
-                      <p className="text-2xl font-bold text-blue-600">{total}</p>
+                      <p className="text-2xl font-bold text-blue-600 stat-number">{total}</p>
                     </div>
                   </div>
 
@@ -387,7 +391,7 @@ const Dashboard: React.FC = () => {
                     <div className="text-center p-3 bg-green-50 rounded-lg border-2 border-green-200">
                       <div className="flex items-center justify-center mb-1">
                         <CheckCircle className="w-4 h-4 text-green-600 mr-1" />
-                        <span className="text-xl font-bold text-green-600">{confirmed}</span>
+                        <span className="text-xl font-bold text-green-600 stat-number">{confirmed}</span>
                       </div>
                       <p className="text-xs text-green-700 font-medium">מגיעים</p>
                     </div>
@@ -395,7 +399,7 @@ const Dashboard: React.FC = () => {
                     <div className="text-center p-3 bg-red-50 rounded-lg border-2 border-red-200">
                       <div className="flex items-center justify-center mb-1">
                         <XCircle className="w-4 h-4 text-red-600 mr-1" />
-                        <span className="text-xl font-bold text-red-600">{declined}</span>
+                        <span className="text-xl font-bold text-red-600 stat-number">{declined}</span>
                       </div>
                       <p className="text-xs text-red-700 font-medium">לא מגיעים</p>
                     </div>
@@ -403,7 +407,7 @@ const Dashboard: React.FC = () => {
                     <div className="text-center p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200">
                       <div className="flex items-center justify-center mb-1">
                         <HelpCircle className="w-4 h-4 text-yellow-600 mr-1" />
-                        <span className="text-xl font-bold text-yellow-600">{maybe}</span>
+                        <span className="text-xl font-bold text-yellow-600 stat-number">{maybe}</span>
                       </div>
                       <p className="text-xs text-yellow-700 font-medium">אולי</p>
                     </div>
@@ -411,7 +415,7 @@ const Dashboard: React.FC = () => {
                     <div className="text-center p-3 bg-gray-50 rounded-lg border-2 border-gray-200">
                       <div className="flex items-center justify-center mb-1">
                         <Clock className="w-4 h-4 text-gray-600 mr-1" />
-                        <span className="text-xl font-bold text-gray-600">{pending}</span>
+                        <span className="text-xl font-bold text-gray-600 stat-number">{pending}</span>
                       </div>
                       <p className="text-xs text-gray-700 font-medium">לא ענו</p>
                     </div>

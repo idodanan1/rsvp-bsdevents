@@ -111,6 +111,12 @@
   
   .stat-card {
     @apply bg-white rounded-lg shadow-sm border border-teal-200 p-4 text-center;
+    transition: all 0.3s ease-in-out;
+    contain: layout style paint;
+  }
+  
+  .stat-card * {
+    transition: opacity 0.2s ease-in-out;
   }
   
   .stat-card-orange {
@@ -139,6 +145,20 @@
   
   .event-card {
     @apply bg-white rounded-xl shadow-lg border border-teal-200 p-6 hover:shadow-xl transition-shadow duration-300;
+    transition: all 0.3s ease-in-out;
+    contain: layout style paint;
+  }
+  
+  .event-card * {
+    transition: opacity 0.2s ease-in-out;
+  }
+  
+  /* Smooth number transitions to prevent jumps */
+  .stat-number {
+    display: inline-block;
+    min-width: 1ch;
+    transition: opacity 0.15s ease-in-out;
+    contain: layout;
   }
   
   /* Fix for table text truncation */

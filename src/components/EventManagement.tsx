@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -97,6 +97,7 @@ const EventManagement: React.FC = () => {
   }, [showExportMenu]);
 
   // Load events when component mounts or id changes, and auto-refresh for real-time sync
+  // Using startTransition to make updates smooth and non-blocking
   useEffect(() => {
     if (!id) return;
     
@@ -106,10 +107,13 @@ const EventManagement: React.FC = () => {
     });
     
     // Auto-refresh events every 2 seconds for real-time sync between devices
+    // Using startTransition to mark updates as non-urgent, preventing visual jumps
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing events for real-time sync...');
-      fetchEvents().catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
+      startTransition(() => {
+        fetchEvents().catch(error => {
+          console.error('❌ Error auto-refreshing events:', error);
+        });
       });
     }, 2000); // Refresh every 2 seconds for immediate sync
 
