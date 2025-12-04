@@ -54,8 +54,10 @@ export const useEventStore = create<EventStore>()(
       error: null,
       manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
-      fetchEvents: async (forceRefresh: boolean = false) => {
-        set({ isLoading: true, error: null });
+      fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        if (!silent) {
+          set({ isLoading: true, error: null });
+        }
         try {
           // Get current user ID and email
           const userStorage = localStorage.getItem('rsvp-user-storage');
@@ -581,6 +583,18 @@ export const useEventStore = create<EventStore>()(
                   campaigns: event.campaigns ? event.campaigns.map(campaign => ({ ...campaign })) : [],
                   tables: event.tables ? event.tables.map(table => ({ ...table })) : []
                 }));
+                
+                // Only update state if data actually changed (for silent updates)
+                if (silent) {
+                  const currentEvents = get().events;
+                  const currentEventsJson = JSON.stringify(currentEvents.map(e => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
+                  const newEventsJson = JSON.stringify(eventsWithNewReferences.map(e => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
+                  
+                  if (currentEventsJson === newEventsJson && currentEvents.length === eventsWithNewReferences.length) {
+                    // Data hasn't changed, skip update to prevent unnecessary re-renders
+                    return;
+                  }
+                }
                 
                 set({ events: eventsWithNewReferences, isLoading: false });
                 return; // Exit early - we got events from API

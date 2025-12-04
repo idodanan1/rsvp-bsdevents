@@ -212,7 +212,7 @@ export interface EventStore {
   manualChanges: Map<string, number>; // Track manual changes: "eventId-guestId" -> timestamp
   
   // Actions
-  fetchEvents: (forceRefresh?: boolean) => Promise<void>;
+  fetchEvents: (forceRefresh?: boolean, silent?: boolean) => Promise<void>;
   createEvent: (event: Omit<Event, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateEvent: (id: string, updates: Partial<Event>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;

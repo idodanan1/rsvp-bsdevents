@@ -107,11 +107,12 @@ const EventManagement: React.FC = () => {
     });
     
     // Auto-refresh events every 2 seconds for real-time sync between devices
-    // Using startTransition to mark updates as non-urgent, preventing visual jumps
+    // Using startTransition and silent mode to make updates smooth and non-blocking
     const intervalId = setInterval(() => {
-      console.log('🔄 Auto-refreshing events for real-time sync...');
+      console.log('🔄 Auto-refreshing events for real-time sync (silent mode)...');
       startTransition(() => {
-        fetchEvents().catch(error => {
+        // Use silent: true to prevent isLoading updates that cause visual jumps
+        fetchEvents(false, true).catch(error => {
           console.error('❌ Error auto-refreshing events:', error);
         });
       });

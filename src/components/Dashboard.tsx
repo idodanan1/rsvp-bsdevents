@@ -104,11 +104,12 @@ const Dashboard: React.FC = () => {
     });
     
     // Set up auto-refresh interval - fetch every 2 seconds for real-time sync
-    // Using startTransition to mark updates as non-urgent, preventing visual jumps
+    // Using startTransition and silent mode to make updates smooth and non-blocking
     const dataInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing events for real-time sync...');
+      console.log('🔄 Auto-refreshing events for real-time sync (silent mode)...');
       startTransition(() => {
-        fetchEvents(true).catch(error => {
+        // Use silent: true to prevent isLoading updates that cause visual jumps
+        fetchEvents(true, true).catch(error => {
           console.error('❌ Error auto-refreshing events:', error);
         });
       });
