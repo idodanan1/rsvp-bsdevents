@@ -75,19 +75,24 @@ export const useEventStore = create<EventStore>()(
           let apiError = false;
 
           if (userId) {
-            // Check cache first (unless force refresh)
+            // CRITICAL: Always fetch from API to ensure sync between devices
+            // Cache is only used for immediate display, but we always fetch fresh data
             const cacheKey = CACHE_KEYS.EVENTS(userId);
+            let useCache = false;
+            
             if (!forceRefresh) {
               const cachedEvents = cacheService.get<Event[]>(cacheKey);
-              if (cachedEvents) {
-                console.log(`💾 Using cached events (${cachedEvents.length} events)`);
-                // Still merge with local events to preserve manual changes
+              if (cachedEvents && cachedEvents.length > 0) {
+                console.log(`💾 Using cached events (${cachedEvents.length} events) for immediate display`);
+                // Use cache for immediate display, but still fetch from API in background
                 apiEvents = cachedEvents;
+                useCache = true;
               }
             }
 
-            // If no cache or force refresh, fetch from API
-            if (forceRefresh || !apiEvents.length) {
+            // CRITICAL: Always fetch from API to ensure sync between devices
+            // Even if we have cache, we need fresh data from API
+            if (forceRefresh || !useCache || true) { // Always fetch from API
               try {
                 console.log('🌐 Fetching events from API...');
                 const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
@@ -566,7 +571,18 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Create new array reference to force React re-render
                 // This ensures the table updates when events are synced from API (other devices)
                 console.log('🔄 Creating new events array reference from API sync to force React re-render');
-                set({ events: [...filteredEvents], isLoading: false });
+                console.log('📊 Setting events:', filteredEvents.length, 'events with', filteredEvents.reduce((sum, e) => sum + (e.guests?.length || 0), 0), 'total guests');
+                
+                // CRITICAL: Create deep copy of events with new references for all nested objects
+                // This ensures React detects ALL changes, including nested guest changes
+                const eventsWithNewReferences = filteredEvents.map(event => ({
+                  ...event,
+                  guests: event.guests ? event.guests.map(guest => ({ ...guest })) : [],
+                  campaigns: event.campaigns ? event.campaigns.map(campaign => ({ ...campaign })) : [],
+                  tables: event.tables ? event.tables.map(table => ({ ...table })) : []
+                }));
+                
+                set({ events: eventsWithNewReferences, isLoading: false });
                 return; // Exit early - we got events from API
               } else {
                 console.warn('⚠️ API fetch failed, using localStorage');

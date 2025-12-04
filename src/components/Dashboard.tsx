@@ -93,15 +93,22 @@ const Dashboard: React.FC = () => {
     };
   }, [user?.id, sessionId]);
 
-  // Auto-refresh data every 30 seconds (data already loaded from localStorage via persist)
+  // CRITICAL: Auto-refresh data every 2 seconds to ensure real-time sync between devices
+  // This ensures that changes made on one device are immediately visible on other devices
   useEffect(() => {
-    // Set up auto-refresh interval - don't fetch immediately, data already loaded
+    // Fetch immediately on mount to get latest data from API
+    console.log('🔄 Initial fetch from API for real-time sync...');
+    fetchEvents(true).catch(error => {
+      console.error('❌ Error initial fetch:', error);
+    });
+    
+    // Set up auto-refresh interval - fetch every 2 seconds for real-time sync
     const dataInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing data...');
-      fetchEvents().catch(error => {
+      console.log('🔄 Auto-refreshing events for real-time sync...');
+      fetchEvents(true).catch(error => {
         console.error('❌ Error auto-refreshing events:', error);
       });
-    }, 30000); // 30 seconds
+    }, 2000); // 2 seconds - fast sync between devices
 
     return () => clearInterval(dataInterval);
   }, [fetchEvents]);

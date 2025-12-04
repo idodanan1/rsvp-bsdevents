@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
+import { useShallow } from 'zustand/react/shallow';
 import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -44,28 +45,19 @@ const EventManagement: React.FC = () => {
   const removeGuestFromTable = useEventStore(state => state.removeGuestFromTable);
   const moveGuestToTable = useEventStore(state => state.moveGuestToTable);
   
-  // CRITICAL: Subscribe to the specific event's guests array to force re-render on changes
-  // This ensures immediate UI updates when guest status changes via link or WhatsApp buttons
-  // Subscribe to both events array AND the specific event to detect changes
-  const eventGuests = useEventStore(state => {
-    const event = state.events.find(e => e.id === id);
-    if (!event) return [];
-    
-    // CRITICAL: Create a serialized key from guests to detect changes
-    // This ensures React detects changes even if array reference is the same
-    const guestsKey = event.guests.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
-    ).join('|');
-    
-    // Return guests with the key to force re-render when key changes
-    return event.guests ? [...event.guests] : [];
-  }, (a, b) => {
-    // Custom equality: compare by serialized key
-    if (a.length !== b.length) return false;
-    const aKey = a.map(g => `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`).join('|');
-    const bKey = b.map(g => `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`).join('|');
-    return aKey === bKey;
-  });
+  // CRITICAL: Subscribe to the entire events array to detect changes
+  // This ensures React detects changes when events are updated from API (other devices)
+  const eventsFromStore = useEventStore(state => state.events);
+  
+  // CRITICAL: Get the specific event and create guests array that changes when event changes
+  // Use useMemo to create a new array reference when event.guests changes
+  const eventGuests = useMemo(() => {
+    const event = eventsFromStore.find(e => e.id === id);
+    if (!event || !event.guests) return [];
+    // CRITICAL: Always create a new array reference to force React re-render
+    // Map each guest to create new object references as well
+    return event.guests.map(guest => ({ ...guest }));
+  }, [id, eventsFromStore]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -303,7 +295,8 @@ const EventManagement: React.FC = () => {
             
             // Check if any field changed in API (excluding manual changes)
             const guestKey = `${event.id}-${apiGuest.id}`;
-            const hasManualChange = state.manualChanges?.get?.(guestKey) && (now - state.manualChanges.get(guestKey)) < MANUAL_CHANGE_PROTECTION_TIME;
+            const manualChangeTimestamp = state.manualChanges?.get?.(guestKey);
+            const hasManualChange = manualChangeTimestamp && (now - manualChangeTimestamp) < MANUAL_CHANGE_PROTECTION_TIME;
             
             // CRITICAL: Always check rsvpStatus, guestCount, notes - these come from guest response links
             // Don't skip these even if there's a manual change (guest response links override manual changes)
@@ -1096,13 +1089,13 @@ const EventManagement: React.FC = () => {
       }
     });
     
-    // Define columns in RTL order - עמודה A תהיה "הערות" (ימין), עמודה E תהיה "שם האורח" (שמאל)
+    // Define columns in RTL order - מימין לשמאל: שם האורח (ימין), פלאפון, כמות, שיוך, הערות (שמאל)
     worksheet.columns = [
-      { header: 'הערות', key: 'notes', width: 20 },
-      { header: 'שיוך למשפחה', key: 'family', width: 15 },
-      { header: 'כמות מגיעים', key: 'guestCount', width: 20 },
+      { header: 'שם האורח', key: 'fullName', width: 20 },
       { header: 'פלאפון האורח', key: 'phoneNumber', width: 15 },
-      { header: 'שם האורח', key: 'fullName', width: 20 }
+      { header: 'כמות מגיעים', key: 'guestCount', width: 20 },
+      { header: 'שיוך למשפחה', key: 'family', width: 15 },
+      { header: 'הערות', key: 'notes', width: 20 }
     ];
     
     // Style header row
@@ -1132,77 +1125,77 @@ const EventManagement: React.FC = () => {
       };
     });
     
-    // Add example data rows
+    // Add example data rows - הסדר מימין לשמאל: שם, פלאפון, כמות, שיוך, הערות
     const exampleData = [
       {
-        notes: '',
-        family: '',
-        guestCount: '1 (לא חובה להזין כמות) חברים של הכלה',
+        fullName: 'אבי',
         phoneNumber: '0505522333',
-        fullName: 'אבי'
+        guestCount: '1 (לא חובה להזין כמות) חברים של הכלה',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       },
       {
-        notes: '',
-        family: '',
-        guestCount: '',
+        fullName: '',
         phoneNumber: '',
-        fullName: ''
+        guestCount: '',
+        family: '',
+        notes: ''
       }
     ];
     
@@ -1418,13 +1411,14 @@ const EventManagement: React.FC = () => {
         };
 
         // Convert to guests array
-        // Excel columns order (LTR - Left to Right): שם האורח, פלאפון האורח, כמות מגיעים, סטטוס הגעה, הערות, שיוך למשפחה, מספר שולחן
-        // Array indices (0-based, LTR): [0] שם האורח, [1] פלאפון האורח, [2] כמות מגיעים, [3] סטטוס הגעה, [4] הערות, [5] שיוך למשפחה, [6] מספר שולחן
+        // Excel columns order (RTL - Right to Left, מימין לשמאל): שם האורח, פלאפון האורח, כמות מגיעים, שיוך למשפחה, הערות
+        // Array indices (0-based, RTL): [0] שם האורח, [1] פלאפון האורח, [2] כמות מגיעים, [3] שיוך למשפחה, [4] הערות
         
         console.log('📊 Total rows in Excel:', jsonData.length);
         console.log('📊 Header row:', jsonData[0]);
         console.log('📊 First data row:', jsonData[1]);
-        console.log('📊 Row length:', jsonData[1]?.length);
+        const firstRowLength = Array.isArray(jsonData[1]) ? jsonData[1].length : 0;
+        console.log('📊 Row length:', firstRowLength);
         
         const allRows = jsonData.slice(1); // Skip header row
         console.log('📊 Data rows after skipping header:', allRows.length);
@@ -1448,7 +1442,7 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Processing row ${index + 1}:`, row);
             console.log(`📋 Row length: ${row.length}, Values:`, row);
             
-            // Excel structure (LTR): Column A=שם, B=טלפון, C=כמות, D=סטטוס הגעה, E=הערות, F=שיוך, G=שולחן
+            // Excel structure (RTL - מימין לשמאל): Column A=שם האורח, B=פלאפון האורח, C=כמות מגיעים, D=שיוך למשפחה, E=הערות
             
             // Column A (index 0): שם האורח → תחת "מוזמן"
             const fullName = String(row[0] || '').trim();
@@ -1472,23 +1466,20 @@ const EventManagement: React.FC = () => {
             const guestCount = parseInt(String(row[2] || '1')) || 1;
             console.log(`📋 Guest count from column C (index 2): "${guestCount}"`);
             
-            // Column D (index 3): סטטוס הגעה → תחת "סטטוס אישור"
-            const arrivalStatusText = String(row[3] || '').trim();
-            console.log(`📋 Arrival status from column D (index 3): "${arrivalStatusText}"`);
-            
-            // Parse RSVP status from arrival status
-            const rsvpStatus = parseRsvpStatus(arrivalStatusText);
-            console.log(`📋 Parsed RSVP status: "${rsvpStatus}"`);
-            
-            // Parse actual attendance from arrival status (same field)
-            const actualAttendance = parseActualAttendance(arrivalStatusText);
-            console.log(`📋 Parsed actual attendance: "${actualAttendance}"`);
+            // Column D (index 3): שיוך למשפחה (optional)
+            const family = String(row[3] || '').trim();
+            console.log(`📋 Family from column D (index 3): "${family}"`);
             
             // Column E (index 4): הערות (optional)
             const notes = String(row[4] || '').trim();
+            console.log(`📋 Notes from column E (index 4): "${notes}"`);
             
-            // Column G (index 6): מספר שולחן → תחת "שולחן"
-            const tableNumber = String(row[6] || '').trim();
+            // Default RSVP status and attendance (not in template)
+            const rsvpStatus = 'pending' as 'pending' | 'confirmed' | 'declined' | 'maybe';
+            const actualAttendance = 'not_marked' as 'attended' | 'not_attended' | 'not_marked';
+            
+            // Table number not in template - will be empty
+            const tableNumber = '';
             console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
             
             // Try to find existing table
@@ -1551,16 +1542,14 @@ const EventManagement: React.FC = () => {
         if (guests.length === 0) {
           console.error('❌ No guests found! Check the Excel file structure.');
           console.log('📋 Sample row data:', jsonData[1]);
-          console.log('📋 Expected columns (LTR - Left to Right):', [
+          console.log('📋 Expected columns (RTL - מימין לשמאל):', [
             '[0] Column A: שם האורח',
             '[1] Column B: פלאפון האורח',
             '[2] Column C: כמות מגיעים',
-            '[3] Column D: סטטוס הגעה',
-            '[4] Column E: הערות',
-            '[5] Column F: שיוך למשפחה',
-            '[6] Column G: מספר שולחן'
+            '[3] Column D: שיוך למשפחה',
+            '[4] Column E: הערות'
           ]);
-          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (משמאל לימין):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: סטטוס הגעה\n- Column G: מספר שולחן');
+          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (מימין לשמאל):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: שיוך למשפחה\n- Column E: הערות');
         }
 
         // Add guests to event
