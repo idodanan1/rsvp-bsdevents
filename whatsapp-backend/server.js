@@ -2543,40 +2543,97 @@ app.post('/api/users/login', async (req, res) => {
       };
       
       // Create or update session for this login
+      let sessionId = null;
       try {
-        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         const deviceInfo = req.headers['user-agent'] || 'Unknown';
         const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+        const clientSessionId = req.body.sessionId; // SessionId from frontend (if exists)
         
-        // Delete old sessions for this user (keep only last 10 sessions)
-        const userSessions = await UserSession.find({ userId: user.id }).sort({ lastActivity: -1 });
-        if (userSessions.length >= 10) {
-          const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
-          await UserSession.deleteMany({ 
-            _id: { $in: sessionsToDelete.map(s => s._id) } 
+        sessionId = clientSessionId;
+        let existingSession = null;
+        
+        // First, try to find existing session by sessionId (if provided)
+        if (clientSessionId) {
+          existingSession = await UserSession.findOne({ 
+            userId: user.id, 
+            sessionId: clientSessionId,
+            expiresAt: { $gt: new Date() } // Not expired
           });
+          
+          if (existingSession) {
+            // Update existing session
+            existingSession.lastActivity = new Date();
+            existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Extend expiry
+            existingSession.deviceInfo = deviceInfo.substring(0, 200);
+            existingSession.ipAddress = ipAddress;
+            await existingSession.save();
+            console.log(`✅ Updated existing session for user ${user.id} (${user.email}) - same device`);
+            sessionId = existingSession.sessionId;
+          }
         }
         
-        // Create new session
-        const newSession = new UserSession({
-          userId: user.id,
-          sessionId: sessionId,
-          deviceInfo: deviceInfo.substring(0, 200), // Limit length
-          ipAddress: ipAddress,
-          lastActivity: new Date(),
-          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
-        });
-        await newSession.save();
+        // If no session found by sessionId, try to find by device fingerprint (deviceInfo + ipAddress)
+        if (!existingSession) {
+          existingSession = await UserSession.findOne({ 
+            userId: user.id,
+            deviceInfo: deviceInfo.substring(0, 200),
+            ipAddress: ipAddress,
+            expiresAt: { $gt: new Date() } // Not expired
+          });
+          
+          if (existingSession) {
+            // Update existing session with same device fingerprint
+            existingSession.lastActivity = new Date();
+            existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Extend expiry
+            if (clientSessionId && existingSession.sessionId !== clientSessionId) {
+              // Update sessionId if client provided a different one
+              existingSession.sessionId = clientSessionId;
+            }
+            await existingSession.save();
+            console.log(`✅ Updated existing session for user ${user.id} (${user.email}) - same device fingerprint`);
+            sessionId = existingSession.sessionId;
+          }
+        }
         
-        console.log(`✅ Created session for user ${user.id} (${user.email})`);
+        // If still no session found, create new one
+        if (!existingSession) {
+          sessionId = clientSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Delete old expired sessions for this user (keep only last 10 active sessions)
+          const userSessions = await UserSession.find({ userId: user.id }).sort({ lastActivity: -1 });
+          if (userSessions.length >= 10) {
+            const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
+            await UserSession.deleteMany({ 
+              _id: { $in: sessionsToDelete.map(s => s._id) } 
+            });
+          }
+          
+          // Create new session
+          const newSession = new UserSession({
+            userId: user.id,
+            sessionId: sessionId,
+            deviceInfo: deviceInfo.substring(0, 200), // Limit length
+            ipAddress: ipAddress,
+            lastActivity: new Date(),
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+          });
+          await newSession.save();
+          
+          console.log(`✅ Created new session for user ${user.id} (${user.email})`);
+        }
       } catch (sessionError) {
-        console.error('⚠️ Error creating session (non-critical):', sessionError.message);
+        console.error('⚠️ Error managing session (non-critical):', sessionError.message);
         // Don't fail login if session creation fails
+        // Generate fallback sessionId if session management failed
+        if (!sessionId) {
+          sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
       }
       
       res.json({
         success: true,
-        user: userResponse
+        user: userResponse,
+        sessionId: sessionId || undefined // Return sessionId so frontend can use it
       });
     } else {
       return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });

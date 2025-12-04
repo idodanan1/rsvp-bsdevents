@@ -197,10 +197,17 @@ export const useUserStore = create<UserStore>()(
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000); // רק 3 שניות - אם זה לא עובד מהר, זה לא עובד
             
+            // Get existing sessionId if available (to reuse same session for same device)
+            const existingSessionId = sessionStorage.getItem('rsvp-session-id') || localStorage.getItem('rsvp-last-session-id');
+            
             const response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: email.trim(), password: password.trim() }),
+              body: JSON.stringify({ 
+                email: email.trim(), 
+                password: password.trim(),
+                sessionId: existingSessionId || undefined // Send existing sessionId if available
+              }),
               signal: controller.signal
             });
             
@@ -216,8 +223,9 @@ export const useUserStore = create<UserStore>()(
                 };
                 
                 console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
-                // Create session ID for this login
-                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                // Use sessionId from response if provided, otherwise create new one
+                const sessionId = data.sessionId || existingSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 sessionStorage.setItem('rsvp-session-id', sessionId);
                 localStorage.setItem('rsvp-last-session-id', sessionId);
                 
