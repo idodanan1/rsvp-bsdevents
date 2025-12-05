@@ -598,11 +598,11 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Update currentEvent if it exists and matches one of the updated events
                 // This ensures the table updates immediately when guest status changes via link
-                const state = get();
-                let updatedCurrentEvent = state.currentEvent;
+                const storeState = get();
+                let updatedCurrentEvent = storeState.currentEvent;
                 
-                if (state.currentEvent) {
-                  const updatedEvent = eventsWithNewReferences.find(e => e.id === state.currentEvent.id);
+                if (storeState.currentEvent) {
+                  const updatedEvent = eventsWithNewReferences.find(e => e.id === storeState.currentEvent.id);
                   if (updatedEvent) {
                     // Create new object reference to force React re-render
                     updatedCurrentEvent = {
@@ -776,11 +776,11 @@ export const useEventStore = create<EventStore>()(
               
               // CRITICAL: Update currentEvent if it exists and matches one of the filtered events
               // This ensures the table updates immediately when guest status changes via link
-              const state = get();
-              let updatedCurrentEvent = state.currentEvent;
+              const storeStateForLocalStorage = get();
+              let updatedCurrentEvent = storeStateForLocalStorage.currentEvent;
               
-              if (state.currentEvent) {
-                const updatedEvent = filteredEvents.find(e => e.id === state.currentEvent.id);
+              if (storeStateForLocalStorage.currentEvent) {
+                const updatedEvent = filteredEvents.find(e => e.id === storeStateForLocalStorage.currentEvent.id);
                 if (updatedEvent) {
                   // Create new object reference to force React re-render
                   updatedCurrentEvent = {
