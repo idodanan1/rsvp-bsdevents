@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
+import type { useEventStore as UseEventStoreType } from '../store/eventStore';
 import { formatDate, formatDateTime } from '../utils/helpers';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
 
@@ -256,6 +257,22 @@ const GuestResponse = () => {
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
         
         console.log('✅ updateGuestResponse completed!');
+        
+        // CRITICAL: Force refresh events from store to ensure UI updates immediately
+        // This is the same approach used in webhook service for WhatsApp updates
+        const { useEventStore: eventStore } = await import('../store/eventStore');
+        const storeState = eventStore.getState();
+        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
+        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestToUpdate.id);
+        console.log(`🔄 Refreshed guest status after update: ${refreshedGuest?.rsvpStatus}`);
+        
+        // Force a re-fetch of events to ensure all components see the update
+        // This ensures the table in EventManagement updates immediately
+        setTimeout(() => {
+          storeState.fetchEvents(false, true).catch(err => {
+            console.warn('⚠️ Failed to refresh events after guest response update:', err);
+          });
+        }, 100);
       } else if (guestId) {
         // Try to find guest by ID in event
         const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
@@ -270,6 +287,22 @@ const GuestResponse = () => {
           };
           
           await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
+          
+          // CRITICAL: Force refresh events from store to ensure UI updates immediately
+          // This is the same approach used in webhook service for WhatsApp updates
+          const storeModule = await import('../store/eventStore');
+          const storeState = storeModule.useEventStore.getState();
+          const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
+          const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestId);
+          console.log(`🔄 Refreshed guest status after update: ${refreshedGuest?.rsvpStatus}`);
+          
+          // Force a re-fetch of events to ensure all components see the update
+          // This ensures the table in EventManagement updates immediately
+          setTimeout(() => {
+            storeState.fetchEvents(false, true).catch(err => {
+              console.warn('⚠️ Failed to refresh events after guest response update:', err);
+            });
+          }, 100);
         } else {
           // Create new guest (fallback for direct access)
           const newGuest = {
