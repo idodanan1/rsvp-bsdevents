@@ -379,28 +379,47 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Get guests from currentEvent or events array
-  // Use the most up-to-date guests: currentEvent from store > eventGuests > events array
-  const guestsToDisplay = useMemo(() => {
+  // CRITICAL: Subscribe directly to guests array from store to get immediate updates
+  // This ensures the table updates immediately when guest status changes via link
+  // Use a selector that creates a new array reference when guests change
+  const guestsFromStore = useEventStore(state => {
     // First try currentEvent from store (most up-to-date)
-    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
-      return currentEvent.guests;
+    if (state.currentEvent && state.currentEvent.id === id && state.currentEvent.guests) {
+      // CRITICAL: Always create a new array reference to force React re-render
+      return state.currentEvent.guests.map(g => ({ ...g }));
     }
-    // Then try eventGuests (from useMemo)
-    if (eventGuests && eventGuests.length > 0) {
-      return eventGuests;
+    // Then try events array
+    const event = state.events.find(e => e.id === id);
+    if (event?.guests) {
+      // CRITICAL: Always create a new array reference to force React re-render
+      return event.guests.map(g => ({ ...g }));
     }
-    // Finally try events array
-    const event = events.find(e => e.id === id);
-    return event?.guests || [];
-  }, [id, currentEvent, eventGuests, events]);
+    return [];
+  }, (a, b) => {
+    // Custom equality function - only return true if all guests are identical
+    if (a.length !== b.length) return false;
+    return a.every((guest, index) => {
+      const otherGuest = b[index];
+      return guest.id === otherGuest.id &&
+             guest.rsvpStatus === otherGuest.rsvpStatus &&
+             guest.guestCount === otherGuest.guestCount &&
+             guest.actualAttendance === otherGuest.actualAttendance &&
+             guest.tableId === otherGuest.tableId &&
+             guest.notes === otherGuest.notes;
+    });
+  });
   
-  // CRITICAL: Update currentEvent when guests change
+  // CRITICAL: Use guestsFromStore directly - this will update immediately when store changes
+  const guestsToDisplay = guestsFromStore;
+  
+  // CRITICAL: Update currentEvent when guests change from store
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
   useEffect(() => {
     if (!id) return;
     
-    const event = events.find(e => e.id === id);
+    // Get event from store
+    const storeState = useEventStore.getState();
+    const event = storeState.events.find(e => e.id === id);
     if (!event) return;
     
     // Create a key from guests to detect changes
@@ -410,7 +429,7 @@ const EventManagement: React.FC = () => {
     
     // Check if guests actually changed
     if (newGuestsKey !== lastGuestsKeyRef.current) {
-      console.log('🔄 Guests changed, updating currentEvent immediately');
+      console.log('🔄 Guests changed from store, updating currentEvent immediately');
       console.log('📊 Event guests:', guestsToDisplay.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
       lastGuestsKeyRef.current = newGuestsKey;
       
@@ -420,15 +439,24 @@ const EventManagement: React.FC = () => {
         guests: guestsToDisplay.map(g => ({ ...g })) // Use guests with new references
       });
     }
-  }, [id, guestsToDisplay, events, setCurrentEvent]);
+  }, [id, guestsToDisplay, setCurrentEvent]);
   
   // CRITICAL: Create a key that changes when guests change to force re-render
+  // Use a more aggressive approach - include all guest data in the key
   const guestsKey = useMemo(() => {
     if (!guestsToDisplay || guestsToDisplay.length === 0) return 'empty';
+    // Include all relevant fields to detect any change
     return guestsToDisplay.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate || ''}`
     ).join('|');
   }, [guestsToDisplay]);
+  
+  // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
+  // This ensures the table updates immediately when any guest data changes
+  const [forceUpdate, setForceUpdate] = useState(0);
+  useEffect(() => {
+    setForceUpdate(prev => prev + 1);
+  }, [guestsKey]);
   
   const filteredGuests = guestsToDisplay.filter(guest => {
     const matchesSearch = 
@@ -2413,7 +2441,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={guestsKey} className="bg-white divide-y divide-gray-200">
+            <tbody key={`${guestsKey}-${forceUpdate}`} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
