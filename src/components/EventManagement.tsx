@@ -381,36 +381,27 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Subscribe directly to guests array from store to get immediate updates
   // This ensures the table updates immediately when guest status changes via link
-  // Use a selector that creates a new array reference when guests change
+  // NO EQUALITY FUNCTION - we want React to always see changes!
   const guestsFromStore = useEventStore(state => {
     // First try currentEvent from store (most up-to-date)
     if (state.currentEvent && state.currentEvent.id === id && state.currentEvent.guests) {
       // CRITICAL: Always create a new array reference to force React re-render
-      return state.currentEvent.guests.map(g => ({ ...g }));
+      // Include a timestamp to ensure React always sees a change
+      return state.currentEvent.guests.map(g => ({ ...g, _updateTime: Date.now() }));
     }
     // Then try events array
     const event = state.events.find(e => e.id === id);
     if (event?.guests) {
       // CRITICAL: Always create a new array reference to force React re-render
-      return event.guests.map(g => ({ ...g }));
+      // Include a timestamp to ensure React always sees a change
+      return event.guests.map(g => ({ ...g, _updateTime: Date.now() }));
     }
     return [];
-  }, (a, b) => {
-    // Custom equality function - only return true if all guests are identical
-    if (a.length !== b.length) return false;
-    return a.every((guest, index) => {
-      const otherGuest = b[index];
-      return guest.id === otherGuest.id &&
-             guest.rsvpStatus === otherGuest.rsvpStatus &&
-             guest.guestCount === otherGuest.guestCount &&
-             guest.actualAttendance === otherGuest.actualAttendance &&
-             guest.tableId === otherGuest.tableId &&
-             guest.notes === otherGuest.notes;
-    });
   });
   
-  // CRITICAL: Use guestsFromStore directly - this will update immediately when store changes
-  const guestsToDisplay = guestsFromStore;
+  // CRITICAL: Remove the _updateTime field before using guests
+  // This ensures we don't break the guest object structure
+  const guestsToDisplay = guestsFromStore.map(({ _updateTime, ...guest }) => guest);
   
   // CRITICAL: Update currentEvent when guests change from store
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
@@ -455,8 +446,27 @@ const EventManagement: React.FC = () => {
   // This ensures the table updates immediately when any guest data changes
   const [forceUpdate, setForceUpdate] = useState(0);
   useEffect(() => {
+    console.log('🔄 guestsKey changed, forcing re-render:', guestsKey.substring(0, 50));
     setForceUpdate(prev => prev + 1);
   }, [guestsKey]);
+  
+  // CRITICAL: Also listen to events array changes directly
+  // This ensures we catch updates even if guestsKey doesn't change
+  useEffect(() => {
+    console.log('🔄 Events array changed, checking for guest updates');
+    const event = events.find(e => e.id === id);
+    if (event && event.guests) {
+      const eventGuestsKey = event.guests.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+      ).join('|');
+      
+      if (eventGuestsKey !== lastGuestsKeyRef.current) {
+        console.log('🔄 Event guests changed, forcing update');
+        lastGuestsKeyRef.current = eventGuestsKey;
+        setForceUpdate(prev => prev + 1);
+      }
+    }
+  }, [id, events]);
   
   const filteredGuests = guestsToDisplay.filter(guest => {
     const matchesSearch = 

@@ -254,17 +254,40 @@ const GuestResponse = () => {
           updatedGuest: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount }
         });
         
+        // CRITICAL: Verify we have the correct event and guest before updating
+        console.log('🔍 Verifying event and guest before update:', {
+          eventId: currentEvent.id,
+          eventName: currentEvent.coupleName,
+          guestId: guestToUpdate.id,
+          guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+          currentStatus: guestToUpdate.rsvpStatus,
+          newStatus: updatedGuest.rsvpStatus
+        });
+        
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
         
         console.log('✅ updateGuestResponse completed!');
         
         // CRITICAL: Force refresh events from store to ensure UI updates immediately
         // This is the same approach used in webhook service for WhatsApp updates
-        const { useEventStore: eventStore } = await import('../store/eventStore');
-        const storeState = eventStore.getState();
+        const storeModule = await import('../store/eventStore');
+        const storeState = storeModule.useEventStore.getState();
+        
+        // Verify the update was applied
         const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestToUpdate.id);
-        console.log(`🔄 Refreshed guest status after update: ${refreshedGuest?.rsvpStatus}`);
+        if (!refreshedEvent) {
+          console.error('❌ Event not found in store after update!', currentEvent.id);
+        } else {
+          const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestToUpdate.id);
+          if (!refreshedGuest) {
+            console.error('❌ Guest not found in event after update!', guestToUpdate.id);
+          } else {
+            console.log(`✅ Verified update - Guest status: ${refreshedGuest.rsvpStatus} (expected: ${updatedGuest.rsvpStatus})`);
+            if (refreshedGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
+              console.error(`❌ STATUS MISMATCH! Expected: ${updatedGuest.rsvpStatus}, Got: ${refreshedGuest.rsvpStatus}`);
+            }
+          }
+        }
         
         // Force a re-fetch of events to ensure all components see the update
         // This ensures the table in EventManagement updates immediately
@@ -567,7 +590,23 @@ const GuestResponse = () => {
                           actualAttendance: 'not_marked' as const
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
+                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
                         await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        
+                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
+                        const storeModule = await import('../store/eventStore');
+                        const storeState = storeModule.useEventStore.getState();
+                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
+                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
+                        console.log(`🔄 Refreshed guest status after "מתלבט" update: ${refreshedGuest?.rsvpStatus}`);
+                        
+                        // Force a re-fetch of events to ensure all components see the update
+                        setTimeout(() => {
+                          storeState.fetchEvents(false, true).catch(err => {
+                            console.warn('⚠️ Failed to refresh events after "מתלבט" update:', err);
+                          });
+                        }, 100);
+                        
                         await fetchEvents();
                         setSubmitStatus('success');
                       } catch (error) {
@@ -607,7 +646,23 @@ const GuestResponse = () => {
                           actualAttendance: 'not_marked' as const
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
+                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
                         await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        
+                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
+                        const storeModule = await import('../store/eventStore');
+                        const storeState = storeModule.useEventStore.getState();
+                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
+                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
+                        console.log(`🔄 Refreshed guest status after "לא מגיע" update: ${refreshedGuest?.rsvpStatus}`);
+                        
+                        // Force a re-fetch of events to ensure all components see the update
+                        setTimeout(() => {
+                          storeState.fetchEvents(false, true).catch(err => {
+                            console.warn('⚠️ Failed to refresh events after "לא מגיע" update:', err);
+                          });
+                        }, 100);
+                        
                         await fetchEvents();
                         setSubmitStatus('success');
                       } catch (error) {
