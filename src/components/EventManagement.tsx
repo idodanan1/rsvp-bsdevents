@@ -123,11 +123,36 @@ const EventManagement: React.FC = () => {
     };
   }, [id, fetchEvents]);
 
-  // CRITICAL: Update currentEvent immediately when events array changes
+  // CRITICAL: Subscribe to store changes to get immediate updates
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-  // Use a ref to track the last guests key to avoid unnecessary updates
+  const storeCurrentEvent = useEventStore(state => state.currentEvent);
   const lastGuestsKeyRef = useRef<string>('');
   
+  // Update currentEvent from store if it changed
+  useEffect(() => {
+    if (storeCurrentEvent && storeCurrentEvent.id === id) {
+      // Create a key from guests to detect changes
+      const newGuestsKey = storeCurrentEvent.guests?.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+      ).join('|') || '';
+      
+      // Always update if guests changed
+      if (newGuestsKey !== lastGuestsKeyRef.current) {
+        console.log('🔄 Store currentEvent changed, updating local currentEvent immediately');
+        console.log('📊 Event guests:', storeCurrentEvent.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+        lastGuestsKeyRef.current = newGuestsKey;
+        
+        // Create new object reference with new guest array references to force React re-render
+        setCurrentEvent({ 
+          ...storeCurrentEvent,
+          guests: storeCurrentEvent.guests ? storeCurrentEvent.guests.map(g => ({ ...g })) : [] // New array and new object references
+        });
+      }
+    }
+  }, [storeCurrentEvent, id, setCurrentEvent]);
+  
+  // CRITICAL: Update currentEvent immediately when events array changes
+  // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
   useEffect(() => {
     if (!id) return;
     
@@ -142,7 +167,7 @@ const EventManagement: React.FC = () => {
     // Always update if guests changed or event changed
     if (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id) {
       if (newGuestsKey !== lastGuestsKeyRef.current) {
-        console.log('🔄 Guests changed detected, updating currentEvent immediately');
+        console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
         console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
       }
       lastGuestsKeyRef.current = newGuestsKey;
@@ -385,13 +410,31 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Use eventGuests from Zustand selector - this automatically triggers re-render on changes
   // The selector with custom equality function ensures React detects changes in guests array
-  const guestsToDisplay = eventGuests.length > 0 ? eventGuests : (currentEvent?.guests || []);
+  // Also subscribe to currentEvent from store to get immediate updates
+  const storeCurrentEventGuests = useEventStore(state => 
+    state.currentEvent?.id === id ? state.currentEvent.guests : null
+  );
   
-  // CRITICAL: Update currentEvent when eventGuests changes (from Zustand store)
+  // CRITICAL: Subscribe directly to events array to get immediate updates from API
+  // This ensures the table updates immediately when guest status changes via link
+  const eventFromStore = useEventStore(state => 
+    state.events.find(e => e.id === id)
+  );
+  const eventGuestsFromStore = eventFromStore?.guests || [];
+  
+  // Use the most up-to-date guests: store currentEvent > eventGuests from store > eventGuests > local currentEvent
+  const guestsToDisplay = storeCurrentEventGuests || eventGuestsFromStore || eventGuests || (currentEvent?.guests || []);
+  
+  // CRITICAL: Update currentEvent when storeCurrentEventGuests, eventGuestsFromStore, or eventGuests changes
+  // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
   useEffect(() => {
-    if (!id || eventGuests.length === 0) return;
+    if (!id) return;
     
-    const event = events.find(e => e.id === id);
+    // Priority: storeCurrentEventGuests > eventGuestsFromStore > eventGuests > events array
+    const guestsToUse = storeCurrentEventGuests || eventGuestsFromStore || eventGuests;
+    if (!guestsToUse || guestsToUse.length === 0) return;
+    
+    const event = eventFromStore || events.find(e => e.id === id);
     if (!event) return;
     
     // Check if guests actually changed
@@ -399,20 +442,21 @@ const EventManagement: React.FC = () => {
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
     ).join('|') || '';
     
-    const newGuestsKey = eventGuests.map(g => 
+    const newGuestsKey = guestsToUse.map(g => 
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
     ).join('|');
     
     if (currentGuestsKey !== newGuestsKey) {
-      console.log('🔄 EventGuests changed from Zustand, updating currentEvent');
+      console.log('🔄 Guests changed from store, updating currentEvent immediately');
       console.log('📊 Old key:', currentGuestsKey.substring(0, 50));
       console.log('📊 New key:', newGuestsKey.substring(0, 50));
+      console.log('📊 Source:', storeCurrentEventGuests ? 'storeCurrentEvent' : eventGuestsFromStore ? 'eventsFromStore' : 'eventGuests');
       setCurrentEvent({
         ...event,
-        guests: [...eventGuests] // Use eventGuests directly from Zustand
+        guests: guestsToUse.map(g => ({ ...g })) // Use guests from store with new references
       });
     }
-  }, [id, eventGuests, events, currentEvent, setCurrentEvent]);
+  }, [id, storeCurrentEventGuests, eventGuestsFromStore, eventGuests, eventFromStore, events, currentEvent, setCurrentEvent]);
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   const guestsKey = useMemo(() => {

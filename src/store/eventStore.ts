@@ -596,7 +596,24 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                set({ events: eventsWithNewReferences, isLoading: false });
+                // CRITICAL: Update currentEvent if it exists and matches one of the updated events
+                // This ensures the table updates immediately when guest status changes via link
+                const state = get();
+                let updatedCurrentEvent = state.currentEvent;
+                
+                if (state.currentEvent) {
+                  const updatedEvent = eventsWithNewReferences.find(e => e.id === state.currentEvent.id);
+                  if (updatedEvent) {
+                    // Create new object reference to force React re-render
+                    updatedCurrentEvent = {
+                      ...updatedEvent,
+                      guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+                    };
+                    console.log('🔄 Updated currentEvent from API fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
+                  }
+                }
+                
+                set({ events: eventsWithNewReferences, currentEvent: updatedCurrentEvent, isLoading: false });
                 return; // Exit early - we got events from API
               } else {
                 console.warn('⚠️ API fetch failed, using localStorage');
@@ -756,7 +773,25 @@ export const useEventStore = create<EventStore>()(
               // The persist middleware will handle saving correctly (only current user's events)
               // CRITICAL: Create new array reference to force React re-render
               console.log('🔄 Creating new events array reference from localStorage to force React re-render');
-              set({ events: [...filteredEvents], isLoading: false });
+              
+              // CRITICAL: Update currentEvent if it exists and matches one of the filtered events
+              // This ensures the table updates immediately when guest status changes via link
+              const state = get();
+              let updatedCurrentEvent = state.currentEvent;
+              
+              if (state.currentEvent) {
+                const updatedEvent = filteredEvents.find(e => e.id === state.currentEvent.id);
+                if (updatedEvent) {
+                  // Create new object reference to force React re-render
+                  updatedCurrentEvent = {
+                    ...updatedEvent,
+                    guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+                  };
+                  console.log('🔄 Updated currentEvent from localStorage fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
+                }
+              }
+              
+              set({ events: [...filteredEvents], currentEvent: updatedCurrentEvent, isLoading: false });
               
               return;
             }
