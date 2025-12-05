@@ -417,7 +417,23 @@ class WebhookService {
           });
 
           // Update the guest status
+          console.log('🔄 WEBHOOK: About to call updateGuestResponse with:', {
+            eventId: foundEventId,
+            guestId: foundGuest.id,
+            oldStatus: foundGuest.rsvpStatus,
+            newStatus: updatedGuest.rsvpStatus,
+            guestName: `${foundGuest.firstName} ${foundGuest.lastName}`
+          });
+          
           await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+          
+          console.log('✅ WEBHOOK: updateGuestResponse completed');
+          
+          // Verify immediately after update
+          const immediateState = useEventStore.getState();
+          const immediateEvent = immediateState.events.find(e => e.id === foundEventId);
+          const immediateGuest = immediateEvent?.guests?.find(g => g.id === foundGuest.id);
+          console.log('🔍 WEBHOOK: Immediate verification - Guest status:', immediateGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
           
           // Mark this update as processed
           this.processedUpdates.add(updateKey);

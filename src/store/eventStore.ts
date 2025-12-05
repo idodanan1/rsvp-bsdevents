@@ -1753,8 +1753,10 @@ export const useEventStore = create<EventStore>()(
             // Verify the update
             const verifyEvent = updatedEvents.find(e => e.id === eventId);
             const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
-            console.log(`✅ After update - Guest status:`, verifyGuest?.rsvpStatus);
-            console.log(`✅ Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
+            console.log(`✅ STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
+            console.log(`✅ STORE: Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
+            console.log(`✅ STORE: Event updatedAt:`, updatedEvent?.updatedAt);
+            console.log(`✅ STORE: CurrentEvent updatedAt:`, updatedCurrentEvent?.updatedAt);
             
             // CRITICAL: Always create new array reference for events to force React re-render
             // This ensures React detects changes even if array contents are similar
