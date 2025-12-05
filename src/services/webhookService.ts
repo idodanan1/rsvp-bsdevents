@@ -459,11 +459,24 @@ class WebhookService {
           
           console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
           
-          // Force refresh the event store to see the update
+          // CRITICAL: Force refresh events from store to ensure UI updates immediately
+          // This ensures the table in EventManagement updates immediately after WhatsApp button click
           const refreshedState = useEventStore.getState();
           const refreshedEvent = refreshedState.events.find(e => e.id === foundEventId);
           const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === foundGuest.id);
           console.log(`🔄 Refreshed guest status: ${refreshedGuest?.rsvpStatus}`);
+          
+          // CRITICAL: Force MULTIPLE refreshes to ensure all components see the update
+          // This ensures the table in EventManagement updates immediately
+          for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+              refreshedState.fetchEvents(false, true).catch(err => {
+                console.warn(`⚠️ Failed to refresh events after WhatsApp update (attempt ${i + 1}):`, err);
+              });
+            }, 50 * (i + 1)); // 50ms, 100ms, 150ms
+          }
+          
+          console.log('🔄 Triggered multiple fetchEvents calls to ensure table updates');
           
           // Show toast notification only once per unique update
           if (isNewUpdate) {
