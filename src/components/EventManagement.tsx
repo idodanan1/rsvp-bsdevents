@@ -139,22 +139,18 @@ const EventManagement: React.FC = () => {
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
     ).join('|') || '';
     
-    // Only update if guests actually changed
-    if (newGuestsKey !== lastGuestsKeyRef.current) {
-      console.log('🔄 Guests changed detected, updating currentEvent immediately');
-      console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+    // Always update if guests changed or event changed
+    if (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id) {
+      if (newGuestsKey !== lastGuestsKeyRef.current) {
+        console.log('🔄 Guests changed detected, updating currentEvent immediately');
+        console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+      }
       lastGuestsKeyRef.current = newGuestsKey;
       
+      // Create new object reference with new guest array references to force React re-render
       setCurrentEvent({ 
         ...event,
-        guests: [...event.guests] // New array reference
-      });
-    } else if (!currentEvent || currentEvent.id !== event.id) {
-      // If event changed but guests didn't, still update currentEvent
-      console.log('🔄 Setting currentEvent from events array:', event.id);
-      setCurrentEvent({ 
-        ...event,
-        guests: [...event.guests] // New array reference
+        guests: event.guests ? event.guests.map(g => ({ ...g })) : [] // New array and new object references
       });
     }
   }, [id, events, setCurrentEvent]); // Removed currentEvent from dependencies to avoid loops
@@ -551,13 +547,27 @@ const EventManagement: React.FC = () => {
         responseDate: new Date()
       });
       
-      // CRITICAL: Get updated currentEvent from store immediately after update
-      // This ensures the UI updates instantly with the latest data from store
+      // CRITICAL: Get updated event from store immediately after update
+      // First try to get from currentEvent, then from events array
       const storeState = useEventStore.getState();
-      const updatedEvent = storeState.currentEvent;
+      let updatedEvent = storeState.currentEvent;
+      
+      // If currentEvent doesn't match or is null, get from events array
+      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
+        updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
+      }
+      
       if (updatedEvent && updatedEvent.id === currentEvent.id) {
-        setCurrentEvent(updatedEvent);
+        // Create new object reference to force React re-render
+        const updatedEventWithNewRef = {
+          ...updatedEvent,
+          guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+        };
+        setCurrentEvent(updatedEventWithNewRef);
         console.log('✅ handleUpdateGuestStatus - currentEvent updated immediately from store');
+      } else {
+        // Fallback: update from events array via useEffect
+        console.log('⚠️ handleUpdateGuestStatus - currentEvent not found, will update via useEffect');
       }
     } catch (error) {
       console.error('Error updating guest:', error);
@@ -574,13 +584,27 @@ const EventManagement: React.FC = () => {
         attendanceDate: new Date()
       });
       
-      // CRITICAL: Get updated currentEvent from store immediately after update
-      // This ensures the UI updates instantly with the latest data from store
+      // CRITICAL: Get updated event from store immediately after update
+      // First try to get from currentEvent, then from events array
       const storeState = useEventStore.getState();
-      const updatedEvent = storeState.currentEvent;
+      let updatedEvent = storeState.currentEvent;
+      
+      // If currentEvent doesn't match or is null, get from events array
+      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
+        updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
+      }
+      
       if (updatedEvent && updatedEvent.id === currentEvent.id) {
-        setCurrentEvent(updatedEvent);
+        // Create new object reference to force React re-render
+        const updatedEventWithNewRef = {
+          ...updatedEvent,
+          guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+        };
+        setCurrentEvent(updatedEventWithNewRef);
         console.log('✅ handleUpdateAttendance - currentEvent updated immediately from store');
+      } else {
+        // Fallback: update from events array via useEffect
+        console.log('⚠️ handleUpdateAttendance - currentEvent not found, will update via useEffect');
       }
       
       console.log('✅ handleUpdateAttendance completed successfully');
