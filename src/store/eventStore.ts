@@ -1741,11 +1741,13 @@ export const useEventStore = create<EventStore>()(
             if (updatedEvent) {
               // Always create a new object reference with new guests array to force React re-render
               // This forces React to detect the change and re-render
+              // CRITICAL: Create DEEP copy of guests array with new object references for each guest
               updatedCurrentEvent = {
                 ...updatedEvent,
-                guests: [...updatedEvent.guests] // New array reference
+                guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references
+                updatedAt: new Date() // Force timestamp update
               };
-              console.log('🔄 Created new currentEvent reference to force React re-render');
+              console.log('🔄 Created new currentEvent reference with deep copy to force React re-render');
             }
             
             // Verify the update

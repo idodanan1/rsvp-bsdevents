@@ -379,35 +379,32 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Subscribe directly to guests array - SIMPLE AND DIRECT APPROACH
-  // This ensures the table updates immediately when guest status changes via link
-  // Subscribe to BOTH events array AND currentEvent to catch all updates
-  const eventsFromStore = useEventStore(state => state.events);
-  const currentEventFromStore = useEventStore(state => state.currentEvent);
-  
-  // Get guests from store - ALWAYS get fresh data
-  const guestsToDisplay = useMemo(() => {
+  // CRITICAL: Subscribe directly to the event's guests - ULTRA SIMPLE APPROACH
+  // This ensures the table updates immediately when guest status changes
+  const guestsFromStore = useEventStore(state => {
     // First try currentEvent from store (most up-to-date)
-    if (currentEventFromStore && currentEventFromStore.id === id && currentEventFromStore.guests) {
-      console.log('📊 Using guests from currentEvent:', currentEventFromStore.guests.length);
-      return currentEventFromStore.guests.map(g => ({ ...g }));
+    if (state.currentEvent && state.currentEvent.id === id && state.currentEvent.guests) {
+      // CRITICAL: Return a NEW array reference every time to force React re-render
+      return state.currentEvent.guests.map(g => ({ ...g }));
     }
     // Then try events array
-    const event = eventsFromStore.find(e => e.id === id);
+    const event = state.events.find(e => e.id === id);
     if (event?.guests) {
-      console.log('📊 Using guests from events array:', event.guests.length);
+      // CRITICAL: Return a NEW array reference every time to force React re-render
       return event.guests.map(g => ({ ...g }));
     }
-    console.log('⚠️ No guests found for event:', id);
     return [];
-  }, [id, currentEventFromStore, eventsFromStore]);
+  });
+  
+  // Use guests directly from store - no memoization, always fresh
+  const guestsToDisplay = guestsFromStore;
   
   // CRITICAL: Update currentEvent when guests change from store
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
   useEffect(() => {
     if (!id) return;
     
-    // Get event from store
+    // Get event from store - ALWAYS get fresh
     const storeState = useEventStore.getState();
     const event = storeState.events.find(e => e.id === id);
     if (!event) return;
@@ -417,7 +414,7 @@ const EventManagement: React.FC = () => {
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
     ).join('|') || '';
     
-    // Check if guests actually changed
+    // ALWAYS update if key changed
     if (newGuestsKey !== lastGuestsKeyRef.current) {
       console.log('🔄 Guests changed from store, updating currentEvent immediately');
       console.log('📊 Event guests:', guestsToDisplay.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
@@ -429,7 +426,7 @@ const EventManagement: React.FC = () => {
         guests: guestsToDisplay.map(g => ({ ...g })) // Use guests with new references
       });
     }
-  }, [id, guestsToDisplay, setCurrentEvent, eventsFromStore, currentEvent]);
+  }, [id, guestsToDisplay, setCurrentEvent]);
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use a more aggressive approach - include all guest data in the key
@@ -449,14 +446,13 @@ const EventManagement: React.FC = () => {
     setForceUpdate(prev => prev + 1);
   }, [guestsKey]);
   
-  // CRITICAL: Listen to eventsFromStore and currentEventFromStore changes to force re-render
+  // CRITICAL: Listen to guestsFromStore changes to force re-render
   // This ensures we catch updates immediately when store changes
   useEffect(() => {
-    console.log('🔄 Events or currentEvent from store changed, forcing update');
-    console.log('📊 Events count:', eventsFromStore.length);
-    console.log('📊 CurrentEvent ID:', currentEventFromStore?.id);
+    console.log('🔄 Guests from store changed, forcing update');
+    console.log('📊 Guests count:', guestsFromStore.length);
     setForceUpdate(prev => prev + 1);
-  }, [eventsFromStore, currentEventFromStore]);
+  }, [guestsFromStore]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
