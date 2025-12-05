@@ -379,24 +379,26 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Subscribe directly to the event's guests - ULTRA SIMPLE APPROACH
-  // This ensures the table updates immediately when guest status changes
-  const guestsFromStore = useEventStore(state => {
+  // CRITICAL: Subscribe directly to the event's guests - SIMPLE AND WORKING APPROACH
+  // Subscribe to both currentEvent and events to catch all updates
+  const currentEventFromStore = useEventStore(state => state.currentEvent);
+  const eventsFromStore = useEventStore(state => state.events);
+  
+  // Get guests from store - create a key to detect changes
+  const guestsFromStore = useMemo(() => {
     // First try currentEvent from store (most up-to-date)
-    if (state.currentEvent && state.currentEvent.id === id && state.currentEvent.guests) {
-      // CRITICAL: Return a NEW array reference every time to force React re-render
-      return state.currentEvent.guests.map(g => ({ ...g }));
+    if (currentEventFromStore && currentEventFromStore.id === id && currentEventFromStore.guests) {
+      return currentEventFromStore.guests.map(g => ({ ...g }));
     }
     // Then try events array
-    const event = state.events.find(e => e.id === id);
+    const event = eventsFromStore.find(e => e.id === id);
     if (event?.guests) {
-      // CRITICAL: Return a NEW array reference every time to force React re-render
       return event.guests.map(g => ({ ...g }));
     }
     return [];
-  });
+  }, [id, currentEventFromStore, eventsFromStore]);
   
-  // Use guests directly from store - no memoization, always fresh
+  // Use guests directly from store
   const guestsToDisplay = guestsFromStore;
   
   // CRITICAL: Update currentEvent when guests change from store
