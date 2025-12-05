@@ -268,7 +268,7 @@ const GuestResponse = () => {
         
         console.log('✅ updateGuestResponse completed!');
         
-        // CRITICAL: Force refresh events from store to ensure UI updates immediately
+        // CRITICAL: Force refresh events from store MULTIPLE TIMES to ensure UI updates
         // This is the same approach used in webhook service for WhatsApp updates
         const storeModule = await import('../store/eventStore');
         const storeState = storeModule.useEventStore.getState();
@@ -289,13 +289,15 @@ const GuestResponse = () => {
           }
         }
         
-        // Force a re-fetch of events to ensure all components see the update
+        // CRITICAL: Force MULTIPLE refreshes to ensure all components see the update
         // This ensures the table in EventManagement updates immediately
-        setTimeout(() => {
-          storeState.fetchEvents(false, true).catch(err => {
-            console.warn('⚠️ Failed to refresh events after guest response update:', err);
-          });
-        }, 100);
+        for (let i = 0; i < 3; i++) {
+          setTimeout(() => {
+            storeState.fetchEvents(false, true).catch(err => {
+              console.warn(`⚠️ Failed to refresh events after guest response update (attempt ${i + 1}):`, err);
+            });
+          }, 50 * (i + 1)); // 50ms, 100ms, 150ms
+        }
       } else if (guestId) {
         // Try to find guest by ID in event
         const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
