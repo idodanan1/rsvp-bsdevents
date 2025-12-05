@@ -2554,6 +2554,7 @@ app.post('/api/users/login', async (req, res) => {
         
         // First, try to find existing session by sessionId (if provided)
         if (clientSessionId) {
+          console.log(`🔍 Looking for existing session by sessionId: ${clientSessionId}`);
           existingSession = await UserSession.findOne({ 
             userId: user.id, 
             sessionId: clientSessionId,
@@ -2567,31 +2568,39 @@ app.post('/api/users/login', async (req, res) => {
             existingSession.deviceInfo = deviceInfo.substring(0, 200);
             existingSession.ipAddress = ipAddress;
             await existingSession.save();
-            console.log(`✅ Updated existing session for user ${user.id} (${user.email}) - same device`);
+            console.log(`✅ Updated existing session for user ${user.id} (${user.email}) - same sessionId`);
             sessionId = existingSession.sessionId;
+          } else {
+            console.log(`⚠️ No existing session found with sessionId: ${clientSessionId}`);
           }
         }
         
-        // If no session found by sessionId, try to find by device fingerprint (deviceInfo + ipAddress)
+        // If no session found by sessionId, try to find by device fingerprint (deviceInfo only, IP can change)
         if (!existingSession) {
+          console.log(`🔍 Looking for existing session by device fingerprint (deviceInfo: ${deviceInfo.substring(0, 50)}...)`);
+          // Use deviceInfo only (IP can change with VPN, mobile networks, etc.)
           existingSession = await UserSession.findOne({ 
             userId: user.id,
             deviceInfo: deviceInfo.substring(0, 200),
-            ipAddress: ipAddress,
-            expiresAt: { $gt: new Date() } // Not expired
+            expiresAt: { $gt: new Date() }, // Not expired
+            lastActivity: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) } // Active in last 7 days
           });
           
           if (existingSession) {
             // Update existing session with same device fingerprint
             existingSession.lastActivity = new Date();
             existingSession.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Extend expiry
+            existingSession.ipAddress = ipAddress; // Update IP in case it changed
             if (clientSessionId && existingSession.sessionId !== clientSessionId) {
               // Update sessionId if client provided a different one
+              console.log(`🔄 Updating sessionId from ${existingSession.sessionId} to ${clientSessionId}`);
               existingSession.sessionId = clientSessionId;
             }
             await existingSession.save();
             console.log(`✅ Updated existing session for user ${user.id} (${user.email}) - same device fingerprint`);
             sessionId = existingSession.sessionId;
+          } else {
+            console.log(`⚠️ No existing session found with device fingerprint`);
           }
         }
         
@@ -2599,13 +2608,29 @@ app.post('/api/users/login', async (req, res) => {
         if (!existingSession) {
           sessionId = clientSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           
-          // Delete old expired sessions for this user (keep only last 10 active sessions)
-          const userSessions = await UserSession.find({ userId: user.id }).sort({ lastActivity: -1 });
+          // Clean up old inactive sessions (not active in last 7 days)
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          await UserSession.deleteMany({
+            userId: user.id,
+            $or: [
+              { expiresAt: { $lte: new Date() } }, // Expired
+              { lastActivity: { $lt: sevenDaysAgo } } // Inactive for 7+ days
+            ]
+          });
+          
+          // Delete old sessions for this user (keep only last 10 active sessions)
+          const userSessions = await UserSession.find({ 
+            userId: user.id,
+            expiresAt: { $gt: new Date() },
+            lastActivity: { $gte: sevenDaysAgo }
+          }).sort({ lastActivity: -1 });
+          
           if (userSessions.length >= 10) {
             const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
             await UserSession.deleteMany({ 
               _id: { $in: sessionsToDelete.map(s => s._id) } 
             });
+            console.log(`🧹 Cleaned up ${sessionsToDelete.length} old sessions for user ${user.id}`);
           }
           
           // Create new session
@@ -3067,16 +3092,26 @@ app.get('/api/users/:userId/sessions/count', async (req, res) => {
       return res.status(503).json({ error: 'מסד הנתונים לא זמין' });
     }
     
-    // Count active sessions (not expired)
+    // First, clean up expired sessions for this user
+    const now = new Date();
+    await UserSession.deleteMany({
+      userId: userId,
+      expiresAt: { $lte: now }
+    });
+    
+    // Count active sessions (not expired and active in last 24 hours)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const activeSessions = await UserSession.countDocuments({
       userId: userId,
-      expiresAt: { $gt: new Date() }
+      expiresAt: { $gt: now },
+      lastActivity: { $gte: oneDayAgo } // Only count sessions active in last 24 hours
     });
     
     // Get session details
     const sessions = await UserSession.find({
       userId: userId,
-      expiresAt: { $gt: new Date() }
+      expiresAt: { $gt: now },
+      lastActivity: { $gte: oneDayAgo }
     }).sort({ lastActivity: -1 }).limit(10);
     
     res.json({

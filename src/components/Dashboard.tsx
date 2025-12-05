@@ -38,14 +38,26 @@ const Dashboard: React.FC = () => {
     return () => clearInterval(timeInterval);
   }, []);
 
-  // Get or create session ID
+  // Get or create session ID - use localStorage so it persists across browser sessions
   useEffect(() => {
-    let currentSessionId = sessionStorage.getItem('rsvp-session-id');
+    // First check localStorage (persists across browser restarts)
+    let currentSessionId = localStorage.getItem('rsvp-session-id');
+    
+    // If not in localStorage, check sessionStorage (for current session)
+    if (!currentSessionId) {
+      currentSessionId = sessionStorage.getItem('rsvp-session-id');
+    }
+    
+    // If still no session ID, create a new one
     if (!currentSessionId) {
       currentSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem('rsvp-session-id', currentSessionId);
-      localStorage.setItem('rsvp-last-session-id', currentSessionId);
     }
+    
+    // Save to both localStorage and sessionStorage
+    localStorage.setItem('rsvp-session-id', currentSessionId);
+    localStorage.setItem('rsvp-last-session-id', currentSessionId);
+    sessionStorage.setItem('rsvp-session-id', currentSessionId);
+    
     setSessionId(currentSessionId);
   }, []);
 

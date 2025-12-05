@@ -140,10 +140,14 @@ export const useUserStore = create<UserStore>()(
               isAdmin: true,
             };
 
-            // Create session ID for admin login
-            const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            sessionStorage.setItem('rsvp-session-id', sessionId);
+            // Get or create session ID for admin login - use localStorage so it persists
+            let sessionId = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id');
+            if (!sessionId) {
+              sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            }
+            localStorage.setItem('rsvp-session-id', sessionId);
             localStorage.setItem('rsvp-last-session-id', sessionId);
+            sessionStorage.setItem('rsvp-session-id', sessionId);
             
             set({ user: adminUser, isAuthenticated: true, isLoading: false });
             return;
@@ -198,7 +202,8 @@ export const useUserStore = create<UserStore>()(
             const timeoutId = setTimeout(() => controller.abort(), 3000); // רק 3 שניות - אם זה לא עובד מהר, זה לא עובד
             
             // Get existing sessionId if available (to reuse same session for same device)
-            const existingSessionId = sessionStorage.getItem('rsvp-session-id') || localStorage.getItem('rsvp-last-session-id');
+            // Check localStorage first (persists across browser restarts)
+            const existingSessionId = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id') || localStorage.getItem('rsvp-last-session-id');
             
             const response = await fetch(`${backendUrl}/api/users/login`, {
               method: 'POST',
@@ -224,10 +229,12 @@ export const useUserStore = create<UserStore>()(
                 
                 console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
                 
-                // Use sessionId from response if provided, otherwise create new one
+                // Use sessionId from response if provided, otherwise use existing or create new one
                 const sessionId = data.sessionId || existingSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                sessionStorage.setItem('rsvp-session-id', sessionId);
+                // Save to both localStorage (persists) and sessionStorage (current session)
+                localStorage.setItem('rsvp-session-id', sessionId);
                 localStorage.setItem('rsvp-last-session-id', sessionId);
+                sessionStorage.setItem('rsvp-session-id', sessionId);
                 
                 set({ user, isAuthenticated: true, isLoading: false });
                 return;
@@ -462,15 +469,15 @@ export const useUserStore = create<UserStore>()(
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
         // CRITICAL SECURITY FIX: Check if this is a new session
-        // If sessionStorage doesn't have the session ID, clear authentication
+        // Check localStorage first (persists across browser restarts)
         // This prevents sharing links from auto-logging in as the previous user
-        const sessionId = sessionStorage.getItem('rsvp-session-id');
+        const sessionIdFromStorage = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id');
         const storedSessionId = localStorage.getItem('rsvp-last-session-id');
         
         if (state) {
-          // If no session ID in sessionStorage, this is a new browser session
+          // If no session ID in storage, this is a new browser session
           // OR if session ID doesn't match, this is a different browser/device
-          if (!sessionId || sessionId !== storedSessionId) {
+          if (!sessionIdFromStorage || (storedSessionId && sessionIdFromStorage !== storedSessionId)) {
             console.log('🔒 New session detected - clearing authentication state for security');
             // Clear authentication state for security
             state.user = null;
@@ -478,11 +485,18 @@ export const useUserStore = create<UserStore>()(
             
             // Generate new session ID
             const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            sessionStorage.setItem('rsvp-session-id', newSessionId);
+            localStorage.setItem('rsvp-session-id', newSessionId);
             localStorage.setItem('rsvp-last-session-id', newSessionId);
+            sessionStorage.setItem('rsvp-session-id', newSessionId);
           } else {
             console.log('🔄 Rehydrating user state for existing session...');
             // Session matches - keep authentication state
+            // Ensure sessionId is in both storages
+            if (sessionIdFromStorage) {
+              localStorage.setItem('rsvp-session-id', sessionIdFromStorage);
+              localStorage.setItem('rsvp-last-session-id', sessionIdFromStorage);
+              sessionStorage.setItem('rsvp-session-id', sessionIdFromStorage);
+            }
           }
         }
       },
