@@ -183,36 +183,37 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Subscribe to ENTIRE store state to catch ANY change
-  // This is the most reliable way to detect updates from WhatsApp/webhook
-  const storeState = useEventStore(state => ({
-    currentEvent: state.currentEvent,
-    events: state.events,
-    // Create a version number that changes when any guest changes
-    version: state.events.reduce((sum, e) => {
+  // CRITICAL: Subscribe to store state separately to avoid React hooks issues
+  // Use separate selectors instead of complex object selector
+  const storeCurrentEvent = useEventStore(state => state.currentEvent);
+  const storeEvents = useEventStore(state => state.events);
+  
+  // Calculate version separately using useMemo to avoid creating new object references
+  const storeVersion = useMemo(() => {
+    return storeEvents.reduce((sum, e) => {
       const eventVersion = e.guests?.reduce((guestSum, g) => {
         return guestSum + `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       }, 0) || 0;
       return sum + eventVersion + (e.updatedAt ? new Date(e.updatedAt).getTime() : 0);
-    }, 0) + (state.currentEvent?.updatedAt ? new Date(state.currentEvent.updatedAt).getTime() : 0)
-  }));
+    }, 0) + (storeCurrentEvent?.updatedAt ? new Date(storeCurrentEvent.updatedAt).getTime() : 0);
+  }, [storeEvents, storeCurrentEvent]);
   
   // Get guests from store - ALWAYS get fresh data
   const guestsToDisplay = useMemo(() => {
     // First try currentEvent from store (most up-to-date)
-    if (storeState.currentEvent && storeState.currentEvent.id === id && storeState.currentEvent.guests) {
-      console.log('📊 Using guests from currentEvent:', storeState.currentEvent.guests.length);
-      return storeState.currentEvent.guests.map(g => ({ ...g }));
+    if (storeCurrentEvent && storeCurrentEvent.id === id && storeCurrentEvent.guests) {
+      console.log('📊 Using guests from currentEvent:', storeCurrentEvent.guests.length);
+      return storeCurrentEvent.guests.map(g => ({ ...g }));
     }
     // Then try events array
-    const event = storeState.events.find(e => e.id === id);
+    const event = storeEvents.find(e => e.id === id);
     if (event?.guests) {
       console.log('📊 Using guests from events array:', event.guests.length);
       return event.guests.map(g => ({ ...g }));
     }
     console.log('⚠️ No guests found for event:', id);
     return [];
-  }, [id, storeState.currentEvent, storeState.events, storeState.version]);
+  }, [id, storeCurrentEvent, storeEvents, storeVersion]);
   
   // Removed duplicate useEffect - using the main one above
   
@@ -234,13 +235,13 @@ const EventManagement: React.FC = () => {
     setForceUpdate(prev => prev + 1);
   }, [guestsKey]);
   
-  // CRITICAL: Listen to storeState.version changes to force re-render
+  // CRITICAL: Listen to storeVersion changes to force re-render
   // This ensures we catch updates immediately when ANY guest changes in store
   useEffect(() => {
     console.log('🔄 EVENT_MANAGEMENT: Store version changed, forcing update');
-    console.log('📊 EVENT_MANAGEMENT: Version:', storeState.version);
-    console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', storeState.currentEvent?.id);
-    console.log('📊 EVENT_MANAGEMENT: Events count:', storeState.events.length);
+    console.log('📊 EVENT_MANAGEMENT: Version:', storeVersion);
+    console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', storeCurrentEvent?.id);
+    console.log('📊 EVENT_MANAGEMENT: Events count:', storeEvents.length);
     console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay.length);
     console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
       name: `${g.firstName} ${g.lastName}`,
@@ -248,7 +249,7 @@ const EventManagement: React.FC = () => {
       count: g.guestCount
     })));
     setForceUpdate(prev => prev + 1);
-  }, [storeState.version, guestsToDisplay]);
+  }, [storeVersion, storeCurrentEvent, storeEvents, guestsToDisplay]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
@@ -2251,7 +2252,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={`${guestsKey}-${forceUpdate}-${storeState.version}`} className="bg-white divide-y divide-gray-200">
+            <tbody key={`${guestsKey}-${forceUpdate}-${storeVersion}`} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
