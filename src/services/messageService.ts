@@ -213,6 +213,9 @@ class MessageService {
       }
     }
     
+    console.log('🔘 DEBUG: Recipient buttons:', recipient.buttons);
+    console.log('🔘 DEBUG: Recipient buttons length:', recipient.buttons?.length || 0);
+    
     const whatsappMessage: WhatsAppMessage = {
       to: recipient.phoneNumber,
       message: processedMessage,
@@ -221,6 +224,9 @@ class MessageService {
       templateParams: templateParams,
       buttons: recipient.buttons // Add buttons from recipient
     };
+    
+    console.log('🔘 DEBUG: WhatsApp message buttons:', whatsappMessage.buttons);
+    console.log('🔘 DEBUG: WhatsApp message buttons length:', whatsappMessage.buttons?.length || 0);
 
     const response = await whatsappService.sendMessage(whatsappMessage);
     

@@ -2158,6 +2158,10 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Create personalized buttons with guest-specific link
+            console.log('🔘 DEBUG: Campaign whatsappButtons:', campaign.whatsappButtons);
+            console.log('🔘 DEBUG: Campaign whatsappButtons length:', campaign.whatsappButtons?.length || 0);
+            console.log('🔘 DEBUG: Guest link:', guestLink);
+            
             const personalizedButtons = campaign.whatsappButtons?.map(button => {
               if (button.type === 'url' && button.url) {
                 // Replace {{guest_response_link}} placeholder with actual guest link
@@ -2194,6 +2198,9 @@ export const useEventStore = create<EventStore>()(
                 title: 'לא אוכל להגיע'
               }
             ];
+            
+            console.log('🔘 DEBUG: Personalized buttons created:', personalizedButtons);
+            console.log('🔘 DEBUG: Personalized buttons length:', personalizedButtons.length);
             
             return {
               id: guest.id,
