@@ -122,13 +122,28 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');
   
-  // CRITICAL: Update currentEvent immediately when events array changes
+  // CRITICAL: Single useEffect to update currentEvent when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
   useEffect(() => {
     if (!id) return;
     
+    // Wait a bit for events to load if they're empty
+    if (events.length === 0) {
+      return;
+    }
+    
     const event = events.find(e => e.id === id);
-    if (!event) return;
+    if (!event) {
+      // Event not found - redirect after a short delay to allow events to load
+      const timeout = setTimeout(() => {
+        const currentEvents = useEventStore.getState().events;
+        if (currentEvents.length > 0 && !currentEvents.find(e => e.id === id)) {
+          console.warn('⚠️ Event not found after loading, redirecting to dashboard');
+          navigate('/');
+        }
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
     
     // Create a key from guests to detect changes
     const newGuestsKey = event.guests?.map(g => 
@@ -140,6 +155,12 @@ const EventManagement: React.FC = () => {
       if (newGuestsKey !== lastGuestsKeyRef.current) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
         console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+        if (currentEvent?.guests) {
+          const oldStatus = currentEvent.guests.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
+          const newStatus = event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
+          console.log('📊 Old status:', oldStatus);
+          console.log('📊 New status:', newStatus);
+        }
       }
       lastGuestsKeyRef.current = newGuestsKey;
       
@@ -148,226 +169,9 @@ const EventManagement: React.FC = () => {
         ...event,
         guests: event.guests ? event.guests.map(g => ({ ...g })) : [] // New array and new object references
       });
+      return; // Skip manual change protection for guest response updates
     }
-  }, [id, events, setCurrentEvent]); // Removed currentEvent from dependencies to avoid loops
-  
-  // Removed duplicate guestsKey definition - using the one below that reads from events directly
-
-  // Set current event when id or events change
-  useEffect(() => {
-    if (!id) return;
-    
-    // Wait a bit for events to load if they're empty
-    if (events.length === 0) {
-      return;
-    }
-    
-    const event = events.find(e => e.id === id);
-    if (event) {
-      // CRITICAL: Always check if guests changed and update immediately
-      // This ensures UI updates when guest status changes via link or WhatsApp buttons
-      const currentGuestsKey = currentEvent?.guests?.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-      ).join('|') || '';
-      
-      const newGuestsKey = event.guests?.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.actualAttendance}:${g.tableId}:${g.guestCount}`
-      ).join('|') || '';
-      
-      // Always update if it's a different event or if guests changed
-      if (!currentEvent || currentEvent.id !== event.id || currentGuestsKey !== newGuestsKey) {
-        if (currentGuestsKey !== newGuestsKey) {
-          console.log('🔄 Guests changed in events array, updating currentEvent immediately');
-          console.log('📊 Old status:', currentEvent?.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus);
-          console.log('📊 New status:', event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus);
-        }
-        // Always create new reference to force React re-render
-        setCurrentEvent({ 
-          ...event,
-          guests: [...event.guests] // New array reference
-        });
-        return; // Skip manual change protection for guest response updates
-      }
-      
-      // If guests didn't change, check for manual changes
-      if (currentEvent && currentEvent.id === event.id) {
-        // CRITICAL: Check for manual changes before updating
-        const state = useEventStore.getState();
-        const now = Date.now();
-        const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
-        
-        // Merge guests, preserving manual changes
-        const mergedGuests = event.guests.map(newGuest => {
-          const currentGuest = currentEvent.guests.find(g => g.id === newGuest.id);
-          if (!currentGuest) {
-            return newGuest; // New guest from API
-          }
-          
-          // Check if there was a manual change for this guest
-          const guestKey = `${event.id}-${newGuest.id}`;
-          const lastManualChange = state.manualChanges?.get?.(guestKey);
-          const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
-          
-          if (hasRecentManualChange) {
-            // Preserve current guest data (manual change is recent)
-            console.log(`🛡️ Preserving manual change for guest ${newGuest.id} in currentEvent (${Math.round((now - lastManualChange) / 1000)}s ago)`);
-            console.log(`🛡️ Preserving fields:`, {
-              guestCount: currentGuest.guestCount,
-              rsvpStatus: currentGuest.rsvpStatus,
-              actualAttendance: currentGuest.actualAttendance,
-              notes: currentGuest.notes,
-              tableId: currentGuest.tableId
-            });
-            return currentGuest;
-          }
-          
-          // CRITICAL: For tableId and actualAttendance, always prefer currentEvent if it's different
-          // This ensures immediate UI updates even if API hasn't synced yet
-          const shouldPreserveLocalValue = (field: 'tableId' | 'actualAttendance') => {
-            const localValue = currentGuest[field];
-            const apiValue = newGuest[field];
-            
-            // If local value exists and is different from API, preserve it
-            // This handles the case where we just updated locally but API hasn't synced yet
-            if (localValue !== undefined && localValue !== apiValue) {
-              // Check if this is a recent manual change (within protection window)
-              const guestKey = `${event.id}-${newGuest.id}`;
-              const lastManualChange = state.manualChanges?.get?.(guestKey);
-              if (lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME * 2) {
-                // Even if outside the strict protection window, if values differ and change was recent, preserve local
-                return true;
-              }
-            }
-            return false;
-          };
-          
-          // Preserve local tableId and actualAttendance if they differ from API (likely due to recent local update)
-          if (shouldPreserveLocalValue('tableId') || shouldPreserveLocalValue('actualAttendance')) {
-            console.log(`🔄 Preserving local tableId/actualAttendance for guest ${newGuest.id} (API might not have synced yet)`);
-            return {
-              ...newGuest,
-              tableId: currentGuest.tableId !== undefined ? currentGuest.tableId : newGuest.tableId,
-              actualAttendance: currentGuest.actualAttendance !== undefined ? currentGuest.actualAttendance : newGuest.actualAttendance
-            };
-          }
-          
-          // Check if any field changed that should trigger immediate update
-          const fieldsChanged = 
-            newGuest.guestCount !== currentGuest.guestCount ||
-            newGuest.rsvpStatus !== currentGuest.rsvpStatus ||
-            newGuest.actualAttendance !== currentGuest.actualAttendance ||
-            newGuest.tableId !== currentGuest.tableId ||
-            newGuest.notes !== currentGuest.notes;
-          
-          if (fieldsChanged) {
-            console.log(`🔄 Guest ${newGuest.id} fields changed, using new data from API`);
-            return newGuest;
-          }
-          
-          // No recent manual change - ALWAYS use new data from API (it's the source of truth)
-          // API has the latest data from all devices
-          return newGuest;
-        });
-        
-        // Add any new guests from API that aren't in currentEvent
-        const newGuestsFromAPI = event.guests.filter(ng => 
-          !currentEvent.guests.find(cg => cg.id === ng.id)
-        );
-        
-        // Check if campaigns changed - compare by length and IDs
-        const currentCampaigns = currentEvent.campaigns || [];
-        const newCampaigns = event.campaigns || [];
-        const campaignsChanged = 
-          currentCampaigns.length !== newCampaigns.length ||
-          JSON.stringify(currentCampaigns.map(c => c.id)) !== JSON.stringify(newCampaigns.map(c => c.id)) ||
-          JSON.stringify(currentCampaigns) !== JSON.stringify(newCampaigns);
-        
-        // Check if guests changed (excluding manual changes)
-        // CRITICAL: Check against original event.guests (from API) to detect ALL changes, not just mergedGuests
-        const guestsChanged = 
-          currentEvent.guests.length !== event.guests.length ||
-          event.guests.some((apiGuest) => {
-            const currentGuest = currentEvent.guests.find(cg => cg.id === apiGuest.id);
-            if (!currentGuest) return true; // New guest from API
-            
-            // Check if any field changed in API (excluding manual changes)
-            const guestKey = `${event.id}-${apiGuest.id}`;
-            const manualChangeTimestamp = state.manualChanges?.get?.(guestKey);
-            const hasManualChange = manualChangeTimestamp && (now - manualChangeTimestamp) < MANUAL_CHANGE_PROTECTION_TIME;
-            
-            // CRITICAL: Always check rsvpStatus, guestCount, notes - these come from guest response links
-            // Don't skip these even if there's a manual change (guest response links override manual changes)
-            const rsvpStatusChanged = currentGuest.rsvpStatus !== apiGuest.rsvpStatus;
-            const guestCountChanged = currentGuest.guestCount !== apiGuest.guestCount;
-            const notesChanged = currentGuest.notes !== apiGuest.notes;
-            
-            if (rsvpStatusChanged || guestCountChanged || notesChanged) {
-              console.log(`🔄 Detected change in guest response fields for guest ${apiGuest.id}:`, {
-                rsvpStatus: { from: currentGuest.rsvpStatus, to: apiGuest.rsvpStatus },
-                guestCount: { from: currentGuest.guestCount, to: apiGuest.guestCount },
-                notes: { from: currentGuest.notes, to: apiGuest.notes },
-                hasManualChange
-              });
-              return true; // Always update if guest response fields changed
-            }
-            
-            // For other fields, check if manual change is recent
-            if (hasManualChange) return false; // Skip if manual change is recent
-            
-            // CRITICAL: Check if critical fields changed - these should always trigger update
-            const actualAttendanceChanged = currentGuest.actualAttendance !== apiGuest.actualAttendance;
-            const tableIdChanged = currentGuest.tableId !== apiGuest.tableId;
-            const firstNameChanged = currentGuest.firstName !== apiGuest.firstName;
-            const lastNameChanged = currentGuest.lastName !== apiGuest.lastName;
-            const phoneNumberChanged = currentGuest.phoneNumber !== apiGuest.phoneNumber;
-            
-            // If any critical field changed, always trigger update
-            if (actualAttendanceChanged || tableIdChanged || firstNameChanged || lastNameChanged || phoneNumberChanged) {
-              console.log(`🔄 Detected change in critical fields for guest ${apiGuest.id}:`, {
-                actualAttendance: { from: currentGuest.actualAttendance, to: apiGuest.actualAttendance },
-                tableId: { from: currentGuest.tableId, to: apiGuest.tableId },
-                firstName: { from: currentGuest.firstName, to: apiGuest.firstName },
-                lastName: { from: currentGuest.lastName, to: apiGuest.lastName },
-                phoneNumber: { from: currentGuest.phoneNumber, to: apiGuest.phoneNumber }
-              });
-              return true;
-            }
-            
-            return false; // No changes detected
-          }) ||
-          // Also check if any guest was removed
-          currentEvent.guests.some(cg => !event.guests.find(ag => ag.id === cg.id));
-        
-        if (campaignsChanged || guestsChanged || newGuestsFromAPI.length > 0) {
-          console.log('🔄 Event data changed, updating event (preserving manual changes)');
-          if (campaignsChanged) {
-            console.log('📊 Campaigns changed - Old:', currentCampaigns.length, 'New:', newCampaigns.length);
-          }
-          if (guestsChanged || newGuestsFromAPI.length > 0) {
-            console.log('👥 Guests changed - Old:', currentEvent.guests.length, 'New:', mergedGuests.length + newGuestsFromAPI.length);
-          }
-          
-          // Update currentEvent with merged data (preserving manual changes)
-          setCurrentEvent({
-            ...event,
-            guests: [...mergedGuests, ...newGuestsFromAPI]
-          });
-        }
-      }
-    } else {
-      // Event not found - redirect after a short delay to allow events to load
-      const timeout = setTimeout(() => {
-        // Check again if event was loaded
-        const currentEvents = useEventStore.getState().events;
-        if (currentEvents.length > 0 && !currentEvents.find(e => e.id === id)) {
-          console.warn('⚠️ Event not found after loading, redirecting to dashboard');
-          navigate('/');
-        }
-      }, 2000);
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [id, events, currentEvent, setCurrentEvent, navigate]);
+  }, [id, events, setCurrentEvent, navigate]);
 
   if (!currentEvent) {
     return (
@@ -410,34 +214,7 @@ const EventManagement: React.FC = () => {
     return [];
   }, [id, storeState.currentEvent, storeState.events, storeState.version]);
   
-  // CRITICAL: Update currentEvent when guests change from store
-  // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-  useEffect(() => {
-    if (!id) return;
-    
-    // Get event from store - ALWAYS get fresh
-    const storeState = useEventStore.getState();
-    const event = storeState.events.find(e => e.id === id);
-    if (!event) return;
-    
-    // Create a key from guests to detect changes
-    const newGuestsKey = guestsToDisplay.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
-    ).join('|') || '';
-    
-    // ALWAYS update if key changed
-    if (newGuestsKey !== lastGuestsKeyRef.current) {
-      console.log('🔄 Guests changed from store, updating currentEvent immediately');
-      console.log('📊 Event guests:', guestsToDisplay.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
-      lastGuestsKeyRef.current = newGuestsKey;
-      
-      // Create new object reference with new guest array references to force React re-render
-      setCurrentEvent({
-        ...event,
-        guests: guestsToDisplay.map(g => ({ ...g })) // Use guests with new references
-      });
-    }
-  }, [id, guestsToDisplay, setCurrentEvent]);
+  // Removed duplicate useEffect - using the main one above
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use a more aggressive approach - include all guest data in the key
@@ -623,7 +400,7 @@ const EventManagement: React.FC = () => {
       
       // If currentEvent doesn't match or is null, get from events array
       if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
+        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
       }
       
       if (updatedEvent && updatedEvent.id === currentEvent.id) {
@@ -660,7 +437,7 @@ const EventManagement: React.FC = () => {
       
       // If currentEvent doesn't match or is null, get from events array
       if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id);
+        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
       }
       
       if (updatedEvent && updatedEvent.id === currentEvent.id) {
