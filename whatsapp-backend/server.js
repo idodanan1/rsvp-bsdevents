@@ -39,11 +39,18 @@ app.use((req, res, next) => {
 // Temporary storage for guest status updates (in production, use a database)
 const pendingUpdates = [];
 
+// Helper function to sanitize Access Token (remove invalid characters for HTTP headers)
+function sanitizeAccessToken(token) {
+  if (!token) return '';
+  // Remove newlines, carriage returns, and other invalid header characters
+  return token.toString().trim().replace(/[\r\n\t]/g, '').replace(/[^\x20-\x7E]/g, '');
+}
+
 // Set default API keys if not provided
 process.env.WANOTIFIER_API_KEY = process.env.WANOTIFIER_API_KEY || 'oUDrqkaOHa6wv2oWZ4SsM31RbxcKLG';
 process.env.CALLMEBOT_API_KEY = process.env.CALLMEBOT_API_KEY || '1234567890';
 process.env.WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'whatsapp_webhook_verify_token_2024';
-process.env.WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN || 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+process.env.WHATSAPP_ACCESS_TOKEN = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN || 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD');
 process.env.WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '874204535776090'; // Phone Number ID
 process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''; // Stripe Secret Key
 process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''; // Stripe Webhook Secret
@@ -529,7 +536,7 @@ const WHATSAPP_APIS = [
     url: `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+      'Authorization': `Bearer ${sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN)}`,
       'Content-Type': 'application/json'
     }
   },
@@ -1330,7 +1337,7 @@ async function sendDeclineConfirmation(phoneNumber) {
     console.log(`📤 Sending decline confirmation to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
     if (!accessToken || !phoneNumberId) {
@@ -1392,7 +1399,7 @@ async function sendYesTemplateMessage(phoneNumber) {
     console.log(`📤 Original phone number: ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
     if (!accessToken || !phoneNumberId) {
@@ -1510,7 +1517,7 @@ async function sendGuestCountQuestion(phoneNumber) {
     console.log(`📤 Sending guest count question to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
     if (!accessToken || !phoneNumberId) {
@@ -1691,7 +1698,7 @@ app.post('/api/whatsapp/contacts', async (req, res) => {
         },
         {
           headers: {
-            'Authorization': `Bearer ${process.env.WHATSAPP_ACCESS_TOKEN}`,
+            'Authorization': `Bearer ${sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN)}`,
             'Content-Type': 'application/json'
           }
         }
