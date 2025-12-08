@@ -912,9 +912,124 @@ async function handleIncomingMessage(message) {
     messageId: message.id
   });
   console.log('📨 Full message object:', JSON.stringify(message, null, 2));
+  console.log('🔍 DEBUG: Checking message type and button format...');
+  console.log('🔍 DEBUG: message.type =', message.type);
+  console.log('🔍 DEBUG: message.button =', JSON.stringify(message.button, null, 2));
+  console.log('🔍 DEBUG: message.interactive =', JSON.stringify(message.interactive, null, 2));
+  console.log('🔍 DEBUG: message.type === "button" =', message.type === 'button');
+  console.log('🔍 DEBUG: message.button exists =', !!message.button);
+  console.log('🔍 DEBUG: Condition (message.type === "button" && message.button) =', message.type === 'button' && !!message.button);
 
-  // Handle button clicks (interactive messages)
+  // Handle button clicks - support both message.button and message.interactive formats
+  // Format 1: message.button (older format)
+  if (message.type === 'button' && message.button) {
+    console.log('✅ DEBUG: Entering button format handler!');
+    const buttonId = message.button.payload || message.button.text;
+    const buttonTitle = message.button.text;
+    const phoneNumber = message.from;
+    
+    console.log('🔘 ========== BUTTON CLICKED (button format) ==========');
+    console.log('🔘 Button Payload:', message.button.payload);
+    console.log('🔘 Button Text:', message.button.text);
+    console.log('🔘 Button ID (derived):', buttonId);
+    console.log('🔘 Button Title:', buttonTitle);
+    console.log('🔘 Phone Number:', phoneNumber);
+    console.log('🔘 ====================================================');
+    
+    // Handle different button actions
+    const buttonTitleLower = (buttonTitle || '').toLowerCase();
+    const buttonIdLower = (buttonId || '').toLowerCase();
+    
+    if (buttonId === 'confirm_attendance' || 
+        buttonId === 'מגיע' ||
+        buttonIdLower.includes('confirm') ||
+        buttonTitle === 'מגיע' ||
+        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
+      console.log('✅ Guest confirmed attendance via button!');
+      console.log(`📞 Phone number received: ${phoneNumber}`);
+      
+      try {
+        await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+        console.log('✅ Status updated to confirmed');
+      } catch (error) {
+        console.error('❌ Error updating guest status:', error);
+      }
+      
+      // Send message with template "yes" to the guest
+      console.log('📤 About to send "yes" template message...');
+      try {
+        await sendYesTemplateMessage(phoneNumber);
+        console.log('✅ "yes" template message sent successfully (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "yes" template message:', error);
+        if (error.response) {
+          console.error('❌ Error response status:', error.response.status);
+          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        }
+      }
+    } else if (buttonId === 'decline_attendance' || 
+               buttonId === 'לא אוכל להגיע' ||
+               buttonId === 'לא מגיע' ||
+               buttonIdLower.includes('decline') ||
+               buttonTitle === 'לא אוכל להגיע' ||
+               buttonTitle === 'לא מגיע' ||
+               buttonTitle?.includes('לא אוכל') ||
+               buttonTitle?.includes('לא מגיע') ||
+               buttonTitle?.includes('דחה') ||
+               buttonTitleLower.includes('לא אוכל') ||
+               buttonTitleLower.includes('לא מגיע') ||
+               buttonTitleLower.includes('דחה')) {
+      console.log('❌ Guest declined attendance via button!');
+      console.log(`   Button ID: "${buttonId}"`);
+      console.log(`   Button Title: "${buttonTitle}"`);
+      console.log(`   Phone number: ${phoneNumber}`);
+      // Send confirmation message first, then update status
+      await sendDeclineConfirmation(phoneNumber);
+      await updateGuestStatusByPhone(phoneNumber, 'declined');
+    } else {
+      console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
+      console.warn('⚠️ Trying to match anyway...');
+      // Try to match anyway based on common patterns
+      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
+        console.log('✅ Matched as confirmation based on text');
+        console.log(`📞 Phone number received: ${phoneNumber}`);
+        
+        try {
+          await updateGuestStatusByPhone(phoneNumber, 'confirmed');
+          console.log('✅ Status updated to confirmed');
+        } catch (error) {
+          console.error('❌ Error updating guest status:', error);
+        }
+        
+        // Send message with template "yes" to the guest
+        console.log('📤 About to send "yes" template message...');
+        try {
+          await sendYesTemplateMessage(phoneNumber);
+          console.log('✅ "yes" template message sent successfully (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "yes" template message:', error);
+          if (error.response) {
+            console.error('❌ Error response status:', error.response.status);
+            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+          }
+        }
+      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
+        console.log('❌ Matched as decline based on text');
+        // Send confirmation message first, then update status
+        await sendDeclineConfirmation(phoneNumber);
+        await updateGuestStatusByPhone(phoneNumber, 'declined');
+      }
+    }
+    
+    return;
+  }
+
+  // Format 2: message.interactive (newer format)
+  console.log('🔍 DEBUG: Checking interactive format...');
+  console.log('🔍 DEBUG: message.interactive?.type =', message.interactive?.type);
+  console.log('🔍 DEBUG: Condition (message.interactive?.type === "button_reply") =', message.interactive?.type === 'button_reply');
   if (message.interactive?.type === 'button_reply') {
+    console.log('✅ DEBUG: Entering interactive format handler!');
     const buttonId = message.interactive.button_reply?.id;
     const buttonTitle = message.interactive.button_reply?.title;
     const phoneNumber = message.from;
@@ -1017,6 +1132,8 @@ async function handleIncomingMessage(message) {
   }
 
   // Handle text messages (fallback and guest count responses)
+  console.log('🔍 DEBUG: No button format matched, treating as text message');
+  console.log('🔍 DEBUG: message.text?.body =', message.text?.body);
   const messageText = message.text?.body?.toLowerCase() || '';
   const originalMessageText = message.text?.body || '';
   
