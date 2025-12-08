@@ -224,24 +224,21 @@ class WhatsAppService {
           }
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
-          // IMPORTANT: If template already has buttons defined in Meta, we should NOT send button components
-          // Only send buttons if they are explicitly required by the template
-          // For templates "aa" and "a", buttons are already defined in Meta, so we skip sending them
+          // IMPORTANT: Even if template has predefined buttons in Meta, URL buttons still need parameters!
+          // For templates "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
           const templatesWithPredefinedButtons = ['aa', 'a', 'reminer', 'reminder'];
-          const shouldSkipButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
+          const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
           
-          if (!shouldSkipButtons && messageData.buttons && messageData.buttons.length > 0) {
-            // WhatsApp allows up to 3 buttons in a template
-            // We can mix URL and Reply buttons, but they must be defined in the template in Meta
+          // Always add URL button parameters if provided (they are required even for predefined buttons)
+          // Only skip Reply buttons for predefined templates (they don't need parameters)
+          if (messageData.buttons && messageData.buttons.length > 0) {
             const buttonComponents: any[] = [];
             
             messageData.buttons.forEach((btn, index) => {
               if (index >= 3) return; // WhatsApp allows max 3 buttons
               
               if (btn.type === 'url' && btn.url) {
-                // URL button - opens a link
-                // Note: Some templates have URL buttons that don't require parameters (static URLs in template)
-                // We'll try with parameters first, and if it fails, retry without parameters
+                // URL button - ALWAYS needs parameters, even for predefined templates
                 buttonComponents.push({
                   type: 'button',
                   sub_type: 'url',
@@ -251,16 +248,18 @@ class WhatsAppService {
                     text: btn.url
                   }]
                 });
-                console.log(`🔘 Adding URL button ${index}:`, btn.url, btn.title);
-              } else if (btn.type === 'reply') {
-                // Reply button - sends webhook event (no parameters needed)
-                // Note: Reply buttons must be defined in the template in Meta Business Manager
+                console.log(`🔘 Adding URL button ${index} parameter:`, btn.url, btn.title);
+              } else if (btn.type === 'reply' && !shouldSkipReplyButtons) {
+                // Reply button - only add if template doesn't have predefined buttons
+                // Note: Reply buttons don't need parameters, they're already defined in Meta
                 buttonComponents.push({
                   type: 'button',
                   sub_type: 'quick_reply',
                   index: index.toString()
                 });
                 console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
+              } else if (btn.type === 'reply' && shouldSkipReplyButtons) {
+                console.log(`ℹ️ Skipping Reply button ${index} - template has predefined buttons`);
               }
             });
             
@@ -270,11 +269,11 @@ class WhatsAppService {
             });
             
             if (buttonComponents.length > 0) {
-              console.log(`🔘 Added ${buttonComponents.length} button(s) to template`);
+              console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
+            } else if (shouldSkipReplyButtons && messageData.buttons.some(b => b.type === 'reply')) {
+              console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
+              console.log('ℹ️ URL button parameters will be added if provided');
             }
-          } else if (shouldSkipButtons) {
-            console.log('ℹ️ Template has predefined buttons in Meta - skipping button components');
-            console.log('ℹ️ Buttons are already configured in the template definition');
           }
           
           // Only add components if we have parameters (Meta requirement)
