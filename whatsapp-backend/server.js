@@ -82,8 +82,29 @@ process.env.WEBHOOK_VERIFY_TOKEN = process.env.WEBHOOK_VERIFY_TOKEN || 'whatsapp
 // If VITE_WHATSAPP_ACCESS_TOKEN is set in frontend, use the same value here
 // Otherwise, use the default token that works with template "aa"
 const DEFAULT_WHATSAPP_TOKEN = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+
+// CRITICAL: Debug token loading
+console.log('🔍 ========== DEBUGGING TOKEN LOADING ==========');
+console.log('🔍 process.env.WHATSAPP_ACCESS_TOKEN exists:', !!process.env.WHATSAPP_ACCESS_TOKEN);
+console.log('🔍 process.env.WHATSAPP_ACCESS_TOKEN length:', process.env.WHATSAPP_ACCESS_TOKEN ? process.env.WHATSAPP_ACCESS_TOKEN.length : 0);
+console.log('🔍 process.env.WHATSAPP_ACCESS_TOKEN preview:', process.env.WHATSAPP_ACCESS_TOKEN ? process.env.WHATSAPP_ACCESS_TOKEN.substring(0, 50) : 'N/A');
+console.log('🔍 process.env.VITE_WHATSAPP_ACCESS_TOKEN exists:', !!process.env.VITE_WHATSAPP_ACCESS_TOKEN);
+console.log('🔍 process.env.VITE_WHATSAPP_ACCESS_TOKEN length:', process.env.VITE_WHATSAPP_ACCESS_TOKEN ? process.env.VITE_WHATSAPP_ACCESS_TOKEN.length : 0);
+console.log('🔍 process.env.VITE_WHATSAPP_ACCESS_TOKEN preview:', process.env.VITE_WHATSAPP_ACCESS_TOKEN ? process.env.VITE_WHATSAPP_ACCESS_TOKEN.substring(0, 50) : 'N/A');
+console.log('🔍 DEFAULT_WHATSAPP_TOKEN length:', DEFAULT_WHATSAPP_TOKEN.length);
+console.log('🔍 DEFAULT_WHATSAPP_TOKEN preview:', DEFAULT_WHATSAPP_TOKEN.substring(0, 50));
+
 const tokenFromEnv = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN || DEFAULT_WHATSAPP_TOKEN;
-process.env.WHATSAPP_ACCESS_TOKEN = sanitizeAccessToken(tokenFromEnv);
+console.log('🔍 tokenFromEnv length:', tokenFromEnv ? tokenFromEnv.length : 0);
+console.log('🔍 tokenFromEnv preview:', tokenFromEnv ? tokenFromEnv.substring(0, 50) : 'N/A');
+console.log('🔍 tokenFromEnv source:', process.env.WHATSAPP_ACCESS_TOKEN ? 'WHATSAPP_ACCESS_TOKEN' : (process.env.VITE_WHATSAPP_ACCESS_TOKEN ? 'VITE_WHATSAPP_ACCESS_TOKEN' : 'DEFAULT_WHATSAPP_TOKEN'));
+
+const sanitizedToken = sanitizeAccessToken(tokenFromEnv);
+console.log('🔍 sanitizedToken length:', sanitizedToken ? sanitizedToken.length : 0);
+console.log('🔍 sanitizedToken preview:', sanitizedToken ? sanitizedToken.substring(0, 50) : 'N/A');
+console.log('🔍 ============================================');
+
+process.env.WHATSAPP_ACCESS_TOKEN = sanitizedToken;
 process.env.WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID || '874204535776090'; // Phone Number ID
 process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || ''; // Stripe Secret Key
 process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''; // Stripe Webhook Secret
@@ -1427,8 +1448,13 @@ async function sendDeclineConfirmation(phoneNumber) {
     
     console.log(`📤 Sending decline confirmation to ${phoneNumber}`);
     
-    // Use WhatsApp Business API to send the message
-    const rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    // CRITICAL: Reload token from environment directly (in case it wasn't set correctly at startup)
+    let rawToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
+    if (!rawToken || rawToken.length < 50) {
+      console.warn('⚠️ Token seems invalid, using default token');
+      rawToken = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+    }
+    
     const accessToken = sanitizeAccessToken(rawToken);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
@@ -1499,8 +1525,25 @@ async function sendYesTemplateMessage(phoneNumber) {
     console.log(`📤 ========== SENDING "yes" TEMPLATE MESSAGE ==========`);
     console.log(`📤 Original phone number: ${phoneNumber}`);
     
-    // Use WhatsApp Business API to send the message
-    const rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    // CRITICAL: Try to reload token from environment if it seems invalid
+    // This handles cases where Render environment variables weren't loaded correctly
+    let rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    
+    // If token is too short, try to reload from environment
+    if (!rawToken || rawToken.length < 50) {
+      console.warn('⚠️ Token seems invalid, trying to reload from environment...');
+      // Try to reload from process.env directly (in case it wasn't set correctly)
+      rawToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
+      console.log(`🔍 Reloaded token length: ${rawToken ? rawToken.length : 0}`);
+      console.log(`🔍 Reloaded token preview: "${rawToken ? rawToken.substring(0, 50) : 'N/A'}..."`);
+      
+      // If still invalid, use the default token
+      if (!rawToken || rawToken.length < 50) {
+        console.warn('⚠️ Reloaded token still invalid, using default token');
+        rawToken = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+      }
+    }
+    
     const accessToken = sanitizeAccessToken(rawToken);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
@@ -1516,6 +1559,7 @@ async function sendYesTemplateMessage(phoneNumber) {
       console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
       console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
       console.error(`❌ Token should start with "EAA..." and be 200+ characters long`);
+      console.error(`❌ Current token value: "${rawToken}"`);
       return;
     }
     
