@@ -436,45 +436,53 @@ class WebhookService {
           const immediateGuest = immediateEvent?.guests?.find(g => g.id === foundGuest.id);
           console.log('🔍 WEBHOOK: Immediate verification - Guest status:', immediateGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
           
-          // Mark this update as processed
-          this.processedUpdates.add(updateKey);
-          
-          // IMPORTANT: Remove this update from backend to prevent infinite loop
-          try {
-            const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-              method: 'DELETE',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                phoneNumber: update.phoneNumber,
-                status: update.status,
-                responseDate: update.responseDate,
-                guestCount: update.guestCount // Include guestCount for matching
-              })
-            });
-            if (removeResponse.ok) {
-              const removeData = await removeResponse.json();
-              console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
-            } else {
-              const errorText = await removeResponse.text();
-              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
-            }
-          } catch (error) {
-            console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
-          }
-          
-          // Verify the update was applied
+          // Verify the update was applied BEFORE removing from backend
           const verifyState = useEventStore.getState();
           const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
           const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
           console.log(`🔍 Verification - Guest status after update: ${verifyGuest?.rsvpStatus} (expected: ${newStatus})`);
           
-          if (verifyGuest?.rsvpStatus !== newStatus) {
-            console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
-          }
+          // Only remove from backend if update was successful
+          const updateSuccessful = verifyGuest?.rsvpStatus === newStatus;
           
-          console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
+          if (updateSuccessful) {
+            console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
+            
+            // Mark this update as processed
+            this.processedUpdates.add(updateKey);
+            
+            // IMPORTANT: Remove this update from backend ONLY after successful update
+            // Add a small delay to ensure UI has time to update
+            setTimeout(async () => {
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    status: update.status,
+                    responseDate: update.responseDate,
+                    guestCount: update.guestCount // Include guestCount for matching
+                  })
+                });
+                if (removeResponse.ok) {
+                  const removeData = await removeResponse.json();
+                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+                } else {
+                  const errorText = await removeResponse.text();
+                  console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
+              }
+            }, 500); // Wait 500ms before removing to ensure UI has updated
+          } else {
+            console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
+            console.error(`❌ Keeping update in backend for retry`);
+            // Don't mark as processed and don't remove from backend - allow retry
+          }
           
           // CRITICAL: Force refresh events from store to ensure UI updates immediately
           // This ensures the table in EventManagement updates immediately after WhatsApp button click
