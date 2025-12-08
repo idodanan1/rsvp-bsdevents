@@ -2158,9 +2158,13 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Create personalized buttons with guest-specific link
+            console.log('🔘 DEBUG: ========== CREATING BUTTONS ==========');
+            console.log('🔘 DEBUG: Campaign ID:', campaign.id);
+            console.log('🔘 DEBUG: Campaign name:', campaign.name);
             console.log('🔘 DEBUG: Campaign whatsappButtons:', campaign.whatsappButtons);
             console.log('🔘 DEBUG: Campaign whatsappButtons length:', campaign.whatsappButtons?.length || 0);
             console.log('🔘 DEBUG: Guest link:', guestLink);
+            console.log('🔘 DEBUG: Guest channel:', guest.channel);
             
             const personalizedButtons = campaign.whatsappButtons?.map(button => {
               if (button.type === 'url' && button.url) {
@@ -2224,7 +2228,15 @@ export const useEventStore = create<EventStore>()(
               templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
               buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined
             };
+            
+            console.log('🔘 DEBUG: Recipient created with buttons:', guest.channel === 'whatsapp' ? personalizedButtons : undefined);
+            console.log('🔘 DEBUG: Recipient channel:', guest.channel);
+            console.log('🔘 DEBUG: Recipient buttons length:', guest.channel === 'whatsapp' ? personalizedButtons.length : 0);
           });
+          
+          console.log('🔘 DEBUG: Total recipients created:', recipients.length);
+          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
+          console.log('🔘 DEBUG: Sample recipient buttons:', recipients.find(r => r.buttons && r.buttons.length > 0)?.buttons);
 
           // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
           // Priority: event.invitationImageUrl > campaign.imageUrl
@@ -2238,6 +2250,18 @@ export const useEventStore = create<EventStore>()(
             campaignImageUrl: campaign.imageUrl,
             finalImageUrl: imageUrlForCampaign,
             isEventDayReminder
+          });
+          
+          console.log('🔘 DEBUG: ========== BEFORE SEND BULK MESSAGES ==========');
+          console.log('🔘 DEBUG: Recipients count:', recipients.length);
+          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
+          recipients.forEach((r, idx) => {
+            console.log(`🔘 DEBUG: Recipient ${idx}:`, {
+              name: `${r.firstName} ${r.lastName}`,
+              channel: r.channel,
+              buttons: r.buttons,
+              buttonsLength: r.buttons?.length || 0
+            });
           });
           
           const messageData: MessageData = {

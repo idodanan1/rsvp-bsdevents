@@ -274,6 +274,26 @@ class WhatsAppService {
               console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
               console.log('ℹ️ URL button parameters will be added if provided');
             }
+          } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
+            // CRITICAL FIX: Template 'aa' has a URL button that requires a parameter
+            // Even if no buttons are provided in messageData, we need to send the URL parameter
+            // The template has a URL button at index 0 that needs the guest_response_link parameter
+            console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
+            console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
+            
+            const urlButtonComponent = {
+              type: 'button',
+              sub_type: 'url',
+              index: '0', // First button (index 0) is the URL button
+              parameters: [{
+                type: 'text',
+                text: messageData.templateParams.guest_response_link
+              }]
+            };
+            
+            // Add button component to components array
+            components.push(urlButtonComponent);
+            console.log(`🔘 Added URL button parameter for predefined template button`);
           }
           
           // Only add components if we have parameters (Meta requirement)
