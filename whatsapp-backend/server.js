@@ -832,6 +832,16 @@ app.get('/api/whatsapp/webhook', (req, res) => {
 // Webhook message handler
 app.post('/api/whatsapp/webhook', (req, res) => {
   try {
+    // Log ALL incoming requests to webhook endpoint
+    console.log('🔔 ========== WEBHOOK REQUEST RECEIVED ==========');
+    console.log('🔔 Time:', new Date().toISOString());
+    console.log('🔔 Method:', req.method);
+    console.log('🔔 URL:', req.url);
+    console.log('🔔 Headers:', JSON.stringify(req.headers, null, 2));
+    console.log('🔔 Query:', JSON.stringify(req.query, null, 2));
+    console.log('🔔 Body type:', typeof req.body);
+    console.log('🔔 Body keys:', req.body ? Object.keys(req.body) : 'no body');
+    
     const body = req.body;
     console.log('📨 Webhook received at', new Date().toISOString());
     console.log('📨 Webhook body:', JSON.stringify(body, null, 2));

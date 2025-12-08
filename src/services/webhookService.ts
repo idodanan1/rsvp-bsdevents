@@ -32,6 +32,7 @@ class WebhookService {
     this.isPolling = true;
     console.log(`🔄 Starting webhook polling every ${intervalMs}ms`);
     console.log(`📡 Backend URL: ${BACKEND_URL}`);
+    console.log(`📡 VITE_BACKEND_URL env var: ${import.meta.env.VITE_BACKEND_URL || 'NOT SET (using default)'}`);
     console.log(`💡 Note: Backend must be running on port 3002 for button clicks to work`);
     console.log(`👂 System is now actively listening for guest responses...`);
 
