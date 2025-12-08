@@ -1562,6 +1562,8 @@ async function sendYesTemplateMessage(phoneNumber) {
     }
     
     // Send template message "yes"
+    // Note: Based on the template preview, "yes" template appears to be a static message
+    // without parameters. If the template requires parameters, they should be added here.
     const messagePayload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -1571,18 +1573,20 @@ async function sendYesTemplateMessage(phoneNumber) {
         name: 'yes',
         language: {
           code: 'he'
-        },
-        components: [
-          {
-            type: 'body',
-            parameters: [
-              {
-                type: 'text',
-                text: guestFirstName
-              }
-            ]
-          }
-        ]
+        }
+        // No components needed if template has no parameters
+        // If template requires parameters, uncomment below and add comma after 'he' above:
+        // components: [
+        //   {
+        //     type: 'body',
+        //     parameters: [
+        //       {
+        //         type: 'text',
+        //         text: guestFirstName
+        //       }
+        //     ]
+        //   }
+        // ]
       }
     };
     
@@ -3574,7 +3578,8 @@ app.post('/api/events', async (req, res) => {
       // Check for actualAttendance updates and add to pendingUpdates if rsvpStatus or guestCount changed
       if (event.guests && event.guests.length > 0) {
         console.log(`🔍 Processing ${event.guests.length} guests for pendingUpdates check...`);
-        event.guests.forEach((newGuest, idx) => {
+        // Use for...of instead of forEach to support await
+        for (const newGuest of event.guests) {
           const existingGuest = existingEvent.guests?.find(g => g.id === newGuest.id);
           
           if (existingGuest) {
@@ -3789,7 +3794,7 @@ app.post('/api/events', async (req, res) => {
               console.error(`❌ CRITICAL: Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}) has NO phone number! Cannot add to pendingUpdates.`);
             }
           }
-        });
+        }
       }
       
       // Update existing event - CRITICAL: Merge guests properly to preserve all fields
