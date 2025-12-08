@@ -1114,21 +1114,6 @@ async function handleIncomingMessage(message) {
     const isWaiting = isWaitingForResponse(normalizedPhone);
     const hasThanks = hasReceivedThanks(normalizedPhone);
     
-    if (isWaiting && !hasThanks) {
-      console.log(`✅ Guest ${phoneNumber} responded via button after receiving "yes" message`);
-      console.log(`📤 Sending "thanks" template message...`);
-      try {
-        await sendThanksTemplateMessage(phoneNumber);
-        console.log('✅ "thanks" template message sent (or attempted)');
-      } catch (error) {
-        console.error('❌ Error sending "thanks" template message:', error);
-      }
-      // Continue processing the button click (don't return here)
-    } else if (hasThanks) {
-      console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
-      // Don't send auto-responses, but continue processing the button
-    }
-    
     // Handle different button actions
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
@@ -1148,16 +1133,30 @@ async function handleIncomingMessage(message) {
         console.error('❌ Error updating guest status:', error);
       }
       
-      // Send message with template "yes" to the guest
-      console.log('📤 About to send "yes" template message...');
-      try {
-        await sendYesTemplateMessage(phoneNumber);
-        console.log('✅ "yes" template message sent successfully (or attempted)');
-      } catch (error) {
-        console.error('❌ Error sending "yes" template message:', error);
-        if (error.response) {
-          console.error('❌ Error response status:', error.response.status);
-          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+      // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
+      if (isWaiting && !hasThanks) {
+        console.log(`✅ Guest ${phoneNumber} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
+        console.log(`📤 Sending "thanks" template message...`);
+        try {
+          await sendThanksTemplateMessage(phoneNumber);
+          console.log('✅ "thanks" template message sent (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "thanks" template message:', error);
+        }
+      } else if (hasThanks) {
+        console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
+      } else {
+        // Guest hasn't received "yes" yet - send it now
+        console.log('📤 About to send "yes" template message...');
+        try {
+          await sendYesTemplateMessage(phoneNumber);
+          console.log('✅ "yes" template message sent successfully (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "yes" template message:', error);
+          if (error.response) {
+            console.error('❌ Error response status:', error.response.status);
+            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+          }
         }
       }
     } else if (buttonId === 'decline_attendance' || 
@@ -1215,10 +1214,29 @@ async function handleIncomingMessage(message) {
         console.error('❌ Error sending decline confirmation (non-critical):', error.message);
         // Don't throw - status update is more important than confirmation message
       }
+      
+      // CRITICAL: Send "thanks" message after decline (if not already sent)
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      if (!hasReceivedThanks(normalizedPhone)) {
+        console.log(`📤 Guest declined, sending "thanks" template message...`);
+        try {
+          await sendThanksTemplateMessage(phoneNumber);
+          console.log('✅ "thanks" template message sent after decline (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "thanks" template message after decline:', error);
+        }
+      } else {
+        console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - skipping`);
+      }
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
       // Try to match anyway based on common patterns
+      // CRITICAL: Check if this is a response from someone who received "yes" message
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      const isWaiting = isWaitingForResponse(normalizedPhone);
+      const hasThanks = hasReceivedThanks(normalizedPhone);
+      
       if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
@@ -1230,16 +1248,30 @@ async function handleIncomingMessage(message) {
           console.error('❌ Error updating guest status:', error);
         }
         
-        // Send message with template "yes" to the guest
-        console.log('📤 About to send "yes" template message...');
-        try {
-          await sendYesTemplateMessage(phoneNumber);
-          console.log('✅ "yes" template message sent successfully (or attempted)');
-        } catch (error) {
-          console.error('❌ Error sending "yes" template message:', error);
-          if (error.response) {
-            console.error('❌ Error response status:', error.response.status);
-            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
+        if (isWaiting && !hasThanks) {
+          console.log(`✅ Guest ${phoneNumber} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
+          console.log(`📤 Sending "thanks" template message...`);
+          try {
+            await sendThanksTemplateMessage(phoneNumber);
+            console.log('✅ "thanks" template message sent (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "thanks" template message:', error);
+          }
+        } else if (hasThanks) {
+          console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
+        } else {
+          // Guest hasn't received "yes" yet - send it now
+          console.log('📤 About to send "yes" template message...');
+          try {
+            await sendYesTemplateMessage(phoneNumber);
+            console.log('✅ "yes" template message sent successfully (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "yes" template message:', error);
+            if (error.response) {
+              console.error('❌ Error response status:', error.response.status);
+              console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+            }
           }
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
@@ -1251,6 +1283,20 @@ async function handleIncomingMessage(message) {
         // Send confirmation message first, then update status
         await sendDeclineConfirmation(phoneNumber);
         await updateGuestStatusByPhone(phoneNumber, 'declined');
+        
+        // CRITICAL: Send "thanks" message after decline (if not already sent)
+        const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+        if (!hasReceivedThanks(normalizedPhone)) {
+          console.log(`📤 Guest declined, sending "thanks" template message...`);
+          try {
+            await sendThanksTemplateMessage(phoneNumber);
+            console.log('✅ "thanks" template message sent after decline (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "thanks" template message after decline:', error);
+          }
+        } else {
+          console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - skipping`);
+        }
       }
     }
     
@@ -1274,6 +1320,11 @@ async function handleIncomingMessage(message) {
     console.log('🔘 Full interactive object:', JSON.stringify(message.interactive, null, 2));
     console.log('🔘 ====================================');
     
+    // CRITICAL: Check if this is a response from someone who received "yes" message
+    const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const isWaiting = isWaitingForResponse(normalizedPhone);
+    const hasThanks = hasReceivedThanks(normalizedPhone);
+    
     // Handle different button actions
     // Check both buttonId and buttonTitle for Hebrew text
     // Also check for partial matches to handle variations
@@ -1295,16 +1346,30 @@ async function handleIncomingMessage(message) {
         console.error('❌ Error updating guest status:', error);
       }
       
-      // Send message with template "yes" to the guest
-      console.log('📤 About to send "yes" template message...');
-      try {
-        await sendYesTemplateMessage(phoneNumber);
-        console.log('✅ "yes" template message sent successfully (or attempted)');
-      } catch (error) {
-        console.error('❌ Error sending "yes" template message:', error);
-        if (error.response) {
-          console.error('❌ Error response status:', error.response.status);
-          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+      // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
+      if (isWaiting && !hasThanks) {
+        console.log(`✅ Guest ${phoneNumber} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
+        console.log(`📤 Sending "thanks" template message...`);
+        try {
+          await sendThanksTemplateMessage(phoneNumber);
+          console.log('✅ "thanks" template message sent (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "thanks" template message:', error);
+        }
+      } else if (hasThanks) {
+        console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
+      } else {
+        // Guest hasn't received "yes" yet - send it now
+        console.log('📤 About to send "yes" template message...');
+        try {
+          await sendYesTemplateMessage(phoneNumber);
+          console.log('✅ "yes" template message sent successfully (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "yes" template message:', error);
+          if (error.response) {
+            console.error('❌ Error response status:', error.response.status);
+            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+          }
         }
       }
     } else if (buttonId === 'decline_attendance' || 
@@ -1362,10 +1427,29 @@ async function handleIncomingMessage(message) {
         console.error('❌ Error sending decline confirmation (non-critical):', error.message);
         // Don't throw - status update is more important than confirmation message
       }
+      
+      // CRITICAL: Send "thanks" message after decline (if not already sent)
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      if (!hasReceivedThanks(normalizedPhone)) {
+        console.log(`📤 Guest declined, sending "thanks" template message...`);
+        try {
+          await sendThanksTemplateMessage(phoneNumber);
+          console.log('✅ "thanks" template message sent after decline (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "thanks" template message after decline:', error);
+        }
+      } else {
+        console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - skipping`);
+      }
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
       // Try to match anyway based on common patterns
+      // CRITICAL: Check if this is a response from someone who received "yes" message
+      const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+      const isWaiting = isWaitingForResponse(normalizedPhone);
+      const hasThanks = hasReceivedThanks(normalizedPhone);
+      
       if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
@@ -1377,16 +1461,30 @@ async function handleIncomingMessage(message) {
           console.error('❌ Error updating guest status:', error);
         }
         
-        // Send message with template "yes" to the guest
-        console.log('📤 About to send "yes" template message...');
-        try {
-          await sendYesTemplateMessage(phoneNumber);
-          console.log('✅ "yes" template message sent successfully (or attempted)');
-        } catch (error) {
-          console.error('❌ Error sending "yes" template message:', error);
-          if (error.response) {
-            console.error('❌ Error response status:', error.response.status);
-            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
+        if (isWaiting && !hasThanks) {
+          console.log(`✅ Guest ${phoneNumber} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
+          console.log(`📤 Sending "thanks" template message...`);
+          try {
+            await sendThanksTemplateMessage(phoneNumber);
+            console.log('✅ "thanks" template message sent (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "thanks" template message:', error);
+          }
+        } else if (hasThanks) {
+          console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
+        } else {
+          // Guest hasn't received "yes" yet - send it now
+          console.log('📤 About to send "yes" template message...');
+          try {
+            await sendYesTemplateMessage(phoneNumber);
+            console.log('✅ "yes" template message sent successfully (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "yes" template message:', error);
+            if (error.response) {
+              console.error('❌ Error response status:', error.response.status);
+              console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+            }
           }
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
@@ -1398,6 +1496,20 @@ async function handleIncomingMessage(message) {
         // Send confirmation message first, then update status
         await sendDeclineConfirmation(phoneNumber);
         await updateGuestStatusByPhone(phoneNumber, 'declined');
+        
+        // CRITICAL: Send "thanks" message after decline (if not already sent)
+        const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+        if (!hasReceivedThanks(normalizedPhone)) {
+          console.log(`📤 Guest declined, sending "thanks" template message...`);
+          try {
+            await sendThanksTemplateMessage(phoneNumber);
+            console.log('✅ "thanks" template message sent after decline (or attempted)');
+          } catch (error) {
+            console.error('❌ Error sending "thanks" template message after decline:', error);
+          }
+        } else {
+          console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - skipping`);
+        }
       }
     }
     
@@ -1501,6 +1613,20 @@ async function handleIncomingMessage(message) {
           status: u.status
         })));
       }
+      
+      // CRITICAL: Send "thanks" message after decline (if not already sent)
+      const normalizedPhone = message.from.replace(/[^0-9]/g, '');
+      if (!hasReceivedThanks(normalizedPhone)) {
+        console.log(`📤 Guest declined via text, sending "thanks" template message...`);
+        try {
+          await sendThanksTemplateMessage(message.from);
+          console.log('✅ "thanks" template message sent after decline (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "thanks" template message after decline:', error);
+        }
+      } else {
+        console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping`);
+      }
     } catch (error) {
       console.error('❌ Error updating guest status to declined:', error);
     }
@@ -1511,15 +1637,34 @@ async function handleIncomingMessage(message) {
     await updateGuestStatusByPhone(message.from, 'confirmed');
     console.log('✅ Confirmation status update sent to pendingUpdates');
     
-    // Send message with template "yes" to the guest
-    console.log('📤 About to send "yes" template message...');
-    try {
-      await sendYesTemplateMessage(message.from);
-      console.log('✅ "yes" template message sent (or attempted)');
-    } catch (error) {
-      console.error('❌ Error sending "yes" template message:', error);
-      if (error.response) {
-        console.error('❌ Error response:', error.response.data);
+    // CRITICAL: Check if this is a response from someone who received "yes" message
+    const normalizedPhone = message.from.replace(/[^0-9]/g, '');
+    const isWaiting = isWaitingForResponse(normalizedPhone);
+    const hasThanks = hasReceivedThanks(normalizedPhone);
+    
+    // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
+    if (isWaiting && !hasThanks) {
+      console.log(`✅ Guest ${message.from} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
+      console.log(`📤 Sending "thanks" template message...`);
+      try {
+        await sendThanksTemplateMessage(message.from);
+        console.log('✅ "thanks" template message sent (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "thanks" template message:', error);
+      }
+    } else if (hasThanks) {
+      console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
+    } else {
+      // Guest hasn't received "yes" yet - send it now
+      console.log('📤 About to send "yes" template message...');
+      try {
+        await sendYesTemplateMessage(message.from);
+        console.log('✅ "yes" template message sent (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "yes" template message:', error);
+        if (error.response) {
+          console.error('❌ Error response:', error.response.data);
+        }
       }
     }
   } else {
@@ -1678,6 +1823,12 @@ async function sendYesTemplateMessage(phoneNumber) {
   try {
     console.log(`📤 ========== SENDING "yes" TEMPLATE MESSAGE ==========`);
     console.log(`📤 Original phone number: ${phoneNumber}`);
+    
+    // CRITICAL: Check if "yes" message was recently sent to prevent duplicates
+    if (wasYesMessageRecentlySent(phoneNumber)) {
+      console.log(`⏭️ Skipping "yes" template message - recently sent to ${phoneNumber} (within ${YES_MESSAGE_COOLDOWN / 1000 / 60} minutes)`);
+      return; // Exit early - don't send duplicate
+    }
     
     // CRITICAL: Try to reload token from environment if it seems invalid
     // This handles cases where Render environment variables weren't loaded correctly
@@ -4077,25 +4228,37 @@ app.post('/api/events', async (req, res) => {
               })));
               
               // Send "yes" template message if guest confirmed via guest link
+              // CRITICAL: Check if guest already received "yes" to prevent duplicates
+              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
+              const isWaiting = isWaitingForResponse(normalizedPhone);
+              const hasThanks = hasReceivedThanks(normalizedPhone);
+              
               console.log(`🔍 Checking if should send "yes" template:`, {
                 status: updateData.status,
                 formattedPhone: formattedPhone ? 'present' : 'missing',
                 statusChanged: statusChanged,
-                condition: updateData.status === 'confirmed' && formattedPhone
+                isWaiting: isWaiting,
+                hasThanks: hasThanks,
+                condition: updateData.status === 'confirmed' && formattedPhone && (!isWaiting || hasThanks)
               });
               if (updateData.status === 'confirmed' && formattedPhone) {
-                console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
-                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`📤 Guest ID: ${newGuest.id}`);
-                try {
-                  await sendYesTemplateMessage(formattedPhone);
-                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
-                } catch (error) {
-                  console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
-                  console.error(`❌ Error stack:`, error.stack);
-                  if (error.response) {
-                    console.error(`❌ Error response status:`, error.response.status);
-                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                // CRITICAL: If guest already received "yes" and is waiting for response, don't send "yes" again
+                if (isWaiting && !hasThanks) {
+                  console.log(`⏭️ Guest ${formattedPhone} already received "yes" and is waiting for response - skipping "yes" template`);
+                } else {
+                  console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                  console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                  console.log(`📤 Guest ID: ${newGuest.id}`);
+                  try {
+                    await sendYesTemplateMessage(formattedPhone);
+                    console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
+                  } catch (error) {
+                    console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
+                    console.error(`❌ Error stack:`, error.stack);
+                    if (error.response) {
+                      console.error(`❌ Error response status:`, error.response.status);
+                      console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                    }
                   }
                 }
               } else {
@@ -4111,28 +4274,40 @@ app.post('/api/events', async (req, res) => {
               console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
               
               // Also send "yes" template message if status changed to confirmed
+              // CRITICAL: Check if guest already received "yes" to prevent duplicates
+              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
+              const isWaiting = isWaitingForResponse(normalizedPhone);
+              const hasThanks = hasReceivedThanks(normalizedPhone);
+              
               console.log(`🔍 Checking if should send "yes" template (existing update):`, {
                 status: updateData.status,
                 formattedPhone: formattedPhone ? 'present' : 'missing',
                 statusChanged: statusChanged,
                 oldStatus: existingGuest?.rsvpStatus,
                 newStatus: newGuest.rsvpStatus,
-                condition: updateData.status === 'confirmed' && formattedPhone && statusChanged
+                isWaiting: isWaiting,
+                hasThanks: hasThanks,
+                condition: updateData.status === 'confirmed' && formattedPhone && statusChanged && (!isWaiting || hasThanks)
               });
               if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
-                console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
-                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`📤 Guest ID: ${newGuest.id}`);
-                console.log(`📤 Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
-                try {
-                  await sendYesTemplateMessage(formattedPhone);
-                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
-                } catch (error) {
-                  console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
-                  console.error(`❌ Error stack:`, error.stack);
-                  if (error.response) {
-                    console.error(`❌ Error response status:`, error.response.status);
-                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                // CRITICAL: If guest already received "yes" and is waiting for response, don't send "yes" again
+                if (isWaiting && !hasThanks) {
+                  console.log(`⏭️ Guest ${formattedPhone} already received "yes" and is waiting for response - skipping "yes" template`);
+                } else {
+                  console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                  console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                  console.log(`📤 Guest ID: ${newGuest.id}`);
+                  console.log(`📤 Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
+                  try {
+                    await sendYesTemplateMessage(formattedPhone);
+                    console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
+                  } catch (error) {
+                    console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
+                    console.error(`❌ Error stack:`, error.stack);
+                    if (error.response) {
+                      console.error(`❌ Error response status:`, error.response.status);
+                      console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                    }
                   }
                 }
               } else {
