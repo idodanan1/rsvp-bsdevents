@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { useShallow } from 'zustand/react/shallow';
 import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -136,8 +135,8 @@ const EventManagement: React.FC = () => {
     if (!event) {
       // Event not found - redirect after a short delay to allow events to load
       const timeout = setTimeout(() => {
-        const currentEvents = useEventStore.getState().events;
-        if (currentEvents.length > 0 && !currentEvents.find(e => e.id === id)) {
+        // Use events from closure instead of getState() to avoid React hooks issues
+        if (events.length > 0 && !events.find(e => e.id === id)) {
           console.warn('⚠️ Event not found after loading, redirecting to dashboard');
           navigate('/');
         }
@@ -184,7 +183,7 @@ const EventManagement: React.FC = () => {
   const stats = calculateEventStats(currentEvent);
   
   // CRITICAL: Subscribe to store state separately to avoid React hooks issues
-  // Use separate selectors instead of complex object selector
+  // Use separate selectors - useShallow is not needed for primitive selectors
   const storeCurrentEvent = useEventStore(state => state.currentEvent);
   const storeEvents = useEventStore(state => state.events);
   
