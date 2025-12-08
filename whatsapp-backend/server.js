@@ -980,6 +980,9 @@ async function handleIncomingMessage(message) {
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
                buttonIdLower.includes('decline') ||
+               buttonIdLower.includes('לא אוכל') ||
+               buttonIdLower.includes('לא מגיע') ||
+               buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
                buttonTitle?.includes('לא אוכל') ||
@@ -987,7 +990,9 @@ async function handleIncomingMessage(message) {
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
                buttonTitleLower.includes('לא מגיע') ||
-               buttonTitleLower.includes('דחה')) {
+               buttonTitleLower.includes('לא אוכל להגיע') ||
+               buttonTitleLower.includes('דחה') ||
+               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -999,12 +1004,16 @@ async function handleIncomingMessage(message) {
       console.log(`     buttonId === 'לא אוכל להגיע': ${buttonId === 'לא אוכל להגיע'}`);
       console.log(`     buttonId === 'לא מגיע': ${buttonId === 'לא מגיע'}`);
       console.log(`     buttonIdLower.includes('decline'): ${buttonIdLower.includes('decline')}`);
+      console.log(`     buttonIdLower.includes('לא אוכל'): ${buttonIdLower.includes('לא אוכל')}`);
+      console.log(`     buttonIdLower.includes('לא אוכל להגיע'): ${buttonIdLower.includes('לא אוכל להגיע')}`);
       console.log(`     buttonTitle === 'לא אוכל להגיע': ${buttonTitle === 'לא אוכל להגיע'}`);
       console.log(`     buttonTitle === 'לא מגיע': ${buttonTitle === 'לא מגיע'}`);
       console.log(`     buttonTitle?.includes('לא אוכל'): ${buttonTitle?.includes('לא אוכל')}`);
       console.log(`     buttonTitle?.includes('לא מגיע'): ${buttonTitle?.includes('לא מגיע')}`);
       console.log(`     buttonTitleLower.includes('לא אוכל'): ${buttonTitleLower.includes('לא אוכל')}`);
       console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
+      console.log(`     buttonTitleLower.includes('לא אוכל להגיע'): ${buttonTitleLower.includes('לא אוכל להגיע')}`);
+      console.log(`     Combined check (לא + אוכל/מגיע/אגיע): ${(buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))}`);
       // Send confirmation message first, then update status
       await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -1104,6 +1113,9 @@ async function handleIncomingMessage(message) {
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
                buttonIdLower.includes('decline') ||
+               buttonIdLower.includes('לא אוכל') ||
+               buttonIdLower.includes('לא מגיע') ||
+               buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
                buttonTitle?.includes('לא אוכל') ||
@@ -1111,7 +1123,9 @@ async function handleIncomingMessage(message) {
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
                buttonTitleLower.includes('לא מגיע') ||
-               buttonTitleLower.includes('דחה')) {
+               buttonTitleLower.includes('לא אוכל להגיע') ||
+               buttonTitleLower.includes('דחה') ||
+               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -1123,12 +1137,16 @@ async function handleIncomingMessage(message) {
       console.log(`     buttonId === 'לא אוכל להגיע': ${buttonId === 'לא אוכל להגיע'}`);
       console.log(`     buttonId === 'לא מגיע': ${buttonId === 'לא מגיע'}`);
       console.log(`     buttonIdLower.includes('decline'): ${buttonIdLower.includes('decline')}`);
+      console.log(`     buttonIdLower.includes('לא אוכל'): ${buttonIdLower.includes('לא אוכל')}`);
+      console.log(`     buttonIdLower.includes('לא אוכל להגיע'): ${buttonIdLower.includes('לא אוכל להגיע')}`);
       console.log(`     buttonTitle === 'לא אוכל להגיע': ${buttonTitle === 'לא אוכל להגיע'}`);
       console.log(`     buttonTitle === 'לא מגיע': ${buttonTitle === 'לא מגיע'}`);
       console.log(`     buttonTitle?.includes('לא אוכל'): ${buttonTitle?.includes('לא אוכל')}`);
       console.log(`     buttonTitle?.includes('לא מגיע'): ${buttonTitle?.includes('לא מגיע')}`);
       console.log(`     buttonTitleLower.includes('לא אוכל'): ${buttonTitleLower.includes('לא אוכל')}`);
       console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
+      console.log(`     buttonTitleLower.includes('לא אוכל להגיע'): ${buttonTitleLower.includes('לא אוכל להגיע')}`);
+      console.log(`     Combined check (לא + אוכל/מגיע/אגיע): ${(buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))}`);
       // Send confirmation message first, then update status
       await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
