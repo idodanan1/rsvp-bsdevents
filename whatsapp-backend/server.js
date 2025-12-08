@@ -3697,18 +3697,33 @@ app.post('/api/events', async (req, res) => {
               })));
               
               // Send "yes" template message if guest confirmed via guest link
+              console.log(`🔍 Checking if should send "yes" template:`, {
+                status: updateData.status,
+                formattedPhone: formattedPhone ? 'present' : 'missing',
+                statusChanged: statusChanged,
+                condition: updateData.status === 'confirmed' && formattedPhone
+              });
               if (updateData.status === 'confirmed' && formattedPhone) {
                 console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                console.log(`📤 Guest ID: ${newGuest.id}`);
                 try {
                   await sendYesTemplateMessage(formattedPhone);
                   console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
                 } catch (error) {
                   console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
+                  console.error(`❌ Error stack:`, error.stack);
                   if (error.response) {
                     console.error(`❌ Error response status:`, error.response.status);
                     console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
                   }
                 }
+              } else {
+                console.log(`⏭️ Skipping "yes" template message:`, {
+                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 'phone missing',
+                  status: updateData.status,
+                  hasPhone: !!formattedPhone
+                });
               }
             } else {
               // Update existing update with newer data
@@ -3716,18 +3731,39 @@ app.post('/api/events', async (req, res) => {
               console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
               
               // Also send "yes" template message if status changed to confirmed
+              console.log(`🔍 Checking if should send "yes" template (existing update):`, {
+                status: updateData.status,
+                formattedPhone: formattedPhone ? 'present' : 'missing',
+                statusChanged: statusChanged,
+                oldStatus: existingGuest?.rsvpStatus,
+                newStatus: newGuest.rsvpStatus,
+                condition: updateData.status === 'confirmed' && formattedPhone && statusChanged
+              });
               if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
                 console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                console.log(`📤 Guest ID: ${newGuest.id}`);
+                console.log(`📤 Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
                 try {
                   await sendYesTemplateMessage(formattedPhone);
                   console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
                 } catch (error) {
                   console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
+                  console.error(`❌ Error stack:`, error.stack);
                   if (error.response) {
                     console.error(`❌ Error response status:`, error.response.status);
                     console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
                   }
                 }
+              } else {
+                console.log(`⏭️ Skipping "yes" template message (existing update):`, {
+                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
+                          !formattedPhone ? 'phone missing' : 
+                          !statusChanged ? 'status not changed' : 'unknown',
+                  status: updateData.status,
+                  hasPhone: !!formattedPhone,
+                  statusChanged: statusChanged
+                });
               }
             }
           } else {
