@@ -448,6 +448,31 @@ class WebhookService {
           if (updateSuccessful) {
             console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
             
+            // Send "yes" template message if guest confirmed via guest link
+            if (newStatus === 'confirmed' && update.phoneNumber) {
+              console.log(`📤 Guest confirmed via guest link - requesting backend to send "yes" template message to ${update.phoneNumber}`);
+              try {
+                const sendMessageResponse = await fetch(`${BACKEND_URL}/api/guests/send-yes-message`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber
+                  })
+                });
+                if (sendMessageResponse.ok) {
+                  const sendMessageData = await sendMessageResponse.json();
+                  console.log(`✅ Backend sent "yes" template message successfully:`, sendMessageData);
+                } else {
+                  const errorText = await sendMessageResponse.text();
+                  console.warn(`⚠️ Backend failed to send "yes" template message:`, sendMessageResponse.status, errorText);
+                }
+              } catch (error) {
+                console.warn(`⚠️ Could not request backend to send "yes" template message:`, error);
+              }
+            }
+            
             // Mark this update as processed
             this.processedUpdates.add(updateKey);
             

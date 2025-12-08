@@ -1980,6 +1980,37 @@ app.post('/api/guests/update-status', async (req, res) => {
   }
 });
 
+// API endpoint to send "yes" template message (called from frontend after guest confirms)
+app.post('/api/guests/send-yes-message', async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Phone number is required'
+      });
+    }
+    
+    console.log(`📤 Frontend requested to send "yes" template message to ${phoneNumber}`);
+    
+    // Send the "yes" template message
+    await sendYesTemplateMessage(phoneNumber);
+    
+    res.json({
+      success: true,
+      message: 'Yes template message sent successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error sending yes template message:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send yes template message',
+      details: error.message
+    });
+  }
+});
+
 // API endpoint to get pending guest status updates
 // Handle OPTIONS preflight for pending-updates endpoint
 app.options('/api/guests/pending-updates', (req, res) => {
