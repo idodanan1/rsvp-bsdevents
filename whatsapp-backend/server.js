@@ -919,6 +919,8 @@ async function handleIncomingMessage(message) {
     messageId: message.id
   });
   console.log('📨 Full message object:', JSON.stringify(message, null, 2));
+  console.log('🔍 DEBUG: Access Token length:', process.env.WHATSAPP_ACCESS_TOKEN?.length || 0);
+  console.log('🔍 DEBUG: Access Token preview:', process.env.WHATSAPP_ACCESS_TOKEN?.substring(0, 20) || 'N/A');
   console.log('🔍 DEBUG: Checking message type and button format...');
   console.log('🔍 DEBUG: message.type =', message.type);
   console.log('🔍 DEBUG: message.button =', JSON.stringify(message.button, null, 2));
@@ -1033,7 +1035,8 @@ async function handleIncomingMessage(message) {
             console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
           }
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
+      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
+                 (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
         console.log(`   Button Title: "${buttonTitle}"`);
@@ -1156,7 +1159,8 @@ async function handleIncomingMessage(message) {
             console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
           }
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
+      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
+                 (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
         console.log(`   Button Title: "${buttonTitle}"`);
