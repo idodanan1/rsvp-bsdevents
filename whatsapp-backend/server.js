@@ -8,6 +8,13 @@ const stripe = require('stripe');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// CRITICAL: Log all environment variables related to WhatsApp (for debugging)
+console.log('🔍 ========== ENVIRONMENT VARIABLES DEBUG ==========');
+console.log('🔍 WHATSAPP_ACCESS_TOKEN:', process.env.WHATSAPP_ACCESS_TOKEN ? `Set (${process.env.WHATSAPP_ACCESS_TOKEN.length} chars)` : 'NOT SET');
+console.log('🔍 VITE_WHATSAPP_ACCESS_TOKEN:', process.env.VITE_WHATSAPP_ACCESS_TOKEN ? `Set (${process.env.VITE_WHATSAPP_ACCESS_TOKEN.length} chars)` : 'NOT SET');
+console.log('🔍 WHATSAPP_PHONE_NUMBER_ID:', process.env.WHATSAPP_PHONE_NUMBER_ID || 'NOT SET');
+console.log('🔍 ================================================');
+
 const app = express();
 const PORT = process.env.PORT || 3002;
 
@@ -1637,26 +1644,45 @@ async function sendYesTemplateMessage(phoneNumber) {
     console.log('📤 Sending "yes" template message...');
     console.log('📤 Full Payload:', JSON.stringify(messagePayload, null, 2));
     console.log('📤 API URL:', `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`);
+    console.log('📤 Authorization header preview:', `Bearer ${accessToken.substring(0, 30)}...`);
     
-    const response = await axios.post(
-      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-      messagePayload,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
+    try {
+      const response = await axios.post(
+        `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+        messagePayload,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000 // 10 second timeout
         }
+      );
+      
+      if (response.status === 200) {
+        console.log('✅ "yes" template message sent successfully!');
+        console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+        console.log('📤 ==========================================');
+      } else {
+        console.warn('⚠️ Failed to send "yes" template message:', response.status);
+        console.warn('⚠️ Response data:', response.data);
+        console.log('📤 ==========================================');
       }
-    );
-    
-    if (response.status === 200) {
-      console.log('✅ "yes" template message sent successfully!');
-      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
-      console.log('📤 ==========================================');
-    } else {
-      console.warn('⚠️ Failed to send "yes" template message:', response.status);
-      console.warn('⚠️ Response data:', response.data);
-      console.log('📤 ==========================================');
+    } catch (error) {
+      console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
+      console.error('❌ Error:', error.message);
+      if (error.response) {
+        console.error('❌ Error response status:', error.response.status);
+        console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+        console.error('❌ Error response headers:', JSON.stringify(error.response.headers, null, 2));
+      } else if (error.request) {
+        console.error('❌ No response received from API');
+        console.error('❌ Request:', error.request);
+      } else {
+        console.error('❌ Error setting up request:', error.message);
+      }
+      console.error('❌ ========================================================');
+      // Don't throw - this is not critical, but log extensively for debugging
     }
   } catch (error) {
     console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
@@ -2037,6 +2063,20 @@ app.post('/api/guests/send-yes-message', async (req, res) => {
     }
     
     console.log(`📤 Frontend requested to send "yes" template message to ${phoneNumber}`);
+    
+    // CRITICAL: Reload token from environment before sending (in case it wasn't loaded correctly)
+    console.log('🔍 Reloading token from environment before sending...');
+    const envToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
+    console.log('🔍 Env token length:', envToken ? envToken.length : 0);
+    console.log('🔍 Env token preview:', envToken ? envToken.substring(0, 50) : 'N/A');
+    
+    // Update process.env.WHATSAPP_ACCESS_TOKEN if it's invalid
+    if (!envToken || envToken.length < 50) {
+      console.warn('⚠️ Env token is invalid, using default token');
+      process.env.WHATSAPP_ACCESS_TOKEN = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+    } else {
+      process.env.WHATSAPP_ACCESS_TOKEN = sanitizeAccessToken(envToken);
+    }
     
     // Send the "yes" template message
     await sendYesTemplateMessage(phoneNumber);
