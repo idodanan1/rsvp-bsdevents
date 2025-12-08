@@ -1014,9 +1014,23 @@ async function handleIncomingMessage(message) {
       console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
       console.log(`     buttonTitleLower.includes('לא אוכל להגיע'): ${buttonTitleLower.includes('לא אוכל להגיע')}`);
       console.log(`     Combined check (לא + אוכל/מגיע/אגיע): ${(buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))}`);
-      // Send confirmation message first, then update status
-      await sendDeclineConfirmation(phoneNumber);
-      await updateGuestStatusByPhone(phoneNumber, 'declined');
+      // CRITICAL: Update status FIRST, then try to send confirmation message
+      // This ensures the status is updated even if sending the message fails
+      try {
+        await updateGuestStatusByPhone(phoneNumber, 'declined');
+        console.log('✅ Guest status updated to declined');
+      } catch (error) {
+        console.error('❌ Error updating guest status to declined:', error);
+        // Don't throw - continue to try sending confirmation
+      }
+      
+      // Try to send confirmation message (but don't fail if it doesn't work)
+      try {
+        await sendDeclineConfirmation(phoneNumber);
+      } catch (error) {
+        console.error('❌ Error sending decline confirmation (non-critical):', error.message);
+        // Don't throw - status update is more important than confirmation message
+      }
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
@@ -1147,9 +1161,23 @@ async function handleIncomingMessage(message) {
       console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
       console.log(`     buttonTitleLower.includes('לא אוכל להגיע'): ${buttonTitleLower.includes('לא אוכל להגיע')}`);
       console.log(`     Combined check (לא + אוכל/מגיע/אגיע): ${(buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))}`);
-      // Send confirmation message first, then update status
-      await sendDeclineConfirmation(phoneNumber);
-      await updateGuestStatusByPhone(phoneNumber, 'declined');
+      // CRITICAL: Update status FIRST, then try to send confirmation message
+      // This ensures the status is updated even if sending the message fails
+      try {
+        await updateGuestStatusByPhone(phoneNumber, 'declined');
+        console.log('✅ Guest status updated to declined');
+      } catch (error) {
+        console.error('❌ Error updating guest status to declined:', error);
+        // Don't throw - continue to try sending confirmation
+      }
+      
+      // Try to send confirmation message (but don't fail if it doesn't work)
+      try {
+        await sendDeclineConfirmation(phoneNumber);
+      } catch (error) {
+        console.error('❌ Error sending decline confirmation (non-critical):', error.message);
+        // Don't throw - status update is more important than confirmation message
+      }
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
@@ -1400,7 +1428,9 @@ async function sendDeclineConfirmation(phoneNumber) {
       console.warn('⚠️ Response data:', response.data);
     }
   } catch (error) {
-    console.error('❌ Error sending guest count question:', error);
+    // Don't throw - this is a non-critical operation
+    // The status update is more important than sending the confirmation message
+    console.error('❌ Error sending decline confirmation (non-critical):', error.message);
     if (error.response) {
       console.error('❌ Error response status:', error.response.status);
       console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
@@ -1409,8 +1439,7 @@ async function sendDeclineConfirmation(phoneNumber) {
     } else {
       console.error('❌ Error setting up request:', error.message);
     }
-    // Don't throw - try fallback
-    throw error; // Re-throw to trigger fallback in caller
+    // Don't rethrow - let the status update succeed even if message sending fails
   }
 }
 
