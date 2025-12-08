@@ -164,29 +164,31 @@ const EventManagement: React.FC = () => {
 
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - use currentEvent if available, otherwise from events array
-  // Calculate guests directly without useMemo to avoid React hooks issues
-  let guestsToDisplay: any[] = [];
-  if (currentEvent && currentEvent.id === id && currentEvent.guests) {
-    console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
-    guestsToDisplay = currentEvent.guests.map(g => ({ ...g }));
-  } else {
+  // Use useMemo to ensure React tracks changes correctly
+  const guestsToDisplay = useMemo(() => {
+    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
+      console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
+      return currentEvent.guests.map(g => ({ ...g }));
+    }
     const event = events.find(e => e.id === id);
     if (event?.guests) {
       console.log('📊 Using guests from events array:', event.guests.length);
-      guestsToDisplay = event.guests.map(g => ({ ...g }));
-    } else {
-      console.log('⚠️ No guests found for event:', id);
-      guestsToDisplay = [];
+      return event.guests.map(g => ({ ...g }));
     }
-  }
+    console.log('⚠️ No guests found for event:', id);
+    return [];
+  }, [id, currentEvent, events]);
   
   // CRITICAL: Create a key that changes when guests change to force re-render
-  // Calculate directly without useMemo to avoid React hooks issues
-  const guestsKey = guestsToDisplay && guestsToDisplay.length > 0
-    ? guestsToDisplay.map(g => 
+  // Use useMemo to ensure React tracks changes correctly
+  const guestsKey = useMemo(() => {
+    if (guestsToDisplay && guestsToDisplay.length > 0) {
+      return guestsToDisplay.map(g => 
         `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate || ''}`
-      ).join('|')
-    : 'empty';
+      ).join('|');
+    }
+    return 'empty';
+  }, [guestsToDisplay]);
   
   // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
   // This ensures the table updates immediately when any guest data changes
@@ -203,27 +205,19 @@ const EventManagement: React.FC = () => {
     console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
     console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
     console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay.length);
-    console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
-      name: `${g.firstName} ${g.lastName}`,
-      status: g.rsvpStatus,
-      count: g.guestCount
-    })));
+    if (guestsToDisplay.length > 0) {
+      console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
+        name: `${g.firstName} ${g.lastName}`,
+        status: g.rsvpStatus,
+        count: g.guestCount
+      })));
+    }
     setForceUpdate(prev => prev + 1);
   }, [guestsToDisplay.length, id, currentEvent?.id, events.length]);
-
-  // Early return after all hooks
-  if (!currentEvent) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  const stats = calculateEventStats(currentEvent);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
+  // MUST be before any return statement
   useEffect(() => {
     console.log('🔄 Events array changed, checking for guest updates');
     const event = events.find(e => e.id === id);
@@ -239,6 +233,17 @@ const EventManagement: React.FC = () => {
       }
     }
   }, [id, events]);
+
+  // Early return after ALL hooks (no hooks after this point!)
+  if (!currentEvent) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const stats = calculateEventStats(currentEvent);
   
   const filteredGuests = guestsToDisplay.filter(guest => {
     const matchesSearch = 
