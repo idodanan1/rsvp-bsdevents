@@ -46,6 +46,100 @@ app.use((req, res, next) => {
 // Temporary storage for guest status updates (in production, use a database)
 const pendingUpdates = [];
 
+// Track recently sent "yes" template messages to prevent duplicates
+// Format: "phoneNumber:timestamp" -> true
+const recentlySentYesMessages = new Map();
+const YES_MESSAGE_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown
+
+// Track guests waiting for response after "yes" message
+// Format: "phoneNumber" -> timestamp when "yes" was sent
+const waitingForResponse = new Map();
+const RESPONSE_WAIT_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours timeout
+
+// Track guests who already received "thanks" message
+// Format: "phoneNumber" -> timestamp when "thanks" was sent
+const receivedThanksMessages = new Map();
+
+// Helper function to check if "yes" message was recently sent
+function wasYesMessageRecentlySent(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  const lastSent = recentlySentYesMessages.get(key);
+  if (!lastSent) {
+    return false;
+  }
+  const timeSinceLastSent = Date.now() - lastSent;
+  if (timeSinceLastSent > YES_MESSAGE_COOLDOWN) {
+    // Remove old entry
+    recentlySentYesMessages.delete(key);
+    return false;
+  }
+  return true;
+}
+
+// Helper function to mark "yes" message as sent
+function markYesMessageAsSent(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  recentlySentYesMessages.set(key, Date.now());
+  // Mark that we're waiting for a response from this guest
+  waitingForResponse.set(key, Date.now());
+  console.log(`✅ Marked "yes" message as sent for ${phoneNumber} (waiting for response)`);
+  
+  // Clean up old entries (older than cooldown)
+  const now = Date.now();
+  for (const [phone, timestamp] of recentlySentYesMessages.entries()) {
+    if (now - timestamp > YES_MESSAGE_COOLDOWN) {
+      recentlySentYesMessages.delete(phone);
+    }
+  }
+  
+  // Clean up old waiting entries (older than timeout)
+  for (const [phone, timestamp] of waitingForResponse.entries()) {
+    if (now - timestamp > RESPONSE_WAIT_TIMEOUT) {
+      waitingForResponse.delete(phone);
+    }
+  }
+}
+
+// Helper function to check if guest is waiting for response
+function isWaitingForResponse(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  const waitStart = waitingForResponse.get(key);
+  if (!waitStart) {
+    return false;
+  }
+  const timeSinceWait = Date.now() - waitStart;
+  if (timeSinceWait > RESPONSE_WAIT_TIMEOUT) {
+    // Remove old entry
+    waitingForResponse.delete(key);
+    return false;
+  }
+  return true;
+}
+
+// Helper function to mark that guest received "thanks"
+function markThanksAsSent(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  receivedThanksMessages.set(key, Date.now());
+  // Remove from waiting list
+  waitingForResponse.delete(key);
+  console.log(`✅ Marked "thanks" message as sent for ${phoneNumber} (no more auto-responses)`);
+  
+  // Clean up old entries (older than 7 days)
+  const now = Date.now();
+  const sevenDaysAgo = 7 * 24 * 60 * 60 * 1000;
+  for (const [phone, timestamp] of receivedThanksMessages.entries()) {
+    if (now - timestamp > sevenDaysAgo) {
+      receivedThanksMessages.delete(phone);
+    }
+  }
+}
+
+// Helper function to check if guest already received "thanks"
+function hasReceivedThanks(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  return receivedThanksMessages.has(key);
+}
+
 // Helper function to sanitize Access Token (remove invalid characters for HTTP headers)
 function sanitizeAccessToken(token) {
   if (!token) {
@@ -1014,6 +1108,27 @@ async function handleIncomingMessage(message) {
     console.log('🔘 Phone Number:', phoneNumber);
     console.log('🔘 ====================================================');
     
+    // CRITICAL: Check if this is a response from someone who received "yes" message
+    // If they already received "thanks", don't send auto-responses
+    const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const isWaiting = isWaitingForResponse(normalizedPhone);
+    const hasThanks = hasReceivedThanks(normalizedPhone);
+    
+    if (isWaiting && !hasThanks) {
+      console.log(`✅ Guest ${phoneNumber} responded via button after receiving "yes" message`);
+      console.log(`📤 Sending "thanks" template message...`);
+      try {
+        await sendThanksTemplateMessage(phoneNumber);
+        console.log('✅ "thanks" template message sent (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "thanks" template message:', error);
+      }
+      // Continue processing the button click (don't return here)
+    } else if (hasThanks) {
+      console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
+      // Don't send auto-responses, but continue processing the button
+    }
+    
     // Handle different button actions
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
@@ -1295,12 +1410,44 @@ async function handleIncomingMessage(message) {
   const messageText = message.text?.body?.toLowerCase() || '';
   const originalMessageText = message.text?.body || '';
   
+  // CRITICAL: Check if this is a response from someone who received "yes" message
+  // If they already received "thanks", don't send auto-responses
+  const normalizedPhone = message.from.replace(/[^0-9]/g, '');
+  const isWaiting = isWaitingForResponse(normalizedPhone);
+  const hasThanks = hasReceivedThanks(normalizedPhone);
+  
+  if (isWaiting && !hasThanks) {
+    console.log(`✅ Guest ${message.from} responded after receiving "yes" message`);
+    console.log(`📤 Sending "thanks" template message...`);
+    try {
+      await sendThanksTemplateMessage(message.from);
+      console.log('✅ "thanks" template message sent (or attempted)');
+    } catch (error) {
+      console.error('❌ Error sending "thanks" template message:', error);
+    }
+    // Continue processing the message (don't return here)
+  } else if (hasThanks) {
+    console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
+    // Don't send auto-responses, but continue processing the message
+  }
+  
   // Check if this is a response to guest count question
   // Look for numbers or common phrases indicating guest count
   const guestCountMatch = extractGuestCount(originalMessageText);
   if (guestCountMatch !== null) {
     console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
     await updateGuestCountByPhone(message.from, guestCountMatch);
+    
+    // If guest is waiting for response and hasn't received "thanks" yet, send it after guest count update
+    if (isWaiting && !hasThanks) {
+      console.log(`📤 Guest provided guest count after "yes" message, sending "thanks"...`);
+      try {
+        await sendThanksTemplateMessage(message.from);
+      } catch (error) {
+        console.error('❌ Error sending "thanks" after guest count:', error);
+      }
+    }
+    
     return; // Don't process as confirmation/decline
   }
   
@@ -1662,6 +1809,8 @@ async function sendYesTemplateMessage(phoneNumber) {
       if (response.status === 200) {
         console.log('✅ "yes" template message sent successfully!');
         console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+        // CRITICAL: Mark message as sent to prevent duplicates
+        markYesMessageAsSent(phoneNumber);
         console.log('📤 ==========================================');
       } else {
         console.warn('⚠️ Failed to send "yes" template message:', response.status);
@@ -1698,6 +1847,111 @@ async function sendYesTemplateMessage(phoneNumber) {
     }
     console.error('❌ ========================================================');
     // Don't throw - this is not critical, but log extensively for debugging
+  }
+}
+
+// Send "thanks" template message after guest responds to "yes" message
+async function sendThanksTemplateMessage(phoneNumber) {
+  try {
+    console.log(`📤 ========== SENDING "thanks" TEMPLATE MESSAGE ==========`);
+    console.log(`📤 Original phone number: ${phoneNumber}`);
+    
+    // CRITICAL: Check if guest already received "thanks" to prevent duplicates
+    if (hasReceivedThanks(phoneNumber)) {
+      console.log(`⏭️ Skipping "thanks" template message - already sent to ${phoneNumber}`);
+      return; // Don't send duplicate
+    }
+    
+    // CRITICAL: Try to reload token from environment if it seems invalid
+    let rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    
+    // If token is too short, try to reload from environment
+    if (!rawToken || rawToken.length < 50) {
+      console.warn('⚠️ Token seems invalid, trying to reload from environment...');
+      rawToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
+      
+      // If still invalid, use the default token
+      if (!rawToken || rawToken.length < 50) {
+        console.warn('⚠️ Reloaded token still invalid, using default token');
+        rawToken = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+      }
+    }
+    
+    const accessToken = sanitizeAccessToken(rawToken);
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    
+    if (!accessToken || accessToken.length < 50) {
+      console.error('❌ WhatsApp Access Token is invalid or too short!');
+      return;
+    }
+    
+    if (!phoneNumberId) {
+      console.error('❌ WhatsApp Phone Number ID is missing!');
+      return;
+    }
+    
+    // Format phone number
+    let formattedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '972' + formattedPhone.substring(1);
+    } else if (!formattedPhone.startsWith('972')) {
+      formattedPhone = '972' + formattedPhone;
+    }
+    
+    console.log(`📤 Formatted phone number: ${formattedPhone}`);
+    
+    // Send template message "thanks"
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'template',
+      template: {
+        name: 'thanks',
+        language: {
+          code: 'he'
+        }
+      }
+    };
+    
+    console.log('📤 Sending "thanks" template message...');
+    console.log('📤 Full Payload:', JSON.stringify(messagePayload, null, 2));
+    
+    try {
+      const response = await axios.post(
+        `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+        messagePayload,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 10000
+        }
+      );
+      
+      if (response.status === 200) {
+        console.log('✅ "thanks" template message sent successfully!');
+        console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+        // CRITICAL: Mark "thanks" as sent to prevent duplicates and stop auto-responses
+        markThanksAsSent(phoneNumber);
+        console.log('📤 ==========================================');
+      } else {
+        console.warn('⚠️ Failed to send "thanks" template message:', response.status);
+        console.warn('⚠️ Response data:', response.data);
+        console.log('📤 ==========================================');
+      }
+    } catch (error) {
+      console.error('❌ ========== ERROR SENDING "thanks" TEMPLATE MESSAGE ==========');
+      console.error('❌ Error:', error.message);
+      if (error.response) {
+        console.error('❌ Error response status:', error.response.status);
+        console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+      }
+      console.error('❌ ========================================================');
+    }
+  } catch (error) {
+    console.error('❌ Error in sendThanksTemplateMessage:', error);
   }
 }
 

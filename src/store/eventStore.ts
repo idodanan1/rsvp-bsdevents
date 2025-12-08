@@ -999,8 +999,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'reminer' for this campaign
-              templateName: 'reminer', // Template name in Meta is "reminer" (not "reminder")
+              // Use WhatsApp template 'today' for this campaign
+              templateName: 'today', // Template name in Meta is "today"
               // WhatsApp buttons
               whatsappButtons: [
                 {
@@ -2001,8 +2001,8 @@ export const useEventStore = create<EventStore>()(
             } else if (campaign.name === 'תזכורת שבועית') {
               templateNameForCampaign = 'aa';
             } else if (campaign.name === 'תזכורת אחרונה') {
-              // Use template 'reminer' for "תזכורת אחרונה" campaign
-              templateNameForCampaign = 'reminer';
+              // Use template 'today' for "תזכורת אחרונה" campaign
+              templateNameForCampaign = 'today';
             }
           }
           
@@ -2112,8 +2112,8 @@ export const useEventStore = create<EventStore>()(
                 couple_name: event.coupleName,
                 language: 'he'
               };
-            } else if (templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
-              // Template "reminer" (note: name in Meta is "reminer", not "reminder") requires these 7 parameters in order:
+            } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
+              // Template "today" requires these 7 parameters in order:
               // 1. first_name (not guest_name!)
               // 2. event_type
               // 3. couple_name
@@ -2122,6 +2122,7 @@ export const useEventStore = create<EventStore>()(
               // 6. venue
               // 7. table_number
               // NOTE: guest_response_link is NOT included in this template
+              // (Supporting both 'today' and 'reminer' for backward compatibility)
               const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
               const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
               
@@ -2779,9 +2780,9 @@ export const useEventStore = create<EventStore>()(
                 updatedTemplateName = 'aa';
                 console.log(`   📋 Fixed templateName from 'AA' to 'aa' for campaign "${campaign.name}"`);
               } else if (campaign.name === 'תזכורת אחרונה') {
-                // Reminder campaign uses template "reminer" (note: name in Meta is "reminer", not "reminder")
-                updatedTemplateName = 'reminer';
-                console.log(`   📋 Set templateName to 'reminer' for campaign "${campaign.name}"`);
+                // "תזכורת אחרונה" campaign uses template "today"
+                updatedTemplateName = 'today';
+                console.log(`   📋 Set templateName to 'today' for campaign "${campaign.name}"`);
               }
               
               return {
@@ -3039,8 +3040,8 @@ export const useEventStore = create<EventStore>()(
             status: 'draft' as const,
             sentCount: 0,
             responseCount: 0,
-            // Use WhatsApp template 'reminer' for this campaign
-            templateName: 'reminer', // Template name in Meta is "reminer" (not "reminder")
+            // Use WhatsApp template 'today' for this campaign
+            templateName: 'today', // Template name in Meta is "today"
             whatsappButtons: [
               {
                 type: 'url',
