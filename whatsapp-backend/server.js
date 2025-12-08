@@ -3652,22 +3652,17 @@ app.post('/api/events', async (req, res) => {
                                            hasResponseDate;
           
           // DEBUG: Log all conditions for this guest
-          console.log(`🔍 Checking guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}):`, {
-            phoneNumber: newGuest.phoneNumber ? 'present' : 'MISSING',
-            existingGuest: existingGuest ? 'found' : 'not found',
-            statusChanged,
-            guestCountChanged,
-            hasValidStatus,
-            hasValidGuestCount,
-            hasResponseDate,
-            hasStatusWithNewResponse,
-            oldResponseDate,
-            newResponseDate,
-            newRsvpStatus: newGuest.rsvpStatus,
-            oldRsvpStatus: existingGuest?.rsvpStatus,
-            newGuestCount: newGuest.guestCount,
-            oldGuestCount: existingGuest?.guestCount
-          });
+          console.log(`🔍 ========== CHECKING GUEST FOR PENDING UPDATES ==========`);
+          console.log(`🔍 Guest: ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id})`);
+          console.log(`🔍 Phone: ${newGuest.phoneNumber ? newGuest.phoneNumber : 'MISSING ⚠️'}`);
+          console.log(`🔍 Existing guest: ${existingGuest ? 'found' : 'not found'}`);
+          console.log(`🔍 Status changed: ${statusChanged} (${existingGuest?.rsvpStatus} → ${newGuest.rsvpStatus})`);
+          console.log(`🔍 Guest count changed: ${guestCountChanged} (${existingGuest?.guestCount} → ${newGuest.guestCount})`);
+          console.log(`🔍 Has valid status: ${hasValidStatus}`);
+          console.log(`🔍 Has valid guest count: ${hasValidGuestCount}`);
+          console.log(`🔍 Has response date: ${hasResponseDate} (old: ${oldResponseDate}, new: ${newResponseDate})`);
+          console.log(`🔍 Has status with new response: ${hasStatusWithNewResponse}`);
+          console.log(`🔍 ========================================================`);
           
           // Add to pendingUpdates if:
           // 1. Status changed (existing guest)
@@ -3676,7 +3671,18 @@ app.post('/api/events', async (req, res) => {
           // 4. New guest with valid guest count
           // 5. Has response date (indicates this is a response from guest)
           // 6. Has status with new response date (handles same status but new update time)
-          if ((statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber) {
+          // 7. CRITICAL: Always add if guest has a valid status and phone number (even if status didn't change)
+          //    This ensures updates from guest response link are always synced across devices
+          const shouldAddToPending = (statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber;
+          
+          // CRITICAL: Also check if guest has a valid status (confirmed/declined/maybe) even if it didn't change
+          // This ensures updates from guest response link are always synced, even if status is the same
+          const hasValidRsvpStatus = newGuest.rsvpStatus && 
+                                    (newGuest.rsvpStatus === 'confirmed' || 
+                                     newGuest.rsvpStatus === 'declined' || 
+                                     newGuest.rsvpStatus === 'maybe');
+          
+          if ((shouldAddToPending || (hasValidRsvpStatus && newGuest.phoneNumber && hasResponseDate)) && newGuest.phoneNumber) {
             // Format phone number (same logic as updateGuestStatusByPhone)
             const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
             const formattedPhone = originalPhone.replace(/^972/, '0');
