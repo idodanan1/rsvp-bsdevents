@@ -983,6 +983,19 @@ async function handleIncomingMessage(message) {
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
       console.log(`   Phone number: ${phoneNumber}`);
+      console.log(`   Button ID Lower: "${buttonIdLower}"`);
+      console.log(`   Button Title Lower: "${buttonTitleLower}"`);
+      console.log(`   Checking conditions:`);
+      console.log(`     buttonId === 'decline_attendance': ${buttonId === 'decline_attendance'}`);
+      console.log(`     buttonId === 'לא אוכל להגיע': ${buttonId === 'לא אוכל להגיע'}`);
+      console.log(`     buttonId === 'לא מגיע': ${buttonId === 'לא מגיע'}`);
+      console.log(`     buttonIdLower.includes('decline'): ${buttonIdLower.includes('decline')}`);
+      console.log(`     buttonTitle === 'לא אוכל להגיע': ${buttonTitle === 'לא אוכל להגיע'}`);
+      console.log(`     buttonTitle === 'לא מגיע': ${buttonTitle === 'לא מגיע'}`);
+      console.log(`     buttonTitle?.includes('לא אוכל'): ${buttonTitle?.includes('לא אוכל')}`);
+      console.log(`     buttonTitle?.includes('לא מגיע'): ${buttonTitle?.includes('לא מגיע')}`);
+      console.log(`     buttonTitleLower.includes('לא אוכל'): ${buttonTitleLower.includes('לא אוכל')}`);
+      console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
       // Send confirmation message first, then update status
       await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -1015,6 +1028,9 @@ async function handleIncomingMessage(message) {
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
+        console.log(`   Button ID: "${buttonId}"`);
+        console.log(`   Button Title: "${buttonTitle}"`);
+        console.log(`   Button Title Lower: "${buttonTitleLower}"`);
         // Send confirmation message first, then update status
         await sendDeclineConfirmation(phoneNumber);
         await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -1090,6 +1106,19 @@ async function handleIncomingMessage(message) {
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
       console.log(`   Phone number: ${phoneNumber}`);
+      console.log(`   Button ID Lower: "${buttonIdLower}"`);
+      console.log(`   Button Title Lower: "${buttonTitleLower}"`);
+      console.log(`   Checking conditions:`);
+      console.log(`     buttonId === 'decline_attendance': ${buttonId === 'decline_attendance'}`);
+      console.log(`     buttonId === 'לא אוכל להגיע': ${buttonId === 'לא אוכל להגיע'}`);
+      console.log(`     buttonId === 'לא מגיע': ${buttonId === 'לא מגיע'}`);
+      console.log(`     buttonIdLower.includes('decline'): ${buttonIdLower.includes('decline')}`);
+      console.log(`     buttonTitle === 'לא אוכל להגיע': ${buttonTitle === 'לא אוכל להגיע'}`);
+      console.log(`     buttonTitle === 'לא מגיע': ${buttonTitle === 'לא מגיע'}`);
+      console.log(`     buttonTitle?.includes('לא אוכל'): ${buttonTitle?.includes('לא אוכל')}`);
+      console.log(`     buttonTitle?.includes('לא מגיע'): ${buttonTitle?.includes('לא מגיע')}`);
+      console.log(`     buttonTitleLower.includes('לא אוכל'): ${buttonTitleLower.includes('לא אוכל')}`);
+      console.log(`     buttonTitleLower.includes('לא מגיע'): ${buttonTitleLower.includes('לא מגיע')}`);
       // Send confirmation message first, then update status
       await sendDeclineConfirmation(phoneNumber);
       await updateGuestStatusByPhone(phoneNumber, 'declined');
@@ -1122,6 +1151,9 @@ async function handleIncomingMessage(message) {
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה')) {
         console.log('❌ Matched as decline based on text');
+        console.log(`   Button ID: "${buttonId}"`);
+        console.log(`   Button Title: "${buttonTitle}"`);
+        console.log(`   Button Title Lower: "${buttonTitleLower}"`);
         // Send confirmation message first, then update status
         await sendDeclineConfirmation(phoneNumber);
         await updateGuestStatusByPhone(phoneNumber, 'declined');
