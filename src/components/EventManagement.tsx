@@ -162,16 +162,7 @@ const EventManagement: React.FC = () => {
     }
   }, [id, events, setCurrentEvent, navigate]);
 
-  if (!currentEvent) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  const stats = calculateEventStats(currentEvent);
-  
+  // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - use currentEvent if available, otherwise from events array
   // Calculate guests directly without useMemo to avoid React hooks issues
   let guestsToDisplay: any[] = [];
@@ -188,8 +179,6 @@ const EventManagement: React.FC = () => {
       guestsToDisplay = [];
     }
   }
-  
-  // Removed duplicate useEffect - using the main one above
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Calculate directly without useMemo to avoid React hooks issues
@@ -220,7 +209,18 @@ const EventManagement: React.FC = () => {
       count: g.guestCount
     })));
     setForceUpdate(prev => prev + 1);
-  }, [guestsToDisplay, id]);
+  }, [guestsToDisplay.length, id, currentEvent?.id, events.length]);
+
+  // Early return after all hooks
+  if (!currentEvent) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const stats = calculateEventStats(currentEvent);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
