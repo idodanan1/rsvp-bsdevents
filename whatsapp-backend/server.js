@@ -41,9 +41,36 @@ const pendingUpdates = [];
 
 // Helper function to sanitize Access Token (remove invalid characters for HTTP headers)
 function sanitizeAccessToken(token) {
-  if (!token) return '';
-  // Remove newlines, carriage returns, and other invalid header characters
-  return token.toString().trim().replace(/[\r\n\t]/g, '').replace(/[^\x20-\x7E]/g, '');
+  if (!token) {
+    console.warn('⚠️ sanitizeAccessToken: Token is empty or undefined');
+    return '';
+  }
+  
+  const tokenStr = token.toString().trim();
+  
+  // Check if token looks valid (should be long, typically 200+ characters for WhatsApp tokens)
+  if (tokenStr.length < 50) {
+    console.error(`❌ sanitizeAccessToken: Token seems too short (${tokenStr.length} chars). Expected 200+ characters.`);
+    console.error(`❌ Token preview: "${tokenStr.substring(0, 50)}"`);
+    // Don't return empty - let it fail with a clear error message
+  }
+  
+  // Remove newlines, carriage returns, tabs, and other control characters
+  // But keep all printable ASCII characters (including special chars that might be in token)
+  let cleaned = tokenStr.replace(/[\r\n\t]/g, '');
+  
+  // Only remove truly invalid characters for HTTP headers (control chars 0x00-0x1F and DEL 0x7F)
+  // Keep all printable ASCII (0x20-0x7E) including special characters
+  cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, '');
+  
+  // Final trim
+  cleaned = cleaned.trim();
+  
+  if (cleaned.length !== tokenStr.length) {
+    console.warn(`⚠️ sanitizeAccessToken: Removed ${tokenStr.length - cleaned.length} invalid character(s) from token`);
+  }
+  
+  return cleaned;
 }
 
 // Set default API keys if not provided
@@ -413,7 +440,15 @@ console.log('🔧 WhatsApp Backend Configuration:');
 console.log('📱 WaNotifier API Key:', process.env.WANOTIFIER_API_KEY ? 'Set' : 'Not set');
 console.log('📱 CallMeBot API Key:', process.env.CALLMEBOT_API_KEY ? 'Set' : 'Not set');
 console.log('🔐 Webhook Verify Token:', process.env.WEBHOOK_VERIFY_TOKEN ? 'Set' : 'Not set');
-console.log('🔑 WhatsApp Access Token:', process.env.WHATSAPP_ACCESS_TOKEN ? 'Set' : 'Not set');
+// Validate WhatsApp Access Token
+const tokenLength = process.env.WHATSAPP_ACCESS_TOKEN ? process.env.WHATSAPP_ACCESS_TOKEN.length : 0;
+const tokenPreview = process.env.WHATSAPP_ACCESS_TOKEN ? process.env.WHATSAPP_ACCESS_TOKEN.substring(0, 30) : 'N/A';
+console.log('🔑 WhatsApp Access Token:', process.env.WHATSAPP_ACCESS_TOKEN ? `Set (${tokenLength} chars, preview: "${tokenPreview}...")` : 'Not set');
+if (process.env.WHATSAPP_ACCESS_TOKEN && tokenLength < 50) {
+  console.error('❌ WARNING: WhatsApp Access Token seems too short! Expected 200+ characters.');
+  console.error('❌ Please verify WHATSAPP_ACCESS_TOKEN in Render environment variables.');
+  console.error('❌ Token should start with "EAA..." and be a long string (200+ characters).');
+}
 console.log('📱 WhatsApp Phone Number ID:', process.env.WHATSAPP_PHONE_NUMBER_ID ? 'Set' : 'Not set');
 console.log('🌐 Port:', PORT);
 
@@ -1387,11 +1422,20 @@ async function sendDeclineConfirmation(phoneNumber) {
     console.log(`📤 Sending decline confirmation to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
+    const rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(rawToken);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
-    if (!accessToken || !phoneNumberId) {
-      console.warn('⚠️ WhatsApp credentials not configured - cannot send decline confirmation');
+    // Validate token
+    if (!accessToken || accessToken.length < 50) {
+      console.error('❌ WhatsApp Access Token is invalid or too short!');
+      console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
+      console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
+      return;
+    }
+    
+    if (!phoneNumberId) {
+      console.error('❌ WhatsApp Phone Number ID is missing!');
       return;
     }
     
@@ -1450,13 +1494,28 @@ async function sendYesTemplateMessage(phoneNumber) {
     console.log(`📤 Original phone number: ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
+    const rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(rawToken);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
-    if (!accessToken || !phoneNumberId) {
-      console.warn('⚠️ WhatsApp credentials not configured - cannot send yes template message');
-      console.warn(`⚠️ Access Token: ${accessToken ? 'Set' : 'Missing'}`);
-      console.warn(`⚠️ Phone Number ID: ${phoneNumberId || 'Missing'}`);
+    // Detailed token validation
+    console.log(`🔍 Token validation:`);
+    console.log(`   Raw token length: ${rawToken ? rawToken.length : 0}`);
+    console.log(`   Raw token preview: "${rawToken ? rawToken.substring(0, 30) : 'N/A'}..."`);
+    console.log(`   Sanitized token length: ${accessToken ? accessToken.length : 0}`);
+    console.log(`   Sanitized token preview: "${accessToken ? accessToken.substring(0, 30) : 'N/A'}..."`);
+    
+    if (!accessToken || accessToken.length < 50) {
+      console.error('❌ WhatsApp Access Token is invalid or too short!');
+      console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
+      console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
+      console.error(`❌ Token should start with "EAA..." and be 200+ characters long`);
+      return;
+    }
+    
+    if (!phoneNumberId) {
+      console.error('❌ WhatsApp Phone Number ID is missing!');
+      console.error(`❌ Please check WHATSAPP_PHONE_NUMBER_ID in Render environment variables`);
       return;
     }
     
@@ -1568,11 +1627,20 @@ async function sendGuestCountQuestion(phoneNumber) {
     console.log(`📤 Sending guest count question to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
-    const accessToken = sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN);
+    const rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = sanitizeAccessToken(rawToken);
     const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
     
-    if (!accessToken || !phoneNumberId) {
-      console.warn('⚠️ WhatsApp credentials not configured - cannot send guest count question');
+    // Validate token
+    if (!accessToken || accessToken.length < 50) {
+      console.error('❌ WhatsApp Access Token is invalid or too short!');
+      console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
+      console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
+      return;
+    }
+    
+    if (!phoneNumberId) {
+      console.error('❌ WhatsApp Phone Number ID is missing!');
       return;
     }
     
