@@ -182,37 +182,32 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Subscribe to store state separately to avoid React hooks issues
-  // Use separate selectors - useShallow is not needed for primitive selectors
-  const storeCurrentEvent = useEventStore(state => state.currentEvent);
-  const storeEvents = useEventStore(state => state.events);
-  
   // Calculate version separately using useMemo to avoid creating new object references
   const storeVersion = useMemo(() => {
-    return storeEvents.reduce((sum, e) => {
+    return events.reduce((sum, e) => {
       const eventVersion = e.guests?.reduce((guestSum, g) => {
         return guestSum + `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       }, 0) || 0;
       return sum + eventVersion + (e.updatedAt ? new Date(e.updatedAt).getTime() : 0);
-    }, 0) + (storeCurrentEvent?.updatedAt ? new Date(storeCurrentEvent.updatedAt).getTime() : 0);
-  }, [storeEvents, storeCurrentEvent]);
+    }, 0) + (currentEvent?.updatedAt ? new Date(currentEvent.updatedAt).getTime() : 0);
+  }, [events, currentEvent]);
   
   // Get guests from store - ALWAYS get fresh data
   const guestsToDisplay = useMemo(() => {
     // First try currentEvent from store (most up-to-date)
-    if (storeCurrentEvent && storeCurrentEvent.id === id && storeCurrentEvent.guests) {
-      console.log('📊 Using guests from currentEvent:', storeCurrentEvent.guests.length);
-      return storeCurrentEvent.guests.map(g => ({ ...g }));
+    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
+      console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
+      return currentEvent.guests.map(g => ({ ...g }));
     }
     // Then try events array
-    const event = storeEvents.find(e => e.id === id);
+    const event = events.find(e => e.id === id);
     if (event?.guests) {
       console.log('📊 Using guests from events array:', event.guests.length);
       return event.guests.map(g => ({ ...g }));
     }
     console.log('⚠️ No guests found for event:', id);
     return [];
-  }, [id, storeCurrentEvent, storeEvents, storeVersion]);
+  }, [id, currentEvent, events]);
   
   // Removed duplicate useEffect - using the main one above
   
@@ -239,8 +234,8 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     console.log('🔄 EVENT_MANAGEMENT: Store version changed, forcing update');
     console.log('📊 EVENT_MANAGEMENT: Version:', storeVersion);
-    console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', storeCurrentEvent?.id);
-    console.log('📊 EVENT_MANAGEMENT: Events count:', storeEvents.length);
+    console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
+    console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
     console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay.length);
     console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
       name: `${g.firstName} ${g.lastName}`,
@@ -248,7 +243,7 @@ const EventManagement: React.FC = () => {
       count: g.guestCount
     })));
     setForceUpdate(prev => prev + 1);
-  }, [storeVersion, storeCurrentEvent, storeEvents, guestsToDisplay]);
+  }, [storeVersion, currentEvent, events, guestsToDisplay]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
