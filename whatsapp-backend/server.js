@@ -3695,10 +3695,40 @@ app.post('/api/events', async (req, res) => {
                 source: u.source,
                 age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
               })));
+              
+              // Send "yes" template message if guest confirmed via guest link
+              if (updateData.status === 'confirmed' && formattedPhone) {
+                console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                try {
+                  await sendYesTemplateMessage(formattedPhone);
+                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
+                } catch (error) {
+                  console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
+                  if (error.response) {
+                    console.error(`❌ Error response status:`, error.response.status);
+                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                  }
+                }
+              }
             } else {
               // Update existing update with newer data
               pendingUpdates[existingSameIndex] = updateData;
               console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
+              
+              // Also send "yes" template message if status changed to confirmed
+              if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
+                console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                try {
+                  await sendYesTemplateMessage(formattedPhone);
+                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
+                } catch (error) {
+                  console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
+                  if (error.response) {
+                    console.error(`❌ Error response status:`, error.response.status);
+                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                  }
+                }
+              }
             }
           } else {
             // Log why update was not added
