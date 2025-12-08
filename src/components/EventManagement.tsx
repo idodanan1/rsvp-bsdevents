@@ -182,16 +182,6 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // Calculate version separately using useMemo to avoid creating new object references
-  const storeVersion = useMemo(() => {
-    return events.reduce((sum, e) => {
-      const eventVersion = e.guests?.reduce((guestSum, g) => {
-        return guestSum + `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}`.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      }, 0) || 0;
-      return sum + eventVersion + (e.updatedAt ? new Date(e.updatedAt).getTime() : 0);
-    }, 0) + (currentEvent?.updatedAt ? new Date(currentEvent.updatedAt).getTime() : 0);
-  }, [events, currentEvent]);
-  
   // Get guests from store - ALWAYS get fresh data
   const guestsToDisplay = useMemo(() => {
     // First try currentEvent from store (most up-to-date)
@@ -229,11 +219,10 @@ const EventManagement: React.FC = () => {
     setForceUpdate(prev => prev + 1);
   }, [guestsKey]);
   
-  // CRITICAL: Listen to storeVersion changes to force re-render
-  // This ensures we catch updates immediately when ANY guest changes in store
+  // CRITICAL: Listen to guestsToDisplay changes to force re-render
+  // This ensures we catch updates immediately when guest data changes
   useEffect(() => {
-    console.log('🔄 EVENT_MANAGEMENT: Store version changed, forcing update');
-    console.log('📊 EVENT_MANAGEMENT: Version:', storeVersion);
+    console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
     console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
     console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
     console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay.length);
@@ -243,7 +232,7 @@ const EventManagement: React.FC = () => {
       count: g.guestCount
     })));
     setForceUpdate(prev => prev + 1);
-  }, [storeVersion, currentEvent, events, guestsToDisplay]);
+  }, [guestsToDisplay, id]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
@@ -2246,7 +2235,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={`${guestsKey}-${forceUpdate}-${storeVersion}`} className="bg-white divide-y divide-gray-200">
+            <tbody key={`${guestsKey}-${forceUpdate}`} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
