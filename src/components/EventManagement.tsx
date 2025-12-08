@@ -44,16 +44,6 @@ const EventManagement: React.FC = () => {
   const removeGuestFromTable = useEventStore(state => state.removeGuestFromTable);
   const moveGuestToTable = useEventStore(state => state.moveGuestToTable);
   
-  // CRITICAL: Get the specific event and create guests array that changes when event changes
-  // Use useMemo to create a new array reference when event.guests changes
-  const eventGuests = useMemo(() => {
-    const event = events.find(e => e.id === id);
-    if (!event || !event.guests) return [];
-    // CRITICAL: Always create a new array reference to force React re-render
-    // Map each guest to create new object references as well
-    return event.guests.map(guest => ({ ...guest }));
-  }, [id, events]);
-  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAddGuest, setShowAddGuest] = useState(false);
@@ -182,34 +172,32 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // Get guests from store - ALWAYS get fresh data
-  const guestsToDisplay = useMemo(() => {
-    // First try currentEvent from store (most up-to-date)
-    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
-      console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
-      return currentEvent.guests.map(g => ({ ...g }));
-    }
-    // Then try events array
+  // Get guests from store - use currentEvent if available, otherwise from events array
+  // Calculate guests directly without useMemo to avoid React hooks issues
+  let guestsToDisplay: any[] = [];
+  if (currentEvent && currentEvent.id === id && currentEvent.guests) {
+    console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
+    guestsToDisplay = currentEvent.guests.map(g => ({ ...g }));
+  } else {
     const event = events.find(e => e.id === id);
     if (event?.guests) {
       console.log('📊 Using guests from events array:', event.guests.length);
-      return event.guests.map(g => ({ ...g }));
+      guestsToDisplay = event.guests.map(g => ({ ...g }));
+    } else {
+      console.log('⚠️ No guests found for event:', id);
+      guestsToDisplay = [];
     }
-    console.log('⚠️ No guests found for event:', id);
-    return [];
-  }, [id, currentEvent, events]);
+  }
   
   // Removed duplicate useEffect - using the main one above
   
   // CRITICAL: Create a key that changes when guests change to force re-render
-  // Use a more aggressive approach - include all guest data in the key
-  const guestsKey = useMemo(() => {
-    if (!guestsToDisplay || guestsToDisplay.length === 0) return 'empty';
-    // Include all relevant fields to detect any change
-    return guestsToDisplay.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate || ''}`
-    ).join('|');
-  }, [guestsToDisplay]);
+  // Calculate directly without useMemo to avoid React hooks issues
+  const guestsKey = guestsToDisplay && guestsToDisplay.length > 0
+    ? guestsToDisplay.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate || ''}`
+      ).join('|')
+    : 'empty';
   
   // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
   // This ensures the table updates immediately when any guest data changes
