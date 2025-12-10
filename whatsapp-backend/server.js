@@ -4340,27 +4340,100 @@ app.post('/api/events', async (req, res) => {
                 age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
               })));
               
-              // CRITICAL: Don't send "yes" template message here - let webhookService.ts handle it
-              // This prevents duplicate "yes" messages when guest confirms via guest link
-              // The webhookService.ts will request "yes" only if status actually changed
-              console.log(`ℹ️ Guest confirmed via guest link - "yes" template will be sent by webhookService if needed`);
-              console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-              console.log(`   Guest ID: ${newGuest.id}`);
-              console.log(`   Status: ${updateData.status}`);
-              console.log(`   Phone: ${formattedPhone}`);
+              // CRITICAL: Send "yes" template message if guest confirmed via guest link
+              // Check if guest already received "yes" to prevent duplicates
+              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
+              const isWaiting = isWaitingForResponse(normalizedPhone);
+              const hasThanks = hasReceivedThanks(normalizedPhone);
+              
+              console.log(`🔍 Checking if should send "yes" template:`, {
+                status: updateData.status,
+                formattedPhone: formattedPhone ? 'present' : 'missing',
+                statusChanged: statusChanged,
+                isWaiting: isWaiting,
+                hasThanks: hasThanks
+              });
+              if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
+                // CRITICAL: If guest already received "yes" and is waiting for response, don't send "yes" again
+                if (isWaiting && !hasThanks) {
+                  console.log(`⏭️ Guest ${formattedPhone} already received "yes" and is waiting for response - skipping "yes" template`);
+                } else {
+                  console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                  console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                  console.log(`📤 Guest ID: ${newGuest.id}`);
+                  try {
+                    await sendYesTemplateMessage(formattedPhone);
+                    console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
+                  } catch (error) {
+                    console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
+                    console.error(`❌ Error stack:`, error.stack);
+                    if (error.response) {
+                      console.error(`❌ Error response status:`, error.response.status);
+                      console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                    }
+                  }
+                }
+              } else {
+                console.log(`⏭️ Skipping "yes" template message:`, {
+                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
+                          !formattedPhone ? 'phone missing' : 
+                          !statusChanged ? 'status not changed' : 'unknown',
+                  status: updateData.status,
+                  hasPhone: !!formattedPhone,
+                  statusChanged: statusChanged
+                });
+              }
             } else {
               // Update existing update with newer data
               pendingUpdates[existingSameIndex] = updateData;
               console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
               
-              // CRITICAL: Don't send "yes" template message here - let webhookService.ts handle it
-              // This prevents duplicate "yes" messages when guest confirms via guest link
-              // The webhookService.ts will request "yes" only if status actually changed
-              console.log(`ℹ️ Guest status changed via guest link - "yes" template will be sent by webhookService if needed`);
-              console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-              console.log(`   Guest ID: ${newGuest.id}`);
-              console.log(`   Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
-              console.log(`   Phone: ${formattedPhone}`);
+              // CRITICAL: Send "yes" template message if status changed to confirmed
+              // Check if guest already received "yes" to prevent duplicates
+              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
+              const isWaiting = isWaitingForResponse(normalizedPhone);
+              const hasThanks = hasReceivedThanks(normalizedPhone);
+              
+              console.log(`🔍 Checking if should send "yes" template (existing update):`, {
+                status: updateData.status,
+                formattedPhone: formattedPhone ? 'present' : 'missing',
+                statusChanged: statusChanged,
+                oldStatus: existingGuest?.rsvpStatus,
+                newStatus: newGuest.rsvpStatus,
+                isWaiting: isWaiting,
+                hasThanks: hasThanks
+              });
+              if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
+                // CRITICAL: If guest already received "yes" and is waiting for response, don't send "yes" again
+                if (isWaiting && !hasThanks) {
+                  console.log(`⏭️ Guest ${formattedPhone} already received "yes" and is waiting for response - skipping "yes" template`);
+                } else {
+                  console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
+                  console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                  console.log(`📤 Guest ID: ${newGuest.id}`);
+                  console.log(`📤 Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
+                  try {
+                    await sendYesTemplateMessage(formattedPhone);
+                    console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
+                  } catch (error) {
+                    console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
+                    console.error(`❌ Error stack:`, error.stack);
+                    if (error.response) {
+                      console.error(`❌ Error response status:`, error.response.status);
+                      console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
+                    }
+                  }
+                }
+              } else {
+                console.log(`⏭️ Skipping "yes" template message (existing update):`, {
+                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
+                          !formattedPhone ? 'phone missing' : 
+                          !statusChanged ? 'status not changed' : 'unknown',
+                  status: updateData.status,
+                  hasPhone: !!formattedPhone,
+                  statusChanged: statusChanged
+                });
+              }
             }
           } else {
             // Log why update was not added
