@@ -1556,21 +1556,28 @@ async function handleIncomingMessage(message) {
     // This is a response to the "yes" message, so we should acknowledge it
     // IMPORTANT: Send "thanks" ALWAYS when guest provides count, regardless of isWaiting or hasThanks status
     // The guest provided their count, which is a response to the "yes" message
-    console.log(`📤 Guest provided count - FORCING "thanks" template message to ${message.from}...`);
-    console.log(`   hasThanks check: ${hasThanks} (will be ignored - forcing send)`);
+    console.log(`📤 ========== GUEST PROVIDED COUNT - SENDING "thanks" ==========`);
+    console.log(`📤 Guest phone: ${message.from}`);
+    console.log(`📤 Guest count: ${guestCountMatch}`);
+    console.log(`📤 Normalized phone: ${normalizedPhone}`);
+    console.log(`📤 isWaiting: ${isWaiting}`);
+    console.log(`📤 hasThanks: ${hasThanks} (will be ignored - forcing send)`);
+    console.log(`📤 FORCING "thanks" template message...`);
     try {
       // CRITICAL: Force send "thanks" by bypassing the hasReceivedThanks check
       // We want to send "thanks" every time guest provides count, even if already sent before
       await sendThanksTemplateMessage(message.from, true); // Pass true to force send
       console.log('✅ "thanks" template message sent successfully after guest count');
+      console.log('📤 ==========================================');
     } catch (error) {
-      console.error('❌ ERROR sending "thanks" after guest count:', error);
-      console.error('❌ Error details:', error.message);
+      console.error('❌ ========== ERROR SENDING "thanks" AFTER GUEST COUNT ==========');
+      console.error('❌ Error:', error.message);
       console.error('❌ Error stack:', error.stack);
       if (error.response) {
         console.error('❌ Error response status:', error.response.status);
         console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
       }
+      console.error('❌ ========================================================');
     }
     
     return; // Don't process as confirmation/decline
@@ -2132,7 +2139,13 @@ async function sendThanksTemplateMessage(phoneNumber, forceSend = false) {
         console.log('✅ "thanks" template message sent successfully!');
         console.log('📱 Response:', JSON.stringify(response.data, null, 2));
         // CRITICAL: Mark "thanks" as sent to prevent duplicates and stop auto-responses
-        markThanksAsSent(phoneNumber);
+        // Only mark if not forceSend - if forceSend, we want to allow sending again
+        if (!forceSend) {
+          markThanksAsSent(phoneNumber);
+          console.log('✅ Marked "thanks" as sent (normal send)');
+        } else {
+          console.log('ℹ️ Force send mode - NOT marking "thanks" as sent to allow future sends');
+        }
         console.log('📤 ==========================================');
       } else {
         console.warn('⚠️ Failed to send "thanks" template message:', response.status);
