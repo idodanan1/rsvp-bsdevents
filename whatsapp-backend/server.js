@@ -1535,13 +1535,14 @@ async function handleIncomingMessage(message) {
   const isWaiting = isWaitingForResponse(normalizedPhone);
   const hasThanks = hasReceivedThanks(normalizedPhone);
   
-  console.log(`🔍 Checking if should send "thanks" for response:`, {
-    phone: message.from,
-    normalizedPhone: normalizedPhone,
-    isWaiting: isWaiting,
-    hasThanks: hasThanks,
-    messageText: originalMessageText.substring(0, 50)
-  });
+  console.log(`🔍 ========== CHECKING IF SHOULD SEND "thanks" ==========`);
+  console.log(`🔍 Phone: ${message.from}`);
+  console.log(`🔍 Normalized phone: ${normalizedPhone}`);
+  console.log(`🔍 isWaiting: ${isWaiting}`);
+  console.log(`🔍 hasThanks: ${hasThanks}`);
+  console.log(`🔍 Message text: ${originalMessageText.substring(0, 50)}`);
+  console.log(`🔍 Waiting list size: ${waitingForResponse.size}`);
+  console.log(`🔍 Waiting list keys:`, Array.from(waitingForResponse.keys()));
   
   // CRITICAL: If guest received "yes" and is waiting for response, send "thanks" for ANY response
   if (isWaiting && !hasThanks) {
@@ -1558,14 +1559,24 @@ async function handleIncomingMessage(message) {
     // Continue processing the message (don't return here - we still want to process guest count, etc.)
   } else {
     if (!isWaiting) {
-      console.log(`ℹ️ Guest ${message.from} is NOT waiting for response (isWaiting: ${isWaiting}) - "thanks" will not be sent`);
+      console.log(`❌ Guest ${message.from} is NOT waiting for response (isWaiting: ${isWaiting})`);
       console.log(`   This means guest either didn't receive "yes" yet, or timeout expired`);
+      console.log(`   Checking waiting list for normalized phone: ${normalizedPhone}`);
+      const waitStart = waitingForResponse.get(normalizedPhone);
+      if (waitStart) {
+        const timeSinceWait = Date.now() - waitStart;
+        console.log(`   Found in waiting list! Time since wait: ${Math.round(timeSinceWait / 1000)} seconds`);
+        console.log(`   Timeout: ${RESPONSE_WAIT_TIMEOUT / 1000 / 60} minutes`);
+      } else {
+        console.log(`   NOT found in waiting list!`);
+      }
     }
     if (hasThanks) {
       console.log(`ℹ️ Guest ${message.from} already received "thanks" (hasThanks: ${hasThanks}) - no auto-response will be sent`);
     }
     // Don't send auto-responses, but continue processing the message
   }
+  console.log(`🔍 ==========================================`);
   
   // Check if this is a response to guest count question
   // Look for numbers or common phrases indicating guest count
@@ -4348,23 +4359,14 @@ app.post('/api/events', async (req, res) => {
                 hasThanks: hasThanks
               });
               if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
-                // CRITICAL: Always send "yes" when guest confirms via guest link (if status changed)
-                // Don't check isWaiting - we want to send "yes" every time they confirm
-                console.log(`📤 Guest confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
-                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`📤 Guest ID: ${newGuest.id}`);
-                console.log(`📤 Status changed: ${statusChanged}`);
-                try {
-                  await sendYesTemplateMessage(formattedPhone);
-                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link confirmation`);
-                } catch (error) {
-                  console.error(`❌ Error sending "yes" template message for guest link confirmation:`, error.message);
-                  console.error(`❌ Error stack:`, error.stack);
-                  if (error.response) {
-                    console.error(`❌ Error response status:`, error.response.status);
-                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
-                  }
-                }
+                // CRITICAL: Don't send "yes" here - let webhookService.ts handle it
+                // This prevents duplicate "yes" messages when guest confirms via guest link
+                // The webhookService.ts will request "yes" only if status actually changed
+                console.log(`ℹ️ Guest confirmed via guest link - "yes" template will be sent by webhookService if needed`);
+                console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                console.log(`   Guest ID: ${newGuest.id}`);
+                console.log(`   Status: ${updateData.status}`);
+                console.log(`   Phone: ${formattedPhone}`);
               } else {
                 console.log(`⏭️ Skipping "yes" template message:`, {
                   reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
@@ -4396,23 +4398,14 @@ app.post('/api/events', async (req, res) => {
                 hasThanks: hasThanks
               });
               if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
-                // CRITICAL: Always send "yes" when guest confirms via guest link (if status changed)
-                // Don't check isWaiting - we want to send "yes" every time they confirm
-                console.log(`📤 Guest status changed to confirmed via guest link - sending "yes" template message to ${formattedPhone}`);
-                console.log(`📤 Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`📤 Guest ID: ${newGuest.id}`);
-                console.log(`📤 Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
-                try {
-                  await sendYesTemplateMessage(formattedPhone);
-                  console.log(`✅ "yes" template message sent successfully (or attempted) for guest link status change`);
-                } catch (error) {
-                  console.error(`❌ Error sending "yes" template message for guest link status change:`, error.message);
-                  console.error(`❌ Error stack:`, error.stack);
-                  if (error.response) {
-                    console.error(`❌ Error response status:`, error.response.status);
-                    console.error(`❌ Error response data:`, JSON.stringify(error.response.data, null, 2));
-                  }
-                }
+                // CRITICAL: Don't send "yes" here - let webhookService.ts handle it
+                // This prevents duplicate "yes" messages when guest confirms via guest link
+                // The webhookService.ts will request "yes" only if status actually changed
+                console.log(`ℹ️ Guest status changed via guest link - "yes" template will be sent by webhookService if needed`);
+                console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+                console.log(`   Guest ID: ${newGuest.id}`);
+                console.log(`   Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
+                console.log(`   Phone: ${formattedPhone}`);
               } else {
                 console.log(`⏭️ Skipping "yes" template message (existing update):`, {
                   reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
