@@ -1548,23 +1548,30 @@ async function handleIncomingMessage(message) {
     
     // CRITICAL: Always send "thanks" when guest provides count (if not already sent)
     // This is a response to the "yes" message, so we should acknowledge it
-    // IMPORTANT: Send "thanks" even if isWaiting is false (guest might have received "yes" earlier)
+    // IMPORTANT: Send "thanks" ALWAYS when guest provides count, regardless of isWaiting status
+    // The guest provided their count, which is a response to the "yes" message
+    console.log(`📤 Guest provided guest count (${guestCountMatch}), checking if should send "thanks"...`);
+    console.log(`   Phone: ${message.from}`);
+    console.log(`   isWaiting: ${isWaiting}`);
+    console.log(`   hasThanks: ${hasThanks}`);
+    
     if (!hasThanks) {
-      console.log(`📤 Guest provided guest count, sending "thanks"...`);
-      console.log(`   isWaiting: ${isWaiting}, hasThanks: ${hasThanks}`);
+      console.log(`📤 Sending "thanks" template message to ${message.from}...`);
       try {
         await sendThanksTemplateMessage(message.from);
-        console.log('✅ "thanks" template message sent after guest count');
+        console.log('✅ "thanks" template message sent successfully after guest count');
       } catch (error) {
-        console.error('❌ Error sending "thanks" after guest count:', error);
+        console.error('❌ ERROR sending "thanks" after guest count:', error);
         console.error('❌ Error details:', error.message);
+        console.error('❌ Error stack:', error.stack);
         if (error.response) {
-          console.error('❌ Error response:', error.response.data);
+          console.error('❌ Error response status:', error.response.status);
+          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
         }
       }
     } else {
-      console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping`);
-      console.log(`   isWaiting: ${isWaiting}, hasThanks: ${hasThanks}`);
+      console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping to prevent duplicate`);
+      console.log(`   This is normal if guest already responded before`);
     }
     
     return; // Don't process as confirmation/decline
