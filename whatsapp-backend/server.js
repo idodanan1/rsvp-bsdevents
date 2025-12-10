@@ -109,14 +109,17 @@ function isWaitingForResponse(phoneNumber) {
   const key = phoneNumber.replace(/[^0-9]/g, '');
   const waitStart = waitingForResponse.get(key);
   if (!waitStart) {
+    console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) is NOT in waiting list`);
     return false;
   }
   const timeSinceWait = Date.now() - waitStart;
   if (timeSinceWait > RESPONSE_WAIT_TIMEOUT) {
     // Remove old entry
     waitingForResponse.delete(key);
+    console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) waiting timeout expired (${Math.round(timeSinceWait / 1000 / 60)} minutes)`);
     return false;
   }
+  console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) IS waiting for response (${Math.round(timeSinceWait / 1000)} seconds ago)`);
   return true;
 }
 
@@ -1532,6 +1535,14 @@ async function handleIncomingMessage(message) {
   const isWaiting = isWaitingForResponse(normalizedPhone);
   const hasThanks = hasReceivedThanks(normalizedPhone);
   
+  console.log(`🔍 Checking if should send "thanks" for response:`, {
+    phone: message.from,
+    normalizedPhone: normalizedPhone,
+    isWaiting: isWaiting,
+    hasThanks: hasThanks,
+    messageText: originalMessageText.substring(0, 50)
+  });
+  
   // CRITICAL: If guest received "yes" and is waiting for response, send "thanks" for ANY response
   if (isWaiting && !hasThanks) {
     console.log(`✅ Guest ${message.from} responded after receiving "yes" message`);
@@ -1541,10 +1552,18 @@ async function handleIncomingMessage(message) {
       console.log('✅ "thanks" template message sent (or attempted)');
     } catch (error) {
       console.error('❌ Error sending "thanks" template message:', error);
+      console.error('❌ Error details:', error.message);
+      console.error('❌ Error stack:', error.stack);
     }
     // Continue processing the message (don't return here - we still want to process guest count, etc.)
-  } else if (hasThanks) {
-    console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
+  } else {
+    if (!isWaiting) {
+      console.log(`ℹ️ Guest ${message.from} is NOT waiting for response (isWaiting: ${isWaiting}) - "thanks" will not be sent`);
+      console.log(`   This means guest either didn't receive "yes" yet, or timeout expired`);
+    }
+    if (hasThanks) {
+      console.log(`ℹ️ Guest ${message.from} already received "thanks" (hasThanks: ${hasThanks}) - no auto-response will be sent`);
+    }
     // Don't send auto-responses, but continue processing the message
   }
   
@@ -1979,8 +1998,9 @@ async function sendYesTemplateMessage(phoneNumber) {
     if (response.status === 200) {
       console.log('✅ "yes" template message sent successfully!');
       console.log('📱 Response:', JSON.stringify(response.data, null, 2));
-        // CRITICAL: Mark message as sent to prevent duplicates
-        markYesMessageAsSent(phoneNumber);
+      // CRITICAL: Mark message as sent to prevent duplicates AND mark as waiting for response
+      markYesMessageAsSent(phoneNumber);
+      console.log(`✅ Marked guest ${phoneNumber} as waiting for response`);
       console.log('📤 ==========================================');
     } else {
       console.warn('⚠️ Failed to send "yes" template message:', response.status);
