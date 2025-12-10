@@ -1556,11 +1556,12 @@ async function handleIncomingMessage(message) {
     // This is a response to the "yes" message, so we should acknowledge it
     // IMPORTANT: Send "thanks" ALWAYS when guest provides count, regardless of isWaiting or hasThanks status
     // The guest provided their count, which is a response to the "yes" message
-    console.log(`📤 Sending "thanks" template message to ${message.from} after guest count...`);
+    console.log(`📤 Guest provided count - FORCING "thanks" template message to ${message.from}...`);
+    console.log(`   hasThanks check: ${hasThanks} (will be ignored - forcing send)`);
     try {
-      // Force send "thanks" - don't check hasThanks here because we want to send it
-      // The sendThanksTemplateMessage function will check internally and prevent duplicates
-      await sendThanksTemplateMessage(message.from);
+      // CRITICAL: Force send "thanks" by bypassing the hasReceivedThanks check
+      // We want to send "thanks" every time guest provides count, even if already sent before
+      await sendThanksTemplateMessage(message.from, true); // Pass true to force send
       console.log('✅ "thanks" template message sent successfully after guest count');
     } catch (error) {
       console.error('❌ ERROR sending "thanks" after guest count:', error);
@@ -2039,20 +2040,25 @@ async function sendYesTemplateMessage(phoneNumber) {
 }
 
 // Send "thanks" template message after guest responds to "yes" message
-async function sendThanksTemplateMessage(phoneNumber) {
+async function sendThanksTemplateMessage(phoneNumber, forceSend = false) {
   try {
     console.log(`📤 ========== SENDING "thanks" TEMPLATE MESSAGE ==========`);
     console.log(`📤 Original phone number: ${phoneNumber}`);
+    console.log(`📤 Force send: ${forceSend}`);
     
     // CRITICAL: Check if guest already received "thanks" to prevent duplicates
     // Normalize phone number for consistent checking
     const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
-    if (hasReceivedThanks(normalizedPhone)) {
+    if (!forceSend && hasReceivedThanks(normalizedPhone)) {
       console.log(`⏭️ Skipping "thanks" template message - already sent to ${phoneNumber} (normalized: ${normalizedPhone})`);
       return; // Don't send duplicate
     }
     
-    console.log(`✅ Guest ${phoneNumber} (normalized: ${normalizedPhone}) has NOT received "thanks" yet - proceeding to send`);
+    if (forceSend) {
+      console.log(`✅ FORCING "thanks" template message to ${phoneNumber} (normalized: ${normalizedPhone}) - bypassing duplicate check`);
+    } else {
+      console.log(`✅ Guest ${phoneNumber} (normalized: ${normalizedPhone}) has NOT received "thanks" yet - proceeding to send`);
+    }
     
     // CRITICAL: Try to reload token from environment if it seems invalid
     let rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
@@ -2563,6 +2569,18 @@ app.post('/api/guests/send-yes-message', async (req, res) => {
       process.env.WHATSAPP_ACCESS_TOKEN = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
     } else {
       process.env.WHATSAPP_ACCESS_TOKEN = sanitizeAccessToken(envToken);
+    }
+    
+    // CRITICAL: Check if "yes" was recently sent to prevent duplicates
+    const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    if (wasYesMessageRecentlySent(normalizedPhone)) {
+      console.log(`⏭️ Skipping "yes" template message - recently sent to ${phoneNumber} (within ${YES_MESSAGE_COOLDOWN / 1000 / 60} minutes)`);
+      res.json({
+        success: true,
+        message: 'Yes template message was recently sent - skipping duplicate',
+        skipped: true
+      });
+      return;
     }
     
     // Send the "yes" template message
