@@ -55,7 +55,7 @@ const Dashboard: React.FC = () => {
     
     // Save to both localStorage and sessionStorage
     localStorage.setItem('rsvp-session-id', currentSessionId);
-    localStorage.setItem('rsvp-last-session-id', currentSessionId);
+      localStorage.setItem('rsvp-last-session-id', currentSessionId);
     sessionStorage.setItem('rsvp-session-id', currentSessionId);
     
     setSessionId(currentSessionId);
@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(true, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
+        console.error('❌ Error auto-refreshing events:', error);
         });
       });
     }, 2000); // 2 seconds - fast sync between devices

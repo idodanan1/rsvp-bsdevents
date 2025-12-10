@@ -449,8 +449,12 @@ class WebhookService {
             console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
             
             // Send "yes" template message if guest confirmed via guest link
-            if (newStatus === 'confirmed' && update.phoneNumber) {
+            // CRITICAL: Only send "yes" if this is a NEW status change (not already confirmed)
+            // This prevents sending "yes" when guest provides count (they already received "yes" when clicking "מגיע")
+            const isStatusChange = foundGuest.rsvpStatus !== newStatus;
+            if (newStatus === 'confirmed' && update.phoneNumber && isStatusChange) {
               console.log(`📤 Guest confirmed via guest link - requesting backend to send "yes" template message to ${update.phoneNumber}`);
+              console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
               try {
                 const sendMessageResponse = await fetch(`${BACKEND_URL}/api/guests/send-yes-message`, {
                   method: 'POST',

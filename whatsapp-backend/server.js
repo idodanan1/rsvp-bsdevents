@@ -1364,15 +1364,15 @@ async function handleIncomingMessage(message) {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
       } else {
         // Guest hasn't received "yes" yet - send it now
-        console.log('📤 About to send "yes" template message...');
-        try {
-          await sendYesTemplateMessage(phoneNumber);
-          console.log('✅ "yes" template message sent successfully (or attempted)');
-        } catch (error) {
-          console.error('❌ Error sending "yes" template message:', error);
-          if (error.response) {
-            console.error('❌ Error response status:', error.response.status);
-            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+      console.log('📤 About to send "yes" template message...');
+      try {
+        await sendYesTemplateMessage(phoneNumber);
+        console.log('✅ "yes" template message sent successfully (or attempted)');
+      } catch (error) {
+        console.error('❌ Error sending "yes" template message:', error);
+        if (error.response) {
+          console.error('❌ Error response status:', error.response.status);
+          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
           }
         }
       }
@@ -1417,7 +1417,7 @@ async function handleIncomingMessage(message) {
       // CRITICAL: Update status FIRST, then try to send confirmation message
       // This ensures the status is updated even if sending the message fails
       try {
-        await updateGuestStatusByPhone(phoneNumber, 'declined');
+      await updateGuestStatusByPhone(phoneNumber, 'declined');
         console.log('✅ Guest status updated to declined');
       } catch (error) {
         console.error('❌ Error updating guest status to declined:', error);
@@ -1479,17 +1479,17 @@ async function handleIncomingMessage(message) {
           console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
         } else {
           // Guest hasn't received "yes" yet - send it now
-          console.log('📤 About to send "yes" template message...');
-          try {
-            await sendYesTemplateMessage(phoneNumber);
-            console.log('✅ "yes" template message sent successfully (or attempted)');
-          } catch (error) {
-            console.error('❌ Error sending "yes" template message:', error);
-            if (error.response) {
-              console.error('❌ Error response status:', error.response.status);
-              console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-            }
+        console.log('📤 About to send "yes" template message...');
+        try {
+          await sendYesTemplateMessage(phoneNumber);
+          console.log('✅ "yes" template message sent successfully (or attempted)');
+        } catch (error) {
+          console.error('❌ Error sending "yes" template message:', error);
+          if (error.response) {
+            console.error('❌ Error response status:', error.response.status);
+            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
           }
+        }
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
@@ -1526,6 +1526,50 @@ async function handleIncomingMessage(message) {
   const messageText = message.text?.body?.toLowerCase() || '';
   const originalMessageText = message.text?.body || '';
   
+  // Check if this is a response to guest count question FIRST
+  // Look for numbers or common phrases indicating guest count
+  const guestCountMatch = extractGuestCount(originalMessageText);
+  if (guestCountMatch !== null) {
+    console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
+    
+    // CRITICAL: Check if this is a response from someone who received "yes" message
+    const normalizedPhone = message.from.replace(/[^0-9]/g, '');
+    const isWaiting = isWaitingForResponse(normalizedPhone);
+    const hasThanks = hasReceivedThanks(normalizedPhone);
+    
+    // CRITICAL: When guest provides count, they are confirming attendance
+    // Update status to "confirmed" first (this creates a separate update with status only)
+    console.log(`✅ Guest provided count - updating status to "confirmed"`);
+    await updateGuestStatusByPhone(message.from, 'confirmed');
+    
+    // Then update guest count (this creates a separate update with guestCount only, NO status)
+    // Frontend processes status and guestCount updates separately
+    await updateGuestCountByPhone(message.from, guestCountMatch);
+    
+    // CRITICAL: Always send "thanks" when guest provides count (if not already sent)
+    // This is a response to the "yes" message, so we should acknowledge it
+    // IMPORTANT: Send "thanks" even if isWaiting is false (guest might have received "yes" earlier)
+    if (!hasThanks) {
+      console.log(`📤 Guest provided guest count, sending "thanks"...`);
+      console.log(`   isWaiting: ${isWaiting}, hasThanks: ${hasThanks}`);
+      try {
+        await sendThanksTemplateMessage(message.from);
+        console.log('✅ "thanks" template message sent after guest count');
+      } catch (error) {
+        console.error('❌ Error sending "thanks" after guest count:', error);
+        console.error('❌ Error details:', error.message);
+        if (error.response) {
+          console.error('❌ Error response:', error.response.data);
+        }
+      }
+    } else {
+      console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping`);
+      console.log(`   isWaiting: ${isWaiting}, hasThanks: ${hasThanks}`);
+    }
+    
+    return; // Don't process as confirmation/decline
+  }
+  
   // CRITICAL: Check if this is a response from someone who received "yes" message
   // If they already received "thanks", don't send auto-responses
   const normalizedPhone = message.from.replace(/[^0-9]/g, '');
@@ -1545,38 +1589,6 @@ async function handleIncomingMessage(message) {
   } else if (hasThanks) {
     console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
     // Don't send auto-responses, but continue processing the message
-  }
-  
-  // Check if this is a response to guest count question
-  // Look for numbers or common phrases indicating guest count
-  const guestCountMatch = extractGuestCount(originalMessageText);
-  if (guestCountMatch !== null) {
-    console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
-    
-    // CRITICAL: When guest provides count, they are confirming attendance
-    // Update status to "confirmed" first (this creates a separate update with status only)
-    console.log(`✅ Guest provided count - updating status to "confirmed"`);
-    await updateGuestStatusByPhone(message.from, 'confirmed');
-    
-    // Then update guest count (this creates a separate update with guestCount only, NO status)
-    // Frontend processes status and guestCount updates separately
-    await updateGuestCountByPhone(message.from, guestCountMatch);
-    
-    // CRITICAL: Always send "thanks" when guest provides count (if not already sent)
-    // This is a response to the "yes" message, so we should acknowledge it
-    if (!hasThanks) {
-      console.log(`📤 Guest provided guest count, sending "thanks"...`);
-      try {
-        await sendThanksTemplateMessage(message.from);
-        console.log('✅ "thanks" template message sent after guest count');
-      } catch (error) {
-        console.error('❌ Error sending "thanks" after guest count:', error);
-      }
-    } else {
-      console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping`);
-    }
-    
-    return; // Don't process as confirmation/decline
   }
   
   // IMPORTANT: Check for decline FIRST (before checking for confirmation)
@@ -1672,14 +1684,14 @@ async function handleIncomingMessage(message) {
       console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
     } else {
       // Guest hasn't received "yes" yet - send it now
-      console.log('📤 About to send "yes" template message...');
-      try {
-        await sendYesTemplateMessage(message.from);
-        console.log('✅ "yes" template message sent (or attempted)');
-      } catch (error) {
-        console.error('❌ Error sending "yes" template message:', error);
-        if (error.response) {
-          console.error('❌ Error response:', error.response.data);
+    console.log('📤 About to send "yes" template message...');
+    try {
+      await sendYesTemplateMessage(message.from);
+      console.log('✅ "yes" template message sent (or attempted)');
+    } catch (error) {
+      console.error('❌ Error sending "yes" template message:', error);
+      if (error.response) {
+        console.error('❌ Error response:', error.response.data);
         }
       }
     }
@@ -1965,28 +1977,28 @@ async function sendYesTemplateMessage(phoneNumber) {
     console.log('📤 Authorization header preview:', `Bearer ${accessToken.substring(0, 30)}...`);
     
     try {
-      const response = await axios.post(
-        `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-        messagePayload,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
           },
           timeout: 10000 // 10 second timeout
-        }
-      );
-      
-      if (response.status === 200) {
-        console.log('✅ "yes" template message sent successfully!');
-        console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ "yes" template message sent successfully!');
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
         // CRITICAL: Mark message as sent to prevent duplicates
         markYesMessageAsSent(phoneNumber);
-        console.log('📤 ==========================================');
-      } else {
-        console.warn('⚠️ Failed to send "yes" template message:', response.status);
-        console.warn('⚠️ Response data:', response.data);
-        console.log('📤 ==========================================');
+      console.log('📤 ==========================================');
+    } else {
+      console.warn('⚠️ Failed to send "yes" template message:', response.status);
+      console.warn('⚠️ Response data:', response.data);
+      console.log('📤 ==========================================');
       }
     } catch (error) {
       console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
@@ -3501,25 +3513,25 @@ app.post('/api/users/login', async (req, res) => {
             lastActivity: { $gte: sevenDaysAgo }
           }).sort({ lastActivity: -1 });
           
-          if (userSessions.length >= 10) {
-            const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
-            await UserSession.deleteMany({ 
-              _id: { $in: sessionsToDelete.map(s => s._id) } 
-            });
-            console.log(`🧹 Cleaned up ${sessionsToDelete.length} old sessions for user ${user.id}`);
-          }
-          
-          // Create new session
-          const newSession = new UserSession({
-            userId: user.id,
-            sessionId: sessionId,
-            deviceInfo: deviceInfo.substring(0, 200), // Limit length
-            ipAddress: ipAddress,
-            lastActivity: new Date(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        if (userSessions.length >= 10) {
+          const sessionsToDelete = userSessions.slice(9); // Keep only 10 most recent
+          await UserSession.deleteMany({ 
+            _id: { $in: sessionsToDelete.map(s => s._id) } 
           });
-          await newSession.save();
-          
+            console.log(`🧹 Cleaned up ${sessionsToDelete.length} old sessions for user ${user.id}`);
+        }
+        
+        // Create new session
+        const newSession = new UserSession({
+          userId: user.id,
+          sessionId: sessionId,
+          deviceInfo: deviceInfo.substring(0, 200), // Limit length
+          ipAddress: ipAddress,
+          lastActivity: new Date(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
+        });
+        await newSession.save();
+        
           console.log(`✅ Created new session for user ${user.id} (${user.email})`);
         }
       } catch (sessionError) {
