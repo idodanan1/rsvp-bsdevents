@@ -1554,11 +1554,12 @@ async function handleIncomingMessage(message) {
     console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
     
     // CRITICAL: When guest provides count, they are confirming attendance
-    // Update status to "confirmed" first, then update guest count
+    // Update status to "confirmed" first (this creates a separate update with status only)
     console.log(`✅ Guest provided count - updating status to "confirmed"`);
     await updateGuestStatusByPhone(message.from, 'confirmed');
     
-    // Then update guest count (this will also add to pendingUpdates with both status and count)
+    // Then update guest count (this creates a separate update with guestCount only, NO status)
+    // Frontend processes status and guestCount updates separately
     await updateGuestCountByPhone(message.from, guestCountMatch);
     
     // CRITICAL: Always send "thanks" when guest provides count (if not already sent)
@@ -1739,37 +1740,21 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     
     console.log(`🔄 Updating guest count for ${phoneNumber} to ${guestCount}`);
     
-    // CRITICAL: When updating guest count, also ensure status is "confirmed"
-    // Check if there's already a "confirmed" status update for this phone
-    const existingConfirmedUpdate = pendingUpdates.find(
-      u => (u.phoneNumber === phoneWith0 || u.originalPhoneNumber === formattedPhone) && 
-           u.status === 'confirmed'
-    );
-    
-    // Store update in pending updates array
-    // CRITICAL: Always include status "confirmed" when guest provides count
-    const updateData = {
+    // CRITICAL: Frontend expects separate updates for status and guestCount
+    // Send guestCount update WITHOUT status so frontend can process it correctly
+    const guestCountUpdate = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
-      status: 'confirmed', // Always include status "confirmed" when guest provides count
+      // NO status here - frontend processes guestCount updates separately
       responseDate: new Date().toISOString(),
       timestamp: Date.now()
     };
     
-    // If there's already a confirmed update, merge the guest count into it
-    if (existingConfirmedUpdate) {
-      existingConfirmedUpdate.guestCount = guestCount;
-      existingConfirmedUpdate.responseDate = updateData.responseDate;
-      existingConfirmedUpdate.timestamp = updateData.timestamp;
-      // Ensure status is "confirmed"
-      existingConfirmedUpdate.status = 'confirmed';
-      console.log('✅ Updated existing confirmed update with guest count:', existingConfirmedUpdate);
-    } else {
-      // Add new update with both status and guest count
-      pendingUpdates.push(updateData);
-      console.log('✅ Guest count update stored (with confirmed status):', updateData);
-    }
+    // Add guest count update (frontend will process this separately from status update)
+    pendingUpdates.push(guestCountUpdate);
+    console.log('✅ Guest count update stored (separate from status):', guestCountUpdate);
+    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
   } catch (error) {
     console.error('❌ Error updating guest count:', error);
   }
@@ -2280,15 +2265,18 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
     );
     
     if (existingSameStatusIndex === -1) {
-      // CRITICAL: Remove ALL old updates for this phone number (regardless of status)
+      // CRITICAL: Remove old status updates for this phone number, but KEEP guestCount updates
       // This prevents old "confirmed" updates from overwriting new "declined" updates
-      const otherUpdates = pendingUpdates.filter(u => 
-        !(u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone)
-      );
+      // But allows guestCount updates to coexist with status updates
+      const otherUpdates = pendingUpdates.filter(u => {
+        const isSamePhone = (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone);
+        // Keep updates that are NOT for this phone, OR are guestCount-only updates (no status)
+        return !isSamePhone || (!u.status && u.guestCount !== undefined);
+      });
       pendingUpdates.length = 0;
       pendingUpdates.push(...otherUpdates);
       
-      // Add the new update
+      // Add the new status update
       pendingUpdates.push(updateData);
       console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
       console.log('✅ Phone (formatted):', formattedPhone);
