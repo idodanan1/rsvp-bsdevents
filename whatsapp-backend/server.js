@@ -60,6 +60,10 @@ const RESPONSE_WAIT_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours timeout
 // Format: "phoneNumber" -> timestamp when "thanks" was sent
 const receivedThanksMessages = new Map();
 
+// Track recently sent guest count questions to prevent duplicates
+const recentlySentGuestCountQuestions = new Map();
+const GUEST_COUNT_QUESTION_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown
+
 // Helper function to check if "yes" message was recently sent
 function wasYesMessageRecentlySent(phoneNumber) {
   const key = phoneNumber.replace(/[^0-9]/g, '');
@@ -1557,14 +1561,18 @@ async function handleIncomingMessage(message) {
     // Then update guest count (this will also add to pendingUpdates with both status and count)
     await updateGuestCountByPhone(message.from, guestCountMatch);
     
-    // If guest is waiting for response and hasn't received "thanks" yet, send it after guest count update
-    if (isWaiting && !hasThanks) {
-      console.log(`📤 Guest provided guest count after "yes" message, sending "thanks"...`);
+    // CRITICAL: Always send "thanks" when guest provides count (if not already sent)
+    // This is a response to the "yes" message, so we should acknowledge it
+    if (!hasThanks) {
+      console.log(`📤 Guest provided guest count, sending "thanks"...`);
       try {
         await sendThanksTemplateMessage(message.from);
+        console.log('✅ "thanks" template message sent after guest count');
       } catch (error) {
         console.error('❌ Error sending "thanks" after guest count:', error);
       }
+    } else {
+      console.log(`ℹ️ Guest ${message.from} already received "thanks" - skipping`);
     }
     
     return; // Don't process as confirmation/decline
@@ -1739,12 +1747,12 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     );
     
     // Store update in pending updates array
-    // Include status "confirmed" if not already present
+    // CRITICAL: Always include status "confirmed" when guest provides count
     const updateData = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
-      status: existingConfirmedUpdate ? undefined : 'confirmed', // Only add status if not already confirmed
+      status: 'confirmed', // Always include status "confirmed" when guest provides count
       responseDate: new Date().toISOString(),
       timestamp: Date.now()
     };
@@ -1754,6 +1762,8 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
       existingConfirmedUpdate.guestCount = guestCount;
       existingConfirmedUpdate.responseDate = updateData.responseDate;
       existingConfirmedUpdate.timestamp = updateData.timestamp;
+      // Ensure status is "confirmed"
+      existingConfirmedUpdate.status = 'confirmed';
       console.log('✅ Updated existing confirmed update with guest count:', existingConfirmedUpdate);
     } else {
       // Add new update with both status and guest count
@@ -2131,9 +2141,45 @@ async function sendThanksTemplateMessage(phoneNumber) {
   }
 }
 
+// Helper function to check if guest count question was recently sent
+function wasGuestCountQuestionRecentlySent(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  const lastSent = recentlySentGuestCountQuestions.get(key);
+  if (!lastSent) {
+    return false;
+  }
+  const timeSinceLastSent = Date.now() - lastSent;
+  if (timeSinceLastSent > GUEST_COUNT_QUESTION_COOLDOWN) {
+    recentlySentGuestCountQuestions.delete(key);
+    return false;
+  }
+  return true;
+}
+
+// Helper function to mark guest count question as sent
+function markGuestCountQuestionAsSent(phoneNumber) {
+  const key = phoneNumber.replace(/[^0-9]/g, '');
+  recentlySentGuestCountQuestions.set(key, Date.now());
+  console.log(`✅ Marked guest count question as sent for ${phoneNumber}`);
+  
+  // Clean up old entries
+  const now = Date.now();
+  for (const [phone, timestamp] of recentlySentGuestCountQuestions.entries()) {
+    if (now - timestamp > GUEST_COUNT_QUESTION_COOLDOWN) {
+      recentlySentGuestCountQuestions.delete(phone);
+    }
+  }
+}
+
 // Send follow-up message asking for guest count
 async function sendGuestCountQuestion(phoneNumber) {
   try {
+    // CRITICAL: Check if guest count question was recently sent to prevent duplicates
+    if (wasGuestCountQuestionRecentlySent(phoneNumber)) {
+      console.log(`⏭️ Skipping guest count question - recently sent to ${phoneNumber} (within ${GUEST_COUNT_QUESTION_COOLDOWN / 1000 / 60} minutes)`);
+      return; // Exit early - don't send duplicate
+    }
+    
     console.log(`📤 Sending guest count question to ${phoneNumber}`);
     
     // Use WhatsApp Business API to send the message
@@ -2189,6 +2235,8 @@ async function sendGuestCountQuestion(phoneNumber) {
     if (response.status === 200) {
       console.log('✅ Guest count question sent successfully');
       console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+      // Mark as sent to prevent duplicates
+      markGuestCountQuestionAsSent(phoneNumber);
     } else {
       console.warn('⚠️ Failed to send guest count question:', response.status);
       console.warn('⚠️ Response data:', response.data);
