@@ -1548,6 +1548,13 @@ async function handleIncomingMessage(message) {
   const guestCountMatch = extractGuestCount(originalMessageText);
   if (guestCountMatch !== null) {
     console.log(`📊 Guest count response detected: ${guestCountMatch} people`);
+    
+    // CRITICAL: When guest provides count, they are confirming attendance
+    // Update status to "confirmed" first, then update guest count
+    console.log(`✅ Guest provided count - updating status to "confirmed"`);
+    await updateGuestStatusByPhone(message.from, 'confirmed');
+    
+    // Then update guest count (this will also add to pendingUpdates with both status and count)
     await updateGuestCountByPhone(message.from, guestCountMatch);
     
     // If guest is waiting for response and hasn't received "thanks" yet, send it after guest count update
@@ -1724,17 +1731,35 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     
     console.log(`🔄 Updating guest count for ${phoneNumber} to ${guestCount}`);
     
+    // CRITICAL: When updating guest count, also ensure status is "confirmed"
+    // Check if there's already a "confirmed" status update for this phone
+    const existingConfirmedUpdate = pendingUpdates.find(
+      u => (u.phoneNumber === phoneWith0 || u.originalPhoneNumber === formattedPhone) && 
+           u.status === 'confirmed'
+    );
+    
     // Store update in pending updates array
+    // Include status "confirmed" if not already present
     const updateData = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
+      status: existingConfirmedUpdate ? undefined : 'confirmed', // Only add status if not already confirmed
+      responseDate: new Date().toISOString(),
       timestamp: Date.now()
     };
     
-    // Add to pending updates
-    pendingUpdates.push(updateData);
-    console.log('✅ Guest count update stored:', updateData);
+    // If there's already a confirmed update, merge the guest count into it
+    if (existingConfirmedUpdate) {
+      existingConfirmedUpdate.guestCount = guestCount;
+      existingConfirmedUpdate.responseDate = updateData.responseDate;
+      existingConfirmedUpdate.timestamp = updateData.timestamp;
+      console.log('✅ Updated existing confirmed update with guest count:', existingConfirmedUpdate);
+    } else {
+      // Add new update with both status and guest count
+      pendingUpdates.push(updateData);
+      console.log('✅ Guest count update stored (with confirmed status):', updateData);
+    }
   } catch (error) {
     console.error('❌ Error updating guest count:', error);
   }
