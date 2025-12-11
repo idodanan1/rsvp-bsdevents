@@ -193,6 +193,13 @@ const GuestResponse = () => {
     // This is especially important for devices that don't have the event in localStorage
     console.log(`🌐 Loading event from API (eventId: ${eventId})...`);
     
+    // CRITICAL: Set a maximum timeout to stop loading even if API call is still running
+    // This prevents infinite loading on devices with slow/blocked network
+    const maxTimeout = setTimeout(() => {
+      console.warn(`⏱️ Maximum timeout reached (10 seconds) - stopping loading`);
+      setIsLoadingEvent(false);
+    }, 10000); // 10 seconds maximum wait time
+    
     // If not found in localStorage, try API (but don't block page rendering)
     // This runs in background with retry mechanism
     const loadFromAPI = async (retryCount = 0) => {
@@ -206,7 +213,7 @@ const GuestResponse = () => {
         
         // Use AbortController for timeout (compatible with older browsers)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 seconds timeout (less than maxTimeout)
         
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
@@ -300,6 +307,7 @@ const GuestResponse = () => {
               coupleName: foundEvent.coupleName,
               guestsCount: foundEvent.guests?.length || 0
             });
+            clearTimeout(maxTimeout); // Clear max timeout since we found the event
             setDirectEvent(foundEvent);
             setIsLoadingEvent(false);
             
@@ -328,6 +336,7 @@ const GuestResponse = () => {
             console.error(`❌ Searched ${allEvents.length} events`);
             console.error(`❌ Available event IDs:`, allEvents.map((e: any) => ({ id: e.id, name: e.coupleName })));
             console.error(`❌ EventId we're looking for: "${eventId}"`);
+            clearTimeout(maxTimeout); // Clear max timeout since we handled the case
             setIsLoadingEvent(false);
           }
         } else {
@@ -335,6 +344,7 @@ const GuestResponse = () => {
           const errorText = await response.text().catch(() => 'Could not read error');
           console.error(`❌ API returned error: ${response.status} ${response.statusText}`);
           console.error(`❌ Error details:`, errorText);
+          clearTimeout(maxTimeout); // Clear max timeout since we're handling the error
           setIsLoadingEvent(false);
         }
       } catch (error: any) {
@@ -350,13 +360,22 @@ const GuestResponse = () => {
         } else {
           console.error('❌ Max retries reached. Stopping loading.');
           console.error('❌ Error stack:', error.stack);
+          clearTimeout(maxTimeout); // Clear max timeout since we're handling the error
           setIsLoadingEvent(false);
         }
       }
     };
     
     // Try API in background (non-blocking)
-    loadFromAPI();
+    loadFromAPI().finally(() => {
+      // Clear max timeout if API call completes (success or failure)
+      clearTimeout(maxTimeout);
+    });
+    
+    // Cleanup function to clear timeout if component unmounts or dependencies change
+    return () => {
+      clearTimeout(maxTimeout);
+    };
     
     // NOTE: We don't call fetchEvents here because:
     // 1. GuestResponse is a public page (no user login required)
