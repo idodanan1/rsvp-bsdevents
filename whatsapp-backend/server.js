@@ -4070,6 +4070,8 @@ app.post('/api/users/:userId/sessions/activity', async (req, res) => {
 
 // Get all events for a user
 // Public endpoint to get all events (for guest response links - works on all devices)
+// CRITICAL: This endpoint must return ALL events from memory, not filtered by userId
+// This allows guest response links to work on any device without authentication
 app.get('/api/events/all', async (req, res) => {
   // CRITICAL: Set CORS headers FIRST - before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -4079,21 +4081,41 @@ app.get('/api/events/all', async (req, res) => {
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
   try {
-    console.log(`📋 GET /api/events/all - Request received`);
+    console.log(`📋 GET /api/events/all - Request received (public endpoint)`);
+    
+    // CRITICAL: Reload events from file first to ensure we have latest data
+    // This ensures sync between multiple server instances
+    loadEvents();
+    
+    // CRITICAL: Use eventsData.events from memory (not from file directly)
+    // This ensures we return the most up-to-date events that may have been updated in memory
+    const events = eventsData.events || [];
+    
+    console.log(`📋 Events in memory: ${events.length}`);
     console.log(`📋 Events file path: ${eventsFilePath}`);
     console.log(`📋 Events file exists: ${fs.existsSync(eventsFilePath)}`);
     
-    const events = loadEvents();
-    console.log(`📋 GET /api/events/all - Loaded ${events.length} events from file`);
-    
     // Log event IDs for debugging
     if (events.length > 0) {
-      console.log(`📋 Event IDs in response:`, events.map(e => ({ id: e.id, name: e.coupleName })));
+      console.log(`📋 Event IDs in response:`, events.map(e => ({ 
+        id: e.id, 
+        name: e.coupleName,
+        userId: e.userId 
+      })));
     } else {
-      console.warn(`⚠️ No events found in file!`);
+      console.warn(`⚠️ No events found in memory!`);
+      // Try to reload from file as fallback
+      const fileEvents = loadEvents();
+      if (fileEvents.length > 0) {
+        console.log(`📋 Reloaded ${fileEvents.length} events from file as fallback`);
+        events.push(...fileEvents);
+      }
     }
     
-    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint)`);
+    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint, no userId filter)`);
+    
+    // CRITICAL: Return ALL events without filtering by userId
+    // This allows guest response links to work on any device
     res.json({
       success: true,
       events: events,
