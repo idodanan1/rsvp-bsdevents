@@ -177,11 +177,12 @@ const GuestResponse = () => {
     // Try API in background (non-blocking)
     loadFromAPI();
     
-    // Also try fetchEvents (non-blocking)
-    // NOTE: fetchEvents is stable from Zustand, but we don't include it in deps to avoid infinite loops
-    fetchEvents().catch(() => {}); // Don't wait for it
+    // NOTE: We don't call fetchEvents here because:
+    // 1. GuestResponse is a public page (no user login required)
+    // 2. We load events from /api/events/all (public endpoint) via loadFromAPI()
+    // 3. fetchEvents() requires userId and would cause infinite loops if called without user
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, guestId]); // Removed fetchEvents from deps to prevent infinite loop
+  }, [eventId, guestId]); // Removed fetchEvents call to prevent infinite loop
   
   // Removed debug logging for performance
   

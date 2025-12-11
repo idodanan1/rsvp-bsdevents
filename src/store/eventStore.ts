@@ -55,20 +55,30 @@ export const useEventStore = create<EventStore>()(
       manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        // CRITICAL: Early return if no user ID to prevent infinite loops
+        const userStorage = localStorage.getItem('rsvp-user-storage');
+        let userId = '';
+        let userEmail = '';
+        if (userStorage) {
+          try {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+            userEmail = parsed.state?.user?.email || '';
+          } catch (e) {
+            console.warn('⚠️ Error parsing user storage:', e);
+          }
+        }
+
+        // If no userId, don't fetch and don't update state (prevents infinite loops)
+        if (!userId) {
+          console.log('⏭️ Skipping fetchEvents - no userId (user not logged in)');
+          return; // Early return - don't update state
+        }
+
         if (!silent) {
           set({ isLoading: true, error: null });
         }
         try {
-          // Get current user ID and email
-          const userStorage = localStorage.getItem('rsvp-user-storage');
-          let userId = '';
-          let userEmail = '';
-          if (userStorage) {
-            const parsed = JSON.parse(userStorage);
-            userId = parsed.state?.user?.id || '';
-            userEmail = parsed.state?.user?.email || '';
-          }
-
           console.log('🔍 Fetching events for user:', { userId, userEmail, forceRefresh });
 
           // Try to fetch from API first (for syncing between computers)
