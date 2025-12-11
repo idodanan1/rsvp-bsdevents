@@ -6,10 +6,19 @@ import { formatDate, formatDateTime } from '../utils/helpers';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
 
 const GuestResponse = () => {
+  console.log(`🚀 GuestResponse component RENDERED`);
+  console.log(`🚀 Current URL: ${window.location.href}`);
+  console.log(`🚀 Current hash: ${window.location.hash}`);
+  console.log(`🚀 Current pathname: ${window.location.pathname}`);
+  console.log(`🚀 Current search: ${window.location.search}`);
+  
   const { eventId: paramEventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { events, updateGuestResponse, fetchEvents } = useEventStore();
+  
+  console.log(`🚀 paramEventId from useParams: ${paramEventId}`);
+  console.log(`🚀 searchParams:`, Object.fromEntries(searchParams.entries()));
   
   // Parse eventId from hash if not in params (HashRouter fallback)
   const parseEventIdFromHash = () => {
@@ -49,9 +58,20 @@ const GuestResponse = () => {
         console.log(`✅ Found eventId in pathname: ${parsedId}`);
         return parsedId;
       }
+      
+      // Try even simpler pattern: just look for alphanumeric string after guest-response
+      match = hash.match(/guest-response[\/#]?([a-z0-9]+)/i);
+      if (match && match[1]) {
+        const parsedId = match[1];
+        console.log(`✅ Found eventId in hash (simple pattern): ${parsedId}`);
+        return parsedId;
+      }
     }
     
     console.warn(`⚠️ Could not parse eventId from URL`);
+    console.warn(`⚠️ Hash: ${window.location.hash}`);
+    console.warn(`⚠️ Pathname: ${window.location.pathname}`);
+    console.warn(`⚠️ Search: ${window.location.search}`);
     return null;
   };
   

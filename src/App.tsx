@@ -48,6 +48,16 @@ function App() {
   const fetchEvents = useEventStore(state => state.fetchEvents);
   const fetchClients = useClientStore(state => state.fetchClients);
   const { user, isAuthenticated, logout } = useUserStore();
+  
+  // Log app initialization
+  React.useEffect(() => {
+    console.log('🚀 App component initialized');
+    console.log('🚀 Current URL:', window.location.href);
+    console.log('🚀 Current hash:', window.location.hash);
+    console.log('🚀 Current pathname:', window.location.pathname);
+    console.log('🚀 Is authenticated:', isAuthenticated);
+    console.log('🚀 Has user:', !!user);
+  }, []);
 
   // Load data in background - don't block rendering
   // Zustand persist already loads from localStorage instantly
