@@ -59,6 +59,15 @@ const GuestResponse = () => {
       guestId: guestId,
       searchParams: Object.fromEntries(searchParams.entries())
     });
+    
+    if (!eventId) {
+      console.error('❌ CRITICAL: No eventId found! Cannot load event.');
+      console.error('❌ URL parsing failed - check hash/pathname:', {
+        hash: window.location.hash,
+        pathname: window.location.pathname,
+        paramEventId: paramEventId
+      });
+    }
   }, [paramEventId, eventId, guestId, searchParams]);
   
   // Load event IMMEDIATELY from localStorage first (fast, no waiting)
@@ -105,16 +114,29 @@ const GuestResponse = () => {
     // If not found in localStorage, try API (but don't block page rendering)
     // This runs in background
     const loadFromAPI = async () => {
+      if (!eventId) {
+        console.error('❌ Cannot load from API - no eventId');
+        setIsLoadingEvent(false);
+        return;
+      }
+      
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-        console.log(`🔍 Loading event from API: ${BACKEND_URL}/api/events/all`);
+        const apiUrl = `${BACKEND_URL}/api/events/all`;
+        console.log(`🔍 ========== LOADING EVENT FROM API ==========`);
+        console.log(`🔍 API URL: ${apiUrl}`);
         console.log(`🔍 Looking for eventId: ${eventId}`);
+        console.log(`🔍 Current URL: ${window.location.href}`);
         
         // Use AbortController for timeout (compatible with older browsers)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout to 10 seconds
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          console.error('⏱️ API request timed out after 10 seconds');
+        }, 10000); // 10 seconds timeout
         
-        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+        const fetchStartTime = Date.now();
+        const response = await fetch(apiUrl, {
           method: 'GET',
           headers: { 
             'Content-Type': 'application/json',
@@ -126,19 +148,46 @@ const GuestResponse = () => {
         });
         
         clearTimeout(timeoutId);
+        const fetchDuration = Date.now() - fetchStartTime;
         
+        console.log(`🔍 API Response received in ${fetchDuration}ms`);
         console.log(`🔍 API Response status: ${response.status} ${response.statusText}`);
+        console.log(`🔍 API Response headers:`, {
+          'content-type': response.headers.get('content-type'),
+          'access-control-allow-origin': response.headers.get('access-control-allow-origin')
+        });
         
         if (response.ok) {
           const data = await response.json();
           console.log(`🔍 API returned ${data.events?.length || 0} events`);
-          console.log(`🔍 Event IDs in API:`, data.events?.map((e: any) => e.id) || []);
+          console.log(`🔍 Event IDs in API:`, data.events?.map((e: any) => ({ id: e.id, name: e.coupleName })) || []);
           
           const allEvents = data.events || [];
-          const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          
+          // Try exact match first
+          let foundEvent = allEvents.find((e: any) => e.id === eventId);
+          
+          // If not found, try case-insensitive match
+          if (!foundEvent) {
+            console.log(`🔍 Trying case-insensitive match...`);
+            foundEvent = allEvents.find((e: any) => 
+              e.id.toLowerCase() === eventId.toLowerCase()
+            );
+          }
+          
+          // If still not found, try partial match
+          if (!foundEvent) {
+            console.log(`🔍 Trying partial match...`);
+            foundEvent = allEvents.find((e: any) => 
+              e.id.includes(eventId) || eventId.includes(e.id)
+            );
+          }
           
           if (foundEvent) {
-            console.log(`✅ Found event in API: ${foundEvent.coupleName} (${foundEvent.id})`);
+            console.log(`✅ ========== EVENT FOUND IN API ==========`);
+            console.log(`✅ Event ID: ${foundEvent.id}`);
+            console.log(`✅ Event Name: ${foundEvent.coupleName}`);
+            console.log(`✅ Guests Count: ${foundEvent.guests?.length || 0}`);
             setDirectEvent(foundEvent);
             setIsLoadingEvent(false);
             
@@ -154,22 +203,34 @@ const GuestResponse = () => {
             }
           } else {
             // Event not found in API - stop loading
-            console.error(`❌ Event ${eventId} not found in API response`);
-            console.log(`🔍 Available event IDs:`, allEvents.map((e: any) => e.id));
+            console.error(`❌ ========== EVENT NOT FOUND IN API ==========`);
+            console.error(`❌ Searched for eventId: ${eventId}`);
+            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
+            console.error(`❌ Event ID types:`, allEvents.map((e: any) => typeof e.id));
+            console.error(`❌ Searching eventId type:`, typeof eventId);
             setIsLoadingEvent(false);
           }
         } else {
           // API returned error - stop loading and show error
           const errorText = await response.text().catch(() => 'Could not read error');
-          console.error(`❌ API returned error: ${response.status} ${response.statusText}`);
+          console.error(`❌ ========== API ERROR ==========`);
+          console.error(`❌ Status: ${response.status} ${response.statusText}`);
           console.error(`❌ Error details:`, errorText);
+          console.error(`❌ Response URL: ${apiUrl}`);
           setIsLoadingEvent(false);
         }
       } catch (error: any) {
         // Network error or timeout - stop loading
-        console.error('❌ Failed to load event from API:', error.message);
+        console.error('❌ ========== API FETCH FAILED ==========');
+        console.error('❌ Error message:', error.message);
         console.error('❌ Error type:', error.name);
-        console.error('❌ Error stack:', error.stack);
+        if (error.name === 'AbortError') {
+          console.error('❌ Request was aborted (timeout or cancelled)');
+        }
+        if (error.stack) {
+          console.error('❌ Error stack:', error.stack);
+        }
+        console.error('❌ API URL attempted:', `${import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com'}/api/events/all`);
         setIsLoadingEvent(false);
       }
     };
