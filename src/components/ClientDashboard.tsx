@@ -25,76 +25,149 @@ const ClientDashboard: React.FC = () => {
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
-    if (eventId) {
-      // Try to find event in current events first
-      const event = events.find(e => e.id === eventId);
-      if (event) {
-        setCurrentEvent(event);
-        setIsLoading(false);
-      } else {
-        // If event not found, try to load from localStorage directly (for public client dashboard)
-        try {
-          const stored = localStorage.getItem('rsvp-events-storage');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.state && parsed.state.events) {
-              // Find event by ID without filtering by userId (public access)
-              const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-              if (foundEvent) {
-                setCurrentEvent(foundEvent);
-                setIsLoading(false);
-                return;
-              }
-            }
-          }
-          
-          // If still not found, try fetchEvents (will filter by userId if logged in)
-          fetchEvents().then(() => {
-            const foundEvent = events.find(e => e.id === eventId);
-            if (foundEvent) {
-              setCurrentEvent(foundEvent);
-            }
-            setIsLoading(false);
-          });
-        } catch (error) {
-          console.error('Error loading event:', error);
-          setIsLoading(false);
-        }
-      }
+    if (!eventId) {
+      setIsLoading(false);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId, events]); // Removed fetchEvents from deps to prevent infinite loop
-
-  const handleRefresh = () => {
-    setIsLoading(true);
+    
+    console.log(`🔍 ClientDashboard loading event: ${eventId}`);
+    
+    // Try to find event in current events first
+    const event = events.find(e => e.id === eventId);
+    if (event) {
+      console.log(`✅ Found event in store: ${event.coupleName}`);
+      setCurrentEvent(event);
+      setIsLoading(false);
+      return;
+    }
+    
+    // Try to load from localStorage (for fast display)
     try {
-      // Try to load from localStorage directly (for public client dashboard)
       const stored = localStorage.getItem('rsvp-events-storage');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed.state && parsed.state.events) {
-          // Find event by ID without filtering by userId (public access)
           const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
           if (foundEvent) {
+            console.log(`✅ Found event in localStorage: ${foundEvent.coupleName}`);
             setCurrentEvent(foundEvent);
-            setLastUpdated(new Date());
             setIsLoading(false);
-            return;
+            // Still try API in background to get latest data
           }
         }
       }
-      
-      // If not found, try fetchEvents
+    } catch (error) {
+      console.error('Error parsing localStorage:', error);
+    }
+    
+    // CRITICAL: Load from public API endpoint (works from any IP/device)
+    // This is the same endpoint used by GuestResponse
+    const loadFromAPI = async () => {
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        console.log(`🌐 Loading event from API: ${BACKEND_URL}/api/events/all`);
+        
+        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const allEvents = data.events || [];
+          const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          
+          if (foundEvent) {
+            console.log(`✅ Found event in API: ${foundEvent.coupleName}`);
+            setCurrentEvent(foundEvent);
+            setIsLoading(false);
+          } else {
+            console.error(`❌ Event ${eventId} not found in API`);
+            setIsLoading(false);
+          }
+        } else {
+          console.error(`❌ API returned error: ${response.status}`);
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load event from API:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    // Only try fetchEvents if user is logged in (has userId)
+    const userStorage = localStorage.getItem('rsvp-user-storage');
+    let userId = '';
+    if (userStorage) {
+      try {
+        const parsed = JSON.parse(userStorage);
+        userId = parsed.state?.user?.id || '';
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
+    
+    if (userId) {
+      // User is logged in - try fetchEvents as fallback
       fetchEvents().then(() => {
-        const event = events.find(e => e.id === eventId);
-        if (event) {
-          setCurrentEvent(event);
-          setLastUpdated(new Date());
+        const foundEvent = events.find(e => e.id === eventId);
+        if (foundEvent) {
+          console.log(`✅ Found event via fetchEvents: ${foundEvent.coupleName}`);
+          setCurrentEvent(foundEvent);
         }
         setIsLoading(false);
+      }).catch(() => {
+        // If fetchEvents fails, try public API
+        loadFromAPI();
       });
+    } else {
+      // No user logged in - use public API endpoint
+      console.log(`🌐 No user logged in - using public API endpoint`);
+      loadFromAPI();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]); // Removed events and fetchEvents from deps to prevent infinite loop
+
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    console.log(`🔄 Refreshing event: ${eventId}`);
+    
+    try {
+      // CRITICAL: Use public API endpoint (works from any IP/device)
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const allEvents = data.events || [];
+        const foundEvent = allEvents.find((e: any) => e.id === eventId);
+        
+        if (foundEvent) {
+          console.log(`✅ Refreshed event from API: ${foundEvent.coupleName}`);
+          setCurrentEvent(foundEvent);
+          setLastUpdated(new Date());
+        } else {
+          console.error(`❌ Event ${eventId} not found in API`);
+        }
+      } else {
+        console.error(`❌ API returned error: ${response.status}`);
+      }
     } catch (error) {
-      console.error('Error refreshing event:', error);
+      console.error('❌ Error refreshing event:', error);
+    } finally {
       setIsLoading(false);
     }
   };
