@@ -1,1 +1,5 @@
 /*    /index.html   200
+
+# Ensure guest-response routes work
+/guest-response/*    /index.html   200
+/#/guest-response/*    /index.html   200
