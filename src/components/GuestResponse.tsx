@@ -47,6 +47,20 @@ const GuestResponse = () => {
   
   const guestId = parseGuestId();
   
+  // DEBUG: Log URL parsing
+  React.useEffect(() => {
+    console.log('🔍 GuestResponse URL Debug:', {
+      fullUrl: window.location.href,
+      hash: window.location.hash,
+      pathname: window.location.pathname,
+      search: window.location.search,
+      paramEventId: paramEventId,
+      parsedEventId: eventId,
+      guestId: guestId,
+      searchParams: Object.fromEntries(searchParams.entries())
+    });
+  }, [paramEventId, eventId, guestId, searchParams]);
+  
   // Load event IMMEDIATELY from localStorage first (fast, no waiting)
   React.useEffect(() => {
     if (!eventId) {
@@ -93,9 +107,12 @@ const GuestResponse = () => {
     const loadFromAPI = async () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        console.log(`🔍 Loading event from API: ${BACKEND_URL}/api/events/all`);
+        console.log(`🔍 Looking for eventId: ${eventId}`);
+        
         // Use AbortController for timeout (compatible with older browsers)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout to 10 seconds
         
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
@@ -110,32 +127,49 @@ const GuestResponse = () => {
         
         clearTimeout(timeoutId);
         
+        console.log(`🔍 API Response status: ${response.status} ${response.statusText}`);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log(`🔍 API returned ${data.events?.length || 0} events`);
+          console.log(`🔍 Event IDs in API:`, data.events?.map((e: any) => e.id) || []);
+          
           const allEvents = data.events || [];
           const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          
           if (foundEvent) {
+            console.log(`✅ Found event in API: ${foundEvent.coupleName} (${foundEvent.id})`);
             setDirectEvent(foundEvent);
             setIsLoadingEvent(false);
             
             if (guestId) {
               const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
               if (foundGuest) {
+                console.log(`✅ Found guest in API: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id})`);
                 setDirectGuest(foundGuest);
+              } else {
+                console.warn(`⚠️ Guest ${guestId} not found in event ${eventId}`);
+                console.log(`🔍 Available guest IDs:`, foundEvent.guests?.map((g: any) => g.id) || []);
               }
             }
           } else {
             // Event not found in API - stop loading
+            console.error(`❌ Event ${eventId} not found in API response`);
+            console.log(`🔍 Available event IDs:`, allEvents.map((e: any) => e.id));
             setIsLoadingEvent(false);
           }
         } else {
           // API returned error - stop loading and show error
-          console.warn(`⚠️ API returned error: ${response.status} ${response.statusText}`);
+          const errorText = await response.text().catch(() => 'Could not read error');
+          console.error(`❌ API returned error: ${response.status} ${response.statusText}`);
+          console.error(`❌ Error details:`, errorText);
           setIsLoadingEvent(false);
         }
       } catch (error: any) {
         // Network error or timeout - stop loading
-        console.warn('⚠️ Failed to load event from API:', error.message);
+        console.error('❌ Failed to load event from API:', error.message);
+        console.error('❌ Error type:', error.name);
+        console.error('❌ Error stack:', error.stack);
         setIsLoadingEvent(false);
       }
     };
@@ -144,8 +178,10 @@ const GuestResponse = () => {
     loadFromAPI();
     
     // Also try fetchEvents (non-blocking)
+    // NOTE: fetchEvents is stable from Zustand, but we don't include it in deps to avoid infinite loops
     fetchEvents().catch(() => {}); // Don't wait for it
-  }, [eventId, guestId, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, guestId]); // Removed fetchEvents from deps to prevent infinite loop
   
   // Removed debug logging for performance
   
@@ -419,7 +455,24 @@ const GuestResponse = () => {
   const currentEvent = event || directEvent;
   const currentGuest = guest || directGuest || finalGuest;
   
+  // DEBUG: Log current state
+  React.useEffect(() => {
+    console.log('🔍 GuestResponse State Debug:', {
+      eventId: eventId,
+      guestId: guestId,
+      hasEvent: !!event,
+      hasDirectEvent: !!directEvent,
+      hasCurrentEvent: !!currentEvent,
+      hasGuest: !!guest,
+      hasDirectGuest: !!directGuest,
+      hasCurrentGuest: !!currentGuest,
+      eventsInStore: events.length,
+      isLoadingEvent: isLoadingEvent
+    });
+  }, [eventId, guestId, event, directEvent, currentEvent, guest, directGuest, currentGuest, events.length, isLoadingEvent]);
+  
   if (!currentEvent || (guestId && !currentGuest)) {
+    // Show error with debug info
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -430,6 +483,15 @@ const GuestResponse = () => {
           <p className="text-gray-600 mb-6">
             {!currentEvent ? 'הקוד שסופק לא תואם לאף אירוע במערכת' : 'האורח לא נמצא ברשימה או שהקישור שגוי.'}
           </p>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="bg-gray-100 p-4 rounded-lg mb-4 text-left text-xs">
+              <p><strong>Debug Info:</strong></p>
+              <p>Event ID: {eventId || 'לא נמצא'}</p>
+              <p>Guest ID: {guestId || 'לא נמצא'}</p>
+              <p>URL: {window.location.href}</p>
+              <p>Hash: {window.location.hash}</p>
+            </div>
+          )}
           <button
             onClick={() => navigate('/')}
             className="btn-primary w-full"

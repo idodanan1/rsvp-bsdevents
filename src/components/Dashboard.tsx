@@ -128,7 +128,8 @@ const Dashboard: React.FC = () => {
     }, 2000); // 2 seconds - fast sync between devices
 
     return () => clearInterval(dataInterval);
-  }, [fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Removed fetchEvents from deps to prevent infinite loop
 
 
   const handleDeleteEvent = async (eventId: string, eventName: string) => {

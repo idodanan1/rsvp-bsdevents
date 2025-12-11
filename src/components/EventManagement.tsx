@@ -106,7 +106,8 @@ const EventManagement: React.FC = () => {
     return () => {
       clearInterval(intervalId);
     };
-  }, [id, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Removed fetchEvents from deps to prevent infinite loop
 
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');

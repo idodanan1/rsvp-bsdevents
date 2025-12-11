@@ -21,7 +21,8 @@ const QRScan: React.FC = () => {
     if (events.length === 0) {
       fetchEvents();
     }
-  }, [events.length, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.length]); // Removed fetchEvents from deps to prevent infinite loop
 
   useEffect(() => {
     if (eventId && guestId && events.length > 0) {

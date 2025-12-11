@@ -62,7 +62,8 @@ const ClientDashboard: React.FC = () => {
         }
       }
     }
-  }, [eventId, events, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId, events]); // Removed fetchEvents from deps to prevent infinite loop
 
   const handleRefresh = () => {
     setIsLoading(true);
