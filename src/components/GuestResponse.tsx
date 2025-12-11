@@ -59,15 +59,6 @@ const GuestResponse = () => {
       guestId: guestId,
       searchParams: Object.fromEntries(searchParams.entries())
     });
-    
-    if (!eventId) {
-      console.error('❌ CRITICAL: No eventId found! Cannot load event.');
-      console.error('❌ URL parsing failed - check hash/pathname:', {
-        hash: window.location.hash,
-        pathname: window.location.pathname,
-        paramEventId: paramEventId
-      });
-    }
   }, [paramEventId, eventId, guestId, searchParams]);
   
   // Load event IMMEDIATELY from localStorage first (fast, no waiting)
@@ -112,31 +103,21 @@ const GuestResponse = () => {
     }
     
     // If not found in localStorage, try API (but don't block page rendering)
-    // This runs in background
-    const loadFromAPI = async () => {
-      if (!eventId) {
-        console.error('❌ Cannot load from API - no eventId');
-        setIsLoadingEvent(false);
-        return;
-      }
+    // This runs in background with retry mechanism
+    const loadFromAPI = async (retryCount = 0) => {
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 1000; // 1 second
       
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-        const apiUrl = `${BACKEND_URL}/api/events/all`;
-        console.log(`🔍 ========== LOADING EVENT FROM API ==========`);
-        console.log(`🔍 API URL: ${apiUrl}`);
+        console.log(`🔍 Loading event from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}): ${BACKEND_URL}/api/events/all`);
         console.log(`🔍 Looking for eventId: ${eventId}`);
-        console.log(`🔍 Current URL: ${window.location.href}`);
         
         // Use AbortController for timeout (compatible with older browsers)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          controller.abort();
-          console.error('⏱️ API request timed out after 10 seconds');
-        }, 10000); // 10 seconds timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
         
-        const fetchStartTime = Date.now();
-        const response = await fetch(apiUrl, {
+        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
           headers: { 
             'Content-Type': 'application/json',
@@ -148,19 +129,17 @@ const GuestResponse = () => {
         });
         
         clearTimeout(timeoutId);
-        const fetchDuration = Date.now() - fetchStartTime;
         
-        console.log(`🔍 API Response received in ${fetchDuration}ms`);
         console.log(`🔍 API Response status: ${response.status} ${response.statusText}`);
-        console.log(`🔍 API Response headers:`, {
-          'content-type': response.headers.get('content-type'),
-          'access-control-allow-origin': response.headers.get('access-control-allow-origin')
-        });
+        console.log(`🔍 API Response headers:`, Object.fromEntries(response.headers.entries()));
         
         if (response.ok) {
           const data = await response.json();
           console.log(`🔍 API returned ${data.events?.length || 0} events`);
-          console.log(`🔍 Event IDs in API:`, data.events?.map((e: any) => ({ id: e.id, name: e.coupleName })) || []);
+          console.log(`🔍 Full API response:`, JSON.stringify(data, null, 2));
+          console.log(`🔍 Event IDs in API:`, data.events?.map((e: any) => e.id) || []);
+          console.log(`🔍 Looking for eventId: "${eventId}"`);
+          console.log(`🔍 EventId type: ${typeof eventId}, length: ${eventId?.length}`);
           
           const allEvents = data.events || [];
           
@@ -169,25 +148,23 @@ const GuestResponse = () => {
           
           // If not found, try case-insensitive match
           if (!foundEvent) {
-            console.log(`🔍 Trying case-insensitive match...`);
-            foundEvent = allEvents.find((e: any) => 
-              e.id.toLowerCase() === eventId.toLowerCase()
-            );
+            console.log(`⚠️ Exact match failed, trying case-insensitive match...`);
+            foundEvent = allEvents.find((e: any) => e.id?.toLowerCase() === eventId?.toLowerCase());
           }
           
-          // If still not found, try partial match
+          // If still not found, try partial match (in case of URL encoding issues)
           if (!foundEvent) {
-            console.log(`🔍 Trying partial match...`);
-            foundEvent = allEvents.find((e: any) => 
-              e.id.includes(eventId) || eventId.includes(e.id)
-            );
+            console.log(`⚠️ Case-insensitive match failed, trying partial match...`);
+            foundEvent = allEvents.find((e: any) => e.id?.includes(eventId) || eventId?.includes(e.id));
           }
           
           if (foundEvent) {
-            console.log(`✅ ========== EVENT FOUND IN API ==========`);
-            console.log(`✅ Event ID: ${foundEvent.id}`);
-            console.log(`✅ Event Name: ${foundEvent.coupleName}`);
-            console.log(`✅ Guests Count: ${foundEvent.guests?.length || 0}`);
+            console.log(`✅ Found event in API: ${foundEvent.coupleName} (${foundEvent.id})`);
+            console.log(`✅ Event details:`, {
+              id: foundEvent.id,
+              coupleName: foundEvent.coupleName,
+              guestsCount: foundEvent.guests?.length || 0
+            });
             setDirectEvent(foundEvent);
             setIsLoadingEvent(false);
             
@@ -199,39 +176,47 @@ const GuestResponse = () => {
               } else {
                 console.warn(`⚠️ Guest ${guestId} not found in event ${eventId}`);
                 console.log(`🔍 Available guest IDs:`, foundEvent.guests?.map((g: any) => g.id) || []);
+                
+                // Try partial match for guest too
+                const fallbackGuest = foundEvent.guests?.find((g: any) => 
+                  g.id?.includes(guestId) || guestId?.includes(g.id)
+                );
+                if (fallbackGuest) {
+                  console.log(`✅ Found fallback guest: ${fallbackGuest.firstName} ${fallbackGuest.lastName} (${fallbackGuest.id})`);
+                  setDirectGuest(fallbackGuest);
+                }
               }
             }
           } else {
             // Event not found in API - stop loading
-            console.error(`❌ ========== EVENT NOT FOUND IN API ==========`);
-            console.error(`❌ Searched for eventId: ${eventId}`);
-            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
-            console.error(`❌ Event ID types:`, allEvents.map((e: any) => typeof e.id));
-            console.error(`❌ Searching eventId type:`, typeof eventId);
+            console.error(`❌ Event ${eventId} not found in API response`);
+            console.error(`❌ Searched ${allEvents.length} events`);
+            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => ({ id: e.id, name: e.coupleName })));
+            console.error(`❌ EventId we're looking for: "${eventId}"`);
             setIsLoadingEvent(false);
           }
         } else {
           // API returned error - stop loading and show error
           const errorText = await response.text().catch(() => 'Could not read error');
-          console.error(`❌ ========== API ERROR ==========`);
-          console.error(`❌ Status: ${response.status} ${response.statusText}`);
+          console.error(`❌ API returned error: ${response.status} ${response.statusText}`);
           console.error(`❌ Error details:`, errorText);
-          console.error(`❌ Response URL: ${apiUrl}`);
           setIsLoadingEvent(false);
         }
       } catch (error: any) {
-        // Network error or timeout - stop loading
-        console.error('❌ ========== API FETCH FAILED ==========');
-        console.error('❌ Error message:', error.message);
+        // Network error or timeout - retry if we haven't exceeded max retries
+        console.error(`❌ Failed to load event from API (attempt ${retryCount + 1}):`, error.message);
         console.error('❌ Error type:', error.name);
-        if (error.name === 'AbortError') {
-          console.error('❌ Request was aborted (timeout or cancelled)');
-        }
-        if (error.stack) {
+        
+        if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Retrying in ${RETRY_DELAY}ms... (${retryCount + 1}/${MAX_RETRIES})`);
+          setTimeout(() => {
+            loadFromAPI(retryCount + 1);
+          }, RETRY_DELAY);
+        } else {
+          console.error('❌ Max retries reached. Stopping loading.');
           console.error('❌ Error stack:', error.stack);
+          setIsLoadingEvent(false);
         }
-        console.error('❌ API URL attempted:', `${import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com'}/api/events/all`);
-        setIsLoadingEvent(false);
       }
     };
     
@@ -529,12 +514,34 @@ const GuestResponse = () => {
       hasDirectGuest: !!directGuest,
       hasCurrentGuest: !!currentGuest,
       eventsInStore: events.length,
-      isLoadingEvent: isLoadingEvent
+      isLoadingEvent: isLoadingEvent,
+      directEventId: directEvent?.id,
+      directEventName: directEvent?.coupleName
     });
+    
+    // If we have directEvent but currentEvent is null, log warning
+    if (directEvent && !currentEvent) {
+      console.warn('⚠️ directEvent exists but currentEvent is null!', {
+        directEventId: directEvent.id,
+        directEventName: directEvent.coupleName
+      });
+    }
   }, [eventId, guestId, event, directEvent, currentEvent, guest, directGuest, currentGuest, events.length, isLoadingEvent]);
   
+  // Show loading state
+  if (isLoadingEvent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">טוען את האירוע...</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (!currentEvent || (guestId && !currentGuest)) {
-    // Show error with debug info
+    // Show error with debug info and retry option
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -542,8 +549,11 @@ const GuestResponse = () => {
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             {!currentEvent ? 'אירוע לא נמצא' : 'אורח לא נמצא'}
           </h1>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             {!currentEvent ? 'הקוד שסופק לא תואם לאף אירוע במערכת' : 'האורח לא נמצא ברשימה או שהקישור שגוי.'}
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            {!currentEvent ? 'אם הקישור נכון, נסה לרענן את הדף או לבדוק את הקישור שוב.' : 'אם הקישור נכון, נסה לרענן את הדף.'}
           </p>
           {process.env.NODE_ENV === 'development' && (
             <div className="bg-gray-100 p-4 rounded-lg mb-4 text-left text-xs">
@@ -552,14 +562,61 @@ const GuestResponse = () => {
               <p>Guest ID: {guestId || 'לא נמצא'}</p>
               <p>URL: {window.location.href}</p>
               <p>Hash: {window.location.hash}</p>
+              <p>Has directEvent: {directEvent ? 'כן' : 'לא'}</p>
+              <p>Is Loading: {isLoadingEvent ? 'כן' : 'לא'}</p>
             </div>
           )}
-          <button
-            onClick={() => navigate('/')}
-            className="btn-primary w-full"
-          >
-            חזרה לעמוד הראשי
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => {
+                setIsLoadingEvent(true);
+                // Retry loading
+                const loadFromAPI = async () => {
+                  try {
+                    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+                    const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+                      method: 'GET',
+                      headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                      },
+                      mode: 'cors',
+                      credentials: 'omit'
+                    });
+                    if (response.ok) {
+                      const data = await response.json();
+                      const foundEvent = (data.events || []).find((e: any) => e.id === eventId);
+                      if (foundEvent) {
+                        setDirectEvent(foundEvent);
+                        setIsLoadingEvent(false);
+                        if (guestId) {
+                          const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
+                          if (foundGuest) setDirectGuest(foundGuest);
+                        }
+                      } else {
+                        setIsLoadingEvent(false);
+                      }
+                    } else {
+                      setIsLoadingEvent(false);
+                    }
+                  } catch (error) {
+                    console.error('Retry failed:', error);
+                    setIsLoadingEvent(false);
+                  }
+                };
+                loadFromAPI();
+              }}
+              className="btn-primary flex-1"
+            >
+              נסה שוב
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="btn-secondary flex-1"
+            >
+              חזרה לעמוד הראשי
+            </button>
+          </div>
         </div>
       </div>
     );
