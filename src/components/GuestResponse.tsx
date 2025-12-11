@@ -13,21 +13,50 @@ const GuestResponse = () => {
   
   // Parse eventId from hash if not in params (HashRouter fallback)
   const parseEventIdFromHash = () => {
-    if (paramEventId) return paramEventId;
+    if (paramEventId) {
+      console.log(`✅ Found eventId in params: ${paramEventId}`);
+      return paramEventId;
+    }
     
     // Try to parse from hash
     const hash = window.location.hash;
+    console.log(`🔍 Parsing eventId from hash: ${hash}`);
+    
     if (hash) {
       // Hash format: #/guest-response/eventId?guest=guestId
-      const match = hash.match(/\/guest-response\/([^/?]+)/);
+      // Try multiple patterns to handle different URL formats
+      let match = hash.match(/\/guest-response\/([^/?]+)/);
       if (match && match[1]) {
-        return match[1];
+        const parsedId = match[1];
+        console.log(`✅ Found eventId in hash: ${parsedId}`);
+        return parsedId;
+      }
+      
+      // Try alternative pattern: #guest-response/eventId
+      match = hash.match(/guest-response\/([^/?]+)/);
+      if (match && match[1]) {
+        const parsedId = match[1];
+        console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
+        return parsedId;
+      }
+      
+      // Try pathname if hash doesn't work
+      const pathname = window.location.pathname;
+      console.log(`🔍 Trying pathname: ${pathname}`);
+      match = pathname.match(/\/guest-response\/([^/?]+)/);
+      if (match && match[1]) {
+        const parsedId = match[1];
+        console.log(`✅ Found eventId in pathname: ${parsedId}`);
+        return parsedId;
       }
     }
+    
+    console.warn(`⚠️ Could not parse eventId from URL`);
     return null;
   };
   
   const eventId = paramEventId || parseEventIdFromHash();
+  console.log(`🔍 Final eventId: ${eventId}`);
   
   // Parse guestId from hash or search params
   const parseGuestId = () => {
@@ -132,6 +161,11 @@ const GuestResponse = () => {
         
         console.log(`🔍 API Response status: ${response.status} ${response.statusText}`);
         console.log(`🔍 API Response headers:`, Object.fromEntries(response.headers.entries()));
+        console.log(`🔍 API Response URL: ${response.url}`);
+        
+        // Check if response is actually JSON
+        const contentType = response.headers.get('content-type');
+        console.log(`🔍 API Response content-type: ${contentType}`);
         
         if (response.ok) {
           const data = await response.json();
@@ -143,19 +177,58 @@ const GuestResponse = () => {
           
           const allEvents = data.events || [];
           
-          // Try exact match first
-          let foundEvent = allEvents.find((e: any) => e.id === eventId);
+          // Log all event IDs for debugging
+          console.log(`🔍 All event IDs from API:`, allEvents.map((e: any) => ({
+            id: e.id,
+            idLength: e.id?.length,
+            idType: typeof e.id,
+            name: e.coupleName
+          })));
+          console.log(`🔍 Searching for eventId: "${eventId}" (length: ${eventId?.length}, type: ${typeof eventId})`);
           
-          // If not found, try case-insensitive match
-          if (!foundEvent) {
+          // Try exact match first
+          let foundEvent = allEvents.find((e: any) => {
+            const match = e.id === eventId;
+            if (!match) {
+              console.log(`❌ No match: "${e.id}" !== "${eventId}"`);
+            }
+            return match;
+          });
+          
+          if (foundEvent) {
+            console.log(`✅ Exact match found!`);
+          } else {
+            // If not found, try case-insensitive match
             console.log(`⚠️ Exact match failed, trying case-insensitive match...`);
-            foundEvent = allEvents.find((e: any) => e.id?.toLowerCase() === eventId?.toLowerCase());
+            foundEvent = allEvents.find((e: any) => {
+              const match = e.id?.toLowerCase() === eventId?.toLowerCase();
+              if (match) {
+                console.log(`✅ Case-insensitive match found: "${e.id}" === "${eventId}"`);
+              }
+              return match;
+            });
           }
           
           // If still not found, try partial match (in case of URL encoding issues)
           if (!foundEvent) {
             console.log(`⚠️ Case-insensitive match failed, trying partial match...`);
-            foundEvent = allEvents.find((e: any) => e.id?.includes(eventId) || eventId?.includes(e.id));
+            foundEvent = allEvents.find((e: any) => {
+              const match = e.id?.includes(eventId) || eventId?.includes(e.id);
+              if (match) {
+                console.log(`✅ Partial match found: "${e.id}" includes "${eventId}" or vice versa`);
+              }
+              return match;
+            });
+          }
+          
+          // If still not found, try trimming whitespace
+          if (!foundEvent && eventId) {
+            console.log(`⚠️ Partial match failed, trying trimmed match...`);
+            const trimmedEventId = eventId.trim();
+            foundEvent = allEvents.find((e: any) => e.id?.trim() === trimmedEventId);
+            if (foundEvent) {
+              console.log(`✅ Trimmed match found!`);
+            }
           }
           
           if (foundEvent) {

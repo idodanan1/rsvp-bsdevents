@@ -4079,7 +4079,20 @@ app.get('/api/events/all', async (req, res) => {
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
   try {
+    console.log(`📋 GET /api/events/all - Request received`);
+    console.log(`📋 Events file path: ${eventsFilePath}`);
+    console.log(`📋 Events file exists: ${fs.existsSync(eventsFilePath)}`);
+    
     const events = loadEvents();
+    console.log(`📋 GET /api/events/all - Loaded ${events.length} events from file`);
+    
+    // Log event IDs for debugging
+    if (events.length > 0) {
+      console.log(`📋 Event IDs in response:`, events.map(e => ({ id: e.id, name: e.coupleName })));
+    } else {
+      console.warn(`⚠️ No events found in file!`);
+    }
+    
     console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint)`);
     res.json({
       success: true,
@@ -4088,11 +4101,13 @@ app.get('/api/events/all', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error loading all events:', error);
+    console.error('❌ Error stack:', error.stack);
     // CRITICAL: Set CORS headers even on error
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({
       success: false,
-      error: 'Failed to load events'
+      error: 'Failed to load events',
+      details: error.message
     });
   }
 });
