@@ -99,7 +99,12 @@ const GuestResponse = () => {
         
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors', // Explicitly enable CORS
+          credentials: 'omit', // Don't send credentials for public endpoint
           signal: controller.signal
         });
         
@@ -119,10 +124,18 @@ const GuestResponse = () => {
                 setDirectGuest(foundGuest);
               }
             }
+          } else {
+            // Event not found in API - stop loading
+            setIsLoadingEvent(false);
           }
+        } else {
+          // API returned error - stop loading and show error
+          console.warn(`⚠️ API returned error: ${response.status} ${response.statusText}`);
+          setIsLoadingEvent(false);
         }
-      } catch (error) {
-        // Silent fail - don't block page
+      } catch (error: any) {
+        // Network error or timeout - stop loading
+        console.warn('⚠️ Failed to load event from API:', error.message);
         setIsLoadingEvent(false);
       }
     };
@@ -388,7 +401,9 @@ const GuestResponse = () => {
     }
   }, [eventId, event, directEvent]);
   
-  if ((!event && !directEvent && eventId) || isLoadingEvent) {
+  // Only show loading if we're actively loading AND have an eventId
+  // Don't block if eventId is missing (show error instead)
+  if (isLoadingEvent && eventId && !event && !directEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">

@@ -4071,15 +4071,16 @@ app.post('/api/users/:userId/sessions/activity', async (req, res) => {
 // Get all events for a user
 // Public endpoint to get all events (for guest response links - works on all devices)
 app.get('/api/events/all', async (req, res) => {
-  // CRITICAL: Set CORS headers FIRST
+  // CRITICAL: Set CORS headers FIRST - before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
   try {
     const events = loadEvents();
-    console.log(`📋 GET /api/events/all - Returning ${events.length} events`);
+    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint)`);
     res.json({
       success: true,
       events: events,
@@ -4087,11 +4088,23 @@ app.get('/api/events/all', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error loading all events:', error);
+    // CRITICAL: Set CORS headers even on error
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({
       success: false,
       error: 'Failed to load events'
     });
   }
+});
+
+// Handle OPTIONS preflight for /api/events/all
+app.options('/api/events/all', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
 });
 
 app.get('/api/events/:userId', async (req, res) => {
