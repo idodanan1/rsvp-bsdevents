@@ -337,6 +337,7 @@ class WebhookService {
             const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
             console.log(`🛡️ BLOCKING webhook update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
             // Still remove from backend to prevent it from being processed again
+            // But only remove this specific status update, not all updates (preserve guestCount updates)
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                 method: 'DELETE',
@@ -345,11 +346,13 @@ class WebhookService {
                 },
                 body: JSON.stringify({
                   phoneNumber: update.phoneNumber,
-                  removeAllForPhone: true
+                  status: update.status,
+                  responseDate: update.responseDate
+                  // Don't use removeAllForPhone - only remove this specific status update
                 })
               });
               if (removeResponse.ok) {
-                console.log(`✅ Removed blocked update from backend`);
+                console.log(`✅ Removed blocked status update from backend`);
               }
             } catch (error) {
               console.warn('⚠️ Could not remove blocked update from backend:', error);
@@ -371,7 +374,7 @@ class WebhookService {
           // This prevents overwriting manual changes - if status already matches, skip the update
           if (foundGuest.rsvpStatus === newStatus) {
             console.log(`⏭️ Skipping update - status already matches current status (${newStatus}). This prevents overwriting manual changes.`);
-            // CRITICAL: Remove ALL updates for this phone number to prevent old updates from coming back
+            // CRITICAL: Remove only THIS status update, not all updates (preserve guestCount updates)
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                 method: 'DELETE',
@@ -380,15 +383,17 @@ class WebhookService {
                 },
                 body: JSON.stringify({
                   phoneNumber: update.phoneNumber,
-                  removeAllForPhone: true // Remove ALL updates for this phone, not just this one
+                  status: update.status,
+                  responseDate: update.responseDate
+                  // Don't use removeAllForPhone - only remove this specific status update
                 })
               });
               if (removeResponse.ok) {
                 const removeData = await removeResponse.json();
-                console.log(`✅ Removed all updates for phone ${update.phoneNumber} from backend (${removeData.removed || 0} updates removed)`);
+                console.log(`✅ Removed duplicate status update from backend (${removeData.removed || 0} update(s) removed)`);
               }
             } catch (error) {
-              console.warn('⚠️ Could not remove updates from backend:', error);
+              console.warn('⚠️ Could not remove duplicate status update from backend:', error);
             }
             continue; // Skip to next update
           }
