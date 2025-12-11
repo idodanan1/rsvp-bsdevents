@@ -141,11 +141,13 @@ const GuestResponse = () => {
             setIsLoadingEvent(false);
             
             // Find guest immediately
+            let guestFound = false;
             if (guestId) {
               const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
               if (foundGuest) {
                 console.log(`✅ Found guest in localStorage: ${foundGuest.firstName} ${foundGuest.lastName}`);
                 setDirectGuest(foundGuest);
+                guestFound = true;
               } else {
                 // Try fallback - partial match
                 const fallbackGuest = foundEvent.guests?.find((g: any) => 
@@ -154,12 +156,25 @@ const GuestResponse = () => {
                 if (fallbackGuest) {
                   console.log(`✅ Found fallback guest in localStorage: ${fallbackGuest.firstName} ${fallbackGuest.lastName}`);
                   setDirectGuest(fallbackGuest);
+                  guestFound = true;
                 } else {
-                  console.warn(`⚠️ Guest ${guestId} not found in localStorage`);
+                  console.warn(`⚠️ Guest ${guestId} not found in localStorage - will try API`);
+                  // Don't return - continue to API to find guest
                 }
               }
+            } else {
+              // No guestId required - event is enough
+              guestFound = true;
             }
-            return; // Found in localStorage, show page immediately
+            
+            // Only return if both event AND guest (if required) are found
+            if (guestFound || !guestId) {
+              console.log(`✅ Event and guest found in localStorage - showing page immediately`);
+              return; // Found in localStorage, show page immediately
+            } else {
+              console.log(`⚠️ Event found but guest not found - will try API`);
+              // Continue to API loading below
+            }
           } else {
             console.log(`⚠️ Event ${eventId} not found in localStorage, will try API`);
           }
@@ -660,20 +675,23 @@ const GuestResponse = () => {
     );
   }
   
-  if (!currentEvent || (guestId && !currentGuest)) {
+  // CRITICAL: If event is found but guest is not found (and guestId is required), 
+  // allow the page to show anyway - guest might be added later or link might be for event only
+  // Only show error if event is not found
+  if (!currentEvent) {
     // Show error with debug info and retry option
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
           <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
-            {!currentEvent ? 'אירוע לא נמצא' : 'אורח לא נמצא'}
+            אירוע לא נמצא
           </h1>
           <p className="text-gray-600 mb-4">
-            {!currentEvent ? 'הקוד שסופק לא תואם לאף אירוע במערכת' : 'האורח לא נמצא ברשימה או שהקישור שגוי.'}
+            הקוד שסופק לא תואם לאף אירוע במערכת
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            {!currentEvent ? 'אם הקישור נכון, נסה לרענן את הדף או לבדוק את הקישור שוב.' : 'אם הקישור נכון, נסה לרענן את הדף.'}
+            אם הקישור נכון, נסה לרענן את הדף או לבדוק את הקישור שוב.
           </p>
           {process.env.NODE_ENV === 'development' && (
             <div className="bg-gray-100 p-4 rounded-lg mb-4 text-left text-xs">

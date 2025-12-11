@@ -19,23 +19,37 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 // Enable CORS for all routes - MUST be before other middleware
+// CRITICAL: Allow ALL origins for public guest response pages
 app.use(cors({
-  origin: '*', // Allow all origins (in production, specify exact origins)
+  origin: '*', // Allow ALL origins - required for guest response links to work from any device/IP
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours - cache preflight requests
 }));
 
-// Handle preflight OPTIONS requests explicitly
-app.options('*', cors());
-
-// Additional CORS middleware to ensure headers are always set
-app.use((req, res, next) => {
+// Handle preflight OPTIONS requests explicitly for ALL routes
+app.options('*', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.sendStatus(200);
+});
+
+// Additional CORS middleware to ensure headers are ALWAYS set (even on errors)
+// This is critical for guest response pages to work from any IP/device
+app.use((req, res, next) => {
+  // CRITICAL: Set CORS headers for EVERY request - allows access from any IP/device
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
@@ -4072,16 +4086,25 @@ app.post('/api/users/:userId/sessions/activity', async (req, res) => {
 // Public endpoint to get all events (for guest response links - works on all devices)
 // CRITICAL: This endpoint must return ALL events from memory, not filtered by userId
 // This allows guest response links to work on any device without authentication
+// CRITICAL: This endpoint is PUBLIC and accessible from ANY IP/device
 app.get('/api/events/all', async (req, res) => {
   // CRITICAL: Set CORS headers FIRST - before any other operations
+  // This allows access from ANY IP address or device
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
+  // Log request origin for debugging
+  const origin = req.headers.origin || req.headers.referer || 'unknown';
+  const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+  console.log(`📋 GET /api/events/all - Request received (public endpoint)`);
+  console.log(`📋 Request origin: ${origin}`);
+  console.log(`📋 Client IP: ${clientIP}`);
+  console.log(`📋 User-Agent: ${req.headers['user-agent'] || 'unknown'}`);
+  
   try {
-    console.log(`📋 GET /api/events/all - Request received (public endpoint)`);
     
     // CRITICAL: Reload events from file first to ensure we have latest data
     // This ensures sync between multiple server instances
