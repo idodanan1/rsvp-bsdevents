@@ -119,8 +119,9 @@ class WebhookService {
 
     for (const update of updates) {
       try {
-        // Handle guest count updates (updates without status)
-        if (!update.status && update.guestCount !== undefined) {
+        // Handle guest count updates (updates with guestCount, with or without status)
+        // CRITICAL: Check guestCount first, even if there's also a status
+        if (update.guestCount !== undefined) {
           // Find guest by phone number
           let foundGuest: any = null;
           let foundEventId: string | null = null;
@@ -213,7 +214,8 @@ class WebhookService {
 
             await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
             
-            // Remove from backend
+            // Remove from backend - remove only the guestCount part if there's also a status
+            // If there's a status, we'll process it separately below
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                 method: 'DELETE',
@@ -223,6 +225,7 @@ class WebhookService {
                 body: JSON.stringify({
                   phoneNumber: update.phoneNumber,
                   guestCount: update.guestCount
+                  // Don't include status here - if there's a status, it will be processed separately
                 })
               });
               if (removeResponse.ok) {
@@ -231,6 +234,13 @@ class WebhookService {
             } catch (error) {
               console.warn('⚠️ Could not remove guest count update from backend:', error);
             }
+            
+            // If there's also a status in this update, continue to process it below
+            // Otherwise, skip to next update
+            if (!update.status) {
+              continue; // Move to next update (only guestCount, no status)
+            }
+            // If there's a status, fall through to process it below
           } else {
             console.log(`⏭️ Guest not found for guest count update, removing from backend`);
             // Remove from backend if guest not found
@@ -251,8 +261,12 @@ class WebhookService {
             } catch (error) {
               console.warn('⚠️ Could not remove orphaned guest count update from backend:', error);
             }
+            // If there's also a status, continue to process it below
+            if (!update.status) {
+              continue; // Move to next update (only guestCount, no status)
+            }
+            // If there's a status, fall through to process it below
           }
-          continue; // Move to next update
         }
         
         // Skip updates without status and without guestCount
