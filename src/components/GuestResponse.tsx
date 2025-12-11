@@ -92,19 +92,31 @@ const GuestResponse = () => {
   
   // Load event IMMEDIATELY from localStorage first (fast, no waiting)
   React.useEffect(() => {
+    console.log(`🔍 GuestResponse useEffect triggered - eventId: ${eventId}, guestId: ${guestId}`);
+    
     if (!eventId) {
+      console.warn(`⚠️ No eventId found! Cannot load event.`);
+      console.warn(`⚠️ URL: ${window.location.href}`);
+      console.warn(`⚠️ Hash: ${window.location.hash}`);
+      console.warn(`⚠️ Pathname: ${window.location.pathname}`);
       setIsLoadingEvent(false);
       return;
     }
     
+    console.log(`✅ EventId found: ${eventId} - Starting to load event...`);
+    
     // CRITICAL: Load from localStorage FIRST (instant, no API delay)
     const stored = localStorage.getItem('rsvp-events-storage');
+    console.log(`🔍 Checking localStorage: ${stored ? 'found' : 'not found'}`);
+    
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
         if (parsed.state && parsed.state.events) {
+          console.log(`🔍 Found ${parsed.state.events.length} events in localStorage`);
           const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
           if (foundEvent) {
+            console.log(`✅ Found event in localStorage: ${foundEvent.coupleName} (${foundEvent.id})`);
             setDirectEvent(foundEvent);
             setIsLoadingEvent(false);
             
@@ -112,6 +124,7 @@ const GuestResponse = () => {
             if (guestId) {
               const foundGuest = foundEvent.guests?.find((g: any) => g.id === guestId);
               if (foundGuest) {
+                console.log(`✅ Found guest in localStorage: ${foundGuest.firstName} ${foundGuest.lastName}`);
                 setDirectGuest(foundGuest);
               } else {
                 // Try fallback - partial match
@@ -119,17 +132,31 @@ const GuestResponse = () => {
                   guestId && (g.id.includes(guestId) || guestId.includes(g.id))
                 );
                 if (fallbackGuest) {
+                  console.log(`✅ Found fallback guest in localStorage: ${fallbackGuest.firstName} ${fallbackGuest.lastName}`);
                   setDirectGuest(fallbackGuest);
+                } else {
+                  console.warn(`⚠️ Guest ${guestId} not found in localStorage`);
                 }
               }
             }
             return; // Found in localStorage, show page immediately
+          } else {
+            console.log(`⚠️ Event ${eventId} not found in localStorage, will try API`);
           }
+        } else {
+          console.log(`⚠️ No events in localStorage state, will try API`);
         }
       } catch (error) {
         console.error('❌ Error parsing localStorage:', error);
+        console.log(`⚠️ Will try API after localStorage parse error`);
       }
+    } else {
+      console.log(`⚠️ No localStorage found, will try API`);
     }
+    
+    // CRITICAL: Always try API if not found in localStorage (or localStorage doesn't exist)
+    // This is especially important for devices that don't have the event in localStorage
+    console.log(`🌐 Loading event from API (eventId: ${eventId})...`);
     
     // If not found in localStorage, try API (but don't block page rendering)
     // This runs in background with retry mechanism
