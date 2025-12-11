@@ -86,7 +86,7 @@ function markYesMessageAsSent(phoneNumber) {
   recentlySentYesMessages.set(key, Date.now());
   // Mark that we're waiting for a response from this guest
   waitingForResponse.set(key, Date.now());
-  console.log(`✅ Marked "yes" message as sent for ${phoneNumber} (waiting for response)`);
+  console.log(`✅ Marked "yes" message as sent for ${phoneNumber} - waiting for response`);
   
   // Clean up old entries (older than cooldown)
   const now = Date.now();
@@ -109,17 +109,14 @@ function isWaitingForResponse(phoneNumber) {
   const key = phoneNumber.replace(/[^0-9]/g, '');
   const waitStart = waitingForResponse.get(key);
   if (!waitStart) {
-    console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) is NOT in waiting list`);
     return false;
   }
   const timeSinceWait = Date.now() - waitStart;
   if (timeSinceWait > RESPONSE_WAIT_TIMEOUT) {
     // Remove old entry
     waitingForResponse.delete(key);
-    console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) waiting timeout expired (${Math.round(timeSinceWait / 1000 / 60)} minutes)`);
     return false;
   }
-  console.log(`🔍 Guest ${phoneNumber} (normalized: ${key}) IS waiting for response (${Math.round(timeSinceWait / 1000)} seconds ago)`);
   return true;
 }
 
@@ -1535,48 +1532,21 @@ async function handleIncomingMessage(message) {
   const isWaiting = isWaitingForResponse(normalizedPhone);
   const hasThanks = hasReceivedThanks(normalizedPhone);
   
-  console.log(`🔍 ========== CHECKING IF SHOULD SEND "thanks" ==========`);
-  console.log(`🔍 Phone: ${message.from}`);
-  console.log(`🔍 Normalized phone: ${normalizedPhone}`);
-  console.log(`🔍 isWaiting: ${isWaiting}`);
-  console.log(`🔍 hasThanks: ${hasThanks}`);
-  console.log(`🔍 Message text: ${originalMessageText.substring(0, 50)}`);
-  console.log(`🔍 Waiting list size: ${waitingForResponse.size}`);
-  console.log(`🔍 Waiting list keys:`, Array.from(waitingForResponse.keys()));
-  
   // CRITICAL: If guest received "yes" and is waiting for response, send "thanks" for ANY response
   if (isWaiting && !hasThanks) {
-    console.log(`✅ Guest ${message.from} responded after receiving "yes" message`);
-    console.log(`📤 Sending "thanks" template message...`);
+    console.log(`✅ Guest ${message.from} responded after receiving "yes" message - sending "thanks"`);
     try {
       await sendThanksTemplateMessage(message.from);
-      console.log('✅ "thanks" template message sent (or attempted)');
+      console.log('✅ "thanks" template message sent successfully');
     } catch (error) {
-      console.error('❌ Error sending "thanks" template message:', error);
-      console.error('❌ Error details:', error.message);
-      console.error('❌ Error stack:', error.stack);
+      console.error('❌ Error sending "thanks" template message:', error.message);
     }
     // Continue processing the message (don't return here - we still want to process guest count, etc.)
-  } else {
-    if (!isWaiting) {
-      console.log(`❌ Guest ${message.from} is NOT waiting for response (isWaiting: ${isWaiting})`);
-      console.log(`   This means guest either didn't receive "yes" yet, or timeout expired`);
-      console.log(`   Checking waiting list for normalized phone: ${normalizedPhone}`);
-      const waitStart = waitingForResponse.get(normalizedPhone);
-      if (waitStart) {
-        const timeSinceWait = Date.now() - waitStart;
-        console.log(`   Found in waiting list! Time since wait: ${Math.round(timeSinceWait / 1000)} seconds`);
-        console.log(`   Timeout: ${RESPONSE_WAIT_TIMEOUT / 1000 / 60} minutes`);
-      } else {
-        console.log(`   NOT found in waiting list!`);
-      }
-    }
-    if (hasThanks) {
-      console.log(`ℹ️ Guest ${message.from} already received "thanks" (hasThanks: ${hasThanks}) - no auto-response will be sent`);
-    }
-    // Don't send auto-responses, but continue processing the message
+  } else if (!isWaiting) {
+    console.log(`ℹ️ Guest ${message.from} is NOT waiting for response - "thanks" will not be sent`);
+  } else if (hasThanks) {
+    console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
   }
-  console.log(`🔍 ==========================================`);
   
   // Check if this is a response to guest count question
   // Look for numbers or common phrases indicating guest count
