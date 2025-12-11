@@ -1459,6 +1459,114 @@ async function handleIncomingMessage(message) {
       } else {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - skipping`);
       }
+    } else if (buttonId === 'attendance_update' || 
+               buttonTitle === 'לעדכון סטטוס הגעה' ||
+               buttonTitleLower.includes('סטטוס הגעה') ||
+               buttonTitleLower.includes('עדכון הגעה')) {
+      console.log('📋 Guest clicked "attendance_update" button - sending link to update attendance status');
+      console.log(`📞 Phone number: ${phoneNumber}`);
+      
+      try {
+        // Find guest by phone number
+        loadEvents(); // Reload events to get latest data
+        let foundGuest = null;
+        let foundEvent = null;
+        
+        for (const event of eventsData.events) {
+          if (event.guests && event.guests.length > 0) {
+            foundGuest = event.guests.find(g => {
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = phoneNumber.replace(/[^0-9]/g, '');
+              
+              if (!guestPhone || !updatePhone) return false;
+              
+              const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+              const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+              const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+              const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+              
+              return guestPhone === updatePhone || 
+                     guestPhone === updatePhoneWith0 ||
+                     guestPhone === updatePhoneWith972 ||
+                     guestPhoneWith972 === updatePhone ||
+                     guestPhoneWith972 === updatePhoneWith972 ||
+                     guestPhoneWith0 === updatePhone ||
+                     guestPhoneWith0 === updatePhoneWith0;
+            });
+            
+            if (foundGuest) {
+              foundEvent = event;
+              break;
+            }
+          }
+        }
+        
+        if (foundGuest && foundEvent) {
+          // Generate guest response link
+          const frontendUrl = process.env.FRONTEND_URL || 'https://rsvp-frontend-wy47.onrender.com';
+          const guestLink = `${frontendUrl}/#/guest-response/${foundEvent.id}?guest=${foundGuest.id}`;
+          
+          console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName}`);
+          console.log(`🔗 Guest link: ${guestLink}`);
+          
+          // Send link via WhatsApp
+          const messageText = `שלום ${foundGuest.firstName}!\n\nלעדכון סטטוס ההגעה שלך, לחץ על הקישור הבא:\n\n${guestLink}\n\nבברכה,\n${foundEvent.coupleName}`;
+          
+          try {
+            const response = await axios.post(
+              `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+              {
+                messaging_product: 'whatsapp',
+                to: phoneNumber,
+                type: 'text',
+                text: {
+                  body: messageText
+                }
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN)}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            console.log('✅ Attendance update link sent successfully');
+            console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+          } catch (error) {
+            console.error('❌ Error sending attendance update link:', error);
+            if (error.response) {
+              console.error('❌ Error response:', JSON.stringify(error.response.data, null, 2));
+            }
+          }
+        } else {
+          console.warn(`⚠️ Guest not found for phone number: ${phoneNumber}`);
+          // Send error message to guest
+          try {
+            const response = await axios.post(
+              `https://graph.facebook.com/v22.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`,
+              {
+                messaging_product: 'whatsapp',
+                to: phoneNumber,
+                type: 'text',
+                text: {
+                  body: 'מצטערים, לא מצאנו את הפרטים שלך במערכת. אנא פנה למארגני האירוע.'
+                }
+              },
+              {
+                headers: {
+                  'Authorization': `Bearer ${sanitizeAccessToken(process.env.WHATSAPP_ACCESS_TOKEN)}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+          } catch (error) {
+            console.error('❌ Error sending error message:', error);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error handling attendance_update button:', error);
+      }
     } else {
       console.warn('⚠️ Unknown button clicked:', { buttonId, buttonTitle });
       console.warn('⚠️ Trying to match anyway...');
@@ -4317,13 +4425,15 @@ app.post('/api/events', async (req, res) => {
           // Add to pendingUpdates if:
           // 1. Status changed (existing guest)
           // 2. Guest count changed (existing guest)
-          // 3. New guest with valid status
-          // 4. New guest with valid guest count
-          // 5. Has response date (indicates this is a response from guest)
-          // 6. Has status with new response date (handles same status but new update time)
-          // 7. CRITICAL: Always add if guest has a valid status and phone number (even if status didn't change)
+          // 3. Actual attendance changed (existing guest)
+          // 4. New guest with valid status
+          // 5. New guest with valid guest count
+          // 6. New guest with valid actual attendance
+          // 7. Has response date (indicates this is a response from guest)
+          // 8. Has status with new response date (handles same status but new update time)
+          // 9. CRITICAL: Always add if guest has a valid status and phone number (even if status didn't change)
           //    This ensures updates from guest response link are always synced across devices
-          const shouldAddToPending = (statusChanged || guestCountChanged || hasValidStatus || hasValidGuestCount || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber;
+          const shouldAddToPending = (statusChanged || guestCountChanged || actualAttendanceChanged || hasValidStatus || hasValidGuestCount || hasValidActualAttendance || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber;
           
           // CRITICAL: Also check if guest has a valid status (confirmed/declined/maybe) even if it didn't change
           // This ensures updates from guest response link are always synced, even if status is the same
@@ -4339,6 +4449,7 @@ app.post('/api/events', async (req, res) => {
             
             // Create update data similar to WhatsApp webhook updates
             // Include 'maybe' status as well (not just 'confirmed' and 'declined')
+            // Also include actualAttendance if it changed
             const updateData = {
               phoneNumber: formattedPhone,
               originalPhoneNumber: originalPhone,
@@ -4346,6 +4457,7 @@ app.post('/api/events', async (req, res) => {
                      newGuest.rsvpStatus === 'declined' ? 'declined' :
                      newGuest.rsvpStatus === 'maybe' ? 'maybe' : undefined,
               guestCount: guestCountChanged || (newGuest.guestCount !== undefined && newGuest.guestCount > 0) ? newGuest.guestCount : undefined,
+              actualAttendance: actualAttendanceChanged || hasValidActualAttendance ? newGuest.actualAttendance : undefined,
               responseDate: newGuest.responseDate || new Date().toISOString(),
               timestamp: Date.now(),
               source: 'guest_link' // Mark as coming from guest response link

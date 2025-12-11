@@ -7,6 +7,7 @@ export interface WebhookUpdate {
   status?: 'confirmed' | 'declined';
   responseDate?: string;
   guestCount?: number; // For guest count updates
+  actualAttendance?: 'attended' | 'not_attended' | 'not_marked'; // For actual attendance updates
 }
 
 class WebhookService {
