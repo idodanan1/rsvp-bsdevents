@@ -2746,7 +2746,7 @@ app.get('/api/guests/pending-updates', (req, res) => {
     responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
     guestCount: u.guestCount, // Include guest count if present
     actualAttendance: u.actualAttendance, // Include actual attendance if present
-    source: u.source || 'whatsapp' // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses (default to 'whatsapp' for backward compatibility)
+    source: u.source // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses, undefined if not set (will NOT send yes message)
   }));
   
   // Clear old updates (older than 1 hour) but keep recent ones
@@ -4584,7 +4584,7 @@ app.post('/api/events', async (req, res) => {
               // Update fields that are explicitly provided in incoming guest
               rsvpStatus: incomingGuest.rsvpStatus !== undefined ? incomingGuest.rsvpStatus : existingGuest.rsvpStatus,
               guestCount: incomingGuest.guestCount !== undefined ? incomingGuest.guestCount : existingGuest.guestCount,
-              notes: incomingGuest.notes !== undefined ? incomingGuest.notes : existingGuest.notes,
+              notes: incomingGuest.notes !== undefined ? incomingGuest.notes : (existingGuest.notes || ''), // CRITICAL: Preserve notes from guest link updates
               actualAttendance: incomingGuest.actualAttendance !== undefined ? incomingGuest.actualAttendance : existingGuest.actualAttendance,
               responseDate: incomingGuest.responseDate ? new Date(incomingGuest.responseDate) : existingGuest.responseDate,
               // Use newer responseDate if provided
