@@ -8,6 +8,7 @@ export interface WebhookUpdate {
   responseDate?: string;
   guestCount?: number; // For guest count updates
   actualAttendance?: 'attended' | 'not_attended' | 'not_marked'; // For actual attendance updates
+  source?: 'whatsapp' | 'guest_link'; // Source of the update - 'whatsapp' for button clicks, 'guest_link' for link responses
 }
 
 class WebhookService {
@@ -568,13 +569,17 @@ class WebhookService {
           if (updateSuccessful) {
             console.log(`✅ Guest status updated successfully in event ${foundEventId}`);
             
-            // Send "yes" template message if guest confirmed via guest link
+            // Send "yes" template message ONLY if guest confirmed via WhatsApp button (not via guest link)
             // CRITICAL: Only send "yes" if this is a NEW status change (not already confirmed)
-            // This prevents sending "yes" when guest provides count (they already received "yes" when clicking "מגיע")
+            // CRITICAL: Do NOT send "yes" if update came from guest_link - guest already confirmed via link, no need for "yes" message
             const isStatusChange = foundGuest.rsvpStatus !== newStatus;
-            if (newStatus === 'confirmed' && update.phoneNumber && isStatusChange) {
-              console.log(`📤 Guest confirmed via guest link - requesting backend to send "yes" template message to ${update.phoneNumber}`);
+            const isFromWhatsApp = !update.source || update.source === 'whatsapp'; // Default to whatsapp if source not specified (for backward compatibility)
+            const isFromGuestLink = update.source === 'guest_link';
+            
+            if (newStatus === 'confirmed' && update.phoneNumber && isStatusChange && isFromWhatsApp && !isFromGuestLink) {
+              console.log(`📤 Guest confirmed via WhatsApp button - requesting backend to send "yes" template message to ${update.phoneNumber}`);
               console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
+              console.log(`   Source: ${update.source || 'whatsapp' (default)}`);
               try {
                 const sendMessageResponse = await fetch(`${BACKEND_URL}/api/guests/send-yes-message`, {
                   method: 'POST',
@@ -595,6 +600,9 @@ class WebhookService {
               } catch (error) {
                 console.warn(`⚠️ Could not request backend to send "yes" template message:`, error);
               }
+            } else if (isFromGuestLink) {
+              console.log(`ℹ️ Guest confirmed via guest link (source: ${update.source}) - skipping "yes" template message`);
+              console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
             }
             
             // Mark this update as processed

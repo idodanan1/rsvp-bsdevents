@@ -1869,7 +1869,8 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
       guestCount: guestCount,
       // NO status here - frontend processes guestCount updates separately
       responseDate: new Date().toISOString(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      source: 'whatsapp' // Mark as coming from WhatsApp message
     };
     
     // Add guest count update (frontend will process this separately from status update)
@@ -2390,7 +2391,8 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
       originalPhoneNumber: originalPhone, // Keep original for matching
       status: status,
       responseDate: new Date().toISOString(),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      source: 'whatsapp' // Mark as coming from WhatsApp button click
     };
     
     // Remove any existing updates for this phone number with the same status (to prevent duplicates)
@@ -2743,7 +2745,8 @@ app.get('/api/guests/pending-updates', (req, res) => {
     status: u.status, // May be undefined for guest count updates
     responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
     guestCount: u.guestCount, // Include guest count if present
-    actualAttendance: u.actualAttendance // Include actual attendance if present
+    actualAttendance: u.actualAttendance, // Include actual attendance if present
+    source: u.source || 'whatsapp' // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses (default to 'whatsapp' for backward compatibility)
   }));
   
   // Clear old updates (older than 1 hour) but keep recent ones
