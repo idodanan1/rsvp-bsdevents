@@ -177,22 +177,37 @@ class WhatsAppService {
           const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
           // Check if we have a valid HTTPS image URL for header
-          if (headerImageUrl && headerImageUrl.startsWith('https://')) {
-            // Always add header image component if we have a valid HTTPS URL
+          // CRITICAL: Accept both http:// and https:// URLs (some image services use http)
+          const isValidImageUrl = headerImageUrl && (
+            headerImageUrl.startsWith('https://') || 
+            headerImageUrl.startsWith('http://')
+          );
+          
+          if (isValidImageUrl) {
+            // Always add header image component if we have a valid HTTP/HTTPS URL
             // This ensures the image is sent with the template message
+            // CRITICAL: Convert http:// to https:// if needed (Meta requires HTTPS for images)
+            let imageUrlForMeta = headerImageUrl;
+            if (headerImageUrl.startsWith('http://')) {
+              // Try to convert to HTTPS (some services support both)
+              imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+              console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
+            }
+            
             components.unshift({
               type: 'header',
               parameters: [
                 {
                   type: 'image',
                   image: {
-                    link: headerImageUrl
+                    link: imageUrlForMeta
                   }
                 }
               ]
             });
-            console.log('🖼️ ✅ Adding header image to template:', headerImageUrl);
+            console.log('🖼️ ✅ Adding header image to template:', imageUrlForMeta);
             console.log('🖼️ ✅ Image will be displayed with the message');
+            console.log('🖼️ ✅ Original image URL:', headerImageUrl);
           } else {
             // No valid image URL - check if we should add placeholder
             // For templates that might require header image, add placeholder proactively
@@ -201,20 +216,27 @@ class WhatsAppService {
             const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder']; // Add template names that require header
             
             if (templatesRequiringHeader.includes(templateName)) {
-              // Template requires header image - add placeholder
-              components.unshift({
-                type: 'header',
-                parameters: [
-                  {
-                    type: 'image',
-                    image: {
-                      link: DEFAULT_PLACEHOLDER_IMAGE
+              // Template requires header image - add placeholder ONLY if no image was provided
+              if (!headerImageUrl) {
+                // No image provided at all - use placeholder
+                components.unshift({
+                  type: 'header',
+                  parameters: [
+                    {
+                      type: 'image',
+                      image: {
+                        link: DEFAULT_PLACEHOLDER_IMAGE
+                      }
                     }
-                  }
-                ]
-              });
-              console.log('🖼️ ✅ Adding placeholder header image (template requires it):', DEFAULT_PLACEHOLDER_IMAGE);
-              console.log('🖼️ Template name:', messageData.templateName);
+                  ]
+                });
+                console.log('🖼️ ⚠️ Adding placeholder header image (template requires it, no image provided):', DEFAULT_PLACEHOLDER_IMAGE);
+                console.log('🖼️ Template name:', messageData.templateName);
+              } else {
+                // Image URL provided but invalid - log warning but don't use placeholder
+                console.log('🖼️ ⚠️ Invalid image URL provided:', headerImageUrl);
+                console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
+              }
             } else {
               // Template might not require header - try without it first
               console.log('ℹ️ No header image URL provided - will send without header');
