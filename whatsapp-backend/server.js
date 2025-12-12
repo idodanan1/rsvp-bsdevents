@@ -4447,7 +4447,15 @@ app.post('/api/events', async (req, res) => {
                                      newGuest.rsvpStatus === 'declined' || 
                                      newGuest.rsvpStatus === 'maybe');
           
-          if ((shouldAddToPending || (hasValidRsvpStatus && newGuest.phoneNumber && hasResponseDate)) && newGuest.phoneNumber) {
+          // CRITICAL: Also add if guestCount or actualAttendance changed, even if status didn't change
+          // This ensures all updates are synced across devices
+          const hasGuestCountOrAttendanceChange = guestCountChanged || actualAttendanceChanged;
+          
+          // CRITICAL: Always add to pendingUpdates if:
+          // 1. Any field changed (status, guestCount, actualAttendance)
+          // 2. Has valid status with new responseDate (even if status didn't change)
+          // 3. Has guestCount or actualAttendance change
+          if ((shouldAddToPending || hasGuestCountOrAttendanceChange || (hasValidRsvpStatus && newGuest.phoneNumber && hasResponseDate)) && newGuest.phoneNumber) {
             // Format phone number (same logic as updateGuestStatusByPhone)
             const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
             const formattedPhone = originalPhone.replace(/^972/, '0');
@@ -4461,24 +4469,36 @@ app.post('/api/events', async (req, res) => {
               status: newGuest.rsvpStatus === 'confirmed' ? 'confirmed' : 
                      newGuest.rsvpStatus === 'declined' ? 'declined' :
                      newGuest.rsvpStatus === 'maybe' ? 'maybe' : undefined,
-              guestCount: guestCountChanged || (newGuest.guestCount !== undefined && newGuest.guestCount > 0) ? newGuest.guestCount : undefined,
-              actualAttendance: actualAttendanceChanged || hasValidActualAttendance ? newGuest.actualAttendance : undefined,
+              guestCount: (guestCountChanged || (newGuest.guestCount !== undefined && newGuest.guestCount > 0)) ? newGuest.guestCount : undefined,
+              actualAttendance: (actualAttendanceChanged || (hasValidActualAttendance && newGuest.actualAttendance && newGuest.actualAttendance !== 'not_marked')) ? newGuest.actualAttendance : undefined,
               responseDate: newGuest.responseDate || new Date().toISOString(),
               timestamp: Date.now(),
               source: 'guest_link' // Mark as coming from guest response link
             };
             
-            // Remove any existing updates for this phone number with the same status/guestCount
-            const existingSameIndex = pendingUpdates.findIndex(
-              u => (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) && 
-                   u.status === updateData.status &&
-                   u.guestCount === updateData.guestCount &&
-                   (Date.now() - u.timestamp) < 60000 // Within last minute
-            );
+            // CRITICAL: Remove ALL existing updates for this phone number to prevent conflicts
+            // Keep only the latest update - delete all previous updates for this guest
+            const updatesToRemove = [];
+            for (let i = pendingUpdates.length - 1; i >= 0; i--) {
+              const existingUpdate = pendingUpdates[i];
+              const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
+                                  (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
+              if (isSamePhone) {
+                updatesToRemove.push(i);
+              }
+            }
             
-            if (existingSameIndex === -1) {
-              pendingUpdates.push(updateData);
-              console.log(`✅ Added guest link update to pendingUpdates:`, {
+            // Remove all previous updates for this phone number
+            if (updatesToRemove.length > 0) {
+              for (const index of updatesToRemove) {
+                pendingUpdates.splice(index, 1);
+              }
+              console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for phone ${formattedPhone} to prevent conflicts`);
+            }
+            
+            // Add the new update (always add, since we removed all previous ones)
+            pendingUpdates.push(updateData);
+            console.log(`✅ Added new guest link update to pendingUpdates (replaced ${updatesToRemove.length} previous update(s)):`, {
                 phone: formattedPhone,
                 originalPhone: originalPhone,
                 status: updateData.status,
@@ -4537,46 +4557,6 @@ app.post('/api/events', async (req, res) => {
                   statusChanged: statusChanged
                 });
               }
-            } else {
-              // Update existing update with newer data
-              pendingUpdates[existingSameIndex] = updateData;
-              console.log(`🔄 Updated existing pending update for phone ${formattedPhone} (guest: ${newGuest.firstName} ${newGuest.lastName})`);
-              
-              // CRITICAL: Send "yes" template message if status changed to confirmed
-              // Check if guest already received "yes" to prevent duplicates
-              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
-              const isWaiting = isWaitingForResponse(normalizedPhone);
-              const hasThanks = hasReceivedThanks(normalizedPhone);
-              
-              console.log(`🔍 Checking if should send "yes" template (existing update):`, {
-                status: updateData.status,
-                formattedPhone: formattedPhone ? 'present' : 'missing',
-                statusChanged: statusChanged,
-                oldStatus: existingGuest?.rsvpStatus,
-                newStatus: newGuest.rsvpStatus,
-                isWaiting: isWaiting,
-                hasThanks: hasThanks
-              });
-              if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
-                // CRITICAL: Don't send "yes" here - let webhookService.ts handle it
-                // This prevents duplicate "yes" messages when guest confirms via guest link
-                // The webhookService.ts will request "yes" only if status actually changed
-                console.log(`ℹ️ Guest status changed via guest link - "yes" template will be sent by webhookService if needed`);
-                console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`   Guest ID: ${newGuest.id}`);
-                console.log(`   Status changed from "${existingGuest?.rsvpStatus}" to "${newGuest.rsvpStatus}"`);
-                console.log(`   Phone: ${formattedPhone}`);
-              } else {
-                console.log(`⏭️ Skipping "yes" template message (existing update):`, {
-                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
-                          !formattedPhone ? 'phone missing' : 
-                          !statusChanged ? 'status not changed' : 'unknown',
-                  status: updateData.status,
-                  hasPhone: !!formattedPhone,
-                  statusChanged: statusChanged
-                });
-              }
-            }
           } else {
             // Log why update was not added
             console.log(`⏭️ Skipping guest link update for ${newGuest.firstName} ${newGuest.lastName}:`, {
@@ -4604,16 +4584,53 @@ app.post('/api/events', async (req, res) => {
       }
       
       // Update existing event - CRITICAL: Merge guests properly to preserve all fields
+      // Merge guests array: update existing guests, add new ones, keep all others
+      let mergedGuests = [...(existingEvent.guests || [])];
+      
+      if (event.guests && event.guests.length > 0) {
+        // For each incoming guest, update existing or add new
+        for (const incomingGuest of event.guests) {
+          const existingGuestIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
+          
+          if (existingGuestIndex >= 0) {
+            // Update existing guest - merge all fields, but prioritize incoming data for updated fields
+            const existingGuest = mergedGuests[existingGuestIndex];
+            mergedGuests[existingGuestIndex] = {
+              ...existingGuest,
+              ...incomingGuest,
+              // CRITICAL: Preserve important fields that might not be in incoming guest
+              id: existingGuest.id, // Always keep original ID
+              phoneNumber: incomingGuest.phoneNumber || existingGuest.phoneNumber, // Keep phone if provided
+              // Update fields that are explicitly provided in incoming guest
+              rsvpStatus: incomingGuest.rsvpStatus !== undefined ? incomingGuest.rsvpStatus : existingGuest.rsvpStatus,
+              guestCount: incomingGuest.guestCount !== undefined ? incomingGuest.guestCount : existingGuest.guestCount,
+              notes: incomingGuest.notes !== undefined ? incomingGuest.notes : existingGuest.notes,
+              actualAttendance: incomingGuest.actualAttendance !== undefined ? incomingGuest.actualAttendance : existingGuest.actualAttendance,
+              responseDate: incomingGuest.responseDate ? new Date(incomingGuest.responseDate) : existingGuest.responseDate,
+              // Use newer responseDate if provided
+              ...(incomingGuest.responseDate && (!existingGuest.responseDate || new Date(incomingGuest.responseDate) > new Date(existingGuest.responseDate)) 
+                ? { responseDate: new Date(incomingGuest.responseDate) } 
+                : {})
+            };
+            console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+          } else {
+            // Add new guest
+            mergedGuests.push(incomingGuest);
+            console.log(`➕ Added new guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+          }
+        }
+      }
+      
       const mergedEvent = {
         ...existingEvent,
         ...event,
-        // CRITICAL: Merge guests array properly - use incoming guests as source of truth
-        guests: event.guests || existingEvent.guests,
+        // CRITICAL: Use merged guests array that preserves all guests
+        guests: mergedGuests,
         updatedAt: new Date().toISOString()
       };
       
       eventsData.events[existingIndex] = mergedEvent;
-      console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests`);
+      console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests (merged from ${existingEvent.guests?.length || 0} existing + ${event.guests?.length || 0} incoming)`);
       
       // Verify actualAttendance was saved
       const savedEvent = eventsData.events[existingIndex];
