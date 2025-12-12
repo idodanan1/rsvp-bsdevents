@@ -60,13 +60,8 @@ app.use((req, res, next) => {
 // Temporary storage for guest status updates (in production, use a database)
 const pendingUpdates = [];
 
-// Track recently sent "yes" template messages to prevent duplicates
-// Format: "phoneNumber:timestamp" -> true
-const recentlySentYesMessages = new Map();
-const YES_MESSAGE_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown
-
-// Track guests waiting for response after "yes" message
-// Format: "phoneNumber" -> timestamp when "yes" was sent
+// Track guests waiting for response (for "thanks" message logic)
+// Format: "phoneNumber" -> timestamp when waiting started
 const waitingForResponse = new Map();
 const RESPONSE_WAIT_TIMEOUT = 24 * 60 * 60 * 1000; // 24 hours timeout
 
@@ -78,45 +73,6 @@ const receivedThanksMessages = new Map();
 const recentlySentGuestCountQuestions = new Map();
 const GUEST_COUNT_QUESTION_COOLDOWN = 5 * 60 * 1000; // 5 minutes cooldown
 
-// Helper function to check if "yes" message was recently sent
-function wasYesMessageRecentlySent(phoneNumber) {
-  const key = phoneNumber.replace(/[^0-9]/g, '');
-  const lastSent = recentlySentYesMessages.get(key);
-  if (!lastSent) {
-    return false;
-  }
-  const timeSinceLastSent = Date.now() - lastSent;
-  if (timeSinceLastSent > YES_MESSAGE_COOLDOWN) {
-    // Remove old entry
-    recentlySentYesMessages.delete(key);
-    return false;
-  }
-  return true;
-}
-
-// Helper function to mark "yes" message as sent
-function markYesMessageAsSent(phoneNumber) {
-  const key = phoneNumber.replace(/[^0-9]/g, '');
-  recentlySentYesMessages.set(key, Date.now());
-  // Mark that we're waiting for a response from this guest
-  waitingForResponse.set(key, Date.now());
-  console.log(`✅ Marked "yes" message as sent for ${phoneNumber} - waiting for response`);
-  
-  // Clean up old entries (older than cooldown)
-  const now = Date.now();
-  for (const [phone, timestamp] of recentlySentYesMessages.entries()) {
-    if (now - timestamp > YES_MESSAGE_COOLDOWN) {
-      recentlySentYesMessages.delete(phone);
-    }
-  }
-  
-  // Clean up old waiting entries (older than timeout)
-  for (const [phone, timestamp] of waitingForResponse.entries()) {
-    if (now - timestamp > RESPONSE_WAIT_TIMEOUT) {
-      waitingForResponse.delete(phone);
-    }
-  }
-}
 
 // Helper function to check if guest is waiting for response
 function isWaitingForResponse(phoneNumber) {
@@ -1172,8 +1128,8 @@ async function handleIncomingMessage(message) {
       } else if (hasThanks) {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
       } else {
-        // CRITICAL: "yes" template message removed - no longer sending automatically
-        console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
+        // Guest confirmed - no automatic message sent
+        console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
@@ -1277,8 +1233,8 @@ async function handleIncomingMessage(message) {
         } else if (hasThanks) {
           console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
         } else {
-          // CRITICAL: "yes" template message removed - no longer sending automatically
-          console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
+          // Guest confirmed - no automatic message sent
+          console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
@@ -1373,8 +1329,8 @@ async function handleIncomingMessage(message) {
       } else if (hasThanks) {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
       } else {
-        // CRITICAL: "yes" template message removed - no longer sending automatically
-        console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
+        // Guest confirmed - no automatic message sent
+        console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
@@ -1586,8 +1542,8 @@ async function handleIncomingMessage(message) {
         } else if (hasThanks) {
           console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
         } else {
-          // CRITICAL: "yes" template message removed - no longer sending automatically
-          console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
+          // Guest confirmed - no automatic message sent
+          console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
@@ -1660,8 +1616,9 @@ async function handleIncomingMessage(message) {
     
     // CRITICAL: When guest provides count, they are confirming attendance
     // Update status to "confirmed" first (this creates a separate update with status only)
+    // Use source 'guest_count' for guest count updates
     console.log(`✅ Guest provided count - updating status to "confirmed"`);
-    await updateGuestStatusByPhone(message.from, 'confirmed');
+    await updateGuestStatusByPhone(message.from, 'confirmed', 'guest_count');
     
     // Then update guest count (this creates a separate update with guestCount only, NO status)
     // Frontend processes status and guestCount updates separately
@@ -1784,8 +1741,8 @@ async function handleIncomingMessage(message) {
     } else if (hasThanks) {
       console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
     } else {
-      // CRITICAL: "yes" template message removed - no longer sending automatically
-      console.log(`ℹ️ Guest ${message.from} confirmed - "yes" template message will NOT be sent`);
+      // Guest confirmed - no automatic message sent
+      console.log(`ℹ️ Guest ${message.from} confirmed`);
     }
   } else {
     console.log('ℹ️ Message did not match confirmation/decline patterns:', originalMessageText);
@@ -1853,7 +1810,7 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
       // NO status here - frontend processes guestCount updates separately
       responseDate: new Date().toISOString(),
       timestamp: Date.now(),
-      source: 'whatsapp' // Mark as coming from WhatsApp message
+      source: 'guest_count' // Mark as coming from guest count response (not button click)
     };
     
     // Add guest count update (frontend will process this separately from status update)
@@ -1946,7 +1903,7 @@ async function sendDeclineConfirmation(phoneNumber) {
 // Send confirmation message when guest confirms attendance
 async function sendConfirmConfirmation(phoneNumber) {
   try {
-    const confirmationMessage = 'נהדר\nכמה אנשים אתם מתכוונים להגיע?\n(תשיבו במספר תכללו את עצמכם בספירה)🙂\nתספרו רק את מי שתופס כיסא';
+    const confirmationMessage = 'נהדר איזה כיף\nכמה אנשים אתם מתכוונים להגיע?\n(תשיבו בסיפרה ותכללו את עצמכם בתוך הספירה)🙂\nתספרו רק את מי שתופס כיסא';
     
     console.log(`📤 Sending confirm confirmation to ${phoneNumber}`);
     
@@ -2021,191 +1978,8 @@ async function sendConfirmConfirmation(phoneNumber) {
   }
 }
 
-// Send message with template "yes" to guest who confirmed attendance
-async function sendYesTemplateMessage(phoneNumber) {
-  try {
-    console.log(`📤 ========== SENDING "yes" TEMPLATE MESSAGE ==========`);
-    console.log(`📤 Original phone number: ${phoneNumber}`);
-    
-    // CRITICAL: Check if "yes" message was recently sent to prevent duplicates
-    if (wasYesMessageRecentlySent(phoneNumber)) {
-      console.log(`⏭️ Skipping "yes" template message - recently sent to ${phoneNumber} (within ${YES_MESSAGE_COOLDOWN / 1000 / 60} minutes)`);
-      return; // Exit early - don't send duplicate
-    }
-    
-    // CRITICAL: Try to reload token from environment if it seems invalid
-    // This handles cases where Render environment variables weren't loaded correctly
-    let rawToken = process.env.WHATSAPP_ACCESS_TOKEN;
-    
-    // If token is too short, try to reload from environment
-    if (!rawToken || rawToken.length < 50) {
-      console.warn('⚠️ Token seems invalid, trying to reload from environment...');
-      // Try to reload from process.env directly (in case it wasn't set correctly)
-      rawToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
-      console.log(`🔍 Reloaded token length: ${rawToken ? rawToken.length : 0}`);
-      console.log(`🔍 Reloaded token preview: "${rawToken ? rawToken.substring(0, 50) : 'N/A'}..."`);
-      
-      // If still invalid, use the default token
-      if (!rawToken || rawToken.length < 50) {
-        console.warn('⚠️ Reloaded token still invalid, using default token');
-        rawToken = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
-      }
-    }
-    
-    const accessToken = sanitizeAccessToken(rawToken);
-    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    
-    // Detailed token validation
-    console.log(`🔍 Token validation:`);
-    console.log(`   Raw token length: ${rawToken ? rawToken.length : 0}`);
-    console.log(`   Raw token preview: "${rawToken ? rawToken.substring(0, 30) : 'N/A'}..."`);
-    console.log(`   Sanitized token length: ${accessToken ? accessToken.length : 0}`);
-    console.log(`   Sanitized token preview: "${accessToken ? accessToken.substring(0, 30) : 'N/A'}..."`);
-    
-    if (!accessToken || accessToken.length < 50) {
-      console.error('❌ WhatsApp Access Token is invalid or too short!');
-      console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
-      console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
-      console.error(`❌ Token should start with "EAA..." and be 200+ characters long`);
-      console.error(`❌ Current token value: "${rawToken}"`);
-      return;
-    }
-    
-    if (!phoneNumberId) {
-      console.error('❌ WhatsApp Phone Number ID is missing!');
-      console.error(`❌ Please check WHATSAPP_PHONE_NUMBER_ID in Render environment variables`);
-      return;
-    }
-    
-    // Format phone number - handle different formats
-    let formattedPhone = phoneNumber.replace(/[^0-9]/g, ''); // Remove all non-digits first
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '972' + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('972')) {
-      formattedPhone = '972' + formattedPhone;
-    }
-    
-    console.log(`📤 Formatted phone number: ${formattedPhone}`);
-    
-    // Find guest by phone number to get their name
-    const events = loadEvents();
-    let guestName = 'אורח'; // Default name
-    let guestFirstName = 'אורח';
-    
-    for (const event of events) {
-      if (event.guests && Array.isArray(event.guests)) {
-        const guest = event.guests.find(g => {
-          const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-          const formattedGuestPhone = guestPhone.replace(/^972/, '0');
-          const searchPhone = phoneNumber.replace(/[^0-9]/g, '');
-          const formattedSearchPhone = searchPhone.replace(/^972/, '0');
-          return guestPhone === searchPhone || 
-                 formattedGuestPhone === formattedSearchPhone ||
-                 guestPhone === formattedPhone.replace(/^972/, '0') ||
-                 formattedGuestPhone === formattedPhone.replace(/^972/, '0');
-        });
-        
-        if (guest) {
-          guestName = `${guest.firstName || ''} ${guest.lastName || ''}`.trim() || 'אורח';
-          guestFirstName = guest.firstName || 'אורח';
-          break;
-        }
-      }
-    }
-    
-    // Send template message "yes"
-    // Note: Based on the template preview, "yes" template appears to be a static message
-    // without parameters. If the template requires parameters, they should be added here.
-    const messagePayload = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: formattedPhone,
-      type: 'template',
-      template: {
-        name: 'yes',
-        language: {
-          code: 'he'
-        }
-        // No components needed if template has no parameters
-        // If template requires parameters, uncomment below and add comma after 'he' above:
-        // components: [
-        //   {
-        //     type: 'body',
-        //     parameters: [
-        //       {
-        //         type: 'text',
-        //         text: guestFirstName
-        //       }
-        //     ]
-        //   }
-        // ]
-      }
-    };
-    
-    console.log('📤 Sending "yes" template message...');
-    console.log('📤 Full Payload:', JSON.stringify(messagePayload, null, 2));
-    console.log('📤 API URL:', `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`);
-    console.log('📤 Authorization header preview:', `Bearer ${accessToken.substring(0, 30)}...`);
-    
-    try {
-    const response = await axios.post(
-      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-      messagePayload,
-      {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json'
-          },
-          timeout: 10000 // 10 second timeout
-      }
-    );
-    
-    if (response.status === 200) {
-      console.log('✅ "yes" template message sent successfully!');
-      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
-      // CRITICAL: Mark message as sent to prevent duplicates AND mark as waiting for response
-      markYesMessageAsSent(phoneNumber);
-      console.log(`✅ Marked guest ${phoneNumber} as waiting for response`);
-      console.log('📤 ==========================================');
-    } else {
-      console.warn('⚠️ Failed to send "yes" template message:', response.status);
-      console.warn('⚠️ Response data:', response.data);
-      console.log('📤 ==========================================');
-      }
-    } catch (error) {
-      console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
-      console.error('❌ Error:', error.message);
-      if (error.response) {
-        console.error('❌ Error response status:', error.response.status);
-        console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-        console.error('❌ Error response headers:', JSON.stringify(error.response.headers, null, 2));
-      } else if (error.request) {
-        console.error('❌ No response received from API');
-        console.error('❌ Request:', error.request);
-      } else {
-        console.error('❌ Error setting up request:', error.message);
-      }
-      console.error('❌ ========================================================');
-      // Don't throw - this is not critical, but log extensively for debugging
-    }
-  } catch (error) {
-    console.error('❌ ========== ERROR SENDING "yes" TEMPLATE MESSAGE ==========');
-    console.error('❌ Error:', error.message);
-    console.error('❌ Stack:', error.stack);
-    if (error.response) {
-      console.error('❌ Error response status:', error.response.status);
-      console.error('❌ Error response headers:', error.response.headers);
-      console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-    } else if (error.request) {
-      console.error('❌ No response received from API');
-      console.error('❌ Request:', error.request);
-    }
-    console.error('❌ ========================================================');
-    // Don't throw - this is not critical, but log extensively for debugging
-  }
-}
 
-// Send "thanks" template message after guest responds to "yes" message
+// Send "thanks" template message after guest responds
 async function sendThanksTemplateMessage(phoneNumber, forceSend = false) {
   try {
     console.log(`📤 ========== SENDING "thanks" TEMPLATE MESSAGE ==========`);
@@ -2432,7 +2206,7 @@ async function sendGuestCountQuestion(phoneNumber) {
 }
 
 // Update guest status by phone number
-async function updateGuestStatusByPhone(phoneNumber, status) {
+async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp') {
   try {
     // Format phone number (remove country code prefix if needed)
     // Keep original format too for better matching
@@ -2443,6 +2217,7 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
     console.log(`🔄 Original phone: ${phoneNumber}`);
     console.log(`🔄 Formatted phone: ${formattedPhone}`);
     console.log(`🔄 Status: ${status}`);
+    console.log(`🔄 Source: ${source}`);
     console.log(`🔄 Timestamp: ${new Date().toISOString()}`);
     
     // Store update in pending updates array
@@ -2453,7 +2228,7 @@ async function updateGuestStatusByPhone(phoneNumber, status) {
       status: status,
       responseDate: new Date().toISOString(),
       timestamp: Date.now(),
-      source: 'whatsapp' // Mark as coming from WhatsApp button click
+      source: source // Use provided source or default to 'whatsapp'
     };
     
     // Remove any existing updates for this phone number with the same status (to prevent duplicates)
@@ -2716,62 +2491,6 @@ app.post('/api/guests/update-status', async (req, res) => {
   }
 });
 
-// API endpoint to send "yes" template message (called from frontend after guest confirms)
-app.post('/api/guests/send-yes-message', async (req, res) => {
-  try {
-    const { phoneNumber } = req.body;
-    
-    if (!phoneNumber) {
-      return res.status(400).json({
-        success: false,
-        error: 'Phone number is required'
-      });
-    }
-    
-    console.log(`📤 Frontend requested to send "yes" template message to ${phoneNumber}`);
-    
-    // CRITICAL: Reload token from environment before sending (in case it wasn't loaded correctly)
-    console.log('🔍 Reloading token from environment before sending...');
-    const envToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
-    console.log('🔍 Env token length:', envToken ? envToken.length : 0);
-    console.log('🔍 Env token preview:', envToken ? envToken.substring(0, 50) : 'N/A');
-    
-    // Update process.env.WHATSAPP_ACCESS_TOKEN if it's invalid
-    if (!envToken || envToken.length < 50) {
-      console.warn('⚠️ Env token is invalid, using default token');
-      process.env.WHATSAPP_ACCESS_TOKEN = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
-    } else {
-      process.env.WHATSAPP_ACCESS_TOKEN = sanitizeAccessToken(envToken);
-    }
-    
-    // CRITICAL: Check if "yes" was recently sent to prevent duplicates
-    const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
-    if (wasYesMessageRecentlySent(normalizedPhone)) {
-      console.log(`⏭️ Skipping "yes" template message - recently sent to ${phoneNumber} (within ${YES_MESSAGE_COOLDOWN / 1000 / 60} minutes)`);
-      res.json({
-        success: true,
-        message: 'Yes template message was recently sent - skipping duplicate',
-        skipped: true
-      });
-      return;
-    }
-    
-    // Send the "yes" template message
-    await sendYesTemplateMessage(phoneNumber);
-    
-    res.json({
-      success: true,
-      message: 'Yes template message sent successfully'
-    });
-  } catch (error) {
-    console.error('❌ Error sending yes template message:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to send yes template message',
-      details: error.message
-    });
-  }
-});
 
 // API endpoint to get pending guest status updates
 // Handle OPTIONS preflight for pending-updates endpoint
@@ -4589,15 +4308,12 @@ app.post('/api/events', async (req, res) => {
                 age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
               })));
               
-              // CRITICAL: Do NOT send "yes" template message when guest confirms via guest link
-              // The webhookService.ts will handle sending "yes" ONLY for WhatsApp button clicks (source: 'whatsapp')
-              // Guest link updates (source: 'guest_link') should NOT trigger "yes" messages
-              console.log(`ℹ️ Guest update from guest link (source: ${updateData.source}) - skipping "yes" template message`);
+              // Guest link updates are processed normally
+              console.log(`ℹ️ Guest update from guest link (source: ${updateData.source})`);
               console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
               console.log(`   Guest ID: ${newGuest.id}`);
               console.log(`   Status: ${updateData.status}`);
               console.log(`   Phone: ${formattedPhone}`);
-              console.log(`   Source: ${updateData.source} - "yes" message will NOT be sent for guest_link updates`);
           } else {
             // Log why update was not added
             console.log(`⏭️ Skipping guest link update for ${newGuest.firstName} ${newGuest.lastName}:`, {
