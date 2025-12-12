@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, startTransition } from 're
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
+import { webhookService } from '../services/webhookService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -90,6 +91,13 @@ const EventManagement: React.FC = () => {
     fetchEvents().catch(error => {
       console.error('❌ Error initial fetch:', error);
     });
+    
+    // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
+    // This ensures EventManagement receives real-time updates from backend
+    if (!webhookService.pollingActive) {
+      console.log('🔄 Starting webhookService for EventManagement...');
+      webhookService.startPolling(3000); // Poll every 3 seconds for faster updates
+    }
     
     // Auto-refresh events every 2 seconds for real-time sync between devices
     // Using startTransition and silent mode to make updates smooth and non-blocking

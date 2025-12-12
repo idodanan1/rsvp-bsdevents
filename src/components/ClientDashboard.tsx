@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, formatDateTime, getStatusIcon, getStatusColor } from '../utils/helpers';
+import { webhookService } from '../services/webhookService';
 import { 
   Users, 
   CheckCircle,
@@ -23,6 +24,8 @@ const ClientDashboard: React.FC = () => {
   const [currentEvent, setCurrentEvent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const pollingIntervalRef = useRef<number | null>(null);
+  const isPollingRef = useRef(false);
 
   useEffect(() => {
     if (!eventId) {
@@ -130,8 +133,111 @@ const ClientDashboard: React.FC = () => {
       console.log(`🌐 No user logged in - using public API endpoint`);
       loadFromAPI();
     }
+    
+    // CRITICAL: Start polling for real-time updates from backend
+    // This ensures ClientDashboard always shows the latest data from backend
+    const startPolling = () => {
+      if (isPollingRef.current) return; // Already polling
+      
+      isPollingRef.current = true;
+      console.log('🔄 Starting real-time polling for ClientDashboard...');
+      
+      // Poll every 5 seconds for updates
+      pollingIntervalRef.current = window.setInterval(async () => {
+        try {
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const allEvents = data.events || [];
+            const foundEvent = allEvents.find((e: any) => e.id === eventId);
+            
+            if (foundEvent) {
+              // Always update to ensure latest data is shown (backend is source of truth)
+              setCurrentEvent((prev: any) => {
+                // Compare key fields instead of full JSON for better performance
+                const hasChanged = !prev || 
+                  prev.guests?.length !== foundEvent.guests?.length ||
+                  prev.guests?.some((g: any, i: number) => {
+                    const newGuest = foundEvent.guests?.[i];
+                    return !newGuest || 
+                      g.rsvpStatus !== newGuest.rsvpStatus ||
+                      g.guestCount !== newGuest.guestCount ||
+                      g.actualAttendance !== newGuest.actualAttendance;
+                  });
+                
+                if (hasChanged) {
+                  console.log('🔄 ClientDashboard: Event data updated from backend');
+                  setLastUpdated(new Date());
+                  return foundEvent;
+                }
+                return prev;
+              });
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Polling error (will retry):', error);
+        }
+      }, 5000); // Poll every 5 seconds
+    };
+    
+    // Start polling
+    startPolling();
+    
+    // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
+    if (!webhookService.pollingActive) {
+      console.log('🔄 Starting webhookService for ClientDashboard...');
+      webhookService.startPolling(5000); // Poll every 5 seconds
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current !== null) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+        isPollingRef.current = false;
+        console.log('⏹️ Stopped ClientDashboard polling');
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]); // Removed events and fetchEvents from deps to prevent infinite loop
+  
+  // CRITICAL: Update currentEvent when events in store change (from webhookService)
+  useEffect(() => {
+    if (eventId && events.length > 0) {
+      const foundEvent = events.find(e => e.id === eventId);
+      if (foundEvent) {
+        setCurrentEvent((prev: any) => {
+          // Compare key fields instead of full JSON for better performance
+          const hasChanged = !prev || 
+            prev.guests?.length !== foundEvent.guests?.length ||
+            prev.guests?.some((g: any, i: number) => {
+              const newGuest = foundEvent.guests?.[i];
+              return !newGuest || 
+                g.rsvpStatus !== newGuest.rsvpStatus ||
+                g.guestCount !== newGuest.guestCount ||
+                g.actualAttendance !== newGuest.actualAttendance;
+            });
+          
+          if (hasChanged) {
+            console.log('🔄 ClientDashboard: Event updated from store (webhookService)');
+            setLastUpdated(new Date());
+            return foundEvent;
+          }
+          return prev;
+        });
+      }
+    }
+  }, [events, eventId]);
 
   const handleRefresh = async () => {
     setIsLoading(true);
