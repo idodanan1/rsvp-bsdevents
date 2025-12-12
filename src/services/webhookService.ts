@@ -579,7 +579,7 @@ class WebhookService {
             if (newStatus === 'confirmed' && update.phoneNumber && isStatusChange && isFromWhatsApp && !isFromGuestLink) {
               console.log(`📤 Guest confirmed via WhatsApp button - requesting backend to send "yes" template message to ${update.phoneNumber}`);
               console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
-              console.log(`   Source: ${update.source || 'whatsapp' (default)}`);
+              console.log(`   Source: ${update.source || 'whatsapp'} (default: whatsapp)`);
               try {
                 const sendMessageResponse = await fetch(`${BACKEND_URL}/api/guests/send-yes-message`, {
                   method: 'POST',
