@@ -407,8 +407,8 @@ const GuestResponse = () => {
   const [directEvent, setDirectEvent] = React.useState<any>(null);
   const [directGuest, setDirectGuest] = React.useState<any>(null);
   
-  // State to track loading
-  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
+  // State to track loading - start with false to show page immediately
+  const [isLoadingEvent, setIsLoadingEvent] = useState(false);
 
   // Try to find event from store first, then from direct localStorage
   const event = events.find(e => e.id === eventId) || directEvent;
@@ -626,32 +626,6 @@ const GuestResponse = () => {
     }
   }, [event, directEvent]);
   
-  // Stop loading after short timeout if event not found
-  useEffect(() => {
-    if (eventId && !event && !directEvent) {
-      // Much shorter timeout - show page quickly
-      const timeout = setTimeout(() => {
-        setIsLoadingEvent(false);
-      }, 1000); // Only 1 second - don't make user wait
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [eventId, event, directEvent]);
-  
-  // Only show loading if we're actively loading AND have an eventId
-  // Don't block if eventId is missing (show error instead)
-  if (isLoadingEvent && eventId && !event && !directEvent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען את האירוע...</p>
-          <p className="text-gray-400 text-sm mt-2">אם זה לוקח זמן, אנא נסה לרענן את הדף</p>
-        </div>
-      </div>
-    );
-  }
-  
   // Use directEvent if event is not found in store
   const currentEvent = event || directEvent;
   const currentGuest = guest || directGuest || finalGuest;
@@ -682,23 +656,10 @@ const GuestResponse = () => {
     }
   }, [eventId, guestId, event, directEvent, currentEvent, guest, directGuest, currentGuest, events.length, isLoadingEvent]);
   
-  // Show loading state
-  if (isLoadingEvent) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען את האירוע...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // CRITICAL: If event is found but guest is not found (and guestId is required), 
-  // allow the page to show anyway - guest might be added later or link might be for event only
-  // Only show error if event is not found
-  if (!currentEvent) {
-    // Show error with debug info and retry option
+  // CRITICAL: Show page immediately even if event is not loaded yet
+  // Only show error if we've tried loading and it failed (not loading anymore)
+  if (!currentEvent && !isLoadingEvent && eventId) {
+    // Show error only if we're not loading and event is not found
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -779,6 +740,33 @@ const GuestResponse = () => {
     );
   }
   
+  // If event is not loaded yet, show page with loading indicator
+  if (!currentEvent && isLoadingEvent) {
+    // Show page structure with loading message at top
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+        {/* Loading indicator at top */}
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
+          <div className="max-w-2xl mx-auto flex items-center justify-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <p className="text-blue-700 text-sm font-medium">טוען את האירוע...</p>
+          </div>
+        </div>
+        
+        {/* Page content placeholder */}
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
+            <div className="animate-pulse space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-3/4 mx-auto"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto"></div>
+              <div className="h-32 bg-gray-200 rounded mt-8"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   if (submitStatus === 'success') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center p-4">
@@ -821,6 +809,20 @@ const GuestResponse = () => {
           >
             שליחת תגובה נוספת
           </button>
+        </div>
+      </div>
+    );
+  }
+  
+  // If we don't have currentEvent yet, show loading state (should not reach here, but safety check)
+  if (!currentEvent) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
+        <div className="bg-blue-50 border-b border-blue-200 px-4 py-3">
+          <div className="max-w-2xl mx-auto flex items-center justify-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <p className="text-blue-700 text-sm font-medium">טוען את האירוע...</p>
+          </div>
         </div>
       </div>
     );
