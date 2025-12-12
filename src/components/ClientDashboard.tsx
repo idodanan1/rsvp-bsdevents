@@ -13,7 +13,6 @@ import {
   Phone,
   Calendar,
   MapPin,
-  RefreshCw,
   Download,
   Share2
 } from 'lucide-react';
@@ -22,25 +21,22 @@ const ClientDashboard: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const { events, fetchEvents } = useEventStore();
   const [currentEvent, setCurrentEvent] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [isLoading, setIsLoading] = useState(false); // Start with false - show page immediately
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
 
   useEffect(() => {
     if (!eventId) {
-      setIsLoading(false);
       return;
     }
     
-    console.log(`🔍 ClientDashboard loading event: ${eventId}`);
+    console.log(`🔍 ClientDashboard loading event silently: ${eventId}`);
     
     // Try to find event in current events first
     const event = events.find(e => e.id === eventId);
     if (event) {
       console.log(`✅ Found event in store: ${event.coupleName}`);
       setCurrentEvent(event);
-      setIsLoading(false);
       return;
     }
     
@@ -54,7 +50,6 @@ const ClientDashboard: React.FC = () => {
           if (foundEvent) {
             console.log(`✅ Found event in localStorage: ${foundEvent.coupleName}`);
             setCurrentEvent(foundEvent);
-            setIsLoading(false);
             // Still try API in background to get latest data
           }
         }
@@ -68,7 +63,7 @@ const ClientDashboard: React.FC = () => {
     const loadFromAPI = async () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-        console.log(`🌐 Loading event from API: ${BACKEND_URL}/api/events/all`);
+        console.log(`🌐 Loading event silently from API: ${BACKEND_URL}/api/events/all`);
         
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
@@ -86,20 +81,16 @@ const ClientDashboard: React.FC = () => {
           const foundEvent = allEvents.find((e: any) => e.id === eventId);
           
           if (foundEvent) {
-            console.log(`✅ Found event in API: ${foundEvent.coupleName}`);
+            console.log(`✅ Found event silently in API: ${foundEvent.coupleName}`);
             setCurrentEvent(foundEvent);
-            setIsLoading(false);
           } else {
             console.error(`❌ Event ${eventId} not found in API`);
-            setIsLoading(false);
           }
         } else {
           console.error(`❌ API returned error: ${response.status}`);
-          setIsLoading(false);
         }
       } catch (error) {
         console.error('❌ Failed to load event from API:', error);
-        setIsLoading(false);
       }
     };
     
@@ -120,17 +111,16 @@ const ClientDashboard: React.FC = () => {
       fetchEvents().then(() => {
         const foundEvent = events.find(e => e.id === eventId);
         if (foundEvent) {
-          console.log(`✅ Found event via fetchEvents: ${foundEvent.coupleName}`);
+          console.log(`✅ Found event silently via fetchEvents: ${foundEvent.coupleName}`);
           setCurrentEvent(foundEvent);
         }
-        setIsLoading(false);
       }).catch(() => {
         // If fetchEvents fails, try public API
         loadFromAPI();
       });
     } else {
       // No user logged in - use public API endpoint
-      console.log(`🌐 No user logged in - using public API endpoint`);
+      console.log(`🌐 No user logged in - using public API endpoint silently`);
       loadFromAPI();
     }
     
@@ -176,8 +166,7 @@ const ClientDashboard: React.FC = () => {
                   });
                 
                 if (hasChanged) {
-                  console.log('🔄 ClientDashboard: Event data updated from backend');
-                  setLastUpdated(new Date());
+                  console.log('🔄 ClientDashboard: Event data updated silently from backend');
                   return foundEvent;
                 }
                 return prev;
@@ -212,6 +201,7 @@ const ClientDashboard: React.FC = () => {
   }, [eventId]); // Removed events and fetchEvents from deps to prevent infinite loop
   
   // CRITICAL: Update currentEvent when events in store change (from webhookService)
+  // Silent update - no visual indicators
   useEffect(() => {
     if (eventId && events.length > 0) {
       const foundEvent = events.find(e => e.id === eventId);
@@ -229,8 +219,7 @@ const ClientDashboard: React.FC = () => {
             });
           
           if (hasChanged) {
-            console.log('🔄 ClientDashboard: Event updated from store (webhookService)');
-            setLastUpdated(new Date());
+            console.log('🔄 ClientDashboard: Event updated silently from store (webhookService)');
             return foundEvent;
           }
           return prev;
@@ -240,8 +229,8 @@ const ClientDashboard: React.FC = () => {
   }, [events, eventId]);
 
   const handleRefresh = async () => {
-    setIsLoading(true);
-    console.log(`🔄 Refreshing event: ${eventId}`);
+    // Silent refresh - no loading indicators
+    console.log(`🔄 Silently refreshing event: ${eventId}`);
     
     try {
       // CRITICAL: Use public API endpoint (works from any IP/device)
@@ -262,9 +251,8 @@ const ClientDashboard: React.FC = () => {
         const foundEvent = allEvents.find((e: any) => e.id === eventId);
         
         if (foundEvent) {
-          console.log(`✅ Refreshed event from API: ${foundEvent.coupleName}`);
+          console.log(`✅ Silently refreshed event from API: ${foundEvent.coupleName}`);
           setCurrentEvent(foundEvent);
-          setLastUpdated(new Date());
         } else {
           console.error(`❌ Event ${eventId} not found in API`);
         }
@@ -273,8 +261,6 @@ const ClientDashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('❌ Error refreshing event:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -293,7 +279,7 @@ const ClientDashboard: React.FC = () => {
       maybe: stats.maybe,
       pending: stats.pending,
       responseRate: stats.responseRate,
-      lastUpdated: formatDateTime(lastUpdated)
+      lastUpdated: new Date().toISOString()
     };
 
     const dataStr = JSON.stringify(exportData, null, 2);
@@ -324,17 +310,7 @@ const ClientDashboard: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">טוען נתונים...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Show page immediately - no loading screen
   if (!currentEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -363,14 +339,7 @@ const ClientDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-3">
-              <button
-                onClick={handleRefresh}
-                className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span>רענן</span>
-              </button>
+              {/* Refresh button removed - auto-refresh happens silently in background */}
               
               <button
                 onClick={handleExportData}
@@ -411,10 +380,7 @@ const ClientDashboard: React.FC = () => {
               </div>
             </div>
             
-            <div className="text-right">
-              <p className="text-sm text-gray-500">עודכן לאחרונה</p>
-              <p className="text-sm font-medium text-gray-900">{formatDateTime(lastUpdated)}</p>
-            </div>
+            {/* Last updated indicator removed - updates happen silently */}
           </div>
         </div>
 
