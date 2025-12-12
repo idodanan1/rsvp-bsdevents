@@ -4,11 +4,13 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
 
 export interface WebhookUpdate {
   phoneNumber: string;
-  status?: 'confirmed' | 'declined';
+  guestId?: string; // CRITICAL: Guest ID to ensure correct guest is updated (for guest_link updates)
+  eventId?: string; // CRITICAL: Event ID to ensure correct event is used (for guest_link updates)
+  status?: 'confirmed' | 'declined' | 'maybe'; // Include 'maybe' status
   responseDate?: string;
   guestCount?: number; // For guest count updates
   actualAttendance?: 'attended' | 'not_attended' | 'not_marked'; // For actual attendance updates
-  source?: 'whatsapp' | 'guest_link'; // Source of the update - 'whatsapp' for button clicks, 'guest_link' for link responses
+  source?: 'whatsapp' | 'guest_link' | 'guest_count'; // Source of the update - 'whatsapp' for button clicks, 'guest_link' for link responses, 'guest_count' for count inputs
 }
 
 class WebhookService {
@@ -133,32 +135,52 @@ class WebhookService {
         // Handle guest count updates (updates with guestCount, with or without status)
         // CRITICAL: Check guestCount first, even if there's also a status
         if (update.guestCount !== undefined) {
-          // Find guest by phone number
+          // CRITICAL: Find guest by guestId if available (for guest_link updates), otherwise by phone number
           let foundGuest: any = null;
           let foundEventId: string | null = null;
 
-          for (const event of events) {
-            const guest = event.guests?.find((g: any) => {
-              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-              const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
-              const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
-              const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
-              const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
-              
-              return guestPhone === updatePhone || 
-                     guestPhone === updatePhoneWith0 ||
-                     guestPhone === updatePhoneWith972 ||
-                     guestPhoneWith0 === updatePhone ||
-                     guestPhoneWith0 === updatePhoneWith0 ||
-                     guestPhoneWith972 === updatePhone ||
-                     guestPhoneWith972 === updatePhoneWith972;
-            });
+          // If guestId is provided (from guest_link), use it for precise matching
+          if (update.guestId && update.eventId) {
+            const event = events.find(e => e.id === update.eventId);
+            if (event) {
+              const guest = event.guests?.find((g: any) => g.id === update.guestId);
+              if (guest) {
+                foundGuest = guest;
+                foundEventId = event.id;
+                console.log(`✅ Found guest by ID: ${foundGuest.firstName} ${foundGuest.lastName} (${update.guestId}) in event ${update.eventId}`);
+              } else {
+                console.warn(`⚠️ Guest with ID ${update.guestId} not found in event ${update.eventId}, falling back to phone number search`);
+              }
+            } else {
+              console.warn(`⚠️ Event with ID ${update.eventId} not found, falling back to phone number search`);
+            }
+          }
 
-            if (guest) {
-              foundGuest = guest;
-              foundEventId = event.id;
-              break;
+          // Fallback to phone number search if guestId not found or not provided
+          if (!foundGuest) {
+            for (const event of events) {
+              const guest = event.guests?.find((g: any) => {
+                const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+                const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+                const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
+                const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
+                
+                return guestPhone === updatePhone || 
+                       guestPhone === updatePhoneWith0 ||
+                       guestPhone === updatePhoneWith972 ||
+                       guestPhoneWith0 === updatePhone ||
+                       guestPhoneWith0 === updatePhoneWith0 ||
+                       guestPhoneWith972 === updatePhone ||
+                       guestPhoneWith972 === updatePhoneWith972;
+              });
+
+              if (guest) {
+                foundGuest = guest;
+                foundEventId = event.id;
+                break;
+              }
             }
           }
 
@@ -395,53 +417,74 @@ class WebhookService {
           responseDate: update.responseDate
         });
         
-        for (const event of events) {
-          const guestCount = event.guests?.length || 0;
-          console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
-          
-          if (!event.guests || event.guests.length === 0) {
-            console.log(`   ⚠️ Event has no guests`);
-            continue;
+        // CRITICAL: Find guest by guestId if available (for guest_link updates), otherwise by phone number
+        // This ensures updates from guest links update the correct guest, even if multiple guests share the same phone number
+        if (update.guestId && update.eventId) {
+          const event = events.find(e => e.id === update.eventId);
+          if (event) {
+            const guest = event.guests?.find((g: any) => g.id === update.guestId);
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              console.log(`✅ Found guest by ID: ${foundGuest.firstName} ${foundGuest.lastName} (${update.guestId}) in event ${update.eventId}`);
+            } else {
+              console.warn(`⚠️ Guest with ID ${update.guestId} not found in event ${update.eventId}, falling back to phone number search`);
+            }
+          } else {
+            console.warn(`⚠️ Event with ID ${update.eventId} not found, falling back to phone number search`);
           }
-          
-          const guest = event.guests.find(g => {
-            // Normalize both phone numbers for comparison
-            const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-            const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-            
-            if (!guestPhone || !updatePhone) {
-              return false; // Skip if phone numbers are missing
-            }
-            
-            console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
-            
-            // Try multiple formats
-            const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
-            const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
-            const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
-            const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
-            
-            const matches = guestPhone === updatePhone || 
-                   guestPhone === updatePhoneWith0 ||
-                   guestPhone === updatePhoneWith972 ||
-                   guestPhoneWith972 === updatePhone ||
-                   guestPhoneWith972 === updatePhoneWith972 ||
-                   guestPhoneWith0 === updatePhone ||
-                   guestPhoneWith0 === updatePhoneWith0;
-            
-            if (matches) {
-              console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
-              console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
-            }
-            
-            return matches;
-          });
+        }
 
-          if (guest) {
-            foundGuest = guest;
-            foundEventId = event.id;
-            console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
-            break;
+        // Fallback to phone number search if guestId not found or not provided
+        if (!foundGuest) {
+          for (const event of events) {
+            const guestCount = event.guests?.length || 0;
+            console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
+            
+            if (!event.guests || event.guests.length === 0) {
+              console.log(`   ⚠️ Event has no guests`);
+              continue;
+            }
+            
+            const guest = event.guests.find(g => {
+              // Normalize both phone numbers for comparison
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+              
+              if (!guestPhone || !updatePhone) {
+                return false; // Skip if phone numbers are missing
+              }
+              
+              console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
+              
+              // Try multiple formats
+              const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+              const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+              const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+              const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+              
+              const matches = guestPhone === updatePhone || 
+                     guestPhone === updatePhoneWith0 ||
+                     guestPhone === updatePhoneWith972 ||
+                     guestPhoneWith972 === updatePhone ||
+                     guestPhoneWith972 === updatePhoneWith972 ||
+                     guestPhoneWith0 === updatePhone ||
+                     guestPhoneWith0 === updatePhoneWith0;
+              
+              if (matches) {
+                console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
+                console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
+              }
+              
+              return matches;
+            });
+
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
+              break;
+            }
           }
         }
 
@@ -493,10 +536,25 @@ class WebhookService {
             lastManualChange: lastManualChange ? `${Math.round((now - lastManualChange) / 1000)}s ago` : 'none'
           });
           
-          // CRITICAL: Only update if status is DIFFERENT from current status
-          // This prevents overwriting manual changes - if status already matches, skip the update
-          if (foundGuest.rsvpStatus === newStatus) {
-            console.log(`⏭️ Skipping update - status already matches current status (${newStatus}). This prevents overwriting manual changes.`);
+          // CRITICAL: Check if there are other fields that need updating (guestCount, actualAttendance, notes, responseDate)
+          // Even if status matches, we should still sync other fields if they differ
+          const hasGuestCountChange = update.guestCount !== undefined && update.guestCount !== foundGuest.guestCount;
+          const hasActualAttendanceChange = update.actualAttendance !== undefined && update.actualAttendance !== foundGuest.actualAttendance;
+          const hasResponseDateChange = update.responseDate && foundGuest.responseDate && 
+                                       new Date(update.responseDate).getTime() !== new Date(foundGuest.responseDate).getTime();
+          
+          // CRITICAL: Always sync updates from guest_link (phone updates) to ensure cross-device sync
+          // Even if status matches, we should still sync if:
+          // 1. Update is from guest_link (new update from phone)
+          // 2. Other fields changed (guestCount, actualAttendance, responseDate)
+          // 3. Status changed
+          const isFromGuestLink = update.source === 'guest_link';
+          const shouldSyncEvenIfStatusMatches = isFromGuestLink || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
+          
+          // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link
+          // This ensures all updates from guest_link are synced across devices, even if status already matches
+          if (foundGuest.rsvpStatus === newStatus && !shouldSyncEvenIfStatusMatches) {
+            console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link.`);
             // CRITICAL: Remove only THIS status update, not all updates (preserve guestCount updates)
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
@@ -519,6 +577,20 @@ class WebhookService {
               console.warn('⚠️ Could not remove duplicate status update from backend:', error);
             }
             continue; // Skip to next update
+          }
+          
+          // If status matches but update is from guest_link, log it
+          if (foundGuest.rsvpStatus === newStatus && isFromGuestLink) {
+            console.log(`🔄 Status matches but update is from guest_link - syncing to ensure cross-device consistency`);
+          }
+          
+          // If status matches but other fields changed, log it
+          if (foundGuest.rsvpStatus === newStatus && (hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange)) {
+            console.log(`🔄 Status matches but other fields changed - syncing:`, {
+              guestCount: hasGuestCountChange ? `${foundGuest.guestCount} → ${update.guestCount}` : 'no change',
+              actualAttendance: hasActualAttendanceChange ? `${foundGuest.actualAttendance} → ${update.actualAttendance}` : 'no change',
+              responseDate: hasResponseDateChange ? 'changed' : 'no change'
+            });
           }
           
           console.log(`✅ Updating guest ${foundGuest.firstName} ${foundGuest.lastName} status to ${update.status}`);

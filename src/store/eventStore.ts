@@ -1875,6 +1875,8 @@ export const useEventStore = create<EventStore>()(
           }
           
           // Sync to API (for multi-computer access)
+          // CRITICAL: Always sync to backend to ensure updates are available for webhook service
+          // This ensures updates from phone are synced to all devices via pendingUpdates
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             try {
@@ -1885,6 +1887,8 @@ export const useEventStore = create<EventStore>()(
                 updatedGuest: updatedEvent.guests.find(g => g.id === guestId)
               });
               
+              // CRITICAL: Use await to ensure the update is sent before continuing
+              // This ensures the backend receives the update and adds it to pendingUpdates
               const response = await fetch(`${BACKEND_URL}/api/events`, {
                 method: 'POST',
                 headers: {
@@ -1896,19 +1900,53 @@ export const useEventStore = create<EventStore>()(
               if (response.ok) {
                 const result = await response.json();
                 console.log('✅ Guest response update synced to API:', result);
+                console.log('✅ Update should now be in pendingUpdates for webhook service to process');
                 
-                // Force refresh events from API to ensure all clients see the update
-                setTimeout(() => {
-                  get().fetchEvents().catch(err => {
-                    console.warn('⚠️ Failed to refresh events after update:', err);
-                  });
-                }, 500);
+                // CRITICAL: Don't force refresh immediately - let webhook service handle it
+                // This prevents race conditions and ensures consistent updates across devices
+                // The webhook service will poll and process the update from pendingUpdates
               } else {
                 const errorText = await response.text();
                 console.warn('⚠️ API sync failed:', response.status, errorText);
+                // Retry once after a short delay
+                setTimeout(async () => {
+                  try {
+                    const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(updatedEvent)
+                    });
+                    if (retryResponse.ok) {
+                      console.log('✅ Guest response update synced to API (retry successful)');
+                    } else {
+                      console.warn('⚠️ API sync retry failed:', retryResponse.status);
+                    }
+                  } catch (retryError) {
+                    console.warn('⚠️ API sync retry error:', retryError);
+                  }
+                }, 1000);
               }
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
+              // Retry once after a short delay
+              setTimeout(async () => {
+                try {
+                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(updatedEvent)
+                  });
+                  if (retryResponse.ok) {
+                    console.log('✅ Guest response update synced to API (retry successful)');
+                  }
+                } catch (retryError) {
+                  console.warn('⚠️ API sync retry error:', retryError);
+                }
+              }, 1000);
               // Continue - localStorage is already updated by Zustand persist
             }
           }

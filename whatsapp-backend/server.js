@@ -2522,6 +2522,8 @@ app.get('/api/guests/pending-updates', (req, res) => {
   // Format updates for frontend
   const formattedUpdates = recentUpdates.map(u => ({
     phoneNumber: u.phoneNumber || u.originalPhoneNumber,
+    guestId: u.guestId, // CRITICAL: Include guestId to ensure correct guest is updated
+    eventId: u.eventId, // CRITICAL: Include eventId to ensure correct event is used
     status: u.status, // May be undefined for guest count updates
     responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
     guestCount: u.guestCount, // Include guest count if present
@@ -4249,6 +4251,8 @@ app.post('/api/events', async (req, res) => {
             const updateData = {
               phoneNumber: formattedPhone,
               originalPhoneNumber: originalPhone,
+              guestId: newGuest.id, // CRITICAL: Include guestId to ensure correct guest is updated
+              eventId: event.id, // CRITICAL: Include eventId to ensure correct event is used
               status: newGuest.rsvpStatus === 'confirmed' ? 'confirmed' : 
                      newGuest.rsvpStatus === 'declined' ? 'declined' :
                      newGuest.rsvpStatus === 'maybe' ? 'maybe' : undefined,
@@ -4259,14 +4263,18 @@ app.post('/api/events', async (req, res) => {
               source: 'guest_link' // Mark as coming from guest response link
             };
             
-            // CRITICAL: Remove ALL existing updates for this phone number to prevent conflicts
+            // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
             // Keep only the latest update - delete all previous updates for this guest
             const updatesToRemove = [];
             for (let i = pendingUpdates.length - 1; i >= 0; i--) {
               const existingUpdate = pendingUpdates[i];
+              // CRITICAL: Match by guestId first (most precise), then by phone number
+              const isSameGuest = (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id) ||
+                                  (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id && existingUpdate.eventId === event.id);
               const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
                                   (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
-              if (isSamePhone) {
+              // Remove if same guest (by ID) OR same phone number (fallback)
+              if (isSameGuest || isSamePhone) {
                 updatesToRemove.push(i);
               }
             }
@@ -4276,7 +4284,7 @@ app.post('/api/events', async (req, res) => {
               for (const index of updatesToRemove) {
                 pendingUpdates.splice(index, 1);
               }
-              console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for phone ${formattedPhone} to prevent conflicts`);
+              console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for guest ${newGuest.id || formattedPhone} to prevent conflicts`);
             }
             
             // Add the new update (always add, since we removed all previous ones)
