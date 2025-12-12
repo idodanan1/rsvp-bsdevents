@@ -1151,6 +1151,14 @@ async function handleIncomingMessage(message) {
         console.error('❌ Error updating guest status:', error);
       }
       
+      // CRITICAL: Send confirmation message after guest confirms
+      try {
+        await sendConfirmConfirmation(phoneNumber);
+        console.log('✅ Confirm confirmation message sent');
+      } catch (error) {
+        console.error('❌ Error sending confirm confirmation:', error);
+      }
+      
       // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
       if (isWaiting && !hasThanks) {
         console.log(`✅ Guest ${phoneNumber} responded after receiving "yes" message - sending "thanks" instead of "yes"`);
@@ -1362,6 +1370,14 @@ async function handleIncomingMessage(message) {
         console.log('✅ Status updated to confirmed');
       } catch (error) {
         console.error('❌ Error updating guest status:', error);
+      }
+      
+      // CRITICAL: Send confirmation message after guest confirms
+      try {
+        await sendConfirmConfirmation(phoneNumber);
+        console.log('✅ Confirm confirmation message sent');
+      } catch (error) {
+        console.error('❌ Error sending confirm confirmation:', error);
       }
       
       // CRITICAL: If guest already received "yes" and is waiting for response, send "thanks" instead
@@ -1691,6 +1707,14 @@ async function handleIncomingMessage(message) {
     // Frontend processes status and guestCount updates separately
     await updateGuestCountByPhone(message.from, guestCountMatch);
     
+    // CRITICAL: Send update status message after guest provides count
+    try {
+      await sendDeclineConfirmation(message.from); // Reuse the same function - it sends the update status message
+      console.log('✅ Update status message sent after guest count provided');
+    } catch (error) {
+      console.error('❌ Error sending update status message after guest count:', error);
+    }
+    
     // Note: "thanks" was already sent above if isWaiting && !hasThanks
     // If not sent above, it means guest already received "thanks" or didn't receive "yes" yet
     if (!isWaiting || hasThanks) {
@@ -1773,6 +1797,14 @@ async function handleIncomingMessage(message) {
     console.log(`   Phone number: ${message.from}`);
     await updateGuestStatusByPhone(message.from, 'confirmed');
     console.log('✅ Confirmation status update sent to pendingUpdates');
+    
+    // CRITICAL: Send confirmation message after guest confirms via text
+    try {
+      await sendConfirmConfirmation(message.from);
+      console.log('✅ Confirm confirmation message sent');
+    } catch (error) {
+      console.error('❌ Error sending confirm confirmation:', error);
+    }
     
     // CRITICAL: Check if this is a response from someone who received "yes" message
     const normalizedPhone = message.from.replace(/[^0-9]/g, '');
@@ -1885,7 +1917,7 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
 // Send confirmation message when guest declines
 async function sendDeclineConfirmation(phoneNumber) {
   try {
-    const confirmationMessage = 'הבנתי, אתה לא מגיע. תודה על העדכון! 🙏';
+    const confirmationMessage = 'תודה על התגובה\nבמידה ואתה רוצה לעדכן את סטטוס ההגעה שלך, במקרה של שינוי לחץ על כפתור "לעדכון סטטוס הגעה"';
     
     console.log(`📤 Sending decline confirmation to ${phoneNumber}`);
     
@@ -1948,6 +1980,84 @@ async function sendDeclineConfirmation(phoneNumber) {
     // Don't throw - this is a non-critical operation
     // The status update is more important than sending the confirmation message
     console.error('❌ Error sending decline confirmation (non-critical):', error.message);
+    if (error.response) {
+      console.error('❌ Error response status:', error.response.status);
+      console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+    } else if (error.request) {
+      console.error('❌ No response received:', error.request);
+    } else {
+      console.error('❌ Error setting up request:', error.message);
+    }
+    // Don't rethrow - let the status update succeed even if message sending fails
+  }
+}
+
+// Send confirmation message when guest confirms attendance
+async function sendConfirmConfirmation(phoneNumber) {
+  try {
+    const confirmationMessage = 'נהדר\nכמה אנשים אתם מתכוונים להגיע?\n(תשיבו במספר תכללו את עצמכם בספירה)🙂\nתספרו רק את מי שתופס כיסא';
+    
+    console.log(`📤 Sending confirm confirmation to ${phoneNumber}`);
+    
+    // CRITICAL: Reload token from environment directly (in case it wasn't set correctly at startup)
+    let rawToken = process.env.WHATSAPP_ACCESS_TOKEN || process.env.VITE_WHATSAPP_ACCESS_TOKEN;
+    if (!rawToken || rawToken.length < 50) {
+      console.warn('⚠️ Token seems invalid, using default token');
+      rawToken = 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+    }
+    
+    const accessToken = sanitizeAccessToken(rawToken);
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    
+    // Validate token
+    if (!accessToken || accessToken.length < 50) {
+      console.error('❌ WhatsApp Access Token is invalid or too short!');
+      console.error(`❌ Token length: ${accessToken ? accessToken.length : 0} (expected 200+ characters)`);
+      console.error(`❌ Please check WHATSAPP_ACCESS_TOKEN in Render environment variables`);
+      return;
+    }
+    
+    if (!phoneNumberId) {
+      console.error('❌ WhatsApp Phone Number ID is missing!');
+      return;
+    }
+    
+    // Format phone number
+    const formattedPhone = phoneNumber.replace(/^0/, '972').replace(/[^0-9]/g, '');
+    
+    // Send as regular text message (follow-up after first message)
+    const messagePayload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: formattedPhone,
+      type: 'text',
+      text: {
+        body: confirmationMessage
+      }
+    };
+    
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    
+    if (response.status === 200) {
+      console.log('✅ Confirm confirmation sent successfully');
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+    } else {
+      console.warn('⚠️ Failed to send confirm confirmation:', response.status);
+      console.warn('⚠️ Response data:', response.data);
+    }
+  } catch (error) {
+    // Don't throw - this is a non-critical operation
+    // The status update is more important than sending the confirmation message
+    console.error('❌ Error sending confirm confirmation (non-critical):', error.message);
     if (error.response) {
       console.error('❌ Error response status:', error.response.status);
       console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
