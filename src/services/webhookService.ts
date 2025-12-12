@@ -585,42 +585,10 @@ class WebhookService {
             const isFromGuestLink = update.source === 'guest_link';
             const isFromWhatsApp = update.source === 'whatsapp'; // Only send if explicitly from WhatsApp
             
-            // CRITICAL: Only send "yes" if explicitly from WhatsApp AND not from guest link
-            if (newStatus === 'confirmed' && update.phoneNumber && isStatusChange && isFromWhatsApp && !isFromGuestLink) {
-              console.log(`📤 Guest confirmed via WhatsApp button - requesting backend to send "yes" template message to ${update.phoneNumber}`);
-              console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
-              console.log(`   Source: ${update.source} (whatsapp)`);
-              try {
-                const sendMessageResponse = await fetch(`${BACKEND_URL}/api/guests/send-yes-message`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber
-                  })
-                });
-                if (sendMessageResponse.ok) {
-                  const sendMessageData = await sendMessageResponse.json();
-                  console.log(`✅ Backend sent "yes" template message successfully:`, sendMessageData);
-                } else {
-                  const errorText = await sendMessageResponse.text();
-                  console.warn(`⚠️ Backend failed to send "yes" template message:`, sendMessageResponse.status, errorText);
-                }
-              } catch (error) {
-                console.warn(`⚠️ Could not request backend to send "yes" template message:`, error);
-              }
-            } else {
-              // Do NOT send "yes" message for guest_link updates or if source is not explicitly 'whatsapp'
-              if (isFromGuestLink) {
-                console.log(`ℹ️ Guest confirmed via guest link (source: ${update.source}) - skipping "yes" template message`);
-              } else if (!isFromWhatsApp) {
-                console.log(`ℹ️ Guest confirmed but source is not 'whatsapp' (source: ${update.source || 'undefined'}) - skipping "yes" template message`);
-              } else {
-                console.log(`ℹ️ Skipping "yes" template message - status not changed or other condition`);
-              }
-              console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
-            }
+            // CRITICAL: "yes" template message removed - no longer sending automatically
+            // All automatic "yes" template messages have been disabled
+            console.log(`ℹ️ Guest confirmed (source: ${update.source || 'undefined'}) - "yes" template message will NOT be sent`);
+            console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
             
             // Mark this update as processed
             this.processedUpdates.add(updateKey);

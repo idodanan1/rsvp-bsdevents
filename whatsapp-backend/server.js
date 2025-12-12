@@ -1172,18 +1172,8 @@ async function handleIncomingMessage(message) {
       } else if (hasThanks) {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
       } else {
-        // Guest hasn't received "yes" yet - send it now
-        console.log('📤 About to send "yes" template message...');
-        try {
-          await sendYesTemplateMessage(phoneNumber);
-          console.log('✅ "yes" template message sent successfully (or attempted)');
-        } catch (error) {
-          console.error('❌ Error sending "yes" template message:', error);
-          if (error.response) {
-            console.error('❌ Error response status:', error.response.status);
-            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-          }
-        }
+        // CRITICAL: "yes" template message removed - no longer sending automatically
+        console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
       }
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
@@ -1287,18 +1277,8 @@ async function handleIncomingMessage(message) {
         } else if (hasThanks) {
           console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
         } else {
-          // Guest hasn't received "yes" yet - send it now
-          console.log('📤 About to send "yes" template message...');
-          try {
-            await sendYesTemplateMessage(phoneNumber);
-            console.log('✅ "yes" template message sent successfully (or attempted)');
-          } catch (error) {
-            console.error('❌ Error sending "yes" template message:', error);
-            if (error.response) {
-              console.error('❌ Error response status:', error.response.status);
-              console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-            }
-          }
+          // CRITICAL: "yes" template message removed - no longer sending automatically
+          console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
@@ -1393,18 +1373,8 @@ async function handleIncomingMessage(message) {
       } else if (hasThanks) {
         console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
       } else {
-        // Guest hasn't received "yes" yet - send it now
-      console.log('📤 About to send "yes" template message...');
-      try {
-        await sendYesTemplateMessage(phoneNumber);
-        console.log('✅ "yes" template message sent successfully (or attempted)');
-      } catch (error) {
-        console.error('❌ Error sending "yes" template message:', error);
-        if (error.response) {
-          console.error('❌ Error response status:', error.response.status);
-          console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-          }
-        }
+        // CRITICAL: "yes" template message removed - no longer sending automatically
+        console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
       }
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
@@ -1616,18 +1586,8 @@ async function handleIncomingMessage(message) {
         } else if (hasThanks) {
           console.log(`ℹ️ Guest ${phoneNumber} already received "thanks" - no auto-response will be sent`);
         } else {
-          // Guest hasn't received "yes" yet - send it now
-        console.log('📤 About to send "yes" template message...');
-        try {
-          await sendYesTemplateMessage(phoneNumber);
-          console.log('✅ "yes" template message sent successfully (or attempted)');
-        } catch (error) {
-          console.error('❌ Error sending "yes" template message:', error);
-          if (error.response) {
-            console.error('❌ Error response status:', error.response.status);
-            console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-          }
-        }
+          // CRITICAL: "yes" template message removed - no longer sending automatically
+          console.log(`ℹ️ Guest ${phoneNumber} confirmed - "yes" template message will NOT be sent`);
         }
       } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
@@ -1824,17 +1784,8 @@ async function handleIncomingMessage(message) {
     } else if (hasThanks) {
       console.log(`ℹ️ Guest ${message.from} already received "thanks" - no auto-response will be sent`);
     } else {
-      // Guest hasn't received "yes" yet - send it now
-    console.log('📤 About to send "yes" template message...');
-    try {
-      await sendYesTemplateMessage(message.from);
-      console.log('✅ "yes" template message sent (or attempted)');
-    } catch (error) {
-      console.error('❌ Error sending "yes" template message:', error);
-      if (error.response) {
-        console.error('❌ Error response:', error.response.data);
-        }
-      }
+      // CRITICAL: "yes" template message removed - no longer sending automatically
+      console.log(`ℹ️ Guest ${message.from} confirmed - "yes" template message will NOT be sent`);
     }
   } else {
     console.log('ℹ️ Message did not match confirmation/decline patterns:', originalMessageText);
