@@ -270,9 +270,107 @@ class WebhookService {
           }
         }
         
-        // Skip updates without status and without guestCount
-        if (!update.status) {
-          console.log(`⏭️ Skipping update without status or guestCount:`, update);
+        // Handle actualAttendance updates (updates with actualAttendance, with or without status)
+        if (update.actualAttendance !== undefined && !update.status && update.guestCount === undefined) {
+          // Find guest by phone number
+          let foundGuest: any = null;
+          let foundEventId: string | null = null;
+
+          for (const event of events) {
+            const guest = event.guests?.find((g: any) => {
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+              const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+              const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+              return guestPhone === updatePhone || guestPhoneWith0 === updatePhoneWith0 || guestPhone === updatePhoneWith0 || guestPhoneWith0 === updatePhone;
+            });
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              break;
+            }
+          }
+
+          if (foundGuest && foundEventId) {
+            // Check if actualAttendance is different from current value
+            if (foundGuest.actualAttendance === update.actualAttendance) {
+              console.log(`⏭️ Skipping actualAttendance update - already matches current value (${update.actualAttendance})`);
+              // Remove from backend
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    actualAttendance: update.actualAttendance
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed duplicate actualAttendance update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove duplicate actualAttendance update from backend:', error);
+              }
+              continue; // Move to next update
+            } else {
+              // Update actualAttendance
+              console.log(`✅ Updating actualAttendance for ${foundGuest.firstName} ${foundGuest.lastName} from ${foundGuest.actualAttendance} to ${update.actualAttendance}`);
+              const updatedGuest = {
+                ...foundGuest,
+                actualAttendance: update.actualAttendance
+              };
+
+              await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+              
+              // Remove from backend
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    actualAttendance: update.actualAttendance
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed processed actualAttendance update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove actualAttendance update from backend:', error);
+              }
+              continue; // Move to next update
+            }
+          } else {
+            console.log(`⏭️ Guest not found for actualAttendance update, removing from backend`);
+            // Remove from backend if guest not found
+            try {
+              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  actualAttendance: update.actualAttendance
+                })
+              });
+              if (removeResponse.ok) {
+                console.log(`✅ Removed orphaned actualAttendance update from backend`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove orphaned actualAttendance update from backend:', error);
+            }
+            continue; // Move to next update
+          }
+        }
+        
+        // Skip updates without status, guestCount, or actualAttendance
+        if (!update.status && update.guestCount === undefined && update.actualAttendance === undefined) {
+          console.log(`⏭️ Skipping update without status, guestCount, or actualAttendance:`, update);
           continue;
         }
         
@@ -423,7 +521,9 @@ class WebhookService {
           const updatedGuest = {
             ...foundGuest,
             rsvpStatus: newStatus,
-            responseDate: new Date(update.responseDate || Date.now())
+            responseDate: new Date(update.responseDate || Date.now()),
+            guestCount: update.guestCount !== undefined ? update.guestCount : foundGuest.guestCount,
+            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : foundGuest.actualAttendance
           };
 
           console.log(`📤 Calling updateGuestResponse with:`, {

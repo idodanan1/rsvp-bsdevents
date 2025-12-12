@@ -2742,7 +2742,8 @@ app.get('/api/guests/pending-updates', (req, res) => {
     phoneNumber: u.phoneNumber || u.originalPhoneNumber,
     status: u.status, // May be undefined for guest count updates
     responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
-    guestCount: u.guestCount // Include guest count if present
+    guestCount: u.guestCount, // Include guest count if present
+    actualAttendance: u.actualAttendance // Include actual attendance if present
   }));
   
   // Clear old updates (older than 1 hour) but keep recent ones
@@ -4391,11 +4392,13 @@ app.post('/api/events', async (req, res) => {
           // Check both: if guest exists and status changed, OR if guest is new with status/guestCount
           const statusChanged = existingGuest ? (newGuest.rsvpStatus && newGuest.rsvpStatus !== existingGuest.rsvpStatus) : false;
           const guestCountChanged = existingGuest ? (newGuest.guestCount !== undefined && newGuest.guestCount !== existingGuest.guestCount) : false;
+          const actualAttendanceChanged = existingGuest ? (newGuest.actualAttendance && newGuest.actualAttendance !== existingGuest.actualAttendance) : false;
           
           // For new guests or guests not found in existing event:
           // Check if they have a valid status or guestCount (indicates a response from guest)
           const hasValidStatus = !existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe');
           const hasValidGuestCount = !existingGuest && newGuest.guestCount !== undefined && newGuest.guestCount > 0;
+          const hasValidActualAttendance = !existingGuest && newGuest.actualAttendance && newGuest.actualAttendance !== 'not_marked';
           
           // CRITICAL: Check if responseDate is new or different (indicates guest updated via link)
           // Compare responseDate as strings or timestamps to detect changes
@@ -4416,8 +4419,10 @@ app.post('/api/events', async (req, res) => {
           console.log(`🔍 Existing guest: ${existingGuest ? 'found' : 'not found'}`);
           console.log(`🔍 Status changed: ${statusChanged} (${existingGuest?.rsvpStatus} → ${newGuest.rsvpStatus})`);
           console.log(`🔍 Guest count changed: ${guestCountChanged} (${existingGuest?.guestCount} → ${newGuest.guestCount})`);
+          console.log(`🔍 Actual attendance changed: ${actualAttendanceChanged} (${existingGuest?.actualAttendance} → ${newGuest.actualAttendance})`);
           console.log(`🔍 Has valid status: ${hasValidStatus}`);
           console.log(`🔍 Has valid guest count: ${hasValidGuestCount}`);
+          console.log(`🔍 Has valid actual attendance: ${hasValidActualAttendance}`);
           console.log(`🔍 Has response date: ${hasResponseDate} (old: ${oldResponseDate}, new: ${newResponseDate})`);
           console.log(`🔍 Has status with new response: ${hasStatusWithNewResponse}`);
           console.log(`🔍 ========================================================`);
