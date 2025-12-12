@@ -81,14 +81,44 @@ const GuestResponse = () => {
   // Parse guestId from hash or search params
   const parseGuestId = () => {
     const fromSearch = searchParams.get('guest');
-    if (fromSearch) return fromSearch;
+    if (fromSearch) {
+      // CRITICAL: Clean the guestId - remove any URL that might be appended
+      // Sometimes the guestId gets concatenated with the full URL
+      let cleaned = fromSearch.trim();
+      // Remove any full URL that might be appended (starts with http:// or https://)
+      cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
+      // Remove any trailing slashes or hash fragments
+      cleaned = cleaned.replace(/[#\/]+$/, '').trim();
+      // Only return if it looks like a valid ID (alphanumeric, at least 10 chars)
+      if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
+        return cleaned;
+      }
+      // If cleaning didn't work, try to extract just the ID part
+      const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
+      if (idMatch && idMatch[1]) {
+        return idMatch[1];
+      }
+    }
     
     // Try to parse from hash
     const hash = window.location.hash;
     if (hash) {
       const match = hash.match(/[?&]guest=([^&]+)/);
       if (match && match[1]) {
-        return decodeURIComponent(match[1]);
+        let cleaned = decodeURIComponent(match[1]).trim();
+        // Remove any full URL that might be appended
+        cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
+        // Remove any trailing slashes or hash fragments
+        cleaned = cleaned.replace(/[#\/]+$/, '').trim();
+        // Only return if it looks like a valid ID
+        if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
+          return cleaned;
+        }
+        // Try to extract just the ID part
+        const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
+        if (idMatch && idMatch[1]) {
+          return idMatch[1];
+        }
       }
     }
     return null;
@@ -996,11 +1026,30 @@ const GuestResponse = () => {
                     console.log('🔴 "לא מגיע" button clicked - submitting immediately');
                     const currentEvent = event || directEvent;
                     const currentGuest = guest || directGuest || finalGuest;
-                    if (currentEvent && currentGuest) {
+                    
+                    // CRITICAL: Use cleaned guestId if currentGuest not found
+                    const guestIdToUse = currentGuest?.id || guestId;
+                    console.log('📋 Using guestId:', guestIdToUse, 'from currentGuest:', currentGuest?.id, 'or guestId:', guestId);
+                    
+                    if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
+                        // If currentGuest not found, create guest object from currentEvent
+                        let guestToUpdate = currentGuest;
+                        if (!guestToUpdate && currentEvent.guests) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        }
+                        
+                        if (!guestToUpdate) {
+                          console.error('❌ Guest not found in event');
+                          setSubmitStatus('error');
+                          setErrorMessage('אורח לא נמצא');
+                          setIsSubmitting(false);
+                          return;
+                        }
+                        
                         const updatedGuest = {
-                          ...currentGuest,
+                          ...guestToUpdate,
                           guestCount: 1,
                           notes: '',
                           rsvpStatus: 'declined' as const,
@@ -1008,8 +1057,8 @@ const GuestResponse = () => {
                           actualAttendance: 'not_marked' as const
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
-                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
-                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
+                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', guestIdToUse);
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
                         
                         // CRITICAL: Force refresh events from store to ensure UI updates immediately
                         const storeModule = await import('../store/eventStore');

@@ -1637,7 +1637,32 @@ export const useEventStore = create<EventStore>()(
             const event = state.events.find(e => e.id === eventId);
             const guest = event?.guests?.find(g => g.id === guestId);
             
-            console.log(`📋 Before update - Guest status:`, guest?.rsvpStatus);
+            console.log(`📋 Before update - Event found: ${!!event}, Guest found: ${!!guest}`);
+            console.log(`📋 Events in store: ${state.events.length}`);
+            console.log(`📋 Guest status:`, guest?.rsvpStatus);
+            
+            // CRITICAL: If event not found in store, we still need to send update to backend
+            // This happens when user is not logged in but updates via guest link
+            if (!event) {
+              console.warn(`⚠️ Event ${eventId} not found in store - will send update directly to backend`);
+              // Still send to backend even if not in store
+              const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+              fetch(`${BACKEND_URL}/api/events`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  id: eventId,
+                  guests: [updatedGuest],
+                  userId: 'guest_link_update' // Temporary userId for guest link updates
+                })
+              }).catch(err => {
+                console.warn('⚠️ Failed to send guest update to backend (event not in store):', err);
+              });
+              // Return state unchanged since we can't update what's not there
+              return state;
+            }
             
             // CRITICAL: Create new array reference to force React re-render
             // Always create a completely new events array to ensure React detects the change
