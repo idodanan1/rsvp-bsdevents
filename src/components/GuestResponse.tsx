@@ -198,6 +198,7 @@ const GuestResponse = () => {
     const maxTimeout = setTimeout(() => {
       console.warn(`⏱️ Maximum timeout reached (10 seconds) - stopping loading`);
       setIsLoadingEvent(false);
+      setHasGivenUpLoading(true); // Mark that we've given up loading
     }, 10000); // 10 seconds maximum wait time
     
     // If not found in localStorage, try API (but don't block page rendering)
@@ -409,6 +410,8 @@ const GuestResponse = () => {
   
   // State to track loading - start with false to show page immediately
   const [isLoadingEvent, setIsLoadingEvent] = useState(false);
+  // Track if we've given up loading (for showing error after timeout)
+  const [hasGivenUpLoading, setHasGivenUpLoading] = useState(false);
 
   // Try to find event from store first, then from direct localStorage
   const event = events.find(e => e.id === eventId) || directEvent;
@@ -657,9 +660,9 @@ const GuestResponse = () => {
   }, [eventId, guestId, event, directEvent, currentEvent, guest, directGuest, currentGuest, events.length, isLoadingEvent]);
   
   // CRITICAL: Show page immediately even if event is not loaded yet
-  // Only show error if we've tried loading and it failed (not loading anymore)
-  if (!currentEvent && !isLoadingEvent && eventId) {
-    // Show error only if we're not loading and event is not found
+  // Only show error if we've given up loading (after timeout)
+  if (!currentEvent && hasGivenUpLoading && eventId) {
+    // Show error only if we've given up loading and event is not found
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -688,6 +691,7 @@ const GuestResponse = () => {
             <button
               onClick={() => {
                 setIsLoadingEvent(true);
+                setHasGivenUpLoading(false); // Reset the "given up" flag when retrying
                 // Retry loading
                 const loadFromAPI = async () => {
                   try {
@@ -740,8 +744,9 @@ const GuestResponse = () => {
     );
   }
   
-  // If event is not loaded yet, show page with loading indicator
-  if (!currentEvent && isLoadingEvent) {
+  // If event is not loaded yet, show page with loading indicator (don't show error immediately)
+  // This ensures the page is always shown while loading, not error
+  if (!currentEvent && eventId && !hasGivenUpLoading) {
     // Show page structure with loading message at top
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50">
