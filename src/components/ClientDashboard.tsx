@@ -32,34 +32,35 @@ const ClientDashboard: React.FC = () => {
     
     console.log(`🔍 ClientDashboard loading event silently: ${eventId}`);
     
-    // Try to find event in current events first
+    // Try to find event in current events first (for fast initial display)
     const event = events.find(e => e.id === eventId);
     if (event) {
-      console.log(`✅ Found event in store: ${event.coupleName}`);
+      console.log(`✅ Found event in store: ${event.coupleName} - showing immediately, will update from backend`);
       setCurrentEvent(event);
-      return;
+      // Continue to load from API to get latest data
     }
     
-    // Try to load from localStorage (for fast display)
-    try {
-      const stored = localStorage.getItem('rsvp-events-storage');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.state && parsed.state.events) {
-          const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-          if (foundEvent) {
-            console.log(`✅ Found event in localStorage: ${foundEvent.coupleName}`);
-            setCurrentEvent(foundEvent);
-            // Still try API in background to get latest data
+    // Try to load from localStorage (for fast display if not in store)
+    if (!event) {
+      try {
+        const stored = localStorage.getItem('rsvp-events-storage');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.state && parsed.state.events) {
+            const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+            if (foundEvent) {
+              console.log(`✅ Found event in localStorage: ${foundEvent.coupleName} - showing immediately, will update from backend`);
+              setCurrentEvent(foundEvent);
+            }
           }
         }
+      } catch (error) {
+        console.error('Error parsing localStorage:', error);
       }
-    } catch (error) {
-      console.error('Error parsing localStorage:', error);
     }
     
-    // CRITICAL: Load from public API endpoint (works from any IP/device)
-    // This is the same endpoint used by GuestResponse
+    // CRITICAL: Always load from public API endpoint to get latest data (backend is source of truth)
+    // This ensures we always have the most up-to-date data, even if event was found in store/localStorage
     const loadFromAPI = async () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
@@ -106,16 +107,20 @@ const ClientDashboard: React.FC = () => {
       }
     }
     
+    // CRITICAL: Always load from API to get latest data, even if event was found in store/localStorage
+    // Backend is the source of truth - always fetch latest data
     if (userId) {
-      // User is logged in - try fetchEvents as fallback
+      // User is logged in - try fetchEvents first, then also load from public API
       fetchEvents().then(() => {
         const foundEvent = events.find(e => e.id === eventId);
         if (foundEvent) {
           console.log(`✅ Found event silently via fetchEvents: ${foundEvent.coupleName}`);
           setCurrentEvent(foundEvent);
         }
+        // Still load from public API to ensure we have the absolute latest data
+        loadFromAPI();
       }).catch(() => {
-        // If fetchEvents fails, try public API
+        // If fetchEvents fails, use public API
         loadFromAPI();
       });
     } else {
@@ -154,16 +159,41 @@ const ClientDashboard: React.FC = () => {
             if (foundEvent) {
               // Always update to ensure latest data is shown (backend is source of truth)
               setCurrentEvent((prev: any) => {
-                // Compare key fields instead of full JSON for better performance
-                const hasChanged = !prev || 
-                  prev.guests?.length !== foundEvent.guests?.length ||
-                  prev.guests?.some((g: any, i: number) => {
-                    const newGuest = foundEvent.guests?.[i];
-                    return !newGuest || 
-                      g.rsvpStatus !== newGuest.rsvpStatus ||
-                      g.guestCount !== newGuest.guestCount ||
-                      g.actualAttendance !== newGuest.actualAttendance;
-                  });
+                if (!prev) {
+                  console.log('🔄 ClientDashboard: Setting initial event from backend');
+                  return foundEvent;
+                }
+                
+                // Compare guests by ID, not by index (guests might be in different order)
+                const prevGuestsMap = new Map((prev.guests || []).map((g: any) => [g.id, g]));
+                const newGuestsMap = new Map((foundEvent.guests || []).map((g: any) => [g.id, g]));
+                
+                // Check if number of guests changed
+                if (prevGuestsMap.size !== newGuestsMap.size) {
+                  console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
+                  return foundEvent;
+                }
+                
+                // Check if any guest data changed
+                let hasChanged = false;
+                for (const [guestId, newGuest] of newGuestsMap) {
+                  const prevGuest = prevGuestsMap.get(guestId);
+                  if (!prevGuest) {
+                    hasChanged = true;
+                    break;
+                  }
+                  
+                  // Check critical fields
+                  if (prevGuest.rsvpStatus !== newGuest.rsvpStatus ||
+                      prevGuest.guestCount !== newGuest.guestCount ||
+                      prevGuest.actualAttendance !== newGuest.actualAttendance ||
+                      prevGuest.firstName !== newGuest.firstName ||
+                      prevGuest.lastName !== newGuest.lastName ||
+                      prevGuest.phoneNumber !== newGuest.phoneNumber) {
+                    hasChanged = true;
+                    break;
+                  }
+                }
                 
                 if (hasChanged) {
                   console.log('🔄 ClientDashboard: Event data updated silently from backend');
@@ -207,16 +237,41 @@ const ClientDashboard: React.FC = () => {
       const foundEvent = events.find(e => e.id === eventId);
       if (foundEvent) {
         setCurrentEvent((prev: any) => {
-          // Compare key fields instead of full JSON for better performance
-          const hasChanged = !prev || 
-            prev.guests?.length !== foundEvent.guests?.length ||
-            prev.guests?.some((g: any, i: number) => {
-              const newGuest = foundEvent.guests?.[i];
-              return !newGuest || 
-                g.rsvpStatus !== newGuest.rsvpStatus ||
-                g.guestCount !== newGuest.guestCount ||
-                g.actualAttendance !== newGuest.actualAttendance;
-            });
+          if (!prev) {
+            console.log('🔄 ClientDashboard: Setting initial event from store');
+            return foundEvent;
+          }
+          
+          // Compare guests by ID, not by index (guests might be in different order)
+          const prevGuestsMap = new Map((prev.guests || []).map((g: any) => [g.id, g]));
+          const newGuestsMap = new Map((foundEvent.guests || []).map((g: any) => [g.id, g]));
+          
+          // Check if number of guests changed
+          if (prevGuestsMap.size !== newGuestsMap.size) {
+            console.log('🔄 ClientDashboard: Guest count changed, updating from store');
+            return foundEvent;
+          }
+          
+          // Check if any guest data changed
+          let hasChanged = false;
+          for (const [guestId, newGuest] of newGuestsMap) {
+            const prevGuest = prevGuestsMap.get(guestId);
+            if (!prevGuest) {
+              hasChanged = true;
+              break;
+            }
+            
+            // Check critical fields
+            if (prevGuest.rsvpStatus !== newGuest.rsvpStatus ||
+                prevGuest.guestCount !== newGuest.guestCount ||
+                prevGuest.actualAttendance !== newGuest.actualAttendance ||
+                prevGuest.firstName !== newGuest.firstName ||
+                prevGuest.lastName !== newGuest.lastName ||
+                prevGuest.phoneNumber !== newGuest.phoneNumber) {
+              hasChanged = true;
+              break;
+            }
+          }
           
           if (hasChanged) {
             console.log('🔄 ClientDashboard: Event updated silently from store (webhookService)');
