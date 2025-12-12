@@ -4528,38 +4528,15 @@ app.post('/api/events', async (req, res) => {
                 age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
               })));
               
-              // CRITICAL: Send "yes" template message if guest confirmed via guest link
-              // Check if guest already received "yes" to prevent duplicates
-              const normalizedPhone = formattedPhone.replace(/[^0-9]/g, '');
-              const isWaiting = isWaitingForResponse(normalizedPhone);
-              const hasThanks = hasReceivedThanks(normalizedPhone);
-              
-              console.log(`🔍 Checking if should send "yes" template:`, {
-                status: updateData.status,
-                formattedPhone: formattedPhone ? 'present' : 'missing',
-                statusChanged: statusChanged,
-                isWaiting: isWaiting,
-                hasThanks: hasThanks
-              });
-              if (updateData.status === 'confirmed' && formattedPhone && statusChanged) {
-                // CRITICAL: Don't send "yes" here - let webhookService.ts handle it
-                // This prevents duplicate "yes" messages when guest confirms via guest link
-                // The webhookService.ts will request "yes" only if status actually changed
-                console.log(`ℹ️ Guest confirmed via guest link - "yes" template will be sent by webhookService if needed`);
-                console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
-                console.log(`   Guest ID: ${newGuest.id}`);
-                console.log(`   Status: ${updateData.status}`);
-                console.log(`   Phone: ${formattedPhone}`);
-              } else {
-                console.log(`⏭️ Skipping "yes" template message:`, {
-                  reason: !updateData.status || updateData.status !== 'confirmed' ? 'status not confirmed' : 
-                          !formattedPhone ? 'phone missing' : 
-                          !statusChanged ? 'status not changed' : 'unknown',
-                  status: updateData.status,
-                  hasPhone: !!formattedPhone,
-                  statusChanged: statusChanged
-                });
-              }
+              // CRITICAL: Do NOT send "yes" template message when guest confirms via guest link
+              // The webhookService.ts will handle sending "yes" ONLY for WhatsApp button clicks (source: 'whatsapp')
+              // Guest link updates (source: 'guest_link') should NOT trigger "yes" messages
+              console.log(`ℹ️ Guest update from guest link (source: ${updateData.source}) - skipping "yes" template message`);
+              console.log(`   Guest name: ${newGuest.firstName} ${newGuest.lastName}`);
+              console.log(`   Guest ID: ${newGuest.id}`);
+              console.log(`   Status: ${updateData.status}`);
+              console.log(`   Phone: ${formattedPhone}`);
+              console.log(`   Source: ${updateData.source} - "yes" message will NOT be sent for guest_link updates`);
           } else {
             // Log why update was not added
             console.log(`⏭️ Skipping guest link update for ${newGuest.firstName} ${newGuest.lastName}:`, {
