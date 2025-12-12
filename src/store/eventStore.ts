@@ -2076,6 +2076,53 @@ export const useEventStore = create<EventStore>()(
           // Check if this is the "event day reminder" campaign (contains QR code)
           const isEventDayReminder = campaign.name === 'תזכורת יום האירוע';
           
+          // CRITICAL: Filter guests based on campaign type
+          // - "הזמנה ראשונית", "תזכורת שנייה", "תזכורת שבועית" - send to guests who haven't confirmed or declined yet (including "maybe" status)
+          // - "תזכורת אחרונה", "תזכורת יום האירוע", "הודעת תודה למגיעים" - only send to guests who confirmed (confirmed)
+          // - Other campaigns - send to all guests
+          const isInitialInvitationOrReminder = campaign.name === 'הזמנה ראשונית' || 
+                                               campaign.name === 'תזכורת שנייה' || 
+                                               campaign.name === 'תזכורת שבועית';
+          const isReminderCampaign = campaign.name === 'תזכורת אחרונה' || 
+                                     campaign.name === 'תזכורת יום האירוע' || 
+                                     campaign.name === 'הודעת תודה למגיעים';
+          
+          let filteredGuests: typeof guests;
+          if (isInitialInvitationOrReminder) {
+            // Send to guests who haven't confirmed or declined yet (including "maybe" status)
+            // This includes: pending, maybe, not_responded, or any status that is not "confirmed" or "declined"
+            filteredGuests = guests.filter(guest => {
+              const shouldSend = guest.rsvpStatus !== 'confirmed' && guest.rsvpStatus !== 'declined';
+              if (!shouldSend) {
+                console.log(`⏭️ Skipping guest ${guest.firstName} ${guest.lastName} - already confirmed or declined (status: ${guest.rsvpStatus})`);
+              } else {
+                console.log(`✅ Including guest ${guest.firstName} ${guest.lastName} - status: ${guest.rsvpStatus || 'not_responded'}`);
+              }
+              return shouldSend;
+            });
+          } else if (isReminderCampaign) {
+            // Only send to guests who confirmed attendance
+            filteredGuests = guests.filter(guest => {
+              const shouldSend = guest.rsvpStatus === 'confirmed';
+              if (!shouldSend) {
+                console.log(`⏭️ Skipping guest ${guest.firstName} ${guest.lastName} - not confirmed (status: ${guest.rsvpStatus})`);
+              }
+              return shouldSend;
+            });
+          } else {
+            // For other campaigns, send to all guests
+            filteredGuests = guests;
+          }
+          
+          console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
+          if (isInitialInvitationOrReminder && filteredGuests.length < guests.length) {
+            const skippedCount = guests.length - filteredGuests.length;
+            console.log(`⏭️ Skipped ${skippedCount} guest(s) who already confirmed or declined`);
+          } else if (isReminderCampaign && filteredGuests.length < guests.length) {
+            const skippedCount = guests.length - filteredGuests.length;
+            console.log(`⏭️ Skipped ${skippedCount} guest(s) who didn't confirm attendance`);
+          }
+          
           // Determine template name based on campaign FIRST (before building templateParams)
           // If campaign has explicit templateName, use it
           // Otherwise, use default templates based on campaign name
@@ -2098,8 +2145,8 @@ export const useEventStore = create<EventStore>()(
           // Import helper function once before map
           const { generateGuestResponseLink } = await import('../utils/helpers');
           
-          // Create personalized messages for each guest
-          const personalizedMessages = await Promise.all(guests.map(async (guest) => {
+          // Create personalized messages for each guest (using filtered guests)
+          const personalizedMessages = await Promise.all(filteredGuests.map(async (guest) => {
             let personalizedMessage = campaign.message;
             let personalizedSmsMessage = campaign.smsMessage || campaign.message;
             

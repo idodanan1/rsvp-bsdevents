@@ -973,10 +973,16 @@ const GuestResponse = () => {
                     if (currentEvent && currentGuest) {
                       setIsSubmitting(true);
                       try {
+                        // CRITICAL: Update formData.response to 'maybe' so the success message displays correctly
+                        setFormData(prev => ({
+                          ...prev,
+                          response: 'maybe' as const
+                        }));
+                        
                         const updatedGuest = {
                           ...currentGuest,
                           guestCount: 1,
-                          notes: '',
+                          notes: formData.notes || '', // Preserve notes if they exist
                           rsvpStatus: 'maybe' as const,
                           responseDate: new Date(),
                           actualAttendance: 'not_marked' as const
@@ -1051,7 +1057,7 @@ const GuestResponse = () => {
                         const updatedGuest = {
                           ...guestToUpdate,
                           guestCount: 1,
-                          notes: '',
+                          notes: formData.notes || '', // Preserve notes if they exist
                           rsvpStatus: 'declined' as const,
                           responseDate: new Date(),
                           actualAttendance: 'not_marked' as const
