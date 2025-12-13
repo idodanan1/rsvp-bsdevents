@@ -84,20 +84,38 @@ const GuestResponse = () => {
     if (fromSearch) {
       // CRITICAL: Clean the guestId - remove any URL that might be appended
       // Sometimes the guestId gets concatenated with the full URL
+      // Example: "86sgy2y6smipwv8lfhttps://rsvp-frontend-wy47.onrender.com/#/guest-response/..."
       let cleaned = fromSearch.trim();
+      
+      // CRITICAL: First, try to extract just the ID part before any URL appears
+      // Look for a pattern where the ID is followed by http:// or https://
+      const idBeforeUrlMatch = cleaned.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+      if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
+        console.log(`✅ Extracted guestId before URL: ${idBeforeUrlMatch[1]}`);
+        return idBeforeUrlMatch[1];
+      }
+      
       // Remove any full URL that might be appended (starts with http:// or https://)
       cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
-      // Remove any trailing slashes or hash fragments
-      cleaned = cleaned.replace(/[#\/]+$/, '').trim();
+      // Remove any hash fragments that might be appended (#/guest-response/...)
+      cleaned = cleaned.replace(/#\/?[^\s]*/g, '').trim();
+      // Remove any trailing slashes
+      cleaned = cleaned.replace(/[\/]+$/g, '').trim();
+      
       // Only return if it looks like a valid ID (alphanumeric, at least 10 chars)
       if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
+        console.log(`✅ Cleaned guestId from search: ${cleaned}`);
         return cleaned;
       }
-      // If cleaning didn't work, try to extract just the ID part
+      
+      // If cleaning didn't work, try to extract just the ID part (first alphanumeric sequence of 10+ chars)
       const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
       if (idMatch && idMatch[1]) {
+        console.log(`✅ Extracted guestId from search: ${idMatch[1]}`);
         return idMatch[1];
       }
+      
+      console.warn(`⚠️ Could not parse valid guestId from search param: ${fromSearch}`);
     }
     
     // Try to parse from hash
@@ -106,21 +124,39 @@ const GuestResponse = () => {
       const match = hash.match(/[?&]guest=([^&]+)/);
       if (match && match[1]) {
         let cleaned = decodeURIComponent(match[1]).trim();
+        
+        // CRITICAL: First, try to extract just the ID part before any URL appears
+        const idBeforeUrlMatch = cleaned.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+        if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
+          console.log(`✅ Extracted guestId from hash before URL: ${idBeforeUrlMatch[1]}`);
+          return idBeforeUrlMatch[1];
+        }
+        
         // Remove any full URL that might be appended
         cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
-        // Remove any trailing slashes or hash fragments
-        cleaned = cleaned.replace(/[#\/]+$/, '').trim();
+        // Remove any hash fragments
+        cleaned = cleaned.replace(/#\/?[^\s]*/g, '').trim();
+        // Remove any trailing slashes
+        cleaned = cleaned.replace(/[\/]+$/g, '').trim();
+        
         // Only return if it looks like a valid ID
         if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
+          console.log(`✅ Cleaned guestId from hash: ${cleaned}`);
           return cleaned;
         }
+        
         // Try to extract just the ID part
         const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
         if (idMatch && idMatch[1]) {
+          console.log(`✅ Extracted guestId from hash: ${idMatch[1]}`);
           return idMatch[1];
         }
+        
+        console.warn(`⚠️ Could not parse valid guestId from hash: ${match[1]}`);
       }
     }
+    
+    console.warn(`⚠️ No guestId found in URL`);
     return null;
   };
   

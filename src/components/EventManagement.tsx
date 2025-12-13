@@ -39,13 +39,25 @@ const EventManagement: React.FC = () => {
   const currentEvent = useEventStore(state => state.currentEvent);
   // CRITICAL: Also subscribe to a computed value that changes when events change
   // This ensures the component re-renders even if events array reference doesn't change
+  // CRITICAL: Include responseDate timestamp to catch all updates
   const eventsHash = useEventStore(state => {
     // Create a hash from events that changes when any event or guest changes
     return state.events.map(e => {
-      const guestsHash = e.guests?.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.responseDate || ''}`
-      ).join('|') || '';
-      return `${e.id}:${e.updatedAt || ''}:${guestsHash}`;
+      const guestsHash = e.guests?.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          // CRITICAL: Include ALL fields that might change
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
+        }
+      }).join('|') || '';
+      const eventUpdatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
+      return `${e.id}:${eventUpdatedAt}:${guestsHash}`;
     }).join('||');
   });
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
@@ -239,6 +251,7 @@ const EventManagement: React.FC = () => {
     
     // Create a comprehensive key from events that includes guest data to detect ALL changes
     // This ensures we catch updates even if they're for a different event
+    // CRITICAL: Include responseDate in the key to catch timestamp changes
     const eventsKey = events.map(e => {
       const guestsKey = e.guests?.map(g => {
         try {
@@ -247,12 +260,15 @@ const EventManagement: React.FC = () => {
             const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
             responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
           }
-          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${responseDateValue}`;
+          // CRITICAL: Include ALL guest fields that might change to ensure we catch updates
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
         } catch (error) {
-          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:`;
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
-      return `${e.id}:${e.updatedAt || ''}:${e.guests?.length || 0}:${guestsKey}`;
+      // CRITICAL: Include updatedAt timestamp to catch any event updates
+      const eventUpdatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
+      return `${e.id}:${eventUpdatedAt}:${e.guests?.length || 0}:${guestsKey}`;
     }).join('||');
     
     // CRITICAL: Also check eventsHash from Zustand store
@@ -275,6 +291,13 @@ const EventManagement: React.FC = () => {
         const newVersion = prev + 1;
         console.log('🔄 Events array changed, incrementing eventsVersion to:', newVersion);
         console.log('📊 Events key or hash changed - this will trigger guestsToDisplay recalculation');
+        console.log('📊 Event IDs in store:', events.map(e => `${e.id}(${e.guests?.length || 0} guests)`).join(', '));
+        // CRITICAL: Log guest statuses to help debug
+        events.forEach(e => {
+          if (e.guests && e.guests.length > 0) {
+            console.log(`📊 Event ${e.id} guests:`, e.guests.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
+          }
+        });
         return newVersion;
       });
     } else {
