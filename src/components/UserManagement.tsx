@@ -258,25 +258,30 @@ const UserManagement: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center space-x-2">
+                        <div className="flex items-center justify-center space-x-2 flex-wrap gap-2">
                           {!user.isAdmin && (
                             <button
                               onClick={() => setSelectedUser(user)}
-                              className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2"
+                              className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2 text-sm"
+                              title="הוסף רשומות למשתמש"
                             >
                               <Plus className="w-4 h-4" />
-                              <span>הוסף רשומות</span>
+                              <span>רשומות</span>
                             </button>
                           )}
-                          {user.totalEvents > 0 && (
-                            <button
-                              onClick={() => handleOpenRecreateCampaigns(user)}
-                              className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors flex items-center space-x-2"
-                            >
-                              <RefreshCw className="w-4 h-4" />
-                              <span>צור קמפיינים מחדש</span>
-                            </button>
-                          )}
+                          <button
+                            onClick={() => handleOpenRecreateCampaigns(user)}
+                            disabled={user.totalEvents === 0}
+                            className={`px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm ${
+                              user.totalEvents > 0
+                                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                            title={user.totalEvents > 0 ? 'שחזר קמפיינים לשליחה מחודשת' : 'למשתמש זה אין אירועים'}
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>שחזר קמפיינים</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -380,7 +385,7 @@ const UserManagement: React.FC = () => {
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-800">
-                  צור קמפיינים מחדש - {selectedUserForCampaigns.name}
+                  שחזר קמפיינים לשליחה מחודשת - {selectedUserForCampaigns.name}
                 </h2>
                 <button
                   onClick={() => {
@@ -396,7 +401,7 @@ const UserManagement: React.FC = () => {
 
               <div className="mb-4">
                 <p className="text-sm text-gray-600 mb-4">
-                  בחר אירוע ספציפי של המשתמש כדי ליצור מחדש את הקמפיינים שלו:
+                  בחר אירוע ספציפי של המשתמש כדי לשחזר את הקמפיינים שלו לשליחה מחודשת:
                 </p>
               </div>
 
@@ -444,12 +449,12 @@ const UserManagement: React.FC = () => {
                           {isLoading ? (
                             <>
                               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span>יוצר...</span>
+                              <span>משחזר...</span>
                             </>
                           ) : (
                             <>
                               <RefreshCw className="w-4 h-4" />
-                              <span>צור מחדש</span>
+                              <span>שחזר קמפיינים</span>
                             </>
                           )}
                         </button>
