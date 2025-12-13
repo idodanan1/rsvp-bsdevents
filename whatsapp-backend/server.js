@@ -4532,6 +4532,80 @@ app.delete('/api/events/:eventId', async (req, res) => {
   }
 });
 
+// Restore a deleted event
+app.post('/api/events/:eventId/restore', async (req, res) => {
+  try {
+    const { eventId } = req.params;
+    
+    // Find event in deletedEvents
+    const deletedIndex = eventsData.deletedEvents.findIndex(e => e.id === eventId);
+    
+    if (deletedIndex === -1) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Event not found in deleted events' 
+      });
+    }
+    
+    const deletedEvent = eventsData.deletedEvents[deletedIndex];
+    
+    // Check if event already exists in active events
+    const existingIndex = eventsData.events.findIndex(e => e.id === eventId);
+    if (existingIndex >= 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Event already exists in active events' 
+      });
+    }
+    
+    // Remove deletedAt field and restore to events
+    const { deletedAt, ...eventToRestore } = deletedEvent;
+    eventsData.events.push({
+      ...eventToRestore,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // Remove from deletedEvents
+    eventsData.deletedEvents.splice(deletedIndex, 1);
+    
+    // Save to file
+    saveEvents();
+    
+    console.log(`✅ Restored event ${eventId} (${deletedEvent.coupleName || 'unnamed'})`);
+    
+    res.json({
+      success: true,
+      message: 'Event restored successfully',
+      event: eventToRestore
+    });
+  } catch (error) {
+    console.error('❌ Error restoring event:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בשחזור אירוע' 
+    });
+  }
+});
+
+// Get deleted events for a user
+app.get('/api/events/:userId/deleted', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const deletedUserEvents = eventsData.deletedEvents.filter(e => e.userId === userId);
+    
+    console.log(`📋 Found ${deletedUserEvents.length} deleted events for user ${userId}`);
+    
+    res.json({
+      success: true,
+      deletedEvents: deletedUserEvents
+    });
+  } catch (error) {
+    console.error('❌ Error fetching deleted events:', error);
+    res.status(500).json({ error: 'שגיאה בקבלת אירועים שנמחקו' });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 WhatsApp Backend running on port ${PORT}`);
   console.log(`📱 Ready to send WhatsApp messages!`);

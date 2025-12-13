@@ -25,6 +25,9 @@ const UserManagement: React.FC = () => {
   const [showRecreateCampaignsModal, setShowRecreateCampaignsModal] = useState(false);
   const [selectedUserForCampaigns, setSelectedUserForCampaigns] = useState<UserWithStats | null>(null);
   const [userEvents, setUserEvents] = useState<any[]>([]);
+  const [showRestoreEventModal, setShowRestoreEventModal] = useState(false);
+  const [selectedUserForRestore, setSelectedUserForRestore] = useState<UserWithStats | null>(null);
+  const [deletedEvents, setDeletedEvents] = useState<any[]>([]);
 
   useEffect(() => {
     if (!currentUser || !currentUser.isAdmin) {
@@ -369,6 +372,24 @@ const UserManagement: React.FC = () => {
                             <RefreshCw className="w-4 h-4" />
                             <span>שחזר קמפיינים</span>
                           </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleOpenRestoreEvent(user);
+                            }}
+                            className="px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm relative z-50 bg-green-600 text-white hover:bg-green-700 cursor-pointer active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                            title="שחזר אירוע שנמחק"
+                            style={{ 
+                              pointerEvents: 'auto',
+                              position: 'relative',
+                              zIndex: 50
+                            }}
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            <span>שחזר אירוע</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -542,6 +563,94 @@ const UserManagement: React.FC = () => {
                             <>
                               <RefreshCw className="w-4 h-4" />
                               <span>שחזר קמפיינים</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Restore Event Modal */}
+        {showRestoreEventModal && selectedUserForRestore && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800">
+                  שחזר אירוע שנמחק - {selectedUserForRestore.name}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowRestoreEventModal(false);
+                    setSelectedUserForRestore(null);
+                    setDeletedEvents([]);
+                  }}
+                  className="text-gray-500 hover:text-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  בחר אירוע שנמחק כדי לשחזר אותו:
+                </p>
+              </div>
+
+              {deletedEvents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  למשתמש זה אין אירועים שנמחקו
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {deletedEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-gray-800 mb-1">
+                            {event.coupleName || 'אירוע ללא שם'}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            {event.eventDate && (
+                              <div className="flex items-center space-x-2">
+                                <Calendar className="w-4 h-4" />
+                                <span>{new Date(event.eventDate).toLocaleDateString('he-IL')}</span>
+                              </div>
+                            )}
+                            {event.guests && (
+                              <div className="flex items-center space-x-2">
+                                <Users className="w-4 h-4" />
+                                <span>{event.guests.length} מוזמנים</span>
+                              </div>
+                            )}
+                            {event.deletedAt && (
+                              <div className="text-xs text-red-600">
+                                נמחק ב: {new Date(event.deletedAt).toLocaleString('he-IL')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleRestoreEvent(event.id)}
+                          disabled={isLoading}
+                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                        >
+                          {isLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span>משחזר...</span>
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4" />
+                              <span>שחזר אירוע</span>
                             </>
                           )}
                         </button>
