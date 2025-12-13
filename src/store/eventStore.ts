@@ -141,10 +141,12 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Always read from localStorage to get the latest events (including newly created ones)
                 const stored = localStorage.getItem('rsvp-events-storage');
                 let localEvents: Event[] = [];
+                let deletedEvents: any[] = [];
                 if (stored) {
                   try {
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
+                    deletedEvents = parsed.state?.deletedEvents || [];
                     console.log('📦 Loaded local events from storage:', localEvents.length);
                     // Log recently created events (within last 5 minutes)
                     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
@@ -171,10 +173,27 @@ export const useEventStore = create<EventStore>()(
                   });
                 }
                 
+                // CRITICAL: Get deletedEvents to check if event was deleted
+                const deletedEventIds = new Set(deletedEvents.map((e: any) => e.id));
+                
                 // Find local events that aren't in API (need to sync)
+                // CRITICAL: Don't sync events that were deleted!
                 const localOnlyEvents = localEvents.filter((e: Event) => 
-                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                  e.userId === userId && 
+                  !apiEvents.find(ae => ae.id === e.id) &&
+                  !deletedEventIds.has(e.id) // CRITICAL: Don't sync deleted events
                 );
+                
+                if (localOnlyEvents.length < localEvents.filter((e: Event) => 
+                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                ).length) {
+                  const skippedCount = localEvents.filter((e: Event) => 
+                    e.userId === userId && 
+                    !apiEvents.find(ae => ae.id === e.id) &&
+                    deletedEventIds.has(e.id)
+                  ).length;
+                  console.log(`⏭️ Skipping ${skippedCount} deleted event(s) from sync`);
+                }
                 
                 // If there are local events not in API, sync them
                 if (localOnlyEvents.length > 0) {
@@ -1456,6 +1475,33 @@ export const useEventStore = create<EventStore>()(
               currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
               isLoading: false
             }));
+            
+            // CRITICAL: Also remove from localStorage to prevent it from being synced back
+            try {
+              const stored = localStorage.getItem('rsvp-events-storage');
+              if (stored) {
+                const parsed = JSON.parse(stored);
+                if (parsed.state && parsed.state.events) {
+                  // Remove event from localStorage
+                  const filteredEvents = parsed.state.events.filter((e: Event) => e.id !== id);
+                  parsed.state.events = filteredEvents;
+                  
+                  // Add to deletedEvents in localStorage
+                  if (!parsed.state.deletedEvents) {
+                    parsed.state.deletedEvents = [];
+                  }
+                  parsed.state.deletedEvents = [
+                    ...parsed.state.deletedEvents,
+                    ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date().toISOString() }))
+                  ];
+                  
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+                  console.log(`✅ Removed event ${id} from localStorage`);
+                }
+              }
+            } catch (error) {
+              console.warn('⚠️ Error removing event from localStorage:', error);
+            }
             
             console.log(`✅ Deleted ${eventsToDelete.length} event(s) with ID ${id}`);
           } else {
