@@ -201,13 +201,46 @@ const EventManagement: React.FC = () => {
     }
   }, [id, events, setCurrentEvent, navigate]);
 
+  // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
+  const eventGuestsKeyRef = useRef<string>('');
+  const lastEventIdRef2 = useRef<string>('');
+  
+  // CRITICAL: Get the current event from the store
+  // Use a ref to track the event and only update when id changes or event is actually different
+  const currentEventFromStoreRef = useRef<any>(null);
+  
+  // Update the ref when id or events change, but only if the event actually changed
+  useEffect(() => {
+    if (!id) {
+      currentEventFromStoreRef.current = null;
+      return;
+    }
+    
+    const event = events.find(e => e.id === id);
+    if (event) {
+      // Only update if event ID changed or event was actually updated
+      if (lastEventIdRef2.current !== id || 
+          currentEventFromStoreRef.current?.updatedAt !== event.updatedAt ||
+          currentEventFromStoreRef.current?.guests?.length !== event.guests?.length) {
+        currentEventFromStoreRef.current = event;
+        lastEventIdRef2.current = id;
+      }
+    } else {
+      currentEventFromStoreRef.current = null;
+    }
+  }, [id, events]);
+  
+  // Use the ref value in a stable way
+  const currentEventFromStore = currentEventFromStoreRef.current;
+  
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
-  // Use useMemo to ensure React tracks changes correctly
+  // Use useMemo with simpler dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
     // CRITICAL: Always get from events array first (most up-to-date)
-    // Only use currentEvent if it matches the event being viewed AND events array doesn't have it
-    const event = events.find(e => e.id === id);
+    // Use currentEventFromStore which is memoized separately
+    const event = currentEventFromStore || (currentEvent && currentEvent.id === id ? currentEvent : null);
+    
     if (event?.guests) {
       console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
@@ -222,66 +255,55 @@ const EventManagement: React.FC = () => {
           return { ...g, responseDate: undefined };
         }
       });
-      console.log('📊 Guests data:', guests.map(g => ({
-        id: g.id,
-        name: `${g.firstName} ${g.lastName}`,
-        status: g.rsvpStatus,
-        count: g.guestCount,
-        responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
-      })));
+      
+      // Update the ref to track changes
+      const newKey = guests.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.getTime() : new Date(g.responseDate).getTime()) : ''}`
+      ).join('|');
+      
+      if (newKey !== eventGuestsKeyRef.current) {
+        console.log('📊 Guests data changed:', guests.map(g => ({
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`,
+          status: g.rsvpStatus,
+          count: g.guestCount,
+          responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
+        })));
+        eventGuestsKeyRef.current = newKey;
+      }
+      
       return guests;
     }
-    // Fallback to currentEvent if events array doesn't have the event yet
-    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
-      console.log('📊 Using guests from currentEvent (fallback):', currentEvent.guests.length);
-      return currentEvent.guests.map(g => ({ ...g }));
-    }
+    
     console.log('⚠️ No guests found for event:', id);
     return [];
-  }, [id, currentEvent, events]);
+  }, [id, currentEventFromStore, currentEvent]);
   
-  // CRITICAL: Create a key that changes when guests change to force re-render
-  // Use useMemo to ensure React tracks changes correctly
-  // CRITICAL: Include responseDate timestamp to detect updates even if status doesn't change
-  const guestsKey = useMemo(() => {
-    if (guestsToDisplay && guestsToDisplay.length > 0) {
-      try {
-        return guestsToDisplay.map(g => {
-          let responseDateValue = '';
-          if (g.responseDate) {
-            try {
-              const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
-              responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
-            } catch (error) {
-              responseDateValue = '';
-            }
-          }
-          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
-        }).join('|');
-      } catch (error) {
-        console.warn('⚠️ Error creating guestsKey:', error);
-        return 'error';
-      }
-    }
-    return 'empty';
-  }, [guestsToDisplay]);
+  // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
+  // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
+  const guestsKey = eventGuestsKeyRef.current || 'empty';
   
   // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
   // This ensures the table updates immediately when any guest data changes
   const [forceUpdate, setForceUpdate] = useState(0);
+  const lastGuestsKeyForUpdate = useRef<string>('');
+  
   useEffect(() => {
     try {
-      const keyPreview = guestsKey && typeof guestsKey === 'string' ? guestsKey.substring(0, 50) : String(guestsKey);
-      console.log('🔄 guestsKey changed, forcing re-render:', keyPreview);
-      setForceUpdate(prev => prev + 1);
+      if (guestsKey !== lastGuestsKeyForUpdate.current) {
+        const keyPreview = guestsKey && typeof guestsKey === 'string' ? guestsKey.substring(0, 50) : String(guestsKey);
+        console.log('🔄 guestsKey changed, forcing re-render:', keyPreview);
+        lastGuestsKeyForUpdate.current = guestsKey;
+        setForceUpdate(prev => prev + 1);
+      }
     } catch (error) {
       console.warn('⚠️ Error in guestsKey useEffect:', error);
     }
   }, [guestsKey]);
   
-  // CRITICAL: Listen to guestsToDisplay changes to force re-render
+  // CRITICAL: Listen to guestsKey changes to force re-render
   // This ensures we catch updates immediately when guest data changes
-  // CRITICAL: Use guestsKey instead of guestsToDisplay.length to detect ALL changes, including responseDate
+  // CRITICAL: Use guestsKey instead of guestsToDisplay to avoid React #310 errors
   useEffect(() => {
     try {
       console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
@@ -316,7 +338,8 @@ const EventManagement: React.FC = () => {
     } catch (error) {
       console.warn('⚠️ Error in EVENT_MANAGEMENT useEffect:', error);
     }
-  }, [guestsKey, id, currentEvent?.id, events.length, guestsToDisplay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestsKey, id, currentEvent?.id, events.length]); // Removed guestsToDisplay to prevent React #310
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
