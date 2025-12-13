@@ -346,10 +346,10 @@ const EventManagement: React.FC = () => {
   const guestsToDisplay = useMemo(() => {
     console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length);
     
-    // CRITICAL: Get events from store inside useMemo (not in dependencies)
-    // This prevents React #310 error from circular dependencies
-    // CRITICAL: Always get fresh data from store to ensure we have latest updates
-    const currentEvents = useEventStore.getState().events;
+    // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
+    // This ensures React detects changes when events array updates
+    // The events array is subscribed via useEventStore(state => state.events) at the top
+    const currentEvents = events;
     console.log('📊 Current events in store:', currentEvents.length, 'events');
     
     // CRITICAL: Always get directly from events array (most up-to-date)
@@ -357,6 +357,11 @@ const EventManagement: React.FC = () => {
     // This ensures we always get the latest data, even if update was for a different event
     let event = currentEvents.find(e => e.id === id) || null;
     console.log('📊 Found event in store:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
+    
+    // Log all guest statuses for debugging
+    if (event?.guests) {
+      console.log('📊 Event guests statuses:', event.guests.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
+    }
     
     // Fallback to currentEventFromStore if event not found in array
     if (!event) {
@@ -425,13 +430,14 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include id, eventsVersion, and events.length to catch ALL changes
+    // CRITICAL: Dependencies include id, eventsVersion, events.length, AND eventsHash
+    // This ensures guestsToDisplay recalculates when events array changes
     // eventsVersion is updated when events array changes, triggering re-calculation
     // events.length ensures we catch when events are added/removed
-    // The events array itself is accessed inside the useMemo via getState() but not in dependencies
-    // This prevents React #310 error from circular dependencies while ensuring updates are detected
+    // eventsHash ensures we catch when guest data changes within events (from Zustand subscription)
+    // Using eventsHash instead of events array prevents React #310 errors while ensuring updates are detected
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events.length]);
+  }, [id, eventsVersion, events.length, eventsHash]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -448,12 +454,31 @@ const EventManagement: React.FC = () => {
         const keyPreview = guestsKey && typeof guestsKey === 'string' ? guestsKey.substring(0, 50) : String(guestsKey);
         console.log('🔄 guestsKey changed, forcing re-render:', keyPreview);
         lastGuestsKeyForUpdate.current = guestsKey;
-        setForceUpdate(prev => prev + 1);
+        setForceUpdate(prev => {
+          const newValue = prev + 1;
+          console.log('🔄 forceUpdate incremented to:', newValue);
+          return newValue;
+        });
       }
     } catch (error) {
       console.warn('⚠️ Error in guestsKey useEffect:', error);
     }
   }, [guestsKey]);
+  
+  // CRITICAL: Also listen to eventsHash changes to force re-render
+  // This ensures the table updates when events array changes, even if guestsKey doesn't change
+  const lastEventsHashForUpdate = useRef<string>('');
+  useEffect(() => {
+    if (eventsHash !== lastEventsHashForUpdate.current) {
+      console.log('🔄 eventsHash changed, forcing re-render - hash length:', eventsHash.length);
+      lastEventsHashForUpdate.current = eventsHash;
+      setForceUpdate(prev => {
+        const newValue = prev + 1;
+        console.log('🔄 forceUpdate incremented to (from eventsHash):', newValue);
+        return newValue;
+      });
+    }
+  }, [eventsHash]);
   
   // CRITICAL: Listen to guestsKey changes to force re-render
   // This ensures we catch updates immediately when guest data changes
@@ -582,18 +607,23 @@ const EventManagement: React.FC = () => {
   // This ensures the table updates immediately when guest data changes
   // CRITICAL: Include forceUpdate to force recalculation when guests change
   const filteredGuests = useMemo(() => {
-    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate);
-    return guestsToDisplay.filter(guest => {
-    const matchesSearch = 
-      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      guest.phoneNumber.includes(searchTerm);
-    
-    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
-    
+    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate, 'eventsVersion:', eventsVersion, 'eventsHash length:', eventsHash.length);
+    const filtered = guestsToDisplay.filter(guest => {
+      const matchesSearch = 
+        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        guest.phoneNumber.includes(searchTerm);
+      
+      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+      
       return matchesSearch && matchesFilter;
     });
-  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate, eventsVersion]);
+    console.log('📊 Filtered guests result:', filtered.length, 'guests');
+    if (filtered.length > 0) {
+      console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
+    }
+    return filtered;
+  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate, eventsVersion, eventsHash]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
