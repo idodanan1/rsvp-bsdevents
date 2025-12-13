@@ -201,7 +201,7 @@ const UserManagement: React.FC = () => {
                   </tr>
                 ) : (
                   filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                    <tr key={user.id} className="hover:bg-gray-50" onClick={(e) => e.stopPropagation()}>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
                           <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
@@ -271,11 +271,16 @@ const UserManagement: React.FC = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center space-x-2 flex-wrap gap-2">
                           {!user.isAdmin && (
                             <button
-                              onClick={() => setSelectedUser(user)}
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setSelectedUser(user);
+                              }}
                               className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2 text-sm"
                               title="הוסף רשומות למשתמש"
                             >
@@ -289,13 +294,21 @@ const UserManagement: React.FC = () => {
                               e.preventDefault();
                               e.stopPropagation();
                               console.log('🔄 Recreate campaigns button clicked for user:', user.name, 'totalEvents:', user.totalEvents, 'userId:', user.id);
+                              console.log('🔄 Button element:', e.currentTarget);
+                              console.log('🔄 Event details:', e);
                               
                               // Always allow clicking - check inside the handler
                               handleOpenRecreateCampaigns(user);
                             }}
-                            className="px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm relative z-10 bg-yellow-600 text-white hover:bg-yellow-700 cursor-pointer active:bg-yellow-800"
+                            onMouseEnter={() => console.log('🖱️ Mouse entered recreate campaigns button')}
+                            onMouseLeave={() => console.log('🖱️ Mouse left recreate campaigns button')}
+                            className="px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm relative z-50 bg-yellow-600 text-white hover:bg-yellow-700 cursor-pointer active:bg-yellow-800 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
                             title="שחזר קמפיינים לשליחה מחודשת"
-                            style={{ pointerEvents: 'auto' }}
+                            style={{ 
+                              pointerEvents: 'auto',
+                              position: 'relative',
+                              zIndex: 50
+                            }}
                           >
                             <RefreshCw className="w-4 h-4" />
                             <span>שחזר קמפיינים</span>
