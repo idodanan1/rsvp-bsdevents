@@ -1832,19 +1832,30 @@ export const useEventStore = create<EventStore>()(
                       // Old update is newer - return old guest values
                       return { ...guest };
                     }
-                    // CRITICAL: Return new object reference even for unchanged guests
-                    return { ...guest };
+                    // CRITICAL: ALWAYS return new object reference for ALL guests to force React re-render
+                    // This ensures React detects changes even if guest data appears unchanged
+                    return { 
+                      ...guest,
+                      // Force new object reference by adding a timestamp property that's always new
+                      _updateTimestamp: Date.now()
+                    };
                   }),
                   updatedAt: new Date()
                 };
                 // CRITICAL: Create new object reference with new guests array to force React re-render
                 return {
                   ...updatedEvent,
-                  guests: [...updatedEvent.guests] // New array reference
+                  guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references for ALL guests
+                  _updateTimestamp: Date.now() // Force new event reference
                 };
               }
               // CRITICAL: Return new object reference even for unchanged events
-              return { ...event };
+              // This ensures React detects changes when ANY event is updated
+              return { 
+                ...event,
+                guests: event.guests ? event.guests.map(g => ({ ...g })) : [], // New array and object references
+                _updateTimestamp: Date.now() // Force new reference
+              };
             });
             
             // CRITICAL: Update currentEvent ONLY if it matches eventId
