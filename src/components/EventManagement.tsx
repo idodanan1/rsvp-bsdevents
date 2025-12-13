@@ -194,16 +194,23 @@ const EventManagement: React.FC = () => {
     if (event?.guests) {
       console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
-      const guests = event.guests.map(g => ({
-        ...g,
-        responseDate: g.responseDate ? new Date(g.responseDate) : undefined
-      }));
+      const guests = event.guests.map(g => {
+        try {
+          return {
+            ...g,
+            responseDate: g.responseDate ? (typeof g.responseDate === 'string' ? new Date(g.responseDate) : g.responseDate instanceof Date ? g.responseDate : undefined) : undefined
+          };
+        } catch (error) {
+          console.warn('⚠️ Error processing guest responseDate:', error, g);
+          return { ...g, responseDate: undefined };
+        }
+      });
       console.log('📊 Guests data:', guests.map(g => ({
         id: g.id,
         name: `${g.firstName} ${g.lastName}`,
         status: g.rsvpStatus,
         count: g.guestCount,
-        responseDate: g.responseDate ? new Date(g.responseDate).toISOString() : 'none'
+        responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
       })));
       return guests;
     }
@@ -221,9 +228,23 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Include responseDate timestamp to detect updates even if status doesn't change
   const guestsKey = useMemo(() => {
     if (guestsToDisplay && guestsToDisplay.length > 0) {
-      return guestsToDisplay.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
-      ).join('|');
+      try {
+        return guestsToDisplay.map(g => {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            try {
+              const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+              responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+            } catch (error) {
+              responseDateValue = '';
+            }
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
+        }).join('|');
+      } catch (error) {
+        console.warn('⚠️ Error creating guestsKey:', error);
+        return 'error';
+      }
     }
     return 'empty';
   }, [guestsToDisplay]);
@@ -232,28 +253,53 @@ const EventManagement: React.FC = () => {
   // This ensures the table updates immediately when any guest data changes
   const [forceUpdate, setForceUpdate] = useState(0);
   useEffect(() => {
-    console.log('🔄 guestsKey changed, forcing re-render:', guestsKey.substring(0, 50));
-    setForceUpdate(prev => prev + 1);
+    try {
+      const keyPreview = guestsKey && typeof guestsKey === 'string' ? guestsKey.substring(0, 50) : String(guestsKey);
+      console.log('🔄 guestsKey changed, forcing re-render:', keyPreview);
+      setForceUpdate(prev => prev + 1);
+    } catch (error) {
+      console.warn('⚠️ Error in guestsKey useEffect:', error);
+    }
   }, [guestsKey]);
   
   // CRITICAL: Listen to guestsToDisplay changes to force re-render
   // This ensures we catch updates immediately when guest data changes
   // CRITICAL: Use guestsKey instead of guestsToDisplay.length to detect ALL changes, including responseDate
   useEffect(() => {
-    console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
-    console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
-    console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
-    console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay.length);
-    if (guestsToDisplay.length > 0) {
-      console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
-        name: `${g.firstName} ${g.lastName}`,
-        status: g.rsvpStatus,
-        count: g.guestCount,
-        responseDate: g.responseDate ? new Date(g.responseDate).toISOString() : 'none'
-      })));
+    try {
+      console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
+      console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
+      console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
+      console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay?.length || 0);
+      if (guestsToDisplay && guestsToDisplay.length > 0) {
+        console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => {
+          try {
+            let responseDateStr = 'none';
+            if (g.responseDate) {
+              const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+              responseDateStr = isNaN(date.getTime()) ? 'invalid' : date.toISOString();
+            }
+            return {
+              name: `${g.firstName} ${g.lastName}`,
+              status: g.rsvpStatus,
+              count: g.guestCount,
+              responseDate: responseDateStr
+            };
+          } catch (error) {
+            return {
+              name: `${g.firstName} ${g.lastName}`,
+              status: g.rsvpStatus,
+              count: g.guestCount,
+              responseDate: 'error'
+            };
+          }
+        }));
+      }
+      setForceUpdate(prev => prev + 1);
+    } catch (error) {
+      console.warn('⚠️ Error in EVENT_MANAGEMENT useEffect:', error);
     }
-    setForceUpdate(prev => prev + 1);
-  }, [guestsKey, id, currentEvent?.id, events.length]);
+  }, [guestsKey, id, currentEvent?.id, events.length, guestsToDisplay]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
