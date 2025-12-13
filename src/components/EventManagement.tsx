@@ -212,8 +212,41 @@ const EventManagement: React.FC = () => {
   // Use a ref to track the event and only update when id changes or event is actually different
   const currentEventFromStoreRef = useRef<any>(null);
   
-  // CRITICAL: Use state to trigger re-renders when guests change, without depending on events array
-  const [guestsUpdateTrigger, setGuestsUpdateTrigger] = useState(0);
+  // CRITICAL: Track events array version to force re-calculation when events change
+  // Use a simple counter that increments when events array changes
+  const [eventsVersion, setEventsVersion] = useState(0);
+  const lastEventsLengthRef = useRef<number>(0);
+  const lastEventsKeyRef = useRef<string>('');
+  
+  // CRITICAL: Update eventsVersion when events array changes (any event, not just current)
+  // This triggers guestsToDisplay to recalculate without circular dependencies
+  useEffect(() => {
+    // Create a comprehensive key from events that includes guest data to detect ALL changes
+    // This ensures we catch updates even if they're for a different event
+    const eventsKey = events.map(e => {
+      const guestsKey = e.guests?.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:`;
+        }
+      }).join('|') || '';
+      return `${e.id}:${e.updatedAt || ''}:${e.guests?.length || 0}:${guestsKey}`;
+    }).join('||');
+    
+    // Update if events length changed or events key changed
+    if (events.length !== lastEventsLengthRef.current || eventsKey !== lastEventsKeyRef.current) {
+      lastEventsLengthRef.current = events.length;
+      lastEventsKeyRef.current = eventsKey;
+      setEventsVersion(prev => prev + 1);
+      console.log('🔄 Events array changed, incrementing eventsVersion');
+    }
+  }, [events]); // Removed eventsVersion from dependencies to prevent loop
   
   // Update the ref when id or events change, but only if the event actually changed
   useEffect(() => {
@@ -239,8 +272,6 @@ const EventManagement: React.FC = () => {
           currentGuestsKey !== newGuestsKey) {
         currentEventFromStoreRef.current = event;
         lastEventIdRef2.current = id;
-        // Trigger re-render by updating state
-        setGuestsUpdateTrigger(prev => prev + 1);
         console.log('🔄 Updated currentEventFromStoreRef for event:', id, 'guests:', event.guests?.length || 0);
       }
     } else {
@@ -253,7 +284,7 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
-  // Use useMemo with simpler dependencies to avoid React #310 errors
+  // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
     // CRITICAL: Get events from store inside useMemo (not in dependencies)
     // This prevents React #310 error from circular dependencies
@@ -314,12 +345,12 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Don't depend on events array directly - it changes too often causing React #310
-    // Instead, depend on currentEventFromStore (ref), currentEvent?.id (stable), and guestsUpdateTrigger
+    // CRITICAL: Minimal dependencies - only id and eventsVersion (simple counter)
+    // eventsVersion is updated when events array changes, triggering re-calculation
     // The events array is accessed inside the useMemo via getState() but not in dependencies
-    // guestsUpdateTrigger is updated when events change, triggering re-calculation
+    // This prevents React #310 error from circular dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, currentEventFromStore, currentEvent?.id, guestsUpdateTrigger]);
+  }, [id, eventsVersion]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -417,8 +448,8 @@ const EventManagement: React.FC = () => {
       console.log('🔄 Events array changed (any event), updating guestsToDisplay');
       lastEventsArrayKeyRef.current = allEventsKey;
       
-      // CRITICAL: Trigger guestsUpdateTrigger to force guestsToDisplay to recalculate
-      setGuestsUpdateTrigger(prev => prev + 1);
+      // CRITICAL: eventsVersion is already updated by the other useEffect
+      // This useEffect just updates currentEvent if needed
       
       // Also update currentEvent if it's the one being viewed
       const event = events.find(e => e.id === id);
