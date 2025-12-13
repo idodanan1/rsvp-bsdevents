@@ -479,8 +479,37 @@ const GuestResponse = () => {
   // Track if we've given up loading (for showing error after timeout)
   const [hasGivenUpLoading, setHasGivenUpLoading] = useState(false);
 
-  // Try to find event from store first, then from direct localStorage
-  const event = events.find(e => e.id === eventId) || directEvent;
+  // CRITICAL: If there are duplicate events with the same ID, find the one that contains the guest
+  // This ensures we update the correct event when there are duplicates
+  let event = null;
+  if (eventId && guestId) {
+    // First, try to find event that contains the guest with the matching guestId
+    event = events.find(e => e.id === eventId && e.guests?.some(g => g.id === guestId));
+    if (!event) {
+      // Fallback: find any event with the matching eventId
+      event = events.find(e => e.id === eventId);
+    }
+  } else if (eventId) {
+    // If no guestId, just find by eventId (but prefer the most recent one if duplicates exist)
+    const matchingEvents = events.filter(e => e.id === eventId);
+    if (matchingEvents.length > 1) {
+      console.warn(`⚠️ Found ${matchingEvents.length} duplicate events with ID ${eventId}, using most recent`);
+      // Sort by updatedAt or createdAt, most recent first
+      event = matchingEvents.sort((a, b) => {
+        const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+        const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+        return bTime - aTime;
+      })[0];
+    } else {
+      event = matchingEvents[0];
+    }
+  }
+  
+  // Fallback to directEvent if not found in store
+  if (!event) {
+    event = directEvent;
+  }
+  
   const guest = event?.guests.find(g => g.id === guestId) || directGuest;
   
   // Fallback: Try to find guest by partial ID match

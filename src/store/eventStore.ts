@@ -600,14 +600,40 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
+                // CRITICAL: Remove duplicate events before creating new array reference
+                // This prevents duplicate events from appearing in the UI
+                const uniqueEvents = filteredEvents.reduce((acc, event) => {
+                  // Check if event with same ID already exists
+                  const existingIndex = acc.findIndex(e => e.id === event.id);
+                  if (existingIndex >= 0) {
+                    // If duplicate found, keep the one with more recent updatedAt
+                    const existing = acc[existingIndex];
+                    const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+                    const newTime = event.updatedAt ? new Date(event.updatedAt).getTime() : 0;
+                    if (newTime > existingTime) {
+                      console.warn(`⚠️ Found duplicate event ${event.id}, keeping more recent version`);
+                      acc[existingIndex] = event; // Replace with more recent version
+                    } else {
+                      console.warn(`⚠️ Found duplicate event ${event.id}, keeping existing version`);
+                    }
+                  } else {
+                    acc.push(event);
+                  }
+                  return acc;
+                }, [] as Event[]);
+                
+                if (uniqueEvents.length < filteredEvents.length) {
+                  console.warn(`⚠️ Removed ${filteredEvents.length - uniqueEvents.length} duplicate event(s)`);
+                }
+                
                 // CRITICAL: Create new array reference to force React re-render
                 // This ensures the table updates when events are synced from API (other devices)
                 console.log('🔄 Creating new events array reference from API sync to force React re-render');
-                console.log('📊 Setting events:', filteredEvents.length, 'events with', filteredEvents.reduce((sum, e) => sum + (e.guests?.length || 0), 0), 'total guests');
+                console.log('📊 Setting events:', uniqueEvents.length, 'events with', uniqueEvents.reduce((sum, e) => sum + (e.guests?.length || 0), 0), 'total guests');
                 
                 // CRITICAL: Create deep copy of events with new references for all nested objects
                 // This ensures React detects ALL changes, including nested guest changes
-                const eventsWithNewReferences = filteredEvents.map(event => ({
+                const eventsWithNewReferences = uniqueEvents.map(event => ({
                   ...event,
                   guests: event.guests ? event.guests.map(guest => ({ ...guest })) : [],
                   campaigns: event.campaigns ? event.campaigns.map(campaign => ({ ...campaign })) : [],
@@ -1194,9 +1220,35 @@ export const useEventStore = create<EventStore>()(
           
           console.log('📝 New event created with userId:', newEvent.userId, 'userEmail:', newEvent.userEmail);
           
+          // CRITICAL: Check for duplicate events before creating
+          const currentState = get();
+          const duplicateEvent = currentState.events.find(e => 
+            e.id === newEvent.id || 
+            (e.coupleName === newEvent.coupleName && 
+             e.eventDate && newEvent.eventDate && 
+             Math.abs(new Date(e.eventDate).getTime() - newEvent.eventDate.getTime()) < 1000) // Same couple and same date (within 1 second)
+          );
+          
+          if (duplicateEvent) {
+            console.warn(`⚠️ Duplicate event detected! Event ID: ${duplicateEvent.id}, New ID: ${newEvent.id}`);
+            console.warn(`⚠️ Duplicate event details:`, {
+              existing: { id: duplicateEvent.id, coupleName: duplicateEvent.coupleName, eventDate: duplicateEvent.eventDate },
+              new: { id: newEvent.id, coupleName: newEvent.coupleName, eventDate: newEvent.eventDate }
+            });
+            // Don't create duplicate - return existing event
+            set({ isLoading: false, error: 'אירוע זהה כבר קיים' });
+            return;
+          }
+          
           // CRITICAL: Save to state first
           set(state => {
             console.log('🔍 Before createEvent - events count:', state.events.length);
+            // CRITICAL: Double-check for duplicates before adding
+            const existingEvent = state.events.find(e => e.id === newEvent.id);
+            if (existingEvent) {
+              console.warn(`⚠️ Event with ID ${newEvent.id} already exists! Not creating duplicate.`);
+              return { isLoading: false };
+            }
             const updatedEvents = [...state.events, newEvent];
             console.log('🔍 After createEvent - events count:', updatedEvents.length);
             console.log('🔍 New event created with 5 default campaigns:', newEvent);
@@ -1370,16 +1422,48 @@ export const useEventStore = create<EventStore>()(
       deleteEvent: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          const eventToDelete = get().events.find(event => event.id === id);
-          if (eventToDelete) {
-          set(state => ({
-            events: state.events.filter(event => event.id !== id),
-              deletedEvents: [...state.deletedEvents, { ...eventToDelete, deletedAt: new Date() }],
-            currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
-            isLoading: false
-          }));
+          const state = get();
+          // CRITICAL: Find ALL events with this ID (in case of duplicates)
+          const eventsToDelete = state.events.filter(event => event.id === id);
+          
+          if (eventsToDelete.length > 0) {
+            console.log(`🗑️ Deleting ${eventsToDelete.length} event(s) with ID ${id}`);
+            
+            // CRITICAL: Also delete from backend
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            try {
+              // Delete from backend for each event (in case of duplicates)
+              for (const eventToDelete of eventsToDelete) {
+                const deleteResponse = await fetch(`${BACKEND_URL}/api/events/${id}`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  }
+                });
+                if (deleteResponse.ok) {
+                  console.log(`✅ Event ${id} deleted from backend`);
+                } else {
+                  console.warn(`⚠️ Failed to delete event ${id} from backend:`, deleteResponse.status);
+                }
+              }
+            } catch (error) {
+              console.warn('⚠️ Error deleting event from backend:', error);
+            }
+            
+            set(state => ({
+              events: state.events.filter(event => event.id !== id), // Remove ALL events with this ID
+              deletedEvents: [...state.deletedEvents, ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date() }))],
+              currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
+              isLoading: false
+            }));
+            
+            console.log(`✅ Deleted ${eventsToDelete.length} event(s) with ID ${id}`);
+          } else {
+            console.warn(`⚠️ No event found with ID ${id} to delete`);
+            set({ isLoading: false });
           }
         } catch (error) {
+          console.error('❌ Error deleting event:', error);
           set({ error: 'שגיאה במחיקת האירוע', isLoading: false });
         }
       },
