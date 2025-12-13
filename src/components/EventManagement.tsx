@@ -187,13 +187,26 @@ const EventManagement: React.FC = () => {
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo to ensure React tracks changes correctly
+  // CRITICAL: Include forceUpdate in dependencies to force recalculation when guests change
   const guestsToDisplay = useMemo(() => {
     // CRITICAL: Always get from events array first (most up-to-date)
     // Only use currentEvent if it matches the event being viewed AND events array doesn't have it
     const event = events.find(e => e.id === id);
     if (event?.guests) {
       console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
-      return event.guests.map(g => ({ ...g }));
+      // CRITICAL: Create deep copy with new object references to ensure React detects changes
+      const guests = event.guests.map(g => ({
+        ...g,
+        responseDate: g.responseDate ? new Date(g.responseDate) : undefined
+      }));
+      console.log('📊 Guests data:', guests.map(g => ({
+        id: g.id,
+        name: `${g.firstName} ${g.lastName}`,
+        status: g.rsvpStatus,
+        count: g.guestCount,
+        responseDate: g.responseDate ? new Date(g.responseDate).toISOString() : 'none'
+      })));
+      return guests;
     }
     // Fallback to currentEvent if events array doesn't have the event yet
     if (currentEvent && currentEvent.id === id && currentEvent.guests) {
@@ -202,7 +215,7 @@ const EventManagement: React.FC = () => {
     }
     console.log('⚠️ No guests found for event:', id);
     return [];
-  }, [id, currentEvent, events]);
+  }, [id, currentEvent, events, forceUpdate]);
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use useMemo to ensure React tracks changes correctly
