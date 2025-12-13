@@ -185,23 +185,51 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Check if event was actually updated (by updatedAt timestamp)
     // This prevents unnecessary updates when events array is recreated but content is the same
-    const eventUpdatedAt = event.updatedAt || '';
-    const eventActuallyUpdated = eventUpdatedAt !== lastEventUpdatedAtRef.current;
+    const eventUpdatedAt = event.updatedAt ? (event.updatedAt instanceof Date ? event.updatedAt.getTime() : new Date(event.updatedAt).getTime()) : 0;
+    const lastEventUpdatedAt = lastEventUpdatedAtRef.current ? (typeof lastEventUpdatedAtRef.current === 'string' ? new Date(lastEventUpdatedAtRef.current).getTime() : lastEventUpdatedAtRef.current instanceof Date ? lastEventUpdatedAtRef.current.getTime() : Number(lastEventUpdatedAtRef.current) || 0) : 0;
+    const eventActuallyUpdated = eventUpdatedAt !== lastEventUpdatedAt;
     
     // Create a key from guests to detect changes
     // CRITICAL: Include responseDate to detect updates even if status doesn't change
-    const newGuestsKey = event.guests?.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
-    ).join('|') || '';
+    const newGuestsKey = event.guests?.map(g => {
+      try {
+        let responseDateValue = '';
+        if (g.responseDate) {
+          const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+          responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+        }
+        // CRITICAL: Include ALL fields that might change
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
+      } catch (error) {
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
+      }
+    }).join('|') || '';
     
     // CRITICAL: Only update if guests actually changed OR event was updated OR event changed
     // This prevents infinite loops when events array is recreated but content is the same
     const guestsChanged = newGuestsKey !== lastGuestsKeyRef.current;
     const eventChanged = !currentEvent || currentEvent.id !== event.id;
     
+    // CRITICAL: Log all conditions for debugging
+    console.log('🔍 EventManagement useEffect conditions:', {
+      eventId: event.id,
+      urlId: id,
+      guestsChanged,
+      eventChanged,
+      eventActuallyUpdated,
+      newGuestsKeyLength: newGuestsKey.length,
+      lastGuestsKeyLength: lastGuestsKeyRef.current.length,
+      eventUpdatedAt: eventUpdatedAt,
+      lastEventUpdatedAt: lastEventUpdatedAt,
+      willUpdate: (guestsChanged || eventChanged || eventActuallyUpdated) && event.id === id
+    });
+    
     // CRITICAL: Only update currentEvent if this is the event from the URL (id)
     // This ensures we don't override currentEvent when an update occurs for a different event
-    if ((guestsChanged || eventChanged || eventActuallyUpdated) && event.id === id) {
+    // CRITICAL: Force update if event.id === id to ensure we always have the latest data from store
+    // This is especially important for guest_link updates where the data might not "change" according to the logic
+    const shouldUpdate = event.id === id && (guestsChanged || eventChanged || eventActuallyUpdated || !currentEvent || currentEvent.id !== id);
+    if (shouldUpdate) {
       if (guestsChanged) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
       console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
@@ -224,9 +252,20 @@ const EventManagement: React.FC = () => {
       
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
-      lastEventUpdatedAtRef.current = eventUpdatedAt;
+      lastEventUpdatedAtRef.current = String(eventUpdatedAt); // Convert to string for comparison
+    } else {
+      // Log why update was skipped
+      console.log('⏭️ Skipping currentEvent update:', {
+        eventId: event.id,
+        urlId: id,
+        guestsChanged,
+        eventChanged,
+        eventActuallyUpdated,
+        hasCurrentEvent: !!currentEvent,
+        currentEventId: currentEvent?.id
+      });
     }
-  }, [id, events, setCurrentEvent, navigate]);
+  }, [id, events, setCurrentEvent, navigate, currentEvent]);
 
   // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
   const eventGuestsKeyRef = useRef<string>('');
@@ -344,13 +383,13 @@ const EventManagement: React.FC = () => {
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
-    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length);
+    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length, 'eventsHash length:', eventsHash.length);
     
     // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
     // This ensures React detects changes when events array updates
     // The events array is subscribed via useEventStore(state => state.events) at the top
     const currentEvents = events;
-    console.log('📊 Current events in store:', currentEvents.length, 'events');
+    console.log('📊 Current events in store (from props):', currentEvents.length, 'events');
     
     // CRITICAL: Always get directly from events array (most up-to-date)
     // Don't rely on currentEventFromStore ref as it might be stale
@@ -380,23 +419,29 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
       // ALWAYS create new object references, even if data appears unchanged
       // This forces React to re-render when eventsVersion changes
+      // CRITICAL: Force new object references by adding a unique key based on eventsHash
       const guests = event.guests.map((g, index) => {
         try {
           // CRITICAL: Always create a completely new object with all properties spread
           // This ensures React sees this as a new object reference, triggering re-render
+          // CRITICAL: Add a unique key based on eventsHash to force new reference
           const guestCopy = {
             ...g,
-            responseDate: g.responseDate ? (typeof g.responseDate === 'string' ? new Date(g.responseDate) : g.responseDate instanceof Date ? g.responseDate : undefined) : undefined
+            responseDate: g.responseDate ? (typeof g.responseDate === 'string' ? new Date(g.responseDate) : g.responseDate instanceof Date ? g.responseDate : undefined) : undefined,
+            // CRITICAL: Add a unique key to force new object reference
+            _forceUpdate: eventsHash.substring(0, 10) + eventsVersion
           };
           // Remove any internal properties that shouldn't be in the final object
           delete (guestCopy as any)._updateTimestamp;
           delete (guestCopy as any)._renderKey;
+          // Keep _forceUpdate for now to ensure React detects the change
           return guestCopy;
         } catch (error) {
           console.warn('⚠️ Error processing guest responseDate:', error, g);
           const guestCopy = { 
             ...g, 
-            responseDate: undefined
+            responseDate: undefined,
+            _forceUpdate: eventsHash.substring(0, 10) + eventsVersion
           };
           delete (guestCopy as any)._updateTimestamp;
           delete (guestCopy as any)._renderKey;
@@ -422,6 +467,7 @@ const EventManagement: React.FC = () => {
       
       // CRITICAL: Always return a new array reference, even if contents are the same
       // This ensures React detects changes when eventsVersion increments
+      // CRITICAL: Also include eventsHash in the array to force new reference
       return [...guests];
     }
     
@@ -430,14 +476,15 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include id, eventsVersion, events.length, AND eventsHash
+    // CRITICAL: Dependencies include id, eventsVersion, events.length, eventsHash, AND events array itself
     // This ensures guestsToDisplay recalculates when events array changes
     // eventsVersion is updated when events array changes, triggering re-calculation
     // events.length ensures we catch when events are added/removed
     // eventsHash ensures we catch when guest data changes within events (from Zustand subscription)
-    // Using eventsHash instead of events array prevents React #310 errors while ensuring updates are detected
+    // events array itself ensures we catch when the array reference changes (from Zustand store update)
+    // CRITICAL: Include events array to ensure we detect changes even if eventsVersion doesn't update
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events.length, eventsHash]);
+  }, [id, eventsVersion, events.length, eventsHash, events]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -2597,7 +2644,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={`${guestsKey}-${forceUpdate}-${eventsVersion}-${filteredGuests.length}`} className="bg-white divide-y divide-gray-200">
+            <tbody key={`${guestsKey}-${forceUpdate}-${eventsVersion}-${filteredGuests.length}-${eventsHash.substring(0, 50)}`} className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
@@ -2625,7 +2672,7 @@ const EventManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredGuests.map((guest, index) => (
-                <tr key={`${guest.id}-${guest.rsvpStatus}-${guest.guestCount}-${guest.actualAttendance}-${guest.tableId}-${eventsVersion}-${index}`} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <tr key={`${guest.id}-${guest.rsvpStatus}-${guest.guestCount}-${guest.actualAttendance}-${guest.tableId}-${eventsVersion}-${index}-${guest.responseDate ? (guest.responseDate instanceof Date ? guest.responseDate.getTime() : new Date(guest.responseDate).getTime()) : ''}`} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
                     {index + 1}
                   </td>
