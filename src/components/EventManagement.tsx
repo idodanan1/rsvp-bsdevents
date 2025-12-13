@@ -243,8 +243,15 @@ const EventManagement: React.FC = () => {
     if (events.length !== lastEventsLengthRef.current || eventsKey !== lastEventsKeyRef.current) {
       lastEventsLengthRef.current = events.length;
       lastEventsKeyRef.current = eventsKey;
-      setEventsVersion(prev => prev + 1);
-      console.log('🔄 Events array changed, incrementing eventsVersion');
+      setEventsVersion(prev => {
+        const newVersion = prev + 1;
+        console.log('🔄 Events array changed, incrementing eventsVersion to:', newVersion);
+        console.log('📊 Events key changed - this will trigger guestsToDisplay recalculation');
+        return newVersion;
+      });
+    } else {
+      // Log when events array is checked but no change detected
+      console.log('ℹ️ Events array checked - no changes detected (length:', events.length, ', key matches)');
     }
   }, [events]); // Removed eventsVersion from dependencies to prevent loop
   
@@ -345,12 +352,13 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Minimal dependencies - only id and eventsVersion (simple counter)
+    // CRITICAL: Dependencies include id, eventsVersion, and events.length to catch ALL changes
     // eventsVersion is updated when events array changes, triggering re-calculation
-    // The events array is accessed inside the useMemo via getState() but not in dependencies
-    // This prevents React #310 error from circular dependencies
+    // events.length ensures we catch when events are added/removed
+    // The events array itself is accessed inside the useMemo via getState() but not in dependencies
+    // This prevents React #310 error from circular dependencies while ensuring updates are detected
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion]);
+  }, [id, eventsVersion, events.length]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -510,9 +518,9 @@ const EventManagement: React.FC = () => {
     
     const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
     
-    return matchesSearch && matchesFilter;
-  });
-  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
+      return matchesSearch && matchesFilter;
+    });
+  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate, eventsVersion]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
