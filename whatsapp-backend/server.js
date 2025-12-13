@@ -2774,6 +2774,70 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   });
 });
 
+// Handle OPTIONS preflight for add-pending-update endpoint
+app.options('/api/guests/add-pending-update', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
+});
+
+// New endpoint to directly add a pending update (used by frontend for guest_link)
+app.post('/api/guests/add-pending-update', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+
+  const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source } = req.body;
+  console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source });
+
+  if (!phoneNumber || !guestId || !eventId || !status) {
+    return res.status(400).json({ error: 'Missing required fields for pending update' });
+  }
+
+  const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
+  const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
+
+  const updateData = {
+    phoneNumber: formattedPhone,
+    originalPhoneNumber: originalPhone,
+    guestId: guestId,
+    eventId: eventId,
+    status: status,
+    guestCount: guestCount,
+    responseDate: responseDate,
+    timestamp: Date.now(),
+    source: source || 'manual_add'
+  };
+
+  // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
+  const updatesToRemove = [];
+  for (let i = pendingUpdates.length - 1; i >= 0; i--) {
+    const existingUpdate = pendingUpdates[i];
+    const isSameGuest = (guestId && existingUpdate.guestId && existingUpdate.guestId === guestId) ||
+                        (guestId && existingUpdate.guestId && existingUpdate.guestId === guestId && existingUpdate.eventId === eventId);
+    const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
+                        (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
+    if (isSameGuest || isSamePhone) {
+      updatesToRemove.push(i);
+    }
+  }
+
+  if (updatesToRemove.length > 0) {
+    for (const index of updatesToRemove) {
+      pendingUpdates.splice(index, 1);
+    }
+    console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for guest ${guestId || formattedPhone} to prevent conflicts`);
+  }
+
+  pendingUpdates.push(updateData);
+  console.log('✅ Added new update to pendingUpdates via direct endpoint:', updateData);
+  res.json({ success: true, message: 'Update added to pendingUpdates', totalPending: pendingUpdates.length });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   const mongoReady = mongoose.connection.readyState === 1;
