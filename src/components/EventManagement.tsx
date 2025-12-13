@@ -259,6 +259,7 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
   // MUST be before any return statement
+  // CRITICAL: Use a more comprehensive check to detect ALL changes in events array
   useEffect(() => {
     console.log('🔄 Events array changed, checking for guest updates');
     const event = events.find(e => e.id === id);
@@ -270,11 +271,21 @@ const EventManagement: React.FC = () => {
       
       if (eventGuestsKey !== lastGuestsKeyRef.current) {
         console.log('🔄 Event guests changed, forcing update');
+        console.log('📊 Old key:', lastGuestsKeyRef.current.substring(0, 50));
+        console.log('📊 New key:', eventGuestsKey.substring(0, 50));
         lastGuestsKeyRef.current = eventGuestsKey;
         setForceUpdate(prev => prev + 1);
+        
+        // CRITICAL: Also update currentEvent to ensure it matches the latest data
+        const newCurrentEvent = { 
+          ...event,
+          guests: event.guests ? event.guests.map(g => ({ ...g })) : []
+        };
+        setCurrentEvent(newCurrentEvent);
+        console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
       }
     }
-  }, [id, events]);
+  }, [id, events, setCurrentEvent]);
 
   // Early return after ALL hooks (no hooks after this point!)
   if (!currentEvent) {
@@ -287,16 +298,20 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  const filteredGuests = guestsToDisplay.filter(guest => {
-    const matchesSearch = 
-      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      guest.phoneNumber.includes(searchTerm);
-    
-    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
-    
-    return matchesSearch && matchesFilter;
-  });
+  // CRITICAL: Use useMemo to ensure filteredGuests updates when guestsToDisplay changes
+  // This ensures the table updates immediately when guest data changes
+  const filteredGuests = useMemo(() => {
+    return guestsToDisplay.filter(guest => {
+      const matchesSearch = 
+        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        guest.phoneNumber.includes(searchTerm);
+      
+      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+      
+      return matchesSearch && matchesFilter;
+    });
+  }, [guestsToDisplay, searchTerm, filterStatus]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
