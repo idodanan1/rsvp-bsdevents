@@ -528,15 +528,55 @@ const GuestResponse = () => {
     e.preventDefault();
     console.log('🚀 handleSubmit called!', { formData, guestId, eventId });
     
-    const currentEvent = event || directEvent;
-    const currentGuest = guest || directGuest || finalGuest;
+    // CRITICAL: Always use eventId from URL to find the correct event
+    // Don't rely on event or directEvent as they might be from a different event
+    let currentEvent = event || directEvent;
+    
+    // CRITICAL: If eventId is provided, verify that currentEvent matches it
+    // If not, find the event by eventId from the store
+    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
+      console.log(`⚠️ Current event (${currentEvent?.id}) doesn't match eventId from URL (${eventId}), searching in store...`);
+      const storeState = useEventStore.getState();
+      const eventFromStore = storeState.events.find(e => e.id === eventId);
+      if (eventFromStore) {
+        console.log(`✅ Found event ${eventId} in store: ${eventFromStore.coupleName}`);
+        currentEvent = eventFromStore;
+      } else {
+        console.warn(`⚠️ Event ${eventId} not found in store`);
+      }
+    }
+    
+    // CRITICAL: Also verify guestId matches the event
+    let currentGuest = guest || directGuest || finalGuest;
+    if (guestId && currentEvent) {
+      // If currentGuest doesn't match guestId or doesn't belong to currentEvent, find it
+      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
+        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
+        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
+        if (guestFromEvent) {
+          console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
+          currentGuest = guestFromEvent;
+        } else {
+          console.warn(`⚠️ Guest ${guestId} not found in event ${currentEvent.id}`);
+        }
+      }
+    }
     
     console.log('📋 Current event:', currentEvent?.id, 'Current guest:', currentGuest?.id);
+    console.log('📋 EventId from URL:', eventId, 'GuestId from URL:', guestId);
     
     if (!currentEvent) {
       console.error('❌ No event found');
       setSubmitStatus('error');
       setErrorMessage('אירוע לא נמצא');
+      return;
+    }
+    
+    // CRITICAL: Final verification - ensure eventId matches
+    if (eventId && currentEvent.id !== eventId) {
+      console.error(`❌ Event ID mismatch! URL eventId: ${eventId}, Current event ID: ${currentEvent.id}`);
+      setSubmitStatus('error');
+      setErrorMessage('אירוע לא תואם');
       return;
     }
     
@@ -1009,8 +1049,41 @@ const GuestResponse = () => {
                 <button
                   onClick={async () => {
                     console.log('🟡 "מתלבט" button clicked - submitting immediately');
-                    const currentEvent = event || directEvent;
-                    const currentGuest = guest || directGuest || finalGuest;
+                    // CRITICAL: Always use eventId from URL to find the correct event
+                    let currentEvent = event || directEvent;
+                    
+                    // CRITICAL: If eventId is provided, verify that currentEvent matches it
+                    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
+                      console.log(`⚠️ Current event (${currentEvent?.id}) doesn't match eventId from URL (${eventId}), searching in store...`);
+                      const storeState = useEventStore.getState();
+                      const eventFromStore = storeState.events.find(e => e.id === eventId);
+                      if (eventFromStore) {
+                        console.log(`✅ Found event ${eventId} in store: ${eventFromStore.coupleName}`);
+                        currentEvent = eventFromStore;
+                      }
+                    }
+                    
+                    // CRITICAL: Also verify guestId matches the event
+                    let currentGuest = guest || directGuest || finalGuest;
+                    if (guestId && currentEvent) {
+                      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
+                        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
+                        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
+                        if (guestFromEvent) {
+                          console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
+                          currentGuest = guestFromEvent;
+                        }
+                      }
+                    }
+                    
+                    // CRITICAL: Final verification - ensure eventId matches
+                    if (eventId && currentEvent && currentEvent.id !== eventId) {
+                      console.error(`❌ Event ID mismatch! URL eventId: ${eventId}, Current event ID: ${currentEvent.id}`);
+                      setSubmitStatus('error');
+                      setErrorMessage('אירוע לא תואם');
+                      return;
+                    }
+                    
                     if (currentEvent && currentGuest) {
                       setIsSubmitting(true);
                       try {
@@ -1030,6 +1103,7 @@ const GuestResponse = () => {
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
                         console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
+                        console.log('📋 EventId from URL:', eventId, 'GuestId from URL:', guestId);
                         await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
                         
                         // CRITICAL: Force refresh events from store to ensure UI updates immediately
