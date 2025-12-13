@@ -673,28 +673,52 @@ class WebhookService {
             // Mark this update as processed
             this.processedUpdates.add(updateKey);
             
-            // IMPORTANT: Remove this update from backend ONLY after successful update
-            // Add a small delay to ensure UI has time to update
+            // IMPORTANT: Remove this update AND all previous updates for this guest from backend
+            // This ensures old updates don't interfere with new ones and don't appear in the table
             setTimeout(async () => {
               try {
-                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                  method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber,
-                    status: update.status,
-                    responseDate: update.responseDate,
-                    guestCount: update.guestCount // Include guestCount for matching
-                  })
-                });
-                if (removeResponse.ok) {
-                  const removeData = await removeResponse.json();
-                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+                // CRITICAL: First, remove ALL previous updates for this guest to prevent old updates from appearing
+                // This ensures only the latest update is shown in the table
+                if (update.guestId && update.eventId) {
+                  try {
+                    const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        phoneNumber: update.phoneNumber,
+                        removeAllForPhone: true // Remove all updates for this phone/guest
+                      })
+                    });
+                    if (removeAllResponse.ok) {
+                      const removeAllData = await removeAllResponse.json();
+                      console.log(`✅ Removed all previous updates for guest: ${removeAllData.removed || 0} update(s) removed`);
+                    }
+                  } catch (error) {
+                    console.warn('⚠️ Could not remove all previous updates from backend:', error);
+                  }
                 } else {
-                  const errorText = await removeResponse.text();
-                  console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
+                  // Fallback: Remove this specific update if guestId/eventId not available
+                  const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      status: update.status,
+                      responseDate: update.responseDate,
+                      guestCount: update.guestCount // Include guestCount for matching
+                    })
+                  });
+                  if (removeResponse.ok) {
+                    const removeData = await removeResponse.json();
+                    console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+                  } else {
+                    const errorText = await removeResponse.text();
+                    console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
+                  }
                 }
               } catch (error) {
                 console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
