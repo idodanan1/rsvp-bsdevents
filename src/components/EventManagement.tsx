@@ -226,10 +226,11 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use useMemo to ensure React tracks changes correctly
   // CRITICAL: Include responseDate timestamp to detect updates even if status doesn't change
+  // CRITICAL: Also include events array reference to detect when events array changes
   const guestsKey = useMemo(() => {
     if (guestsToDisplay && guestsToDisplay.length > 0) {
       try {
-        return guestsToDisplay.map(g => {
+        const guestsKeyString = guestsToDisplay.map(g => {
           let responseDateValue = '';
           if (g.responseDate) {
             try {
@@ -241,13 +242,17 @@ const EventManagement: React.FC = () => {
           }
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
         }).join('|');
+        
+        // CRITICAL: Include events array length and a hash of event IDs to detect array changes
+        const eventsHash = events.map(e => `${e.id}:${e.updatedAt ? new Date(e.updatedAt).getTime() : ''}`).join('|');
+        return `${guestsKeyString}|events:${events.length}:${eventsHash}`;
       } catch (error) {
         console.warn('⚠️ Error creating guestsKey:', error);
         return 'error';
       }
     }
-    return 'empty';
-  }, [guestsToDisplay]);
+    return `empty|events:${events.length}`;
+  }, [guestsToDisplay, events]);
   
   // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
   // This ensures the table updates immediately when any guest data changes
@@ -310,14 +315,31 @@ const EventManagement: React.FC = () => {
     const event = events.find(e => e.id === id);
     if (event && event.guests) {
       // CRITICAL: Include responseDate to detect updates even if status doesn't change
-      const eventGuestsKey = event.guests.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
-      ).join('|');
+      const eventGuestsKey = event.guests.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:`;
+        }
+      }).join('|');
       
       if (eventGuestsKey !== lastGuestsKeyRef.current) {
         console.log('🔄 Event guests changed, forcing update');
-        console.log('📊 Old key:', lastGuestsKeyRef.current.substring(0, 50));
-        console.log('📊 New key:', eventGuestsKey.substring(0, 50));
+        console.log('📊 Old key:', lastGuestsKeyRef.current.substring(0, 100));
+        console.log('📊 New key:', eventGuestsKey.substring(0, 100));
+        console.log('📊 Event ID:', event.id);
+        console.log('📊 Guests count:', event.guests.length);
+        console.log('📊 Sample guest statuses:', event.guests.slice(0, 3).map(g => ({
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`,
+          status: g.rsvpStatus,
+          count: g.guestCount
+        })));
         lastGuestsKeyRef.current = eventGuestsKey;
         setForceUpdate(prev => prev + 1);
         
@@ -328,7 +350,11 @@ const EventManagement: React.FC = () => {
         };
         setCurrentEvent(newCurrentEvent);
         console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
+      } else {
+        console.log('ℹ️ Event guests key unchanged, no update needed');
       }
+    } else {
+      console.log('⚠️ Event not found or has no guests:', id);
     }
   }, [id, events, setCurrentEvent]);
 
@@ -345,7 +371,9 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Use useMemo to ensure filteredGuests updates when guestsToDisplay changes
   // This ensures the table updates immediately when guest data changes
+  // CRITICAL: Include forceUpdate to force recalculation when guests change
   const filteredGuests = useMemo(() => {
+    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate);
     return guestsToDisplay.filter(guest => {
       const matchesSearch = 
         guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -356,7 +384,7 @@ const EventManagement: React.FC = () => {
       
       return matchesSearch && matchesFilter;
     });
-  }, [guestsToDisplay, searchTerm, filterStatus]);
+  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
