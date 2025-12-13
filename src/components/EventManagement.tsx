@@ -206,10 +206,11 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use useMemo to ensure React tracks changes correctly
+  // CRITICAL: Include responseDate timestamp to detect updates even if status doesn't change
   const guestsKey = useMemo(() => {
     if (guestsToDisplay && guestsToDisplay.length > 0) {
       return guestsToDisplay.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate || ''}`
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
       ).join('|');
     }
     return 'empty';
@@ -225,6 +226,7 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Listen to guestsToDisplay changes to force re-render
   // This ensures we catch updates immediately when guest data changes
+  // CRITICAL: Use guestsKey instead of guestsToDisplay.length to detect ALL changes, including responseDate
   useEffect(() => {
     console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
     console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
@@ -234,11 +236,12 @@ const EventManagement: React.FC = () => {
       console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => ({
         name: `${g.firstName} ${g.lastName}`,
         status: g.rsvpStatus,
-        count: g.guestCount
+        count: g.guestCount,
+        responseDate: g.responseDate ? new Date(g.responseDate).toISOString() : 'none'
       })));
     }
     setForceUpdate(prev => prev + 1);
-  }, [guestsToDisplay.length, id, currentEvent?.id, events.length]);
+  }, [guestsKey, id, currentEvent?.id, events.length]);
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
