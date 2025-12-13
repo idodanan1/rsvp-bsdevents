@@ -1733,47 +1733,81 @@ export const useEventStore = create<EventStore>()(
                       // If new update is newer (or same), use it. Otherwise keep old values for that field
                       const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
                       
-                      // For guestCount and rsvpStatus: always use new value if provided and update is newer
-                      // This ensures the latest update (whether manual or via link) always wins
-                      const mergedGuest = { 
-                        ...guest, 
-                        ...updatedGuest,
-                        // Always use new values if provided (latest update wins)
-                        rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                        guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
-                        notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
-                        // Use the newer responseDate
-                        responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
-                      };
-                      
-                      console.log(`🔧 Merging guest (latest update wins):`, {
-                        old: { 
-                          rsvpStatus: guest.rsvpStatus, 
-                          guestCount: guest.guestCount,
-                          responseDate: oldResponseDate.toISOString()
-                        },
-                        new: { 
-                          rsvpStatus: updatedGuest.rsvpStatus, 
-                          guestCount: updatedGuest.guestCount,
-                          responseDate: newResponseDate.toISOString()
-                        },
-                        isNewer: isNewerUpdate,
-                        merged: { 
-                          rsvpStatus: mergedGuest.rsvpStatus, 
-                          guestCount: mergedGuest.guestCount,
-                          responseDate: mergedGuest.responseDate.toISOString()
-                        }
-                      });
-                      
-                      // Remove manual change protection if this update is newer
+                      // CRITICAL: If this is a newer update, completely replace old values with new ones
+                      // This ensures old updates don't persist in the table
                       if (isNewerUpdate) {
+                        // Completely replace with new update - don't merge old values
+                        const mergedGuest = { 
+                          ...guest, // Keep base guest properties (id, firstName, lastName, etc.)
+                          ...updatedGuest, // Override with ALL new values from updatedGuest
+                          // Always use new values if provided (latest update completely replaces old one)
+                          rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                          guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                          notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
+                          actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
+                          // Use the newer responseDate
+                          responseDate: newResponseDate
+                        };
+                      
+                        console.log(`🔧 Merging guest (latest update wins - COMPLETELY REPLACING old values):`, {
+                          old: { 
+                            rsvpStatus: guest.rsvpStatus, 
+                            guestCount: guest.guestCount,
+                            responseDate: oldResponseDate.toISOString()
+                          },
+                          new: { 
+                            rsvpStatus: updatedGuest.rsvpStatus, 
+                            guestCount: updatedGuest.guestCount,
+                            responseDate: newResponseDate.toISOString()
+                          },
+                          isNewer: isNewerUpdate,
+                          merged: { 
+                            rsvpStatus: mergedGuest.rsvpStatus, 
+                            guestCount: mergedGuest.guestCount,
+                            responseDate: mergedGuest.responseDate.toISOString()
+                          }
+                        });
+                        
+                        // CRITICAL: Always return a new object reference for the guest
+                        return { ...mergedGuest };
+                      } else {
+                        // Old update is newer - keep old values
+                        console.log(`⏭️ Keeping old guest values (old update is newer):`, {
+                          old: { 
+                            rsvpStatus: guest.rsvpStatus, 
+                            guestCount: guest.guestCount,
+                            responseDate: oldResponseDate.toISOString()
+                          },
+                          new: { 
+                            rsvpStatus: updatedGuest.rsvpStatus, 
+                            guestCount: updatedGuest.guestCount,
+                            responseDate: newResponseDate.toISOString()
+                          }
+                        });
+                        
+                        // Keep old guest values
+                        const mergedGuest = { 
+                          ...guest,
+                          ...updatedGuest,
+                          // Keep old values since they're newer
+                          rsvpStatus: guest.rsvpStatus,
+                          guestCount: guest.guestCount,
+                          notes: guest.notes,
+                          actualAttendance: guest.actualAttendance,
+                          responseDate: oldResponseDate
+                        };
+                      
+                        // Remove manual change protection if this update is newer
                         const manualChangeKey = `${eventId}-${guestId}`;
                         state.manualChanges.delete(manualChangeKey);
                         console.log(`🔄 Removed manual change protection for ${manualChangeKey} - new update is newer`);
+                        
+                        // CRITICAL: Always return a new object reference for the guest
+                        return { ...mergedGuest };
                       }
                       
-                      // CRITICAL: Always return a new object reference for the guest
-                      return { ...mergedGuest };
+                      // Old update is newer - return old guest values
+                      return { ...guest };
                     }
                     // CRITICAL: Return new object reference even for unchanged guests
                     return { ...guest };

@@ -495,6 +495,29 @@ class WebhookService {
         }
 
         if (foundGuest && foundEventId) {
+          // CRITICAL: Remove ALL previous updates for this guest BEFORE processing the new update
+          // This ensures old updates don't interfere with new ones and don't appear in the table
+          if (update.guestId && update.eventId) {
+            try {
+              const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  removeAllForPhone: true // Remove all updates for this phone/guest
+                })
+              });
+              if (removeAllResponse.ok) {
+                const removeAllData = await removeAllResponse.json();
+                console.log(`🗑️ Removed all previous updates for guest BEFORE processing new update: ${removeAllData.removed || 0} update(s) removed`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove all previous updates from backend:', error);
+            }
+          }
+          
           // Create unique key for this update to avoid duplicate toasts
           const updateKey = `${foundEventId}-${foundGuest.id}-${update.status}-${update.responseDate}`;
           const guestKey = `${foundEventId}-${foundGuest.id}`;
@@ -673,52 +696,31 @@ class WebhookService {
             // Mark this update as processed
             this.processedUpdates.add(updateKey);
             
-            // IMPORTANT: Remove this update AND all previous updates for this guest from backend
-            // This ensures old updates don't interfere with new ones and don't appear in the table
+            // IMPORTANT: Remove this update from backend AFTER successful update
+            // Note: All previous updates for this guest were already removed BEFORE processing (see above)
             setTimeout(async () => {
               try {
-                // CRITICAL: First, remove ALL previous updates for this guest to prevent old updates from appearing
-                // This ensures only the latest update is shown in the table
-                if (update.guestId && update.eventId) {
-                  try {
-                    const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                      method: 'DELETE',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        phoneNumber: update.phoneNumber,
-                        removeAllForPhone: true // Remove all updates for this phone/guest
-                      })
-                    });
-                    if (removeAllResponse.ok) {
-                      const removeAllData = await removeAllResponse.json();
-                      console.log(`✅ Removed all previous updates for guest: ${removeAllData.removed || 0} update(s) removed`);
-                    }
-                  } catch (error) {
-                    console.warn('⚠️ Could not remove all previous updates from backend:', error);
-                  }
+                // Remove this specific update (all previous ones were already removed)
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    status: update.status,
+                    responseDate: update.responseDate,
+                    guestCount: update.guestCount, // Include guestCount for matching
+                    guestId: update.guestId, // Include guestId for precise matching
+                    eventId: update.eventId // Include eventId for precise matching
+                  })
+                });
+                if (removeResponse.ok) {
+                  const removeData = await removeResponse.json();
+                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
                 } else {
-                  // Fallback: Remove this specific update if guestId/eventId not available
-                  const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                    method: 'DELETE',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      phoneNumber: update.phoneNumber,
-                      status: update.status,
-                      responseDate: update.responseDate,
-                      guestCount: update.guestCount // Include guestCount for matching
-                    })
-                  });
-                  if (removeResponse.ok) {
-                    const removeData = await removeResponse.json();
-                    console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
-                  } else {
-                    const errorText = await removeResponse.text();
-                    console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
-                  }
+                  const errorText = await removeResponse.text();
+                  console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
                 }
               } catch (error) {
                 console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
