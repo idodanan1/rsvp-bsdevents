@@ -2449,27 +2449,69 @@ export const useEventStore = create<EventStore>()(
 
           const result = await messageService.sendBulkMessages(messageData);
           
+          // CRITICAL: Update messageStatus for each guest based on send results
+          // Update guests with "sent" status if message was sent successfully
+          const updatedEvents = get().events.map(event => {
+            if (event.id !== eventId) return event;
+            
+            const updatedGuests = event.guests?.map(guest => {
+              const messageResult = result.results.find(r => r.recipientId === guest.id);
+              if (messageResult && messageResult.success) {
+                // Update messageStatus based on channel
+                let messageStatus: 'sent' | 'delivered' | 'failed' | 'sms_sent' = 'sent';
+                if (messageResult.channel === 'sms') {
+                  messageStatus = 'sms_sent';
+                } else if (messageResult.fallbackUsed) {
+                  messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
+                }
+                
+                return {
+                  ...guest,
+                  messageStatus,
+                  messageSentDate: new Date(),
+                  channel: messageResult.channel || guest.channel
+                };
+              } else if (messageResult && !messageResult.success) {
+                // Mark as failed if send failed
+                return {
+                  ...guest,
+                  messageStatus: 'failed' as const,
+                  messageFailedDate: new Date()
+                };
+              }
+              return guest;
+            });
+            
+            return {
+              ...event,
+              guests: updatedGuests,
+              campaigns: event.campaigns?.map(c =>
+                c.id === campaignId
+                  ? { ...c, status: 'sent', sentCount: result.successful, updatedAt: new Date() }
+                  : c
+              ),
+              updatedAt: new Date()
+            };
+          });
+          
           // After sending campaign, ensure webhookService is actively listening
           console.log(`📤 Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
           console.log(`👂 System is now actively waiting for guest responses...`);
           console.log(`📡 Webhook polling is ${webhookService.pollingActive ? 'ACTIVE' : 'INACTIVE'} - checking every 3 seconds for updates`);
+          console.log(`✅ Updated messageStatus for ${result.successful} guests to "sent"`);
 
-          set(state => ({
-            events: state.events.map(event =>
-              event.id === eventId
-                ? {
-                    ...event,
-                    campaigns: event.campaigns?.map(c =>
-                      c.id === campaignId
-                        ? { ...c, status: 'sent', sentCount: result.successful, updatedAt: new Date() }
-                        : c
-                    ),
-                    updatedAt: new Date()
-                  }
-                : event
-            ),
+          set({
+            events: updatedEvents,
             isLoading: false
-          }));
+          });
+          
+          // Sync updated events to backend
+          const updatedEvent = updatedEvents.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.warn('⚠️ Failed to sync updated event to API:', err);
+            });
+          }
 
           return result;
         } catch (error) {

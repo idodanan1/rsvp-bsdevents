@@ -513,11 +513,11 @@ const EventManagement: React.FC = () => {
   const getMessageStatusText = (status: string) => {
     switch (status) {
       case 'not_sent': return 'לא נשלחה';
-      case 'sent': return 'נשלחה';
-      case 'delivered': return 'נשלחה והתקבלה';
-      case 'failed': return 'נשלחה ונכשלה';
+      case 'sent': return 'נשלח';
+      case 'delivered': return 'קיבל';
+      case 'failed': return 'נכשל';
       case 'sms_sent': return 'נשלח SMS';
-      default: return 'לא נשלחה';
+      default: return 'לא נשלח';
     }
   };
 

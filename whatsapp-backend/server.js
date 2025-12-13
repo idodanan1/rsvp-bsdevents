@@ -2289,24 +2289,88 @@ function handleMessageStatus(status) {
     recipientId: status.recipient_id
   });
 
-  // Here you can add logic to:
-  // 1. Update message delivery status in database
-  // 2. Update guest response tracking
-  // 3. Send notifications to admin
+  // CRITICAL: Update messageStatus in events based on WhatsApp status
+  // Find guest by phone number and update their messageStatus
+  const phoneNumber = status.recipient_id || status.to;
+  if (!phoneNumber) {
+    console.warn('⚠️ No phone number in status update:', status);
+    return;
+  }
+
+  // Normalize phone number
+  const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+  const formattedPhone = normalizedPhone.replace(/^972/, '0');
+  const phoneWith972 = normalizedPhone.startsWith('0') ? '972' + normalizedPhone.substring(1) : normalizedPhone;
+
+  // Load events to find guest
+  loadEvents();
   
-  switch (status.status) {
-    case 'sent':
-      console.log('📤 Message sent successfully');
-      break;
-    case 'delivered':
-      console.log('📨 Message delivered');
-      break;
-    case 'read':
-      console.log('👀 Message read');
-      break;
-    case 'failed':
-      console.log('❌ Message failed to send');
-      break;
+  // Find guest by phone number across all events
+  for (const event of eventsData.events) {
+    if (!event.guests || event.guests.length === 0) continue;
+    
+    const guest = event.guests.find(g => {
+      if (!g.phoneNumber) return false;
+      const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
+      const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+      const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+      
+      return guestPhone === normalizedPhone || 
+             guestPhone === formattedPhone ||
+             guestPhone === phoneWith972 ||
+             guestPhoneWith0 === normalizedPhone ||
+             guestPhoneWith0 === formattedPhone ||
+             guestPhoneWith0 === phoneWith972 ||
+             guestPhoneWith972 === normalizedPhone ||
+             guestPhoneWith972 === formattedPhone ||
+             guestPhoneWith972 === phoneWith972;
+    });
+
+    if (guest) {
+      // Map WhatsApp status to our messageStatus
+      let messageStatus = guest.messageStatus;
+      switch (status.status) {
+        case 'sent':
+          messageStatus = 'sent';
+          console.log(`📤 Message sent successfully to ${guest.firstName} ${guest.lastName}`);
+          break;
+        case 'delivered':
+          messageStatus = 'delivered';
+          console.log(`📨 Message delivered to ${guest.firstName} ${guest.lastName}`);
+          break;
+        case 'read':
+          // Keep delivered status (read is just a notification)
+          console.log(`👀 Message read by ${guest.firstName} ${guest.lastName}`);
+          break;
+        case 'failed':
+          messageStatus = 'failed';
+          console.log(`❌ Message failed to send to ${guest.firstName} ${guest.lastName}`);
+          break;
+      }
+
+      // Update guest messageStatus
+      if (messageStatus !== guest.messageStatus) {
+        const oldStatus = guest.messageStatus;
+        guest.messageStatus = messageStatus;
+        if (status.status === 'delivered' || status.status === 'read') {
+          guest.messageDeliveredDate = new Date(status.timestamp * 1000);
+        } else if (status.status === 'failed') {
+          guest.messageFailedDate = new Date(status.timestamp * 1000);
+        }
+        
+        // Save events to file
+        saveEvents();
+        console.log(`✅ Updated messageStatus for ${guest.firstName} ${guest.lastName} from "${oldStatus}" to "${messageStatus}"`);
+        
+        // CRITICAL: Sync updated event to frontend via API
+        // This ensures the frontend sees the status update in real-time
+        // Note: The event is already saved to file, and frontend will sync via polling
+        // But we can also trigger an immediate update by calling the API endpoint
+        // The frontend polls /api/events/all every few seconds, so it will see the update
+        console.log(`📡 MessageStatus update will be visible to frontend on next poll`);
+      }
+      break; // Found guest, no need to continue searching
+    }
   }
 }
 
