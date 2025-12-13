@@ -4245,7 +4245,9 @@ app.post('/api/events', async (req, res) => {
           
           // For new guests or guests not found in existing event:
           // Check if they have a valid status or guestCount (indicates a response from guest)
-          const hasValidStatus = !existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe');
+          // CRITICAL: Also check if existing guest has valid status (for guest_link updates)
+          const hasValidStatus = (!existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe')) ||
+                                 (existingGuest && newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe'));
           const hasValidGuestCount = !existingGuest && newGuest.guestCount !== undefined && newGuest.guestCount > 0;
           const hasValidActualAttendance = !existingGuest && newGuest.actualAttendance && newGuest.actualAttendance !== 'not_marked';
           
@@ -4253,7 +4255,11 @@ app.post('/api/events', async (req, res) => {
           // Compare responseDate as strings or timestamps to detect changes
           const oldResponseDate = existingGuest?.responseDate ? (typeof existingGuest.responseDate === 'string' ? existingGuest.responseDate : new Date(existingGuest.responseDate).toISOString()) : null;
           const newResponseDate = newGuest.responseDate ? (typeof newGuest.responseDate === 'string' ? newGuest.responseDate : new Date(newGuest.responseDate).toISOString()) : null;
-          const hasResponseDate = newResponseDate && (!oldResponseDate || newResponseDate !== oldResponseDate);
+          // CRITICAL: If newResponseDate exists and is recent (within last 5 minutes), consider it as a valid update
+          // This ensures updates from guest_link are always detected, even if responseDate didn't "change"
+          const newResponseDateTimestamp = newResponseDate ? new Date(newResponseDate).getTime() : 0;
+          const isRecentResponseDate = newResponseDateTimestamp > Date.now() - (5 * 60 * 1000); // Within last 5 minutes
+          const hasResponseDate = newResponseDate && (!oldResponseDate || newResponseDate !== oldResponseDate || isRecentResponseDate);
           
           // Also check if guest has a valid status (even if not changed) but has a new responseDate
           // This handles cases where guest updates to the same status but at a different time
@@ -4276,20 +4282,7 @@ app.post('/api/events', async (req, res) => {
           console.log(`🔍 Has status with new response: ${hasStatusWithNewResponse}`);
           console.log(`🔍 ========================================================`);
           
-          // Add to pendingUpdates if:
-          // 1. Status changed (existing guest)
-          // 2. Guest count changed (existing guest)
-          // 3. Actual attendance changed (existing guest)
-          // 4. New guest with valid status
-          // 5. New guest with valid guest count
-          // 6. New guest with valid actual attendance
-          // 7. Has response date (indicates this is a response from guest)
-          // 8. Has status with new response date (handles same status but new update time)
-          // 9. CRITICAL: Always add if guest has a valid status and phone number (even if status didn't change)
-          //    This ensures updates from guest response link are always synced across devices
-          const shouldAddToPending = (statusChanged || guestCountChanged || actualAttendanceChanged || hasValidStatus || hasValidGuestCount || hasValidActualAttendance || hasResponseDate || hasStatusWithNewResponse) && newGuest.phoneNumber;
-          
-          // CRITICAL: Also check if guest has a valid status (confirmed/declined/maybe) even if it didn't change
+          // CRITICAL: Check if guest has a valid status (confirmed/declined/maybe) even if it didn't change
           // This ensures updates from guest response link are always synced, even if status is the same
           const hasValidRsvpStatus = newGuest.rsvpStatus && 
                                     (newGuest.rsvpStatus === 'confirmed' || 
@@ -4304,7 +4297,21 @@ app.post('/api/events', async (req, res) => {
           // 1. Any field changed (status, guestCount, actualAttendance)
           // 2. Has valid status with new responseDate (even if status didn't change)
           // 3. Has guestCount or actualAttendance change
-          if ((shouldAddToPending || hasGuestCountOrAttendanceChange || (hasValidRsvpStatus && newGuest.phoneNumber && hasResponseDate)) && newGuest.phoneNumber) {
+          // 4. CRITICAL: If guest has a valid rsvpStatus (confirmed/declined/maybe) and phone number, ALWAYS add
+          //    This ensures ALL updates from guest_link are synced, even if nothing "changed" according to the logic
+          //    The presence of a valid status with phone number indicates a guest response that must be synced
+          // 5. CRITICAL: If responseDate is recent (within last 5 minutes), always add - this indicates a fresh update from guest_link
+          const shouldAlwaysAdd = newGuest.phoneNumber && 
+                                 newGuest.rsvpStatus && 
+                                 (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe');
+          
+          // CRITICAL: If guest has valid status and phone number, ALWAYS add to pendingUpdates
+          // OR if responseDate is recent (indicates fresh update from guest_link)
+          // This ensures updates from guest_link are always synced across devices
+          // CRITICAL: Always add if shouldAlwaysAdd is true (has valid status + phone) OR isRecentResponseDate is true
+          const shouldAddToPending = (statusChanged || guestCountChanged || actualAttendanceChanged || hasValidStatus || hasValidGuestCount || hasValidActualAttendance || hasResponseDate || hasStatusWithNewResponse || shouldAlwaysAdd || isRecentResponseDate) && newGuest.phoneNumber;
+          
+          if (shouldAddToPending) {
             // Format phone number (same logic as updateGuestStatusByPhone)
             const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
             const formattedPhone = originalPhone.replace(/^972/, '0');
@@ -4407,6 +4414,50 @@ app.post('/api/events', async (req, res) => {
             // CRITICAL: If phone number is missing, this is a critical issue
             if (!newGuest.phoneNumber) {
               console.error(`❌ CRITICAL: Guest ${newGuest.firstName} ${newGuest.lastName} (${newGuest.id}) has NO phone number! Cannot add to pendingUpdates.`);
+            } else if (newGuest.rsvpStatus && (newGuest.rsvpStatus === 'confirmed' || newGuest.rsvpStatus === 'declined' || newGuest.rsvpStatus === 'maybe')) {
+              // CRITICAL: If guest has valid status and phone number but wasn't added, this is a bug
+              // Force add it to ensure sync - this should not happen but is a safety net
+              console.warn(`⚠️ WARNING: Guest has valid status (${newGuest.rsvpStatus}) and phone number but wasn't added to pendingUpdates. Forcing add...`);
+              
+              const originalPhone = newGuest.phoneNumber.replace(/[^0-9]/g, '');
+              const formattedPhone = originalPhone.replace(/^972/, '0');
+              
+              const updateData = {
+                phoneNumber: formattedPhone,
+                originalPhoneNumber: originalPhone,
+                guestId: newGuest.id,
+                eventId: event.id,
+                status: newGuest.rsvpStatus === 'confirmed' ? 'confirmed' : 
+                       newGuest.rsvpStatus === 'declined' ? 'declined' :
+                       newGuest.rsvpStatus === 'maybe' ? 'maybe' : undefined,
+                guestCount: newGuest.guestCount !== undefined && newGuest.guestCount > 0 ? newGuest.guestCount : undefined,
+                actualAttendance: newGuest.actualAttendance && newGuest.actualAttendance !== 'not_marked' ? newGuest.actualAttendance : undefined,
+                responseDate: newGuest.responseDate || new Date().toISOString(),
+                timestamp: Date.now(),
+                source: 'guest_link'
+              };
+              
+              // Remove old updates for this guest
+              const updatesToRemove = [];
+              for (let i = pendingUpdates.length - 1; i >= 0; i--) {
+                const existingUpdate = pendingUpdates[i];
+                const isSameGuest = (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id) ||
+                                    (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id && existingUpdate.eventId === event.id);
+                const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
+                                    (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
+                if (isSameGuest || isSamePhone) {
+                  updatesToRemove.push(i);
+                }
+              }
+              
+              if (updatesToRemove.length > 0) {
+                for (const index of updatesToRemove) {
+                  pendingUpdates.splice(index, 1);
+                }
+              }
+              
+              pendingUpdates.push(updateData);
+              console.log(`✅ FORCED ADD: Added guest update to pendingUpdates (was skipped but has valid status):`, updateData);
             }
           }
         }

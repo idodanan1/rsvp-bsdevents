@@ -217,7 +217,7 @@ class WebhookService {
             // Check if guestCount is different from current value
             if (foundGuest.guestCount === update.guestCount) {
               console.log(`⏭️ Skipping guest count update - already matches current value (${update.guestCount})`);
-              // Remove from backend
+              // Remove only the guestCount part from backend, but keep the update if there's also a status
               try {
                 const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
                   method: 'DELETE',
@@ -227,6 +227,7 @@ class WebhookService {
                   body: JSON.stringify({
                     phoneNumber: update.phoneNumber,
                     guestCount: update.guestCount
+                    // Don't include status here - if there's a status, it will be processed separately
                   })
                 });
                 if (removeResponse.ok) {
@@ -235,7 +236,12 @@ class WebhookService {
               } catch (error) {
                 console.warn('⚠️ Could not remove duplicate guest count update from backend:', error);
               }
-              continue;
+              // CRITICAL: If there's also a status in this update, continue to process it below
+              // Otherwise, skip to next update
+              if (!update.status) {
+                continue; // Move to next update (only guestCount, no status)
+              }
+              // If there's a status, fall through to process it below
             }
 
             // Update guest count
