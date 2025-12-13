@@ -146,7 +146,8 @@ const EventManagement: React.FC = () => {
       return () => clearTimeout(timeout);
     }
     
-    // CRITICAL: Only process if this is the event being viewed
+    // CRITICAL: Only process if this is the event being viewed (from URL)
+    // This ensures we don't override currentEvent when an update occurs for a different event
     if (event.id !== id) {
       return; // Skip processing for other events
     }
@@ -174,7 +175,9 @@ const EventManagement: React.FC = () => {
     const guestsChanged = newGuestsKey !== lastGuestsKeyRef.current;
     const eventChanged = !currentEvent || currentEvent.id !== event.id;
     
-    if (guestsChanged || eventChanged || eventActuallyUpdated) {
+    // CRITICAL: Only update currentEvent if this is the event from the URL (id)
+    // This ensures we don't override currentEvent when an update occurs for a different event
+    if ((guestsChanged || eventChanged || eventActuallyUpdated) && event.id === id) {
       if (guestsChanged) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
         console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
@@ -218,12 +221,22 @@ const EventManagement: React.FC = () => {
     
     const event = events.find(e => e.id === id);
     if (event) {
-      // Only update if event ID changed or event was actually updated
+      // Create a key from guests to detect changes (including status, count, responseDate)
+      const currentGuestsKey = currentEventFromStoreRef.current?.guests?.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
+      ).join('|') || '';
+      const newGuestsKey = event.guests?.map(g => 
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
+      ).join('|') || '';
+      
+      // Update if event ID changed, event was updated, guests changed, or guests key changed
       if (lastEventIdRef2.current !== id || 
           currentEventFromStoreRef.current?.updatedAt !== event.updatedAt ||
-          currentEventFromStoreRef.current?.guests?.length !== event.guests?.length) {
+          currentEventFromStoreRef.current?.guests?.length !== event.guests?.length ||
+          currentGuestsKey !== newGuestsKey) {
         currentEventFromStoreRef.current = event;
         lastEventIdRef2.current = id;
+        console.log('🔄 Updated currentEventFromStoreRef for event:', id, 'guests:', event.guests?.length || 0);
       }
     } else {
       currentEventFromStoreRef.current = null;
