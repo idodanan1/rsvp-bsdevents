@@ -185,17 +185,20 @@ const EventManagement: React.FC = () => {
   }, [id, events, setCurrentEvent, navigate]);
 
   // CRITICAL: All hooks must be before any conditional returns
-  // Get guests from store - use currentEvent if available, otherwise from events array
+  // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo to ensure React tracks changes correctly
   const guestsToDisplay = useMemo(() => {
-    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
-      console.log('📊 Using guests from currentEvent:', currentEvent.guests.length);
-      return currentEvent.guests.map(g => ({ ...g }));
-    }
+    // CRITICAL: Always get from events array first (most up-to-date)
+    // Only use currentEvent if it matches the event being viewed AND events array doesn't have it
     const event = events.find(e => e.id === id);
     if (event?.guests) {
-      console.log('📊 Using guests from events array:', event.guests.length);
+      console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
       return event.guests.map(g => ({ ...g }));
+    }
+    // Fallback to currentEvent if events array doesn't have the event yet
+    if (currentEvent && currentEvent.id === id && currentEvent.guests) {
+      console.log('📊 Using guests from currentEvent (fallback):', currentEvent.guests.length);
+      return currentEvent.guests.map(g => ({ ...g }));
     }
     console.log('⚠️ No guests found for event:', id);
     return [];
