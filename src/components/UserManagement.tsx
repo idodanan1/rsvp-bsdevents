@@ -88,10 +88,24 @@ const UserManagement: React.FC = () => {
   };
 
   const handleOpenRecreateCampaigns = (user: UserWithStats) => {
-    setSelectedUserForCampaigns(user);
-    const events = getEventsByUserId(user.id);
-    setUserEvents(events);
-    setShowRecreateCampaignsModal(true);
+    console.log('🔄 Opening recreate campaigns modal for user:', user.name, user.id);
+    try {
+      const events = getEventsByUserId(user.id);
+      console.log('📅 Found events for user:', events.length, events);
+      
+      if (events.length === 0) {
+        toast.error('למשתמש זה אין אירועים');
+        return;
+      }
+      
+      setSelectedUserForCampaigns(user);
+      setUserEvents(events);
+      setShowRecreateCampaignsModal(true);
+      console.log('✅ Modal should be open now');
+    } catch (error) {
+      console.error('❌ Error opening recreate campaigns modal:', error);
+      toast.error('שגיאה בפתיחת חלון שחזור קמפיינים');
+    }
   };
 
   const handleRecreateCampaigns = async (eventId: string) => {
@@ -270,14 +284,18 @@ const UserManagement: React.FC = () => {
                             </button>
                           )}
                           <button
-                            onClick={() => handleOpenRecreateCampaigns(user)}
-                            disabled={user.totalEvents === 0}
-                            className={`px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm ${
-                              user.totalEvents > 0
-                                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
-                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                            }`}
-                            title={user.totalEvents > 0 ? 'שחזר קמפיינים לשליחה מחודשת' : 'למשתמש זה אין אירועים'}
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              console.log('🔄 Recreate campaigns button clicked for user:', user.name, 'totalEvents:', user.totalEvents, 'userId:', user.id);
+                              
+                              // Always allow clicking - check inside the handler
+                              handleOpenRecreateCampaigns(user);
+                            }}
+                            className="px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm relative z-10 bg-yellow-600 text-white hover:bg-yellow-700 cursor-pointer active:bg-yellow-800"
+                            title="שחזר קמפיינים לשליחה מחודשת"
+                            style={{ pointerEvents: 'auto' }}
                           >
                             <RefreshCw className="w-4 h-4" />
                             <span>שחזר קמפיינים</span>
