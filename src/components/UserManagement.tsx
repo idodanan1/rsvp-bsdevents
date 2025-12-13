@@ -94,10 +94,12 @@ const UserManagement: React.FC = () => {
       console.log('📅 Found events for user:', events.length, events);
       
       if (events.length === 0) {
-        toast.error('למשתמש זה אין אירועים');
+        console.log('⚠️ No events found for user, showing error toast');
+        toast.error('למשתמש זה אין אירועים לשחזר קמפיינים');
         return;
       }
       
+      console.log('✅ User has events, opening modal...');
       setSelectedUserForCampaigns(user);
       setUserEvents(events);
       setShowRecreateCampaignsModal(true);
