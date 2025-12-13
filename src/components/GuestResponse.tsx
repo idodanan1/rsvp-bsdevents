@@ -604,7 +604,8 @@ const GuestResponse = () => {
           notes: formData.notes,
           rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe', // EXPLICITLY set status
           responseDate: new Date(),
-          actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
+          actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
+          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
         };
         
         console.log('🔄 Calling updateGuestResponse with:', {
@@ -676,7 +677,8 @@ const GuestResponse = () => {
             notes: formData.notes,
             rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
             responseDate: new Date(),
-            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
+            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
+            source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
           };
           
           await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
@@ -1105,7 +1107,8 @@ const GuestResponse = () => {
                           notes: formData.notes || '', // Preserve notes if they exist
                           rsvpStatus: 'maybe' as const,
                           responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
                         console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
@@ -1183,7 +1186,8 @@ const GuestResponse = () => {
                           notes: formData.notes || '', // Preserve notes if they exist
                           rsvpStatus: 'declined' as const,
                           responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
                         };
                         console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
                         console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', guestIdToUse);

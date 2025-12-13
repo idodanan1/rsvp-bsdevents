@@ -1644,6 +1644,16 @@ export const useEventStore = create<EventStore>()(
       },
 
       updateGuestResponse: async (eventId, guestId, updatedGuest) => {
+        console.log('🚀 updateGuestResponse CALLED:', {
+          eventId,
+          guestId,
+          updatedGuest: {
+            rsvpStatus: updatedGuest.rsvpStatus,
+            guestCount: updatedGuest.guestCount,
+            responseDate: updatedGuest.responseDate,
+            source: updatedGuest.source || 'unknown'
+          }
+        });
         set({ isLoading: true, error: null });
         try {
           const currentState = get();
@@ -2009,6 +2019,36 @@ export const useEventStore = create<EventStore>()(
                 const result = await response.json();
                 console.log('✅ Guest response update synced to API:', result);
                 console.log('✅ Update should now be in pendingUpdates for webhook service to process');
+                
+                // CRITICAL: If update is from guest_link, directly add to pendingUpdates in backend
+                // This ensures the webhook service picks it up even if status didn't "change"
+                if (updatedGuest && (updatedGuest.source === 'guest_link' || !updatedGuest.source)) {
+                  try {
+                    console.log('🌐 Directly adding guest_link update to backend pendingUpdates...');
+                    const pendingUpdatePayload = {
+                      phoneNumber: updatedGuest.phoneNumber,
+                      guestId: updatedGuest.id,
+                      eventId: eventId,
+                      status: updatedGuest.rsvpStatus,
+                      guestCount: updatedGuest.guestCount,
+                      responseDate: updatedGuest.responseDate?.toISOString() || new Date().toISOString(),
+                      source: 'guest_link'
+                    };
+                    const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(pendingUpdatePayload)
+                    });
+                    if (addPendingResponse.ok) {
+                      console.log('✅ Guest_link update successfully added to backend pendingUpdates.');
+                    } else {
+                      const errorText = await addPendingResponse.text();
+                      console.warn('⚠️ Failed to add guest_link update to backend pendingUpdates:', addPendingResponse.status, errorText);
+                    }
+                  } catch (error) {
+                    console.warn('⚠️ Error directly adding guest_link update to backend pendingUpdates:', error);
+                  }
+                }
                 
                 // CRITICAL: Don't force refresh immediately - let webhook service handle it
                 // This prevents race conditions and ensures consistent updates across devices
