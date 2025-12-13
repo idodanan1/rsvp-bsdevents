@@ -251,10 +251,20 @@ const EventManagement: React.FC = () => {
   // Use useMemo with simpler dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
     // CRITICAL: Always get from events array first (most up-to-date)
-    // Use currentEventFromStore which is memoized separately
-    const event = currentEventFromStore || (currentEvent && currentEvent.id === id ? currentEvent : null);
+    // Try multiple sources in order: currentEventFromStore, currentEvent, or events array directly
+    let event = currentEventFromStore;
     
-    if (event?.guests) {
+    // Fallback to currentEvent if it matches the ID
+    if (!event && currentEvent && currentEvent.id === id) {
+      event = currentEvent;
+    }
+    
+    // Final fallback: get directly from events array
+    if (!event) {
+      event = events.find(e => e.id === id) || null;
+    }
+    
+    if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
       console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
       const guests = event.guests.map(g => {
@@ -288,9 +298,12 @@ const EventManagement: React.FC = () => {
       return guests;
     }
     
-    console.log('⚠️ No guests found for event:', id);
+    // Only log warning if we have events but not for this ID
+    if (events.length > 0) {
+      console.log('⚠️ No guests found for event:', id, '- Event exists:', !!events.find(e => e.id === id));
+    }
     return [];
-  }, [id, currentEventFromStore, currentEvent]);
+  }, [id, currentEventFromStore, currentEvent, events]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -319,8 +332,9 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Use guestsKey instead of guestsToDisplay to avoid React #310 errors
   useEffect(() => {
     try {
+      const eventId = currentEvent?.id || id || 'unknown';
       console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
-      console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', currentEvent?.id);
+      console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', eventId);
       console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
       console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay?.length || 0);
       if (guestsToDisplay && guestsToDisplay.length > 0) {
@@ -352,7 +366,7 @@ const EventManagement: React.FC = () => {
       console.warn('⚠️ Error in EVENT_MANAGEMENT useEffect:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestsKey, id, currentEvent?.id, events.length]); // Removed guestsToDisplay to prevent React #310
+  }, [guestsKey, id, events.length]); // Removed currentEvent?.id to prevent unnecessary re-renders
   
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire

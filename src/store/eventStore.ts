@@ -44,6 +44,11 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   }
 };
 
+// Track if fetchEvents is in progress to prevent duplicate calls
+let fetchInProgress = false;
+let lastFetchTime = 0;
+const FETCH_DEBOUNCE_MS = 1000; // Minimum 1 second between fetches
+
 export const useEventStore = create<EventStore>()(
   persist(
     (set, get) => ({
@@ -55,6 +60,21 @@ export const useEventStore = create<EventStore>()(
       manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        // CRITICAL: Debounce to prevent excessive API calls
+        const now = Date.now();
+        if (fetchInProgress && !forceRefresh) {
+          console.log('⏭️ Skipping fetchEvents - already in progress');
+          return;
+        }
+        
+        // If last fetch was very recent and not forced, skip
+        if (!forceRefresh && (now - lastFetchTime) < FETCH_DEBOUNCE_MS) {
+          console.log(`⏭️ Skipping fetchEvents - debounced (last fetch ${now - lastFetchTime}ms ago)`);
+          return;
+        }
+        
+        fetchInProgress = true;
+        lastFetchTime = now;
         // CRITICAL: Early return if no user ID to prevent infinite loops
         const userStorage = localStorage.getItem('rsvp-user-storage');
         let userId = '';
@@ -814,6 +834,9 @@ export const useEventStore = create<EventStore>()(
         } catch (error) {
           console.error('❌ Error fetching events:', error);
           set({ error: 'שגיאה בטעינת האירועים', isLoading: false });
+        } finally {
+          // CRITICAL: Always reset fetchInProgress flag, even on error
+          fetchInProgress = false;
         }
       },
 

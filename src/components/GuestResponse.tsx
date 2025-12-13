@@ -572,15 +572,13 @@ const GuestResponse = () => {
           }
         }
         
-        // CRITICAL: Force MULTIPLE refreshes to ensure all components see the update
-        // This ensures the table in EventManagement updates immediately
-        for (let i = 0; i < 3; i++) {
-          setTimeout(() => {
-            storeState.fetchEvents(false, true).catch(err => {
-              console.warn(`⚠️ Failed to refresh events after guest response update (attempt ${i + 1}):`, err);
-            });
-          }, 50 * (i + 1)); // 50ms, 100ms, 150ms
-        }
+        // CRITICAL: Single refresh call - the store update already triggers React re-renders
+        // Multiple calls cause excessive API requests and performance issues
+        setTimeout(() => {
+          storeState.fetchEvents(false, true).catch(err => {
+            console.warn(`⚠️ Failed to refresh events after guest response update:`, err);
+          });
+        }, 100); // Single delayed refresh to ensure API is in sync
       } else if (guestId) {
         // Try to find guest by ID in event
         const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
@@ -999,13 +997,13 @@ const GuestResponse = () => {
                         console.log(`🔄 Refreshed guest status after "מתלבט" update: ${refreshedGuest?.rsvpStatus}`);
                         
                         // Force a re-fetch of events to ensure all components see the update
+                        // Single call is enough - store update already triggers re-renders
                         setTimeout(() => {
                           storeState.fetchEvents(false, true).catch(err => {
                             console.warn('⚠️ Failed to refresh events after "מתלבט" update:', err);
                           });
                         }, 100);
                         
-                        await fetchEvents();
                         setSubmitStatus('success');
                       } catch (error) {
                         console.error('❌ Error submitting:', error);
@@ -1074,13 +1072,13 @@ const GuestResponse = () => {
                         console.log(`🔄 Refreshed guest status after "לא מגיע" update: ${refreshedGuest?.rsvpStatus}`);
                         
                         // Force a re-fetch of events to ensure all components see the update
+                        // Single call is enough - store update already triggers re-renders
                         setTimeout(() => {
                           storeState.fetchEvents(false, true).catch(err => {
                             console.warn('⚠️ Failed to refresh events after "לא מגיע" update:', err);
                           });
                         }, 100);
                         
-                        await fetchEvents();
                         setSubmitStatus('success');
                       } catch (error) {
                         console.error('❌ Error submitting:', error);

@@ -739,17 +739,16 @@ class WebhookService {
           const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === foundGuest.id);
           console.log(`🔄 Refreshed guest status: ${refreshedGuest?.rsvpStatus}`);
           
-          // CRITICAL: Force MULTIPLE refreshes to ensure all components see the update
-          // This ensures the table in EventManagement updates immediately
-          for (let i = 0; i < 3; i++) {
-            setTimeout(() => {
-              refreshedState.fetchEvents(false, true).catch(err => {
-                console.warn(`⚠️ Failed to refresh events after WhatsApp update (attempt ${i + 1}):`, err);
-              });
-            }, 50 * (i + 1)); // 50ms, 100ms, 150ms
-          }
+          // CRITICAL: Single refresh call - the store update already triggers React re-renders
+          // Multiple calls cause excessive API requests and performance issues
+          // The events array update from updateGuestResponse already triggers EventManagement to re-render
+          setTimeout(() => {
+            refreshedState.fetchEvents(false, true).catch(err => {
+              console.warn(`⚠️ Failed to refresh events after WhatsApp update:`, err);
+            });
+          }, 100); // Single delayed refresh to ensure API is in sync
           
-          console.log('🔄 Triggered multiple fetchEvents calls to ensure table updates');
+          console.log('🔄 Triggered single fetchEvents call to sync with API');
           
           // CRITICAL: Toast notifications removed - user doesn't want to see pop-ups for status updates
           // The table will update automatically without showing pop-ups
