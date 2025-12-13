@@ -107,8 +107,8 @@ const EventManagement: React.FC = () => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(false, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
-        });
+        console.error('❌ Error auto-refreshing events:', error);
+      });
       });
     }, 5000); // Refresh every 5 seconds to reduce unnecessary updates
 
@@ -180,7 +180,7 @@ const EventManagement: React.FC = () => {
     if ((guestsChanged || eventChanged || eventActuallyUpdated) && event.id === id) {
       if (guestsChanged) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
-        console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
+      console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
         if (currentEvent?.guests) {
           const oldStatus = currentEvent.guests.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
           const newStatus = event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
@@ -212,6 +212,9 @@ const EventManagement: React.FC = () => {
   // Use a ref to track the event and only update when id changes or event is actually different
   const currentEventFromStoreRef = useRef<any>(null);
   
+  // CRITICAL: Use state to trigger re-renders when guests change, without depending on events array
+  const [guestsUpdateTrigger, setGuestsUpdateTrigger] = useState(0);
+  
   // Update the ref when id or events change, but only if the event actually changed
   useEffect(() => {
     if (!id) {
@@ -236,6 +239,8 @@ const EventManagement: React.FC = () => {
           currentGuestsKey !== newGuestsKey) {
         currentEventFromStoreRef.current = event;
         lastEventIdRef2.current = id;
+        // Trigger re-render by updating state
+        setGuestsUpdateTrigger(prev => prev + 1);
         console.log('🔄 Updated currentEventFromStoreRef for event:', id, 'guests:', event.guests?.length || 0);
       }
     } else {
@@ -250,6 +255,10 @@ const EventManagement: React.FC = () => {
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo with simpler dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
+    // CRITICAL: Get events from store inside useMemo (not in dependencies)
+    // This prevents React #310 error from circular dependencies
+    const currentEvents = useEventStore.getState().events;
+    
     // CRITICAL: Always get from events array first (most up-to-date)
     // Try multiple sources in order: currentEventFromStore, currentEvent, or events array directly
     let event = currentEventFromStore;
@@ -261,7 +270,7 @@ const EventManagement: React.FC = () => {
     
     // Final fallback: get directly from events array
     if (!event) {
-      event = events.find(e => e.id === id) || null;
+      event = currentEvents.find(e => e.id === id) || null;
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
@@ -299,11 +308,16 @@ const EventManagement: React.FC = () => {
     }
     
     // Only log warning if we have events but not for this ID
-    if (events.length > 0) {
-      console.log('⚠️ No guests found for event:', id, '- Event exists:', !!events.find(e => e.id === id));
+    if (currentEvents.length > 0) {
+      console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-  }, [id, currentEventFromStore, currentEvent, events]);
+    // CRITICAL: Don't depend on events array directly - it changes too often causing React #310
+    // Instead, depend on currentEventFromStore (ref), currentEvent?.id (stable), and guestsUpdateTrigger
+    // The events array is accessed inside the useMemo via getState() but not in dependencies
+    // guestsUpdateTrigger is updated when events change, triggering re-calculation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, currentEventFromStore, currentEvent?.id, guestsUpdateTrigger]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -407,7 +421,7 @@ const EventManagement: React.FC = () => {
         
         // CRITICAL: Also update currentEvent to ensure it matches the latest data
         const newCurrentEvent = { 
-          ...event,
+            ...event,
           guests: event.guests ? event.guests.map(g => ({ ...g })) : []
         };
         setCurrentEvent(newCurrentEvent);
@@ -437,15 +451,15 @@ const EventManagement: React.FC = () => {
   const filteredGuests = useMemo(() => {
     console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate);
     return guestsToDisplay.filter(guest => {
-      const matchesSearch = 
-        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        guest.phoneNumber.includes(searchTerm);
-      
-      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
-      
-      return matchesSearch && matchesFilter;
-    });
+    const matchesSearch = 
+      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      guest.phoneNumber.includes(searchTerm);
+    
+    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
   }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
 
   // Filter guests for modal search
