@@ -144,8 +144,9 @@ const EventManagement: React.FC = () => {
     }
     
     // Create a key from guests to detect changes
+    // CRITICAL: Include responseDate to detect updates even if status doesn't change
     const newGuestsKey = event.guests?.map(g => 
-      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+      `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
     ).join('|') || '';
     
     // Always update if guests changed or event changed
@@ -231,8 +232,9 @@ const EventManagement: React.FC = () => {
     console.log('🔄 Events array changed, checking for guest updates');
     const event = events.find(e => e.id === id);
     if (event && event.guests) {
+      // CRITICAL: Include responseDate to detect updates even if status doesn't change
       const eventGuestsKey = event.guests.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}`
+        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
       ).join('|');
       
       if (eventGuestsKey !== lastGuestsKeyRef.current) {
