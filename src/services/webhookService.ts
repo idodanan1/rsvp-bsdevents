@@ -246,12 +246,18 @@ class WebhookService {
 
             // Update guest count
             console.log(`✅ Updating guest count for ${foundGuest.firstName} ${foundGuest.lastName} from ${foundGuest.guestCount} to ${update.guestCount}`);
-            const updatedGuest = {
+            const updatedGuestForCount = {
               ...foundGuest,
-              guestCount: update.guestCount
+              guestCount: update.guestCount,
+              // CRITICAL: Include responseDate to ensure timestamp is updated
+              responseDate: update.responseDate ? new Date(update.responseDate) : new Date()
             };
 
-            await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+            await updateGuestResponse(foundEventId, foundGuest.id, updatedGuestForCount);
+            
+            // CRITICAL: Wait a bit to ensure the update is processed before continuing
+            // This ensures the store has the latest guestCount when we process the status update below
+            await new Promise(resolve => setTimeout(resolve, 100));
             
             // Remove from backend - remove only the guestCount part if there's also a status
             // If there's a status, we'll process it separately below
@@ -280,6 +286,8 @@ class WebhookService {
               continue; // Move to next update (only guestCount, no status)
             }
             // If there's a status, fall through to process it below
+            // CRITICAL: The guestCount has been updated, so when we process status below,
+            // we'll get the latest guestCount from the store
           } else {
             console.log(`⏭️ Guest not found for guest count update, removing from backend`);
             // Remove from backend if guest not found
@@ -624,20 +632,40 @@ class WebhookService {
             });
           }
           
-          console.log(`✅ Updating guest ${foundGuest.firstName} ${foundGuest.lastName} status to ${update.status}`);
-          console.log(`   Current status: ${foundGuest.rsvpStatus}`);
+          // CRITICAL: Get the latest guest data from store to ensure we have the most up-to-date guestCount
+          // This is important because guestCount might have been updated earlier in this function
+          const currentState = useEventStore.getState();
+          const currentEvent = currentState.events.find(e => e.id === foundEventId);
+          const currentGuest = currentEvent?.guests?.find(g => g.id === foundGuest.id);
+          
+          // Use current guest data if available, otherwise fall back to foundGuest
+          const latestGuest = currentGuest || foundGuest;
+          
+          console.log(`✅ Updating guest ${latestGuest.firstName} ${latestGuest.lastName} status to ${update.status}`);
+          console.log(`   Current status: ${latestGuest.rsvpStatus}`);
           console.log(`   New status: ${update.status}`);
-          console.log(`   Guest ID: ${foundGuest.id}`);
+          console.log(`   Current guestCount: ${latestGuest.guestCount}`);
+          console.log(`   Update guestCount: ${update.guestCount}`);
+          console.log(`   Guest ID: ${latestGuest.id}`);
           console.log(`   Event ID: ${foundEventId}`);
           console.log(`   Is new update: ${isNewUpdate}`);
           
+          // CRITICAL: Always use update.guestCount if provided, otherwise use latest guestCount from store
+          // This ensures guestCount updates from WhatsApp are preserved
           const updatedGuest = {
-            ...foundGuest,
+            ...latestGuest,
             rsvpStatus: newStatus,
             responseDate: new Date(update.responseDate || Date.now()),
-            guestCount: update.guestCount !== undefined ? update.guestCount : foundGuest.guestCount,
-            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : foundGuest.actualAttendance
+            guestCount: update.guestCount !== undefined ? update.guestCount : latestGuest.guestCount,
+            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance
           };
+          
+          console.log(`📊 Updated guest data:`, {
+            rsvpStatus: updatedGuest.rsvpStatus,
+            guestCount: updatedGuest.guestCount,
+            actualAttendance: updatedGuest.actualAttendance,
+            responseDate: updatedGuest.responseDate
+          });
 
           console.log(`📤 Calling updateGuestResponse with:`, {
             eventId: foundEventId,
