@@ -751,17 +751,8 @@ class WebhookService {
           
           console.log('🔄 Triggered multiple fetchEvents calls to ensure table updates');
           
-          // Show toast notification only once per unique update
-          if (isNewUpdate) {
-            const toast = await import('react-hot-toast');
-            const statusText = update.status === 'confirmed' ? 'אישר הגעה' : 
-                             update.status === 'declined' ? 'דחה הזמנה' : 
-                             'עדכן סטטוס';
-            toast.default.success(`סטטוס עודכן: ${foundGuest.firstName} ${foundGuest.lastName} - ${statusText}`, {
-              duration: 4000,
-              id: updateKey // Use unique ID to prevent duplicate toasts
-            });
-          }
+          // CRITICAL: Toast notifications removed - user doesn't want to see pop-ups for status updates
+          // The table will update automatically without showing pop-ups
         } else {
           console.warn(`⚠️ Guest not found for phone number: ${update.phoneNumber}`);
           console.warn(`⚠️ Available guests:`, events.flatMap(e => e.guests?.map(g => ({
