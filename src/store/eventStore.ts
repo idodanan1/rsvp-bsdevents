@@ -1790,12 +1790,13 @@ export const useEventStore = create<EventStore>()(
               return { ...event };
             });
             
-            // CRITICAL: Update currentEvent if it matches eventId, OR if currentEvent is not set but we have the event
-            // This ensures that updates from guest response links are reflected even if currentEvent wasn't set
+            // CRITICAL: Update currentEvent ONLY if it matches eventId
+            // This ensures that updates from guest response links are reflected only for the event being viewed
+            // If the user is viewing a different event, we don't update currentEvent (EventManagement useEffect will handle it)
             let updatedCurrentEvent = state.currentEvent;
             
             if (state.currentEvent?.id === eventId) {
-              // Update existing currentEvent
+              // Update existing currentEvent - user is viewing this event, so update it
               updatedCurrentEvent = {
                 ...state.currentEvent,
                 guests: state.currentEvent.guests.map(guest => {
@@ -1818,34 +1819,17 @@ export const useEventStore = create<EventStore>()(
                   return guest;
                 })
               };
-              console.log('🔄 Updated existing currentEvent for event:', eventId);
-            } else if (updatedEvent) {
-              // CRITICAL: If currentEvent is not set or doesn't match, but we have the updated event, set it
-              // This ensures updates from guest response links are visible even if currentEvent wasn't set
-              // BUT: Only update currentEvent if it's null or if the updated event is the one being viewed
-              // We check the URL parameter in EventManagement component, so we update currentEvent here
-              // to ensure the table updates when viewing the event that was updated
+              // CRITICAL: Always create a new object reference with new guests array to force React re-render
               updatedCurrentEvent = {
-                ...updatedEvent,
-                guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references
+                ...updatedCurrentEvent,
+                guests: updatedCurrentEvent.guests.map(g => ({ ...g })), // New array AND new object references
                 updatedAt: new Date() // Force timestamp update
               };
-              console.log('🔄 Setting/updating currentEvent from guest response update:', eventId);
-            }
-            
-            // CRITICAL: Always create a new object reference for currentEvent to force React re-render
-            // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-            // BUT: Only if currentEvent matches the updated event OR if currentEvent is null
-            if (updatedEvent && (updatedCurrentEvent?.id === eventId || !state.currentEvent)) {
-              // Always create a new object reference with new guests array to force React re-render
-              // This forces React to detect the change and re-render
-              // CRITICAL: Create DEEP copy of guests array with new object references for each guest
-              updatedCurrentEvent = {
-                ...updatedEvent,
-                guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references
-                updatedAt: new Date() // Force timestamp update
-              };
-              console.log('🔄 Created new currentEvent reference with deep copy to force React re-render');
+              console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length);
+            } else {
+              // User is viewing a different event - don't update currentEvent
+              // EventManagement useEffect will update currentEvent when events array changes
+              console.log('ℹ️ Update for event', eventId, 'but user is viewing event', state.currentEvent?.id || 'none', '- EventManagement will handle update');
             }
             
             // Verify the update

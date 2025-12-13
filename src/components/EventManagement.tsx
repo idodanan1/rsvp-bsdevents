@@ -151,7 +151,8 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Always update if guests changed or event changed
     // This ensures the table updates immediately when guest status changes via link or WhatsApp buttons
-    if (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id) {
+    // BUT: Only update if this is the event being viewed (event.id === id)
+    if (event.id === id && (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id)) {
       if (newGuestsKey !== lastGuestsKeyRef.current) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
         console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
@@ -173,6 +174,13 @@ const EventManagement: React.FC = () => {
       setCurrentEvent(newCurrentEvent);
       console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
       return; // Skip manual change protection for guest response updates
+    } else if (event.id !== id) {
+      // This is not the event being viewed - don't update currentEvent
+      // But still update the key to track changes
+      if (newGuestsKey !== lastGuestsKeyRef.current) {
+        console.log('ℹ️ Guests changed for event', event.id, 'but user is viewing event', id, '- not updating currentEvent');
+        lastGuestsKeyRef.current = newGuestsKey;
+      }
     }
   }, [id, events, setCurrentEvent, navigate]);
 
