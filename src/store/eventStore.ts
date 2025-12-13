@@ -1818,16 +1818,25 @@ export const useEventStore = create<EventStore>()(
                   return guest;
                 })
               };
+              console.log('🔄 Updated existing currentEvent for event:', eventId);
             } else if (updatedEvent) {
-              // If currentEvent is not set or doesn't match, but we have the updated event, set it
+              // CRITICAL: If currentEvent is not set or doesn't match, but we have the updated event, set it
               // This ensures updates from guest response links are visible even if currentEvent wasn't set
-              updatedCurrentEvent = updatedEvent;
+              // BUT: Only update currentEvent if it's null or if the updated event is the one being viewed
+              // We check the URL parameter in EventManagement component, so we update currentEvent here
+              // to ensure the table updates when viewing the event that was updated
+              updatedCurrentEvent = {
+                ...updatedEvent,
+                guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references
+                updatedAt: new Date() // Force timestamp update
+              };
               console.log('🔄 Setting/updating currentEvent from guest response update:', eventId);
             }
             
             // CRITICAL: Always create a new object reference for currentEvent to force React re-render
             // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
-            if (updatedEvent) {
+            // BUT: Only if currentEvent matches the updated event OR if currentEvent is null
+            if (updatedEvent && (updatedCurrentEvent?.id === eventId || !state.currentEvent)) {
               // Always create a new object reference with new guests array to force React re-render
               // This forces React to detect the change and re-render
               // CRITICAL: Create DEEP copy of guests array with new object references for each guest

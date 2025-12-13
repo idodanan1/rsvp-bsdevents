@@ -149,7 +149,8 @@ const EventManagement: React.FC = () => {
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
     ).join('|') || '';
     
-    // Always update if guests changed or event changed
+    // CRITICAL: Always update if guests changed or event changed
+    // This ensures the table updates immediately when guest status changes via link or WhatsApp buttons
     if (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id) {
       if (newGuestsKey !== lastGuestsKeyRef.current) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
@@ -163,11 +164,14 @@ const EventManagement: React.FC = () => {
       }
       lastGuestsKeyRef.current = newGuestsKey;
       
-      // Create new object reference with new guest array references to force React re-render
-      setCurrentEvent({ 
+      // CRITICAL: Always create new object reference with new guest array references to force React re-render
+      // This ensures the table updates immediately when guest status changes
+      const newCurrentEvent = { 
         ...event,
         guests: event.guests ? event.guests.map(g => ({ ...g })) : [] // New array and new object references
-      });
+      };
+      setCurrentEvent(newCurrentEvent);
+      console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
       return; // Skip manual change protection for guest response updates
     }
   }, [id, events, setCurrentEvent, navigate]);
