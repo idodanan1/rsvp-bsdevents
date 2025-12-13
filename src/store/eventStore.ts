@@ -1925,10 +1925,27 @@ export const useEventStore = create<EventStore>()(
             
             // CRITICAL: Always create new array reference for events to force React re-render
             // This ensures React detects changes even if array contents are similar
+            // CRITICAL: Also ensure updatedAt is ALWAYS updated to force eventsHash change
+            const finalUpdatedEvents = updatedEvents.map(e => {
+              if (e.id === eventId) {
+                // CRITICAL: Always update updatedAt timestamp to ensure eventsHash changes
+                // This forces EventManagement to detect the change and re-render the table
+                return {
+                  ...e,
+                  updatedAt: new Date() // Always use current timestamp to force hash change
+                };
+              }
+              return e;
+            });
+            
             console.log(`🔄 Creating new events array reference to force React re-render`);
+            console.log(`🔄 Updated event ${eventId} updatedAt to:`, new Date().toISOString());
             return {
-              events: [...updatedEvents], // New array reference - CRITICAL for React re-render
-              currentEvent: updatedCurrentEvent,
+              events: [...finalUpdatedEvents], // New array reference - CRITICAL for React re-render
+              currentEvent: updatedCurrentEvent ? {
+                ...updatedCurrentEvent,
+                updatedAt: updatedCurrentEvent.id === eventId ? new Date() : updatedCurrentEvent.updatedAt
+              } : updatedCurrentEvent,
               isLoading: false
             };
           });
@@ -1962,7 +1979,20 @@ export const useEventStore = create<EventStore>()(
               console.log('📤 Sending updated event:', {
                 eventId: updatedEvent.id,
                 guestId: guestId,
-                updatedGuest: updatedGuest
+                updatedGuest: updatedGuest ? {
+                  id: updatedGuest.id,
+                  firstName: updatedGuest.firstName,
+                  lastName: updatedGuest.lastName,
+                  phoneNumber: updatedGuest.phoneNumber,
+                  rsvpStatus: updatedGuest.rsvpStatus,
+                  guestCount: updatedGuest.guestCount,
+                  responseDate: updatedGuest.responseDate
+                } : 'NOT FOUND'
+              });
+              console.log('📤 Full event data being sent:', {
+                eventId: updatedEvent.id,
+                guestsCount: updatedEvent.guests?.length || 0,
+                updatedGuestIndex: updatedEvent.guests?.findIndex(g => g.id === guestId) ?? -1
               });
               
               // CRITICAL: Use await to ensure the update is sent before continuing

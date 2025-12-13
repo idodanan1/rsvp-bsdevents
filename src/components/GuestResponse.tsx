@@ -652,6 +652,12 @@ const GuestResponse = () => {
           }
         }
         
+        // CRITICAL: The store update already triggers React re-renders via eventsHash
+        // But we need to ensure EventManagement detects the change
+        // The eventsHash selector in EventManagement should detect the change automatically
+        // But let's also trigger a fetchEvents to ensure API sync and force a re-render
+        console.log('✅ Store updated - EventManagement should detect change via eventsHash');
+        
         // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
         // This ensures the table in EventManagement updates immediately
