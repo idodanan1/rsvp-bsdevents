@@ -207,34 +207,37 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Only update if guests actually changed OR event was updated OR event changed
     // This prevents infinite loops when events array is recreated but content is the same
+    // CRITICAL: Get currentEvent from store state instead of closure to avoid stale closure issues
+    const storeCurrentEvent = useEventStore.getState().currentEvent;
     const guestsChanged = newGuestsKey !== lastGuestsKeyRef.current;
-    const eventChanged = !currentEvent || currentEvent.id !== event.id;
+    const eventChanged = !storeCurrentEvent || storeCurrentEvent.id !== event.id;
     
-    // CRITICAL: Log all conditions for debugging
-    console.log('🔍 EventManagement useEffect conditions:', {
-      eventId: event.id,
-      urlId: id,
-      guestsChanged,
-      eventChanged,
-      eventActuallyUpdated,
-      newGuestsKeyLength: newGuestsKey.length,
-      lastGuestsKeyLength: lastGuestsKeyRef.current.length,
-      eventUpdatedAt: eventUpdatedAt,
-      lastEventUpdatedAt: lastEventUpdatedAt,
-      willUpdate: (guestsChanged || eventChanged || eventActuallyUpdated) && event.id === id
-    });
+    // CRITICAL: Log all conditions for debugging (but only when something changed to avoid spam)
+    if (guestsChanged || eventChanged || eventActuallyUpdated) {
+      console.log('🔍 EventManagement useEffect conditions:', {
+        eventId: event.id,
+        urlId: id,
+        guestsChanged,
+        eventChanged,
+        eventActuallyUpdated,
+        newGuestsKeyLength: newGuestsKey.length,
+        lastGuestsKeyLength: lastGuestsKeyRef.current.length,
+        eventUpdatedAt: eventUpdatedAt,
+        lastEventUpdatedAt: lastEventUpdatedAt
+      });
+    }
     
     // CRITICAL: Only update currentEvent if this is the event from the URL (id)
     // This ensures we don't override currentEvent when an update occurs for a different event
-    // CRITICAL: Force update if event.id === id to ensure we always have the latest data from store
-    // This is especially important for guest_link updates where the data might not "change" according to the logic
-    const shouldUpdate = event.id === id && (guestsChanged || eventChanged || eventActuallyUpdated || !currentEvent || currentEvent.id !== id);
+    // CRITICAL: Only update if something actually changed to prevent infinite loops
+    // Remove the "|| !currentEvent || currentEvent.id !== id" part to prevent infinite loops
+    const shouldUpdate = event.id === id && (guestsChanged || eventChanged || eventActuallyUpdated);
     if (shouldUpdate) {
       if (guestsChanged) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
       console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
-        if (currentEvent?.guests) {
-          const oldStatus = currentEvent.guests.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
+        if (storeCurrentEvent?.guests) {
+          const oldStatus = storeCurrentEvent.guests.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
           const newStatus = event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
           console.log('📊 Old status:', oldStatus);
           console.log('📊 New status:', newStatus);
@@ -253,19 +256,10 @@ const EventManagement: React.FC = () => {
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
       lastEventUpdatedAtRef.current = String(eventUpdatedAt); // Convert to string for comparison
-    } else {
-      // Log why update was skipped
-      console.log('⏭️ Skipping currentEvent update:', {
-        eventId: event.id,
-        urlId: id,
-        guestsChanged,
-        eventChanged,
-        eventActuallyUpdated,
-        hasCurrentEvent: !!currentEvent,
-        currentEventId: currentEvent?.id
-      });
     }
-  }, [id, events, setCurrentEvent, navigate, currentEvent]);
+    // CRITICAL: Do NOT include currentEvent in dependencies to prevent infinite loop
+    // The useEffect should only run when events array changes, not when currentEvent changes
+  }, [id, events, setCurrentEvent, navigate]); // Removed currentEvent to prevent infinite loop
 
   // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
   const eventGuestsKeyRef = useRef<string>('');
