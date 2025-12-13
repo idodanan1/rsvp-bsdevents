@@ -221,6 +221,8 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Update eventsVersion when events array changes (any event, not just current)
   // This triggers guestsToDisplay to recalculate without circular dependencies
   useEffect(() => {
+    console.log('🔄 EventManagement useEffect for eventsVersion - events.length:', events.length);
+    
     // Create a comprehensive key from events that includes guest data to detect ALL changes
     // This ensures we catch updates even if they're for a different event
     const eventsKey = events.map(e => {
@@ -238,6 +240,9 @@ const EventManagement: React.FC = () => {
       }).join('|') || '';
       return `${e.id}:${e.updatedAt || ''}:${e.guests?.length || 0}:${guestsKey}`;
     }).join('||');
+    
+    console.log('📊 Events key calculated, length:', events.length, 'lastLength:', lastEventsLengthRef.current);
+    console.log('📊 Events key matches:', eventsKey === lastEventsKeyRef.current ? 'YES' : 'NO');
     
     // Update if events length changed or events key changed
     if (events.length !== lastEventsLengthRef.current || eventsKey !== lastEventsKeyRef.current) {
@@ -293,24 +298,30 @@ const EventManagement: React.FC = () => {
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
+    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length);
+    
     // CRITICAL: Get events from store inside useMemo (not in dependencies)
     // This prevents React #310 error from circular dependencies
     // CRITICAL: Always get fresh data from store to ensure we have latest updates
     const currentEvents = useEventStore.getState().events;
+    console.log('📊 Current events in store:', currentEvents.length, 'events');
     
     // CRITICAL: Always get directly from events array (most up-to-date)
     // Don't rely on currentEventFromStore ref as it might be stale
     // This ensures we always get the latest data, even if update was for a different event
     let event = currentEvents.find(e => e.id === id) || null;
+    console.log('📊 Found event in store:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
     
     // Fallback to currentEventFromStore if event not found in array
     if (!event) {
       event = currentEventFromStore;
+      console.log('📊 Using currentEventFromStore fallback:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
     }
     
     // Final fallback to currentEvent if it matches the ID
     if (!event && currentEvent && currentEvent.id === id) {
       event = currentEvent;
+      console.log('📊 Using currentEvent fallback:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
