@@ -3025,10 +3025,35 @@ export const useEventStore = create<EventStore>()(
       // Function to recreate campaigns with correct links
       recreateCampaigns: async (eventId: string) => {
         console.log('🔄 recreateCampaigns called with eventId:', eventId);
-        const event = get().events.find(e => e.id === eventId);
+        let event = get().events.find(e => e.id === eventId);
+        
+        // If event not found in store, try to fetch from API
+        if (!event) {
+          console.log('⚠️ Event not found in store, fetching from API...');
+          try {
+            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const response = await fetch(`${BACKEND_URL}/api/events/all`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.events) {
+                event = data.events.find((e: Event) => e.id === eventId);
+                if (event) {
+                  console.log('✅ Found event in API, adding to store...');
+                  // Add event to store temporarily for campaign recreation
+                  set(state => ({
+                    events: [...state.events, event as Event]
+                  }));
+                }
+              }
+            }
+          } catch (apiError) {
+            console.error('❌ Error fetching event from API:', apiError);
+          }
+        }
+        
         if (!event) {
           console.log('❌ Event not found for campaign recreation');
-          return;
+          throw new Error('האירוע לא נמצא. אנא רענן את הדף ונסה שוב.');
         }
 
         console.log('📅 Found event:', event.coupleName, 'with', event.campaigns?.length || 0, 'existing campaigns');
@@ -3340,18 +3365,58 @@ export const useEventStore = create<EventStore>()(
         ];
 
         // Update the event with new campaigns
+        // CRITICAL: Only update campaigns, preserve all other event data
         let updatedEvent: Event | undefined;
         set(state => {
+          const eventIndex = state.events.findIndex(e => e.id === eventId);
+          if (eventIndex < 0) {
+            console.error('❌ CRITICAL: Event not found in store after adding!');
+            throw new Error('האירוע לא נמצא במאגר הנתונים');
+          }
+          
+          const existingEvent = state.events[eventIndex];
+          console.log('📊 Event before update:', {
+            id: existingEvent.id,
+            name: existingEvent.coupleName,
+            guestsCount: existingEvent.guests?.length || 0,
+            campaignsCount: existingEvent.campaigns?.length || 0
+          });
+          
+          // CRITICAL: Preserve ALL event data, only update campaigns
           const updatedEvents = state.events.map(e => 
             e.id === eventId 
-              ? { ...e, campaigns: newCampaigns, updatedAt: new Date() }
+              ? { 
+                  ...e, // Preserve all existing fields
+                  campaigns: newCampaigns, // Only update campaigns
+                  updatedAt: new Date() // Update timestamp
+                }
               : e
           );
           
           updatedEvent = updatedEvents.find(e => e.id === eventId);
           
+          // CRITICAL: Verify event still exists after update
+          if (!updatedEvent) {
+            console.error('❌ CRITICAL: Event disappeared after update!');
+            throw new Error('האירוע נעלם לאחר העדכון - זה לא אמור לקרות!');
+          }
+          
           console.log('🔄 Updated events in state');
-          console.log('📊 Event campaigns after update:', updatedEvent?.campaigns?.length || 0);
+          console.log('📊 Event after update:', {
+            id: updatedEvent.id,
+            name: updatedEvent.coupleName,
+            guestsCount: updatedEvent.guests?.length || 0,
+            campaignsCount: updatedEvent.campaigns?.length || 0
+          });
+          
+          // CRITICAL: Verify we didn't lose any data
+          if (updatedEvent.guests?.length !== existingEvent.guests?.length) {
+            console.error('❌ CRITICAL: Guest count changed during campaign update!', {
+              before: existingEvent.guests?.length || 0,
+              after: updatedEvent.guests?.length || 0
+            });
+            throw new Error('אובדן נתוני אורחים במהלך עדכון קמפיינים!');
+          }
           
           return { events: updatedEvents };
         });

@@ -87,15 +87,47 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleOpenRecreateCampaigns = (user: UserWithStats) => {
+  const handleOpenRecreateCampaigns = async (user: UserWithStats) => {
     console.log('🔄 Opening recreate campaigns modal for user:', user.name, user.id);
     try {
-      const events = getEventsByUserId(user.id);
-      console.log('📅 Found events for user:', events.length, events);
+      setIsLoading(true);
+      
+      // First try to get events from local store
+      let events = getEventsByUserId(user.id);
+      console.log('📅 Found events in local store for user:', events.length, events);
+      
+      // If no events in local store, try to fetch from API
+      if (events.length === 0) {
+        console.log('📡 No events in local store, fetching from API...');
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        
+        try {
+          const response = await fetch(`${backendUrl}/api/events/${user.id}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.events) {
+              events = data.events;
+              console.log('✅ Fetched events from API:', events.length, events);
+            }
+          } else {
+            console.warn('⚠️ Failed to fetch events from API:', response.status);
+          }
+        } catch (apiError) {
+          console.warn('⚠️ Error fetching events from API:', apiError);
+          // Continue with empty events array
+        }
+      }
       
       if (events.length === 0) {
         console.log('⚠️ No events found for user, showing error toast');
         toast.error('למשתמש זה אין אירועים לשחזר קמפיינים');
+        setIsLoading(false);
         return;
       }
       
@@ -107,6 +139,8 @@ const UserManagement: React.FC = () => {
     } catch (error) {
       console.error('❌ Error opening recreate campaigns modal:', error);
       toast.error('שגיאה בפתיחת חלון שחזור קמפיינים');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -115,7 +149,27 @@ const UserManagement: React.FC = () => {
 
     setIsLoading(true);
     try {
-      await recreateCampaigns(eventId);
+      console.log('🔄 Starting campaign recreation for event:', eventId);
+      
+      // First, ensure the event is in the store by fetching it from API if needed
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const eventsResponse = await fetch(`${backendUrl}/api/events/${selectedUserForCampaigns.id}`);
+      
+      if (eventsResponse.ok) {
+        const eventsData = await eventsResponse.json();
+        if (eventsData.success && eventsData.events) {
+          const targetEvent = eventsData.events.find((e: any) => e.id === eventId);
+          if (targetEvent) {
+            console.log('✅ Found event in API, ensuring it exists in store...');
+            // The event exists in API, now call recreateCampaigns which will handle it
+            await recreateCampaigns(eventId);
+          } else {
+            throw new Error('האירוע לא נמצא');
+          }
+        }
+      }
+      
+      // Refresh events to show updated campaigns
       await fetchEvents();
       toast.success('✅ קמפיינים נוצרו מחדש בהצלחה!');
       setShowRecreateCampaignsModal(false);
