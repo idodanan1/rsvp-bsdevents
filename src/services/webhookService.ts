@@ -549,16 +549,18 @@ class WebhookService {
           const hasResponseDateChange = update.responseDate && foundGuest.responseDate && 
                                        new Date(update.responseDate).getTime() !== new Date(foundGuest.responseDate).getTime();
           
-          // CRITICAL: Always sync updates from guest_link (phone updates) to ensure cross-device sync
+          // CRITICAL: Always sync updates from guest_link OR whatsapp button to ensure cross-device sync
           // Even if status matches, we should still sync if:
           // 1. Update is from guest_link (new update from phone)
-          // 2. Other fields changed (guestCount, actualAttendance, responseDate)
-          // 3. Status changed
+          // 2. Update is from whatsapp button (new update from WhatsApp)
+          // 3. Other fields changed (guestCount, actualAttendance, responseDate)
+          // 4. Status changed
           const isFromGuestLink = update.source === 'guest_link';
-          const shouldSyncEvenIfStatusMatches = isFromGuestLink || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
+          const isFromWhatsApp = update.source === 'whatsapp';
+          const shouldSyncEvenIfStatusMatches = isFromGuestLink || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
-          // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link
-          // This ensures all updates from guest_link are synced across devices, even if status already matches
+          // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link or whatsapp
+          // This ensures all updates from guest_link and whatsapp are synced across devices, even if status already matches
           if (foundGuest.rsvpStatus === newStatus && !shouldSyncEvenIfStatusMatches) {
             console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link.`);
             // CRITICAL: Remove only THIS status update, not all updates (preserve guestCount updates)
@@ -585,9 +587,9 @@ class WebhookService {
             continue; // Skip to next update
           }
           
-          // If status matches but update is from guest_link, log it
-          if (foundGuest.rsvpStatus === newStatus && isFromGuestLink) {
-            console.log(`🔄 Status matches but update is from guest_link - syncing to ensure cross-device consistency`);
+          // If status matches but update is from guest_link or whatsapp, log it
+          if (foundGuest.rsvpStatus === newStatus && (isFromGuestLink || isFromWhatsApp)) {
+            console.log(`🔄 Status matches but update is from ${update.source} - syncing to ensure cross-device consistency`);
           }
           
           // If status matches but other fields changed, log it

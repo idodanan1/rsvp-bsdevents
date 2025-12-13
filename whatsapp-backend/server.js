@@ -2220,56 +2220,99 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     console.log(`🔄 Source: ${source}`);
     console.log(`🔄 Timestamp: ${new Date().toISOString()}`);
     
+    // CRITICAL: Find guest by phone number to get guestId and eventId
+    // This ensures the correct guest is updated, even if multiple guests share the same phone number
+    loadEvents(); // Reload events to get latest data
+    let foundGuest = null;
+    let foundEvent = null;
+    
+    for (const event of eventsData.events) {
+      if (event.guests && event.guests.length > 0) {
+        foundGuest = event.guests.find(g => {
+          if (!g.phoneNumber) return false;
+          const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+          const updatePhone = phoneNumber.replace(/[^0-9]/g, '');
+          
+          if (!guestPhone || !updatePhone) return false;
+          
+          const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+          const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+          const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+          const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+          
+          return guestPhone === updatePhone || 
+                 guestPhone === updatePhoneWith0 ||
+                 guestPhone === updatePhoneWith972 ||
+                 guestPhoneWith972 === updatePhone ||
+                 guestPhoneWith972 === updatePhoneWith972 ||
+                 guestPhoneWith0 === updatePhone ||
+                 guestPhoneWith0 === updatePhoneWith0;
+        });
+        
+        if (foundGuest) {
+          foundEvent = event;
+          console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id}) in event ${event.id}`);
+          break;
+        }
+      }
+    }
+    
     // Store update in pending updates array
     // Store both formats to increase chance of matching
     const updateData = {
       phoneNumber: formattedPhone,
       originalPhoneNumber: originalPhone, // Keep original for matching
+      guestId: foundGuest?.id, // CRITICAL: Include guestId to ensure correct guest is updated
+      eventId: foundEvent?.id, // CRITICAL: Include eventId to ensure correct event is used
       status: status,
       responseDate: new Date().toISOString(),
       timestamp: Date.now(),
       source: source // Use provided source or default to 'whatsapp'
     };
     
-    // Remove any existing updates for this phone number with the same status (to prevent duplicates)
-    // But keep updates with different statuses (to allow status changes)
-    const existingSameStatusIndex = pendingUpdates.findIndex(
-      u => (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone) && 
-           u.status === status &&
-           (Date.now() - u.timestamp) < 60000 // Within last minute
-    );
-    
-    if (existingSameStatusIndex === -1) {
-      // CRITICAL: Remove old status updates for this phone number, but KEEP guestCount updates
-      // This prevents old "confirmed" updates from overwriting new "declined" updates
-      // But allows guestCount updates to coexist with status updates
-      const otherUpdates = pendingUpdates.filter(u => {
-        const isSamePhone = (u.phoneNumber === formattedPhone || u.originalPhoneNumber === originalPhone);
-        // Keep updates that are NOT for this phone, OR are guestCount-only updates (no status)
-        return !isSamePhone || (!u.status && u.guestCount !== undefined);
-      });
-      pendingUpdates.length = 0;
-      pendingUpdates.push(...otherUpdates);
-      
-      // Add the new status update
-      pendingUpdates.push(updateData);
-      console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
-      console.log('✅ Phone (formatted):', formattedPhone);
-      console.log('✅ Phone (original):', originalPhone);
-      console.log('✅ Status:', status);
-      console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
-      console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
-      console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
-        phone: u.phoneNumber,
-        originalPhone: u.originalPhoneNumber,
-        status: u.status,
-        time: new Date(u.timestamp).toLocaleTimeString()
-      })));
-      console.log('✅ ===============================================');
-    } else {
-      console.log('⚠️ Update already exists, skipping duplicate');
-      console.log(`   Existing update:`, pendingUpdates[existingSameStatusIndex]);
+    // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
+    // Keep only the latest update - delete all previous updates for this guest
+    const updatesToRemove = [];
+    for (let i = pendingUpdates.length - 1; i >= 0; i--) {
+      const existingUpdate = pendingUpdates[i];
+      // CRITICAL: Match by guestId first (most precise), then by phone number
+      const isSameGuest = (foundGuest?.id && existingUpdate.guestId && existingUpdate.guestId === foundGuest.id) ||
+                          (foundGuest?.id && existingUpdate.guestId && existingUpdate.guestId === foundGuest.id && existingUpdate.eventId === foundEvent?.id);
+      const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
+                          (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
+      // Remove if same guest (by ID) OR same phone number (fallback)
+      if (isSameGuest || isSamePhone) {
+        updatesToRemove.push(i);
+      }
     }
+    
+    // Remove all previous updates for this guest
+    if (updatesToRemove.length > 0) {
+      for (const index of updatesToRemove) {
+        pendingUpdates.splice(index, 1);
+      }
+      console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for guest ${foundGuest?.id || formattedPhone} to prevent conflicts`);
+    }
+    
+    // Add the new update (always add, since we removed all previous ones)
+    pendingUpdates.push(updateData);
+    console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
+    console.log('✅ Phone (formatted):', formattedPhone);
+    console.log('✅ Phone (original):', originalPhone);
+    console.log('✅ Guest ID:', foundGuest?.id || 'not found');
+    console.log('✅ Event ID:', foundEvent?.id || 'not found');
+    console.log('✅ Status:', status);
+    console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
+    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+    console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
+      phone: u.phoneNumber,
+      guestId: u.guestId,
+      eventId: u.eventId,
+      status: u.status,
+      source: u.source,
+      time: new Date(u.timestamp).toLocaleTimeString()
+    })));
+    console.log('✅ ===============================================');
     
   } catch (error) {
     console.error('❌ ========== ERROR UPDATING GUEST STATUS ==========');
