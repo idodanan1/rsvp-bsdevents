@@ -1840,22 +1840,36 @@ export const useEventStore = create<EventStore>()(
                       _updateTimestamp: Date.now()
                     };
                   }),
+                  // CRITICAL: Always update updatedAt with current timestamp to ensure eventsHash changes
+                  // This ensures EventManagement detects the change and updates the table
                   updatedAt: new Date()
                 };
                 // CRITICAL: Create new object reference with new guests array to force React re-render
-                return {
+                // CRITICAL: Remove _updateTimestamp before returning to avoid storing internal properties
+                const cleanedEvent = {
                   ...updatedEvent,
-                  guests: updatedEvent.guests.map(g => ({ ...g })), // New array AND new object references for ALL guests
-                  _updateTimestamp: Date.now() // Force new event reference
+                  guests: updatedEvent.guests.map(g => {
+                    const cleanedGuest = { ...g };
+                    delete (cleanedGuest as any)._updateTimestamp;
+                    return cleanedGuest;
+                  })
                 };
+                delete (cleanedEvent as any)._updateTimestamp;
+                return cleanedEvent;
               }
               // CRITICAL: Return new object reference even for unchanged events
               // This ensures React detects changes when ANY event is updated
-              return { 
+              // CRITICAL: Remove _updateTimestamp before returning to avoid storing internal properties
+              const cleanedEvent = {
                 ...event,
-                guests: event.guests ? event.guests.map(g => ({ ...g })) : [], // New array and object references
-                _updateTimestamp: Date.now() // Force new reference
+                guests: event.guests ? event.guests.map(g => {
+                  const cleanedGuest = { ...g };
+                  delete (cleanedGuest as any)._updateTimestamp;
+                  return cleanedGuest;
+                }) : []
               };
+              delete (cleanedEvent as any)._updateTimestamp;
+              return cleanedEvent;
             });
             
             // CRITICAL: Update currentEvent ONLY if it matches eventId

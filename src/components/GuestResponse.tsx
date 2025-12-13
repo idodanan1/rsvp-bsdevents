@@ -587,8 +587,8 @@ const GuestResponse = () => {
         
         console.log('✅ updateGuestResponse completed!');
         
-        // CRITICAL: Force refresh events from store MULTIPLE TIMES to ensure UI updates
-        // This is the same approach used in webhook service for WhatsApp updates
+        // CRITICAL: Get the updated state immediately after updateGuestResponse
+        // This ensures we have the latest data from the store
         const storeModule = await import('../store/eventStore');
         const storeState = storeModule.useEventStore.getState();
         
@@ -602,14 +602,19 @@ const GuestResponse = () => {
             console.error('❌ Guest not found in event after update!', guestToUpdate.id);
           } else {
             console.log(`✅ Verified update - Guest status: ${refreshedGuest.rsvpStatus} (expected: ${updatedGuest.rsvpStatus})`);
+            console.log(`✅ Verified update - Guest count: ${refreshedGuest.guestCount} (expected: ${updatedGuest.guestCount})`);
             if (refreshedGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
               console.error(`❌ STATUS MISMATCH! Expected: ${updatedGuest.rsvpStatus}, Got: ${refreshedGuest.rsvpStatus}`);
+            }
+            if (refreshedGuest.guestCount !== updatedGuest.guestCount) {
+              console.error(`❌ GUEST COUNT MISMATCH! Expected: ${updatedGuest.guestCount}, Got: ${refreshedGuest.guestCount}`);
             }
           }
         }
         
-        // CRITICAL: Single refresh call - the store update already triggers React re-renders
-        // Multiple calls cause excessive API requests and performance issues
+        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
+        // The store update already triggers React re-renders, but fetchEvents ensures API sync
+        // This ensures the table in EventManagement updates immediately
         setTimeout(() => {
           storeState.fetchEvents(false, true).catch(err => {
             console.warn(`⚠️ Failed to refresh events after guest response update:`, err);
@@ -630,15 +635,17 @@ const GuestResponse = () => {
           
           await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
           
-          // CRITICAL: Force refresh events from store to ensure UI updates immediately
-          // This is the same approach used in webhook service for WhatsApp updates
+          // CRITICAL: Get the updated state immediately after updateGuestResponse
+          // This ensures we have the latest data from the store
           const storeModule = await import('../store/eventStore');
           const storeState = storeModule.useEventStore.getState();
           const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
           const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestId);
           console.log(`🔄 Refreshed guest status after update: ${refreshedGuest?.rsvpStatus}`);
+          console.log(`🔄 Refreshed guest count after update: ${refreshedGuest?.guestCount}`);
           
-          // Force a re-fetch of events to ensure all components see the update
+          // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
+          // The store update already triggers React re-renders, but fetchEvents ensures API sync
           // This ensures the table in EventManagement updates immediately
           setTimeout(() => {
             storeState.fetchEvents(false, true).catch(err => {
@@ -1031,9 +1038,11 @@ const GuestResponse = () => {
                         const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
                         const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
                         console.log(`🔄 Refreshed guest status after "מתלבט" update: ${refreshedGuest?.rsvpStatus}`);
+                        console.log(`🔄 Refreshed guest count after "מתלבט" update: ${refreshedGuest?.guestCount}`);
                         
-                        // Force a re-fetch of events to ensure all components see the update
-                        // Single call is enough - store update already triggers re-renders
+                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
+                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
+                        // This ensures the table in EventManagement updates immediately
                         setTimeout(() => {
                           storeState.fetchEvents(false, true).catch(err => {
                             console.warn('⚠️ Failed to refresh events after "מתלבט" update:', err);
@@ -1104,11 +1113,13 @@ const GuestResponse = () => {
                         const storeModule = await import('../store/eventStore');
                         const storeState = storeModule.useEventStore.getState();
                         const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
+                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestIdToUse);
                         console.log(`🔄 Refreshed guest status after "לא מגיע" update: ${refreshedGuest?.rsvpStatus}`);
+                        console.log(`🔄 Refreshed guest count after "לא מגיע" update: ${refreshedGuest?.guestCount}`);
                         
-                        // Force a re-fetch of events to ensure all components see the update
-                        // Single call is enough - store update already triggers re-renders
+                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
+                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
+                        // This ensures the table in EventManagement updates immediately
                         setTimeout(() => {
                           storeState.fetchEvents(false, true).catch(err => {
                             console.warn('⚠️ Failed to refresh events after "לא מגיע" update:', err);
