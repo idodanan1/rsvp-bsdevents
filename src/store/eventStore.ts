@@ -1768,7 +1768,8 @@ export const useEventStore = create<EventStore>()(
                           guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
                           notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                           actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
-                          // Use the newer responseDate
+                          // CRITICAL: Always use new responseDate to ensure backend detects it as a new update
+                          // This ensures the backend adds it to pending-updates even if status didn't change
                           responseDate: newResponseDate
                         };
                       
@@ -1954,12 +1955,14 @@ export const useEventStore = create<EventStore>()(
           // This ensures updates from phone are synced to all devices via pendingUpdates
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
+            
             try {
               console.log('🌐 Syncing guest response update to API...');
               console.log('📤 Sending updated event:', {
                 eventId: updatedEvent.id,
                 guestId: guestId,
-                updatedGuest: updatedEvent.guests.find(g => g.id === guestId)
+                updatedGuest: updatedGuest
               });
               
               // CRITICAL: Use await to ensure the update is sent before continuing
