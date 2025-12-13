@@ -99,8 +99,9 @@ const EventManagement: React.FC = () => {
       webhookService.startPolling(3000); // Poll every 3 seconds for faster updates
     }
     
-    // Auto-refresh events every 2 seconds for real-time sync between devices
+    // Auto-refresh events every 5 seconds for real-time sync between devices
     // Using startTransition and silent mode to make updates smooth and non-blocking
+    // Reduced frequency to prevent excessive updates that cause infinite loops
     const intervalId = setInterval(() => {
       console.log('🔄 Auto-refreshing events for real-time sync (silent mode)...');
       startTransition(() => {
@@ -109,7 +110,7 @@ const EventManagement: React.FC = () => {
           console.error('❌ Error auto-refreshing events:', error);
         });
       });
-    }, 2000); // Refresh every 2 seconds for immediate sync
+    }, 5000); // Refresh every 5 seconds to reduce unnecessary updates
 
     return () => {
       clearInterval(intervalId);
@@ -119,6 +120,8 @@ const EventManagement: React.FC = () => {
 
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');
+  const lastEventIdRef = useRef<string>('');
+  const lastEventUpdatedAtRef = useRef<string>('');
   
   // CRITICAL: Single useEffect to update currentEvent when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
@@ -143,17 +146,36 @@ const EventManagement: React.FC = () => {
       return () => clearTimeout(timeout);
     }
     
+    // CRITICAL: Only process if this is the event being viewed
+    if (event.id !== id) {
+      return; // Skip processing for other events
+    }
+    
+    // CRITICAL: If event ID changed, reset the tracking refs
+    if (lastEventIdRef.current !== id) {
+      lastEventIdRef.current = id;
+      lastGuestsKeyRef.current = ''; // Reset to force update
+      lastEventUpdatedAtRef.current = '';
+    }
+    
+    // CRITICAL: Check if event was actually updated (by updatedAt timestamp)
+    // This prevents unnecessary updates when events array is recreated but content is the same
+    const eventUpdatedAt = event.updatedAt || '';
+    const eventActuallyUpdated = eventUpdatedAt !== lastEventUpdatedAtRef.current;
+    
     // Create a key from guests to detect changes
     // CRITICAL: Include responseDate to detect updates even if status doesn't change
     const newGuestsKey = event.guests?.map(g => 
       `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
     ).join('|') || '';
     
-    // CRITICAL: Always update if guests changed or event changed
-    // This ensures the table updates immediately when guest status changes via link or WhatsApp buttons
-    // BUT: Only update if this is the event being viewed (event.id === id)
-    if (event.id === id && (newGuestsKey !== lastGuestsKeyRef.current || !currentEvent || currentEvent.id !== event.id)) {
-      if (newGuestsKey !== lastGuestsKeyRef.current) {
+    // CRITICAL: Only update if guests actually changed OR event was updated OR event changed
+    // This prevents infinite loops when events array is recreated but content is the same
+    const guestsChanged = newGuestsKey !== lastGuestsKeyRef.current;
+    const eventChanged = !currentEvent || currentEvent.id !== event.id;
+    
+    if (guestsChanged || eventChanged || eventActuallyUpdated) {
+      if (guestsChanged) {
         console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
         console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
         if (currentEvent?.guests) {
@@ -163,7 +185,6 @@ const EventManagement: React.FC = () => {
           console.log('📊 New status:', newStatus);
         }
       }
-      lastGuestsKeyRef.current = newGuestsKey;
       
       // CRITICAL: Always create new object reference with new guest array references to force React re-render
       // This ensures the table updates immediately when guest status changes
@@ -173,14 +194,10 @@ const EventManagement: React.FC = () => {
       };
       setCurrentEvent(newCurrentEvent);
       console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
-      return; // Skip manual change protection for guest response updates
-    } else if (event.id !== id) {
-      // This is not the event being viewed - don't update currentEvent
-      // But still update the key to track changes
-      if (newGuestsKey !== lastGuestsKeyRef.current) {
-        console.log('ℹ️ Guests changed for event', event.id, 'but user is viewing event', id, '- not updating currentEvent');
-        lastGuestsKeyRef.current = newGuestsKey;
-      }
+      
+      // Update refs AFTER setting state to prevent infinite loops
+      lastGuestsKeyRef.current = newGuestsKey;
+      lastEventUpdatedAtRef.current = eventUpdatedAt;
     }
   }, [id, events, setCurrentEvent, navigate]);
 
