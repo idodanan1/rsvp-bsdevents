@@ -476,9 +476,11 @@ const EventManagement: React.FC = () => {
     // events.length ensures we catch when events are added/removed
     // eventsHash ensures we catch when guest data changes within events (from Zustand subscription)
     // events array itself ensures we catch when the array reference changes (from Zustand store update)
-    // CRITICAL: Include events array to ensure we detect changes even if eventsVersion doesn't update
+    // CRITICAL: Use eventsHash and eventsVersion instead of events array to avoid React #310 errors
+    // eventsHash is a computed string that changes when any event or guest changes
+    // eventsVersion is a counter that increments when events array changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events.length, eventsHash, events]);
+  }, [id, eventsVersion, eventsHash]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -646,7 +648,7 @@ const EventManagement: React.FC = () => {
   
   // CRITICAL: Use useMemo to ensure filteredGuests updates when guestsToDisplay changes
   // This ensures the table updates immediately when guest data changes
-  // CRITICAL: Include forceUpdate to force recalculation when guests change
+  // CRITICAL: Use minimal dependencies to avoid React #310 errors
   const filteredGuests = useMemo(() => {
     console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate, 'eventsVersion:', eventsVersion, 'eventsHash length:', eventsHash.length);
     const filtered = guestsToDisplay.filter(guest => {
@@ -664,7 +666,9 @@ const EventManagement: React.FC = () => {
       console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
     }
     return filtered;
-  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate, eventsVersion, eventsHash]);
+    // CRITICAL: Remove eventsHash from dependencies to avoid React #310 errors
+    // guestsToDisplay already depends on eventsHash, so we don't need it here
+  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
