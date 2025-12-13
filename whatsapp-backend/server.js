@@ -2226,9 +2226,13 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     let foundGuest = null;
     let foundEvent = null;
     
+    // CRITICAL: Find ALL guests with matching phone number, then select the most relevant one
+    // This ensures we update the correct guest even if multiple guests share the same phone number
+    const matchingGuests = [];
+    
     for (const event of eventsData.events) {
       if (event.guests && event.guests.length > 0) {
-        foundGuest = event.guests.find(g => {
+        const eventGuests = event.guests.filter(g => {
           if (!g.phoneNumber) return false;
           const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
           const updatePhone = phoneNumber.replace(/[^0-9]/g, '');
@@ -2249,11 +2253,51 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
                  guestPhoneWith0 === updatePhoneWith0;
         });
         
-        if (foundGuest) {
-          foundEvent = event;
-          console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id}) in event ${event.id}`);
-          break;
+        // Add matching guests with their event
+        eventGuests.forEach(guest => {
+          matchingGuests.push({ guest, event });
+        });
+      }
+    }
+    
+    // CRITICAL: Select the most relevant guest from matching guests
+    // Priority: 1) Guest with most recent messageSentDate, 2) Guest with most recent responseDate, 3) First guest found
+    if (matchingGuests.length > 0) {
+      // Sort by: messageSentDate (most recent first), then responseDate (most recent first)
+      matchingGuests.sort((a, b) => {
+        const aMessageDate = a.guest.messageSentDate ? new Date(a.guest.messageSentDate).getTime() : 0;
+        const bMessageDate = b.guest.messageSentDate ? new Date(b.guest.messageSentDate).getTime() : 0;
+        const aResponseDate = a.guest.responseDate ? new Date(a.guest.responseDate).getTime() : 0;
+        const bResponseDate = b.guest.responseDate ? new Date(b.guest.responseDate).getTime() : 0;
+        
+        // First priority: messageSentDate (most recent first)
+        if (aMessageDate !== bMessageDate) {
+          return bMessageDate - aMessageDate;
         }
+        
+        // Second priority: responseDate (most recent first)
+        if (aResponseDate !== bResponseDate) {
+          return bResponseDate - aResponseDate;
+        }
+        
+        // If all else equal, keep original order
+        return 0;
+      });
+      
+      foundGuest = matchingGuests[0].guest;
+      foundEvent = matchingGuests[0].event;
+      
+      if (matchingGuests.length > 1) {
+        console.log(`⚠️ Found ${matchingGuests.length} guests with phone ${phoneNumber}, selecting most recent: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id})`);
+        console.log(`📊 All matching guests:`, matchingGuests.map(m => ({
+          name: `${m.guest.firstName} ${m.guest.lastName}`,
+          id: m.guest.id,
+          eventId: m.event.id,
+          messageSentDate: m.guest.messageSentDate ? new Date(m.guest.messageSentDate).toISOString() : 'none',
+          responseDate: m.guest.responseDate ? new Date(m.guest.responseDate).toISOString() : 'none'
+        })));
+      } else {
+        console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id}) in event ${foundEvent.id}`);
       }
     }
     
