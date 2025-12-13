@@ -226,11 +226,10 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Create a key that changes when guests change to force re-render
   // Use useMemo to ensure React tracks changes correctly
   // CRITICAL: Include responseDate timestamp to detect updates even if status doesn't change
-  // CRITICAL: Also include events array reference to detect when events array changes
   const guestsKey = useMemo(() => {
     if (guestsToDisplay && guestsToDisplay.length > 0) {
       try {
-        const guestsKeyString = guestsToDisplay.map(g => {
+        return guestsToDisplay.map(g => {
           let responseDateValue = '';
           if (g.responseDate) {
             try {
@@ -242,17 +241,13 @@ const EventManagement: React.FC = () => {
           }
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
         }).join('|');
-        
-        // CRITICAL: Include events array length and a hash of event IDs to detect array changes
-        const eventsHash = events.map(e => `${e.id}:${e.updatedAt ? new Date(e.updatedAt).getTime() : ''}`).join('|');
-        return `${guestsKeyString}|events:${events.length}:${eventsHash}`;
       } catch (error) {
         console.warn('⚠️ Error creating guestsKey:', error);
         return 'error';
       }
     }
-    return `empty|events:${events.length}`;
-  }, [guestsToDisplay, events]);
+    return 'empty';
+  }, [guestsToDisplay]);
   
   // CRITICAL: Force re-render when guestsKey changes by using it as a dependency
   // This ensures the table updates immediately when any guest data changes
