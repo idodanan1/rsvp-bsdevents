@@ -257,20 +257,22 @@ const EventManagement: React.FC = () => {
   const guestsToDisplay = useMemo(() => {
     // CRITICAL: Get events from store inside useMemo (not in dependencies)
     // This prevents React #310 error from circular dependencies
+    // CRITICAL: Always get fresh data from store to ensure we have latest updates
     const currentEvents = useEventStore.getState().events;
     
-    // CRITICAL: Always get from events array first (most up-to-date)
-    // Try multiple sources in order: currentEventFromStore, currentEvent, or events array directly
-    let event = currentEventFromStore;
+    // CRITICAL: Always get directly from events array (most up-to-date)
+    // Don't rely on currentEventFromStore ref as it might be stale
+    // This ensures we always get the latest data, even if update was for a different event
+    let event = currentEvents.find(e => e.id === id) || null;
     
-    // Fallback to currentEvent if it matches the ID
-    if (!event && currentEvent && currentEvent.id === id) {
-      event = currentEvent;
+    // Fallback to currentEventFromStore if event not found in array
+    if (!event) {
+      event = currentEventFromStore;
     }
     
-    // Final fallback: get directly from events array
-    if (!event) {
-      event = currentEvents.find(e => e.id === id) || null;
+    // Final fallback to currentEvent if it matches the ID
+    if (!event && currentEvent && currentEvent.id === id) {
+      event = currentEvent;
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
@@ -382,16 +384,20 @@ const EventManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestsKey, id, events.length]); // Removed currentEvent?.id to prevent unnecessary re-renders
   
+  // CRITICAL: Track last events array key to detect ANY changes (not just current event)
+  const lastEventsArrayKeyRef = useRef<string>('');
+  
   // CRITICAL: Also listen to events array changes directly (from local state)
   // This ensures we catch updates even if store subscription doesn't fire
   // MUST be before any return statement
   // CRITICAL: Use a more comprehensive check to detect ALL changes in events array
   useEffect(() => {
     console.log('🔄 Events array changed, checking for guest updates');
-    const event = events.find(e => e.id === id);
-    if (event && event.guests) {
-      // CRITICAL: Include responseDate to detect updates even if status doesn't change
-      const eventGuestsKey = event.guests.map(g => {
+    
+    // CRITICAL: Create a key from ALL events to detect ANY changes in the events array
+    // This ensures we catch updates even if they're for a different event
+    const allEventsKey = events.map(e => {
+      const guestsKey = e.guests?.map(g => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -402,35 +408,50 @@ const EventManagement: React.FC = () => {
         } catch (error) {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:`;
         }
-      }).join('|');
+      }).join('|') || '';
+      return `${e.id}:${e.updatedAt || ''}:${guestsKey}`;
+    }).join('||');
+    
+    // Check if events array changed at all
+    if (allEventsKey !== lastEventsArrayKeyRef.current) {
+      console.log('🔄 Events array changed (any event), updating guestsToDisplay');
+      lastEventsArrayKeyRef.current = allEventsKey;
       
-      if (eventGuestsKey !== lastGuestsKeyRef.current) {
-        console.log('🔄 Event guests changed, forcing update');
-        console.log('📊 Old key:', lastGuestsKeyRef.current.substring(0, 100));
-        console.log('📊 New key:', eventGuestsKey.substring(0, 100));
-        console.log('📊 Event ID:', event.id);
-        console.log('📊 Guests count:', event.guests.length);
-        console.log('📊 Sample guest statuses:', event.guests.slice(0, 3).map(g => ({
-          id: g.id,
-          name: `${g.firstName} ${g.lastName}`,
-          status: g.rsvpStatus,
-          count: g.guestCount
-        })));
-        lastGuestsKeyRef.current = eventGuestsKey;
-        setForceUpdate(prev => prev + 1);
+      // CRITICAL: Trigger guestsUpdateTrigger to force guestsToDisplay to recalculate
+      setGuestsUpdateTrigger(prev => prev + 1);
+      
+      // Also update currentEvent if it's the one being viewed
+      const event = events.find(e => e.id === id);
+      if (event && event.guests) {
+        const eventGuestsKey = event.guests.map(g => {
+          try {
+            let responseDateValue = '';
+            if (g.responseDate) {
+              const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+              responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+            }
+            return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
+          } catch (error) {
+            return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:`;
+          }
+        }).join('|');
         
-        // CRITICAL: Also update currentEvent to ensure it matches the latest data
-        const newCurrentEvent = { 
+        if (eventGuestsKey !== lastGuestsKeyRef.current) {
+          console.log('🔄 Current event guests changed, updating currentEvent');
+          lastGuestsKeyRef.current = eventGuestsKey;
+          setForceUpdate(prev => prev + 1);
+          
+          // CRITICAL: Also update currentEvent to ensure it matches the latest data
+          const newCurrentEvent = { 
             ...event,
-          guests: event.guests ? event.guests.map(g => ({ ...g })) : []
-        };
-        setCurrentEvent(newCurrentEvent);
-        console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
-      } else {
-        console.log('ℹ️ Event guests key unchanged, no update needed');
+            guests: event.guests ? event.guests.map(g => ({ ...g })) : []
+          };
+          setCurrentEvent(newCurrentEvent);
+          console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
+        }
       }
     } else {
-      console.log('⚠️ Event not found or has no guests:', id);
+      console.log('ℹ️ Events array key unchanged, no update needed');
     }
   }, [id, events, setCurrentEvent]);
 
