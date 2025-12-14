@@ -1817,6 +1817,69 @@ const EventManagement: React.FC = () => {
           alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (מימין לשמאל):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: שיוך למשפחה\n- Column E: הערות');
         }
 
+        // Check for duplicates in the imported file
+        const phoneCounts: Record<string, { count: number; guests: any[] }> = {};
+        guests.forEach((guest: any, index: number) => {
+          if (guest.phoneNumber && guest.phoneNumber.trim().length > 0) {
+            const phone = guest.phoneNumber.trim();
+            if (!phoneCounts[phone]) {
+              phoneCounts[phone] = { count: 0, guests: [] };
+            }
+            phoneCounts[phone].count++;
+            phoneCounts[phone].guests.push({ ...guest, rowNumber: index + 2 }); // +2 because header is row 1 and index is 0-based
+          }
+        });
+
+        // Find duplicates (phone numbers that appear more than once)
+        const duplicates = Object.entries(phoneCounts)
+          .filter(([phone, data]) => data.count > 1)
+          .map(([phone, data]) => ({ phone, ...data }));
+
+        // Check for duplicates with existing guests in the system
+        const existingGuests = currentEvent.guests || [];
+        const existingPhones = new Set(existingGuests.map(g => g.phoneNumber?.trim()).filter(Boolean));
+        const duplicatesWithExisting = guests.filter((guest: any) => 
+          guest.phoneNumber && existingPhones.has(guest.phoneNumber.trim())
+        );
+
+        // Show warning if duplicates found
+        if (duplicates.length > 0 || duplicatesWithExisting.length > 0) {
+          let warningMessage = '⚠️ נמצאו כפילויות!\n\n';
+          
+          if (duplicates.length > 0) {
+            warningMessage += `📋 כפילויות בקובץ Excel (${duplicates.length} מספרי טלפון מופיעים יותר מפעם אחת):\n\n`;
+            duplicates.forEach((dup, idx) => {
+              warningMessage += `${idx + 1}. מספר טלפון: ${dup.phone}\n`;
+              warningMessage += `   מופיע ${dup.count} פעמים בשורות:\n`;
+              dup.guests.forEach((guest: any) => {
+                warningMessage += `   - שורה ${guest.rowNumber}: ${guest.firstName} ${guest.lastName || ''}\n`;
+              });
+              warningMessage += '\n';
+            });
+          }
+
+          if (duplicatesWithExisting.length > 0) {
+            warningMessage += `\n📋 כפילויות עם אורחים קיימים במערכת (${duplicatesWithExisting.length} אורחים):\n\n`;
+            duplicatesWithExisting.forEach((guest: any, idx) => {
+              const existingGuest = existingGuests.find(g => g.phoneNumber?.trim() === guest.phoneNumber?.trim());
+              warningMessage += `${idx + 1}. ${guest.firstName} ${guest.lastName || ''} - ${guest.phoneNumber}\n`;
+              if (existingGuest) {
+                warningMessage += `   קיים במערכת: ${existingGuest.firstName} ${existingGuest.lastName || ''}\n`;
+              }
+              warningMessage += '\n';
+            });
+          }
+
+          warningMessage += '\n💡 המלצה: בדוק את הרשומות הכפולות לפני המשך הייבוא.\n';
+          warningMessage += 'האם אתה רוצה להמשיך בכל זאת?';
+
+          const shouldContinue = window.confirm(warningMessage);
+          if (!shouldContinue) {
+            setShowImportModal(false);
+            return;
+          }
+        }
+
         // Add guests to event
         if (guests.length === 0) {
           setShowImportModal(false);
