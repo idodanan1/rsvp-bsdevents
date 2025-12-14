@@ -282,9 +282,20 @@ const CampaignManagement: React.FC = () => {
 
   const handleScheduleCampaign = (campaign: any) => {
     setSchedulingCampaign(campaign);
+    
+    // Get current date/time or use campaign's scheduled date if exists
+    const now = new Date();
+    const scheduledDate = campaign.scheduledDate ? new Date(campaign.scheduledDate) : now;
+    
+    // Format date as YYYY-MM-DD
+    const dateStr = scheduledDate.toISOString().split('T')[0];
+    
+    // Format time as HH:MM
+    const timeStr = scheduledDate.toTimeString().slice(0, 5);
+    
     setScheduleData({
-      scheduledDate: formatDate(campaign.scheduledDate).split(' ')[0],
-      scheduledTime: campaign.scheduledDate.toTimeString().slice(0, 5),
+      scheduledDate: dateStr,
+      scheduledTime: timeStr,
       repeatType: 'none',
       repeatInterval: 1,
       repeatDays: [],
