@@ -54,6 +54,7 @@ export const useEventStore = create<EventStore>()(
     (set, get) => ({
       events: mockEvents,
       deletedEvents: [], // אירועים שנמחקו
+      deletedGuests: {}, // Track deleted guests: eventId -> array of guestIds
       currentEvent: null,
       isLoading: false,
       error: null,
@@ -289,7 +290,16 @@ export const useEventStore = create<EventStore>()(
                   
                   if (!localEvent) {
                     console.log(`➡️ No local event found for ${apiEvent.id}, using API event directly`);
-                    return apiEvent; // Use API event if no local version
+                    // Filter out deleted guests even when there's no local event
+                    const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
+                    const filteredGuests = apiEvent.guests.filter(guest => {
+                      if (deletedGuestIds.includes(guest.id)) {
+                        console.log(`🚫 Skipping deleted guest from API (no local event): ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                        return false;
+                      }
+                      return true;
+                    });
+                    return { ...apiEvent, guests: filteredGuests }; // Use API event if no local version, but filter deleted guests
                   }
                   
                   // Log API event guests for debugging
@@ -309,7 +319,19 @@ export const useEventStore = create<EventStore>()(
                 });
                 
                 // Merge guests, preserving manual changes
-                  const mergedGuests = apiEvent.guests.map(apiGuest => {
+                  // Get deleted guests for this event to filter them out
+                  const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
+                  
+                  const mergedGuests = apiEvent.guests
+                    .filter(apiGuest => {
+                      // CRITICAL: Filter out deleted guests - they should not be restored from API
+                      if (deletedGuestIds.includes(apiGuest.id)) {
+                        console.log(`🚫 Skipping deleted guest from API: ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id})`);
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map(apiGuest => {
                     const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
                     
                     if (!localGuest) {
@@ -397,9 +419,10 @@ export const useEventStore = create<EventStore>()(
                     return apiGuest;
                   });
                   
-                  // Add any local guests that aren't in API
+                  // Add any local guests that aren't in API (and aren't deleted)
                   const localOnlyGuests = localEvent.guests.filter((lg: Guest) => 
-                    !apiEvent.guests.find((ag: Guest) => ag.id === lg.id)
+                    !apiEvent.guests.find((ag: Guest) => ag.id === lg.id) &&
+                    !deletedGuestIds.includes(lg.id) // Don't add deleted guests
                   );
                   
                   return {
@@ -1469,12 +1492,19 @@ export const useEventStore = create<EventStore>()(
               console.warn('⚠️ Error deleting event from backend:', error);
             }
             
-            set(state => ({
-              events: state.events.filter(event => event.id !== id), // Remove ALL events with this ID
-              deletedEvents: [...state.deletedEvents, ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date() }))],
-              currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
-              isLoading: false
-            }));
+            set(state => {
+              // Clean up deletedGuests for this event
+              const updatedDeletedGuests = { ...state.deletedGuests };
+              delete updatedDeletedGuests[id];
+              
+              return {
+                events: state.events.filter(event => event.id !== id), // Remove ALL events with this ID
+                deletedEvents: [...state.deletedEvents, ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date() }))],
+                deletedGuests: updatedDeletedGuests, // Remove deleted guests tracking for this event
+                currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
+                isLoading: false
+              };
+            });
             
             // CRITICAL: Also remove from localStorage to prevent it from being synced back
             try {
@@ -2254,9 +2284,19 @@ export const useEventStore = create<EventStore>()(
                 }
               : state.currentEvent;
             
+            // Track deleted guest to prevent it from being restored from API
+            const updatedDeletedGuests = { ...state.deletedGuests };
+            if (!updatedDeletedGuests[eventId]) {
+              updatedDeletedGuests[eventId] = [];
+            }
+            if (!updatedDeletedGuests[eventId].includes(guestId)) {
+              updatedDeletedGuests[eventId].push(guestId);
+            }
+            
             return {
               events: updatedEvents,
               currentEvent: updatedCurrentEvent,
+              deletedGuests: updatedDeletedGuests,
               isLoading: false
             };
           });
@@ -4291,6 +4331,7 @@ export const useEventStore = create<EventStore>()(
               return {
                 events: mergedEvents, // ONLY current user's events
                 deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
+                deletedGuests: state.deletedGuests || parsed.state.deletedGuests || {},
                 currentEvent: state.currentEvent || parsed.state.currentEvent || null
               };
             }
@@ -4302,6 +4343,7 @@ export const useEventStore = create<EventStore>()(
             return {
               events: state.events,
               deletedEvents: state.deletedEvents || [],
+              deletedGuests: state.deletedGuests || {},
               currentEvent: state.currentEvent || null
             };
           }
@@ -4313,6 +4355,7 @@ export const useEventStore = create<EventStore>()(
         return { 
           events: state.events || [],
           deletedEvents: state.deletedEvents || [],
+          deletedGuests: state.deletedGuests || {},
           currentEvent: state.currentEvent || null
         };
       },

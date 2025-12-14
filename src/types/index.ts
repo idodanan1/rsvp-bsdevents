@@ -206,6 +206,7 @@ export interface EventStore {
   syncAllEventsToAPI: () => Promise<{ synced: number; failed: number }>;
   events: Event[];
   deletedEvents: (Event & { deletedAt: Date })[];
+  deletedGuests: Record<string, string[]>; // Track deleted guests: eventId -> array of guestIds
   currentEvent: Event | null;
   isLoading: boolean;
   error: string | null;
