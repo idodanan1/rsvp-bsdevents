@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useClientStore } from '../store/clientStore';
 import { Client, Reminder, ClientStats, ClientFilterOptions } from '../types';
-import { formatDate, formatTime } from '../utils/helpers';
+import { formatDate, formatTime, formatFullName } from '../utils/helpers';
 import AddClientModal from './AddClientModal';
 import AddReminderModal from './AddReminderModal';
 
@@ -398,7 +398,7 @@ const ClientManagement: React.FC = () => {
                         </div>
                         <div className="mr-4">
                           <div className="text-sm font-medium text-gray-900">
-                            {client.firstName} {client.lastName}
+                            {formatFullName(client.firstName, client.lastName)}
                           </div>
                           <div className="text-sm text-gray-500">
                             {client.company || 'ללא חברה'}
@@ -615,7 +615,7 @@ const ClientManagement: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {client ? `${client.firstName} ${client.lastName}` : 'לא נמצא'}
+                            {client ? formatFullName(client.firstName, client.lastName) : 'לא נמצא'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

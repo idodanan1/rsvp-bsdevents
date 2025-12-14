@@ -149,7 +149,7 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');
   const lastEventIdRef = useRef<string>('');
-  const lastEventUpdatedAtRef = useRef<string>('');
+  const lastEventUpdatedAtRef = useRef<number>(0);
   
   // CRITICAL: Single useEffect to update currentEvent when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
@@ -184,13 +184,13 @@ const EventManagement: React.FC = () => {
     if (lastEventIdRef.current !== id) {
       lastEventIdRef.current = id;
       lastGuestsKeyRef.current = ''; // Reset to force update
-      lastEventUpdatedAtRef.current = '';
+      lastEventUpdatedAtRef.current = 0;
     }
     
     // CRITICAL: Check if event was actually updated (by updatedAt timestamp)
     // This prevents unnecessary updates when events array is recreated but content is the same
     const eventUpdatedAt = event.updatedAt ? (event.updatedAt instanceof Date ? event.updatedAt.getTime() : new Date(event.updatedAt).getTime()) : 0;
-    const lastEventUpdatedAt = lastEventUpdatedAtRef.current ? (typeof lastEventUpdatedAtRef.current === 'string' ? new Date(lastEventUpdatedAtRef.current).getTime() : lastEventUpdatedAtRef.current instanceof Date ? lastEventUpdatedAtRef.current.getTime() : Number(lastEventUpdatedAtRef.current) || 0) : 0;
+    const lastEventUpdatedAt = lastEventUpdatedAtRef.current || 0;
     const eventActuallyUpdated = eventUpdatedAt !== lastEventUpdatedAt;
     
     // Create a key from guests to detect changes
@@ -259,7 +259,7 @@ const EventManagement: React.FC = () => {
       
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
-      lastEventUpdatedAtRef.current = String(eventUpdatedAt); // Convert to string for comparison
+      lastEventUpdatedAtRef.current = eventUpdatedAt;
     }
     // CRITICAL: Do NOT include currentEvent in dependencies to prevent infinite loop
     // The useEffect should only run when events array changes, not when currentEvent changes
@@ -353,7 +353,7 @@ const EventManagement: React.FC = () => {
     const event = events.find(e => e.id === id);
     if (event) {
       // Create a key from guests to detect changes (including status, count, responseDate)
-      const currentGuestsKey = currentEventFromStoreRef.current?.guests?.map(g => 
+      const currentGuestsKey = currentEventFromStoreRef.current?.guests?.map((g: any) => 
         `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
       ).join('|') || '';
       const newGuestsKey = event.guests?.map(g => 
@@ -2578,7 +2578,7 @@ const EventManagement: React.FC = () => {
                         <div key={guest.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
                           <div>
                             <span className="text-sm font-medium">
-                              {guest.firstName} {guest.lastName}
+                              {formatFullName(guest.firstName, guest.lastName)}
                             </span>
                             <span className="text-sm text-gray-500 mr-2">
                               {guest.phoneNumber}
@@ -3022,7 +3022,7 @@ const EventManagement: React.FC = () => {
                     const guest = currentEvent.guests.find(g => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
-                        {guest.firstName} {guest.lastName} – {guest.phoneNumber}
+                        {formatFullName(guest.firstName, guest.lastName)} – {guest.phoneNumber}
                       </div>
                     ) : null;
                   })}

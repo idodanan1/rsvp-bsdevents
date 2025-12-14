@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Bell, Calendar, Clock, AlertCircle, User, FileText } from 'lucide-react';
 import { useClientStore } from '../store/clientStore';
 import { Reminder } from '../types';
+import { formatFullName } from '../utils/helpers';
 
 interface AddReminderModalProps {
   isOpen: boolean;
@@ -96,7 +97,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 <option value="">בחר לקוח</option>
                 {clients.map(client => (
                   <option key={client.id} value={client.id}>
-                    {client.firstName} {client.lastName}
+                    {formatFullName(client.firstName, client.lastName)}
                   </option>
                 ))}
               </select>

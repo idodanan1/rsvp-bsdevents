@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { formatFullName } from '../utils/helpers';
 
 const VenueEditor: React.FC = () => {
   const { id: eventId } = useParams<{ id: string }>();
@@ -1650,7 +1651,7 @@ const VenueEditor: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-gray-800">{guest.firstName} {guest.lastName}</div>
+                          <div className="font-medium text-gray-800">{formatFullName(guest.firstName, guest.lastName)}</div>
                           <div className="text-sm text-gray-600">
                             {guest.guestCount} אנשים • {guest.channel}
                           </div>
@@ -1682,7 +1683,7 @@ const VenueEditor: React.FC = () => {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-gray-800">{guest.firstName} {guest.lastName}</div>
+                          <div className="font-medium text-gray-800">{formatFullName(guest.firstName, guest.lastName)}</div>
                           <div className="text-sm text-gray-600">
                             {guest.guestCount} אנשים • {guest.channel}
                           </div>
