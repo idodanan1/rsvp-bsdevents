@@ -2416,7 +2416,18 @@ export const useEventStore = create<EventStore>()(
             } else if (campaign.name === 'תזכורת אחרונה') {
               // Use template 'today' for "תזכורת אחרונה" campaign
               templateNameForCampaign = 'today';
+            } else if (campaign.name === 'תזכורת יום האירוע') {
+              // CRITICAL: Don't use template for "תזכורת יום האירוע" - send custom message content instead
+              // User wants to send the campaign message content, not a template placeholder
+              templateNameForCampaign = undefined;
             }
+          }
+          
+          // CRITICAL: For "תזכורת יום האירוע", always send custom message content, not template
+          // Override any template that might be set
+          if (campaign.name === 'תזכורת יום האירוע') {
+            templateNameForCampaign = undefined;
+            console.log('📋 Campaign "תזכורת יום האירוע" - will send custom message content, not template');
           }
           
           // Import helper function once before map

@@ -182,7 +182,23 @@ class MessageService {
     
     const hasMessageContent = processedMessage && processedMessage.trim().length > 0;
     
-    if (isFirstMessage) {
+    // CRITICAL: If there's custom message content from campaign, prefer it over template
+    // This allows campaigns like "תזכורת יום האירוע" to send custom content instead of template placeholders
+    // Only use template if it's a first message AND no custom content is available
+    if (hasMessageContent && !isFirstMessage) {
+      // Custom message content available and not first message → send custom message (ignore template)
+      console.log('📋 Custom message content available - sending custom message instead of template');
+      templateName = undefined;
+      templateParams = undefined;
+    } else if (hasMessageContent && isFirstMessage && !templateName) {
+      // Custom message content available but it's first message and no template → still need template for Meta
+      // But if templateName is explicitly undefined (campaign wants custom message), try to send custom message
+      console.log('📋 First message with custom content but no template - will use hello_world as fallback');
+      console.log('⚠️ Note: Meta requires template for first messages, but campaign wants custom content');
+      // Keep templateName as undefined to try sending custom message (may fail if Meta rejects)
+      templateName = undefined;
+      templateParams = undefined;
+    } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
       if (templateName) {
         // Use explicit template from campaign
