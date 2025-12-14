@@ -2518,21 +2518,35 @@ export const useEventStore = create<EventStore>()(
             // Different templates require different parameters
             let templateParams: any = {};
             
-            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA' || templateNameForCampaign === 'a') {
-              // Template "aa" requires these 9 parameters in order:
+            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "aa" requires 9 parameters in order:
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
-              // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
                              'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
                 event_type: event.eventTypeHebrew,
-                bride_name: event.brideName, // Parameter 3 - bride_name comes BEFORE groom_name in Meta template
-                groom_name: event.groomName, // Parameter 4 - groom_name comes AFTER bride_name in Meta template
+                bride_name: event.brideName,
+                groom_name: event.groomName,
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime,
                 venue: event.venue,
-                guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
+                guest_response_link: guestLink,
+                couple_name: event.coupleName,
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'a') {
+              // CRITICAL: Template "a" requires ONLY 7 parameters (not 9!)
+              // Based on error: "body: number of localizable_params (9) does not match the expected number of params (7)"
+              // Template "a" parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
+              templateParams = {
+                paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: event.eventTypeHebrew,
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime,
+                venue: event.venue,
+                guest_response_link: guestLink,
                 couple_name: event.coupleName,
                 language: 'he'
               };
@@ -2563,20 +2577,16 @@ export const useEventStore = create<EventStore>()(
                 language: 'he' // Hebrew - as shown in Meta template
               };
             } else {
-              // Default: use template "a" parameters
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
-              // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
+              // Default: use template "a" parameters (7 parameters, not 9)
+              // IMPORTANT: Template "a" requires ONLY 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
               templateParams = {
-                paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                             'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
                 event_type: event.eventTypeHebrew,
-                bride_name: event.brideName, // Parameter 3 - bride_name comes BEFORE groom_name in Meta template
-                groom_name: event.groomName, // Parameter 4 - groom_name comes AFTER bride_name in Meta template
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime,
                 venue: event.venue,
-                guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
+                guest_response_link: guestLink,
                 couple_name: event.coupleName,
                 language: 'he'
               };
