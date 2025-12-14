@@ -136,7 +136,7 @@ const CheckInStation: React.FC = () => {
         config,
         {
           fps: 10,
-          qrbox: { width: 300, height: 300 },
+          qrbox: { width: 250, height: 250 },
           aspectRatio: 1.0,
           disableFlip: false // Allow flipping if needed
         },
@@ -376,29 +376,29 @@ const CheckInStation: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 p-4" dir="rtl">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="h-screen bg-gradient-to-br from-teal-50 to-yellow-50 p-2 overflow-hidden" dir="rtl">
+      <div className="h-full max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
           {/* Camera Scanner Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-                <Camera className="h-6 w-6 ml-2" />
+          <div className="bg-white rounded-xl shadow-lg p-3 flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center">
+                <Camera className="h-5 w-5 ml-2" />
                 עמדת סריקה
               </h2>
-              <div className="flex items-center space-x-3 space-x-reverse">
+              <div className="flex items-center space-x-2 space-x-reverse">
                 {availableCameras.length > 1 && (
                   <button
                     onClick={switchCamera}
                     disabled={isSwitchingCamera || !isScanning}
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200"
+                    className="flex items-center space-x-1 px-2 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded text-xs transition-colors duration-200"
                     title="החלף מצלמה"
                   >
-                    <RotateCcw className={`h-4 w-4 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
-                    <span>{isSwitchingCamera ? 'מחליף...' : 'החלף מצלמה'}</span>
+                    <RotateCcw className={`h-3 w-3 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
+                    <span className="text-xs">{isSwitchingCamera ? 'מחליף...' : 'החלף'}</span>
                   </button>
                 )}
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
                   isScanning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                 }`}>
                   {isScanning ? 'סורק...' : 'מוכן'}
@@ -407,111 +407,110 @@ const CheckInStation: React.FC = () => {
             </div>
             
             {availableCameras.length > 0 && (
-              <div className="mb-4 text-sm text-gray-600">
-                <p>מצלמה נוכחית: {availableCameras[currentCameraIndex]?.label || `מצלמה ${currentCameraIndex + 1}`}</p>
-                {availableCameras.length > 1 && (
-                  <p className="text-xs text-gray-500">({currentCameraIndex + 1} מתוך {availableCameras.length} מצלמות)</p>
-                )}
+              <div className="mb-2 text-xs text-gray-600 flex-shrink-0">
+                <p>מצלמה: {availableCameras[currentCameraIndex]?.label || `מצלמה ${currentCameraIndex + 1}`}</p>
               </div>
             )}
             
             {error && (
-              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2 mb-2 text-xs flex-shrink-0">
                 <p className="text-red-800">{error}</p>
               </div>
             )}
 
             {/* Welcome message for guests */}
-            <div className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-lg p-4 mb-4 text-white text-center shadow-lg">
-              <p className="text-lg font-bold mb-1">שלום אורח יקר!</p>
-              <p className="text-base">אנא סרוק את הברקוד שנשלח אליך בוואטסאפ</p>
+            <div className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-lg p-2 mb-2 text-white text-center shadow-lg flex-shrink-0">
+              <p className="text-sm font-bold mb-0.5">שלום אורח יקר!</p>
+              <p className="text-xs">אנא סרוק את הברקוד שנשלח אליך בוואטסאפ</p>
             </div>
 
-            <div className="relative w-full rounded-lg overflow-hidden bg-gray-900" style={{ minHeight: '400px' }}>
+            <div className="relative w-full rounded-lg overflow-hidden bg-gray-900 flex-1 min-h-0" style={{ maxHeight: '100%' }}>
               <div id="reader" className="w-full h-full"></div>
               {!isScanning && !error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90">
                   <div className="text-center text-white">
-                    <Camera className="h-12 w-12 mx-auto mb-4 animate-pulse" />
-                    <p className="text-lg font-medium">מתחיל מצלמה...</p>
-                    <p className="text-sm mt-2 opacity-75">אנא אשר גישה למצלמה בדפדפן</p>
+                    <Camera className="h-8 w-8 mx-auto mb-2 animate-pulse" />
+                    <p className="text-sm font-medium">מתחיל מצלמה...</p>
+                    <p className="text-xs mt-1 opacity-75">אנא אשר גישה למצלמה</p>
                   </div>
                 </div>
               )}
               {isScanning && (
-                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                  <div className="w-2 h-2 bg-white rounded-full ml-2 animate-pulse"></div>
-                  מצלמה פעילה
+                <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs font-medium flex items-center">
+                  <div className="w-1.5 h-1.5 bg-white rounded-full ml-1.5 animate-pulse"></div>
+                  פעילה
                 </div>
               )}
             </div>
             
-            <div className="mt-4 text-center text-gray-600">
+            <div className="mt-1 text-center text-gray-600 flex-shrink-0">
               {isScanning ? (
-                <p className="font-medium">הצב את הברקוד מול המצלמה</p>
+                <p className="text-xs font-medium">הצב את הברקוד מול המצלמה</p>
               ) : (
-                <p className="text-gray-500">ממתין להפעלת המצלמה...</p>
+                <p className="text-xs text-gray-500">ממתין להפעלת המצלמה...</p>
               )}
             </div>
           </div>
 
           {/* Display Section */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
-              <Users className="h-6 w-6 ml-2" />
+          <div className="bg-white rounded-xl shadow-lg p-3 flex flex-col overflow-hidden">
+            <h2 className="text-lg font-bold text-gray-800 mb-2 flex items-center flex-shrink-0">
+              <Users className="h-5 w-5 ml-2" />
               מידע אורח
             </h2>
 
-            {scannedGuest ? (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-br from-teal-50 to-yellow-50 rounded-lg p-6 border-2 border-teal-200">
-                  <div className="text-center mb-4">
-                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                    <h3 className="text-3xl font-bold text-gray-800 mb-2">
-                      {scannedGuest.greeting}
-                    </h3>
-                    <p className="text-xl text-gray-600">
-                      {scannedGuest.firstName} {scannedGuest.lastName}
-                    </p>
-                  </div>
+            <div className="flex-1 overflow-y-auto">
+              {scannedGuest ? (
+                <div className="space-y-3">
+                  <div className="bg-gradient-to-br from-teal-50 to-yellow-50 rounded-lg p-3 border-2 border-teal-200">
+                    <div className="text-center mb-2">
+                      <CheckCircle className="h-10 w-10 text-green-500 mx-auto mb-2" />
+                      <h3 className="text-xl font-bold text-gray-800 mb-1">
+                        {scannedGuest.greeting}
+                      </h3>
+                      <p className="text-base text-gray-600">
+                        {scannedGuest.firstName} {scannedGuest.lastName}
+                      </p>
+                    </div>
 
-                  {scannedGuest.tableNumber && (
-                    <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-6 mt-4">
-                      <div className="flex items-center justify-center">
-                        <Table className="h-8 w-8 ml-3 text-yellow-600" />
-                        <div className="text-center">
-                          <p className="text-lg font-medium text-gray-700 mb-1">מספר השולחן שלך:</p>
-                          <p className="text-5xl font-bold text-yellow-700">{scannedGuest.tableNumber}</p>
+                    {scannedGuest.tableNumber && (
+                      <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 mt-2">
+                        <div className="flex items-center justify-center">
+                          <Table className="h-6 w-6 ml-2 text-yellow-600" />
+                          <div className="text-center">
+                            <p className="text-sm font-medium text-gray-700 mb-0.5">מספר השולחן שלך:</p>
+                            <p className="text-3xl font-bold text-yellow-700">{scannedGuest.tableNumber}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {!scannedGuest.tableNumber && (
-                    <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4 mt-4 text-center">
-                      <p className="text-gray-600">שולחן לא הוקצה</p>
-                    </div>
-                  )}
+                    {!scannedGuest.tableNumber && (
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 mt-2 text-center">
+                        <p className="text-sm text-gray-600">שולחן לא הוקצה</p>
+                      </div>
+                    )}
 
-                  <div className="mt-6 text-center text-sm text-gray-500">
-                    <p>נסרק ב: {scannedGuest.scannedAt.toLocaleTimeString('he-IL')}</p>
+                    <div className="mt-2 text-center text-xs text-gray-500">
+                      <p>נסרק ב: {scannedGuest.scannedAt.toLocaleTimeString('he-IL')}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-64 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-                <div className="text-center text-gray-400">
-                  <Camera className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">ממתין לסריקה...</p>
+              ) : (
+                <div className="flex items-center justify-center h-full bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <div className="text-center text-gray-400">
+                    <Camera className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">ממתין לסריקה...</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Event Info */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-2">פרטי האירוע:</h3>
-              <p className="text-gray-600">{event.coupleName}</p>
-              <p className="text-sm text-gray-500 mt-1">{event.eventTypeHebrew}</p>
+            <div className="mt-2 pt-2 border-t border-gray-200 flex-shrink-0">
+              <h3 className="text-sm font-bold text-gray-800 mb-1">פרטי האירוע:</h3>
+              <p className="text-xs text-gray-600">{event.coupleName}</p>
+              <p className="text-xs text-gray-500">{event.eventTypeHebrew}</p>
             </div>
           </div>
         </div>
