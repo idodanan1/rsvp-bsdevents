@@ -2963,7 +2963,7 @@ const EventManagement: React.FC = () => {
                     const guest = currentEvent.guests.find(g => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
-                        {guest.firstName} {guest.lastName} - {guest.phoneNumber}
+                        {guest.firstName} {guest.lastName} – {guest.phoneNumber}
                       </div>
                     ) : null;
                   })}
