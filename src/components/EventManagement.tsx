@@ -2933,7 +2933,7 @@ const EventManagement: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">שליחת הודעה למוזמנים נבחרים</h3>
             
             <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yello0 rounded-lg p-3">
+              <div className="bg-yellow-50 border border-yellow-500 rounded-lg p-3">
                 <p className="text-yellow-800 text-sm font-medium">📱 שליחת הודעות אמיתית מופעלת!</p>
                 <p className="text-yellow-700 text-sm mt-1">
                   נבחרו {selectedGuests.length} מוזמנים לשליחה
