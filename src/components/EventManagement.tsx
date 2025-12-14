@@ -2212,7 +2212,7 @@ const EventManagement: React.FC = () => {
                   <div className="absolute inset-0 bg-black flex flex-col items-center justify-center p-2">
                     <div className="absolute top-1 right-1 text-yellow-400 text-xs font-bold">בס"ד</div>
                     <div className="text-yellow-400 text-xs font-bold text-center mt-2">בס"ד אירועים</div>
-                    <div className="text-yellow-400 text-xs font-bold text-center mt-1">צלמים|הפקות|הושבה</div>
+                    <div className="text-yellow-400 text-xs font-bold text-center mt-1">צלמים / הפקות / הושבה</div>
                   </div>
                 )}
               </div>
@@ -3022,8 +3022,8 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
       </div>
+    </div>
     );
   } catch (error) {
     console.error('Error rendering EventManagement:', error);
