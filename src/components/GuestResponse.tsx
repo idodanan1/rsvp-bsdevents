@@ -453,12 +453,21 @@ const GuestResponse = () => {
   
   // Removed debug logging for performance
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    fullName: string;
+    phoneNumber: string;
+    response: 'attending' | 'maybe' | 'not_attending';
+    guestCount: number;
+    notes: string;
+    transportation?: 'south' | 'north' | 'none';
+    actualAttendance?: 'attended' | 'not_attended' | 'not_marked';
+  }>({
     phoneNumber: '',
     fullName: '',
     guestCount: 1,
     notes: '',
     response: 'attending' as 'attending' | 'not_attending' | 'maybe',
+    transportation: undefined,
     actualAttendance: 'not_marked' as 'attended' | 'not_attended' | 'not_marked'
   });
   
@@ -627,10 +636,19 @@ const GuestResponse = () => {
       
       if (guestToUpdate) {
         // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
+        // Add transportation info to notes if provided
+        let finalNotes = formData.notes || '';
+        if (formData.transportation) {
+          const transportationText = formData.transportation === 'south' ? 'הסעה דרום' : 
+                                    formData.transportation === 'north' ? 'הסעה צפון' : 
+                                    'אין צורך בהסעה';
+          finalNotes = finalNotes ? `${finalNotes} | ${transportationText}` : transportationText;
+        }
+        
         const updatedGuest = {
           ...guestToUpdate,
           guestCount: formData.guestCount,
-          notes: formData.notes,
+          notes: finalNotes,
           rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe', // EXPLICITLY set status
           responseDate: new Date(),
           actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
@@ -700,10 +718,19 @@ const GuestResponse = () => {
         // Try to find guest by ID in event
         const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
         if (foundGuest) {
+          // Add transportation info to notes if provided
+          let finalNotes = formData.notes || '';
+          if (formData.transportation) {
+            const transportationText = formData.transportation === 'south' ? 'הסעה דרום' : 
+                                      formData.transportation === 'north' ? 'הסעה צפון' : 
+                                      'אין צורך בהסעה';
+            finalNotes = finalNotes ? `${finalNotes} | ${transportationText}` : transportationText;
+          }
+          
           const updatedGuest = {
             ...foundGuest,
             guestCount: formData.guestCount,
-            notes: formData.notes,
+            notes: finalNotes,
             rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
             responseDate: new Date(),
             actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
@@ -731,13 +758,22 @@ const GuestResponse = () => {
           }, 100);
         } else {
           // Create new guest (fallback for direct access)
+          // Add transportation info to notes if provided
+          let finalNotes = formData.notes || '';
+          if (formData.transportation) {
+            const transportationText = formData.transportation === 'south' ? 'הסעה דרום' : 
+                                      formData.transportation === 'north' ? 'הסעה צפון' : 
+                                      'אין צורך בהסעה';
+            finalNotes = finalNotes ? `${finalNotes} | ${transportationText}` : transportationText;
+          }
+          
           const newGuest = {
             id: guestId || 'guest-' + Date.now(),
             firstName: formData.fullName.split(' ')[0] || 'אורח',
             lastName: formData.fullName.split(' ').slice(1).join(' ') || 'דמו',
             phoneNumber: formData.phoneNumber || '000-0000000',
             guestCount: formData.guestCount,
-            notes: formData.notes,
+            notes: finalNotes,
             rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
             responseDate: new Date(),
             channel: 'manual' as const,
@@ -1321,6 +1357,48 @@ const GuestResponse = () => {
                 />
               </div>
               
+              {/* Transportation selection */}
+              <div className="max-w-lg mx-auto mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  האם אתם זקוקים להסעה?
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, transportation: 'south' }))}
+                    className={`border-2 rounded-xl px-4 py-3 text-gray-800 font-medium transition-all ${
+                      formData.transportation === 'south'
+                        ? 'bg-blue-500 border-blue-600 text-white shadow-lg scale-105'
+                        : 'bg-white border-blue-200 hover:border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">הסעה דרום</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, transportation: 'north' }))}
+                    className={`border-2 rounded-xl px-4 py-3 text-gray-800 font-medium transition-all ${
+                      formData.transportation === 'north'
+                        ? 'bg-blue-500 border-blue-600 text-white shadow-lg scale-105'
+                        : 'bg-white border-blue-200 hover:border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">הסעה צפון</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, transportation: 'none' }))}
+                    className={`border-2 rounded-xl px-4 py-3 text-gray-800 font-medium transition-all ${
+                      formData.transportation === 'none'
+                        ? 'bg-gray-500 border-gray-600 text-white shadow-lg scale-105'
+                        : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="text-sm font-bold">אין צורך</div>
+                  </button>
+                </div>
+              </div>
+              
               {/* Notes field */}
               <div className="max-w-lg mx-auto mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1343,10 +1421,14 @@ const GuestResponse = () => {
                       handleSubmit({ preventDefault: () => {} } as any);
                     }, 300);
                   }}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105"
+                  disabled={!formData.transportation}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   אישור - {formData.guestCount} {formData.guestCount === 1 ? 'אורח' : 'אורחים'}
                 </button>
+                {!formData.transportation && (
+                  <p className="text-sm text-red-600 mt-2">אנא בחרו אפשרות הסעה</p>
+                )}
               </div>
               
               <div className="text-center mt-6">
