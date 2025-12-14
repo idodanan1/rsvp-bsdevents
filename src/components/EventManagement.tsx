@@ -73,7 +73,6 @@ const EventManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [showAddGuest, setShowAddGuest] = useState(false);
-  const [logoError, setLogoError] = useState(false);
   const [editingGuest, setEditingGuest] = useState<any>(null);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
@@ -2196,40 +2195,21 @@ const EventManagement: React.FC = () => {
         
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-          {/* Logo and Title Section */}
+          {/* Title Section */}
           <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
-            <div className="flex items-center space-x-3 space-x-reverse">
-              {/* Logo */}
-              <div className="w-24 h-24 flex items-center justify-center bg-black rounded-lg shadow-lg overflow-hidden relative">
-                {!logoError ? (
-                  <img 
-                    src="/images/logo-besad.png" 
-                    alt="בס״ד אירועים"
-                    className="w-full h-full object-contain"
-                    onError={() => setLogoError(true)}
-                  />
-                ) : (
-                  <div className="absolute inset-0 bg-black flex flex-col items-center justify-center p-2">
-                    <div className="absolute top-1 right-1 text-yellow-400 text-xs font-bold">בס"ד</div>
-                    <div className="text-yellow-400 text-xs font-bold text-center mt-2">בס"ד אירועים</div>
-                    <div className="text-yellow-400 text-xs font-bold text-center mt-1">צלמים / הפקות / הושבה</div>
-                  </div>
-                )}
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">בס"ד אירועים</h1>
-                <p className="text-sm text-gray-600">גם באירוע שלך - 0586859790</p>
-              </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">בס"ד אירועים</h1>
+              <p className="text-sm text-gray-600">גם באירוע שלך - 0586859790</p>
             </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => navigate('/')}
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => navigate('/')}
                 className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <ArrowRight className="w-5 h-5 ml-2" />
-              חזרה לדשבורד
-            </button>
-          </div>
+              >
+                <ArrowRight className="w-5 h-5 ml-2" />
+                חזרה לדשבורד
+              </button>
+            </div>
           </div>
           
           {/* Event Details */}
