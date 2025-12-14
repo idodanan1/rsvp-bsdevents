@@ -24,6 +24,7 @@ const CheckInStation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastScannedId, setLastScannedId] = useState<string | null>(null);
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const clearDisplayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [availableCameras, setAvailableCameras] = useState<{id: string, label: string}[]>([]);
   const [currentCameraIndex, setCurrentCameraIndex] = useState<number>(0);
   const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
@@ -219,6 +220,11 @@ const CheckInStation: React.FC = () => {
     setIsScanning(false);
     if (scanTimeoutRef.current) {
       clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
+    if (clearDisplayTimeoutRef.current) {
+      clearTimeout(clearDisplayTimeoutRef.current);
+      clearDisplayTimeoutRef.current = null;
     }
   };
 
@@ -282,6 +288,12 @@ const CheckInStation: React.FC = () => {
         const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
         const tableNumber = guestTable ? guestTable.number : null;
         
+        // Clear any existing timeout
+        if (clearDisplayTimeoutRef.current) {
+          clearTimeout(clearDisplayTimeoutRef.current);
+          clearDisplayTimeoutRef.current = null;
+        }
+        
         setScannedGuest({
           id: guest.id,
           firstName: guest.firstName,
@@ -292,6 +304,13 @@ const CheckInStation: React.FC = () => {
         });
         
         toast.success('האורח כבר סומן כמגיע');
+        
+        // Clear the display after 5 seconds
+        clearDisplayTimeoutRef.current = setTimeout(() => {
+          setScannedGuest(null);
+          clearDisplayTimeoutRef.current = null;
+        }, 5000);
+        
         return;
       }
 
@@ -324,9 +343,16 @@ const CheckInStation: React.FC = () => {
       setLastScannedId(qrData.guestId);
       toast.success(`ברוך הבא ${guest.firstName}!`);
 
+      // Clear any existing timeout before setting a new one
+      if (clearDisplayTimeoutRef.current) {
+        clearTimeout(clearDisplayTimeoutRef.current);
+        clearDisplayTimeoutRef.current = null;
+      }
+
       // Clear the display after 5 seconds and continue scanning
-      setTimeout(() => {
+      clearDisplayTimeoutRef.current = setTimeout(() => {
         setScannedGuest(null);
+        clearDisplayTimeoutRef.current = null;
       }, 5000);
 
     } catch (err) {
