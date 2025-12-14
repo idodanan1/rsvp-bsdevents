@@ -22,18 +22,32 @@ export function generateQRUrl(eventId: string, guestId: string): string {
  */
 export function parseQRUrl(url: string): QRCodeData | null {
   try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split('/');
-    
-    const qrIndex = pathParts.indexOf('qr-scan');
-    if (qrIndex === -1 || pathParts.length < qrIndex + 3) {
-      return null;
+    // Try to parse as full URL first
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/');
+      
+      const qrIndex = pathParts.indexOf('qr-scan');
+      if (qrIndex !== -1 && pathParts.length >= qrIndex + 3) {
+        return {
+          eventId: pathParts[qrIndex + 1],
+          guestId: pathParts[qrIndex + 2]
+        };
+      }
+    } catch (e) {
+      // Not a full URL, try to parse as path
     }
     
-    return {
-      eventId: pathParts[qrIndex + 1],
-      guestId: pathParts[qrIndex + 2]
-    };
+    // Try to parse as path (e.g., /qr-scan/eventId/guestId or #/qr-scan/eventId/guestId)
+    const pathMatch = url.match(/qr-scan[\/#]([^\/]+)\/([^\/]+)/);
+    if (pathMatch) {
+      return {
+        eventId: pathMatch[1],
+        guestId: pathMatch[2]
+      };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error parsing QR URL:', error);
     return null;

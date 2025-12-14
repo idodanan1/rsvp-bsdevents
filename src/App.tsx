@@ -15,6 +15,7 @@ import GuestResponse from './components/GuestResponse';
 import ClientManagement from './components/ClientManagement';
 import CalendarView from './components/CalendarView';
 import QRScan from './components/QRScan';
+import CheckInStation from './components/CheckInStation';
 import Login from './components/Login';
 import SignUp from './components/SignUp';
 import Pricing from './components/Pricing';
@@ -108,6 +109,7 @@ function App() {
             <Route path="/client/:eventId" element={<ClientDashboard />} />
             <Route path="/guest-response/:eventId" element={<GuestResponse />} />
             <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
+            <Route path="/check-in/:eventId" element={<CheckInStation />} />
             <Route path="/accessibility" element={<AccessibilityPage />} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />

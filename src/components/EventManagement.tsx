@@ -24,7 +24,8 @@ import {
   X,
   RefreshCw,
   ChevronDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Camera
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -2258,6 +2259,14 @@ const EventManagement: React.FC = () => {
           >
             <Users className="w-4 h-4" />
             <span>ממשק לקוח</span>
+          </Link>
+          <Link
+            to={`/check-in/${currentEvent.id}`}
+            target="_blank"
+            className="btn-primary flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
+          >
+            <Camera className="w-4 h-4" />
+            <span>עמדת סריקה</span>
           </Link>
           <div className="relative" ref={exportMenuRef}>
             <button 
