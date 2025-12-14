@@ -643,8 +643,9 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Use useMemo to ensure filteredGuests updates when guestsToDisplay changes
   // This ensures the table updates immediately when guest data changes
   // CRITICAL: Use minimal dependencies to avoid React #310 errors
+  // Remove forceUpdate from dependencies - guestsToDisplay already changes when needed
   const filteredGuests = useMemo(() => {
-    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate);
+    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0);
     const filtered = guestsToDisplay.filter(guest => {
       const matchesSearch = 
         guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -660,10 +661,10 @@ const EventManagement: React.FC = () => {
       console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
     }
     return filtered;
-    // CRITICAL: Only depend on guestsToDisplay, searchTerm, filterStatus, and forceUpdate
-    // Remove eventsVersion and eventsHash to avoid React #310 errors
-    // guestsToDisplay already captures all changes via eventsVersion
-  }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
+    // CRITICAL: Only depend on guestsToDisplay, searchTerm, and filterStatus
+    // Remove forceUpdate to avoid React #310 errors - guestsToDisplay already captures all changes
+    // guestsToDisplay changes when eventsVersion changes, which happens when events change
+  }, [guestsToDisplay, searchTerm, filterStatus]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
