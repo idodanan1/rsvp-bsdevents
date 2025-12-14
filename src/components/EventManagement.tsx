@@ -2219,6 +2219,18 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
         
+        <div className="flex space-x-3 items-center">
+          <Link
+            to={`/check-in/${currentEvent.id}`}
+            target="_blank"
+            className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold shadow-lg transform hover:scale-105 transition-all duration-200 px-4 py-2 rounded-lg"
+            title="פתח עמדת סריקת ברקוד לאירוע"
+          >
+            <Camera className="w-5 h-5" />
+            <span>עמדת סריקת ברקוד</span>
+          </Link>
+        </div>
+        
         <div className="flex space-x-3">
           <button
             onClick={() => setShowSendMessageModal(true)}
@@ -2263,10 +2275,11 @@ const EventManagement: React.FC = () => {
           <Link
             to={`/check-in/${currentEvent.id}`}
             target="_blank"
-            className="btn-primary flex items-center space-x-2 bg-purple-600 hover:bg-purple-700"
+            className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold shadow-lg transform hover:scale-105 transition-all duration-200"
+            title="פתח עמדת סריקת ברקוד לאירוע"
           >
-            <Camera className="w-4 h-4" />
-            <span>עמדת סריקה</span>
+            <Camera className="w-5 h-5" />
+            <span>עמדת סריקת ברקוד</span>
           </Link>
           <div className="relative" ref={exportMenuRef}>
             <button 
