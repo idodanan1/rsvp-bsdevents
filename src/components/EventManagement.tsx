@@ -649,15 +649,15 @@ const EventManagement: React.FC = () => {
     console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
     
     const filtered = guests.filter(guest => {
-      const matchesSearch = 
-        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        guest.phoneNumber.includes(searchTerm);
-      
-      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
-      
-      return matchesSearch && matchesFilter;
-    });
+    const matchesSearch = 
+      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      guest.phoneNumber.includes(searchTerm);
+    
+    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+    
+    return matchesSearch && matchesFilter;
+  });
     
     console.log('📊 Filtered guests result:', filtered.length, 'guests');
     if (filtered.length > 0) {
@@ -2221,24 +2221,24 @@ const EventManagement: React.FC = () => {
                 <p className="text-sm text-gray-600">גם באירוע שלך - 0586859790</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => navigate('/')}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigate('/')}
                 className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <ArrowRight className="w-5 h-5 ml-2" />
-                חזרה לדשבורד
-              </button>
-            </div>
+            >
+              <ArrowRight className="w-5 h-5 ml-2" />
+              חזרה לדשבורד
+            </button>
+          </div>
           </div>
           
           {/* Event Details */}
           <div className="flex items-center justify-between">
-            <div>
+          <div>
               <h2 className="text-2xl font-bold text-gray-900">{currentEvent.coupleName}</h2>
               <p className="text-gray-600 mt-1">
-                {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime} | {currentEvent.venue}
-              </p>
+              {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime} | {currentEvent.venue}
+            </p>
             </div>
           </div>
         </div>
