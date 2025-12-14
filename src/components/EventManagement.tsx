@@ -640,14 +640,12 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Calculate filteredGuests using useMemo with minimal dependencies to avoid React #310 errors
-  // Use guestsKey (string) instead of guestsToDisplay (array) in dependencies to avoid circular dependencies
-  // Access guestsToDisplay inside the memoized function - it's stable and will be current when guestsKey changes
-  const filteredGuests = useMemo(() => {
-    // Access guestsToDisplay directly - it's already memoized and will be current when guestsKey changes
+  // CRITICAL: Calculate filteredGuests directly without useMemo to avoid React #310 errors
+  // Calculate on every render - guestsToDisplay is already memoized, so this is efficient
+  // This avoids circular dependencies that cause React #310 errors
+  const filteredGuests = (() => {
     const guests = guestsToDisplay || [];
-    const guestsLength = guests.length;
-    console.log('🔄 Recalculating filteredGuests - guests length:', guestsLength, 'guestsKey:', guestsKey.substring(0, 50));
+    console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
     
     const filtered = guests.filter(guest => {
       const matchesSearch = 
@@ -666,12 +664,7 @@ const EventManagement: React.FC = () => {
     }
     
     return filtered;
-    // CRITICAL: Use only primitive values (guestsKey, searchTerm, filterStatus) to avoid React #310 errors
-    // guestsKey is a string that changes when guest data changes, avoiding circular dependencies
-    // guestsKey already includes length information in its calculation
-    // Do NOT include guestsToDisplay array or its length in dependencies - access it inside the function instead
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guestsKey, searchTerm, filterStatus]);
+  })();
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
