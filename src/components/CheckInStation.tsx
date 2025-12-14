@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useEventStore } from '../store/eventStore';
 import { parseQRUrl } from '../services/qrService';
-import { CheckCircle, Table, Users, Camera, AlertCircle } from 'lucide-react';
+import { CheckCircle, Table, Users, Camera, AlertCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ScannedGuest {
@@ -24,6 +24,9 @@ const CheckInStation: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [lastScannedId, setLastScannedId] = useState<string | null>(null);
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<{id: string, label: string}[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState<number>(0);
+  const [isSwitchingCamera, setIsSwitchingCamera] = useState(false);
 
   useEffect(() => {
     if (events.length === 0) {
@@ -33,48 +36,94 @@ const CheckInStation: React.FC = () => {
 
   useEffect(() => {
     if (eventId) {
-      startScanner();
+      // Load cameras first, then start scanner
+      loadCameras().then((initialIndex) => {
+        startScanner(initialIndex);
+      });
     }
 
     return () => {
       stopScanner();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
-  const startScanner = async () => {
+  const loadCameras = async () => {
+    try {
+      const devices = await Html5Qrcode.getCameras();
+      console.log('📷 Available cameras:', devices.length);
+      
+      if (devices && devices.length > 0) {
+        setAvailableCameras(devices);
+        
+        // Find back camera index
+        const backCameraIndex = devices.findIndex(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear') ||
+          device.label.toLowerCase().includes('environment')
+        );
+        
+        if (backCameraIndex !== -1) {
+          setCurrentCameraIndex(backCameraIndex);
+          return backCameraIndex;
+        } else {
+          setCurrentCameraIndex(0);
+          return 0;
+        }
+      }
+      return 0;
+    } catch (deviceError) {
+      console.warn('⚠️ Could not enumerate cameras:', deviceError);
+      setAvailableCameras([]);
+      return 0;
+    }
+  };
+
+  const startScanner = async (cameraIndex?: number) => {
     if (!eventId) return;
 
     try {
+      // Stop existing scanner if running
+      if (scannerRef.current) {
+        await stopScanner();
+      }
+
       const html5QrCode = new Html5Qrcode('reader');
       scannerRef.current = html5QrCode;
 
-      // Try to get available cameras
+      // Load cameras if not already loaded
+      let cameras = availableCameras;
+      let targetIndex = cameraIndex !== undefined ? cameraIndex : currentCameraIndex;
+      
+      if (cameras.length === 0) {
+        const initialIndex = await loadCameras();
+        // Get fresh cameras from state after update
+        // Use a callback to get the latest state
+        await new Promise(resolve => setTimeout(resolve, 50));
+        // Re-read cameras - they should be updated now
+        // For now, we'll get them directly
+        try {
+          const devices = await Html5Qrcode.getCameras();
+          if (devices && devices.length > 0) {
+            cameras = devices;
+            if (cameraIndex === undefined) {
+              targetIndex = initialIndex;
+            }
+          }
+        } catch (e) {
+          console.warn('Could not re-read cameras:', e);
+        }
+      }
+
+      // Determine which camera to use
       let cameraId: string | null = null;
       let facingMode: string = 'environment'; // Default to back camera
       
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        console.log('📷 Available cameras:', devices.length);
-        
-        if (devices && devices.length > 0) {
-          // Prefer back camera (environment), but use any available camera
-          const backCamera = devices.find(device => 
-            device.label.toLowerCase().includes('back') || 
-            device.label.toLowerCase().includes('rear') ||
-            device.label.toLowerCase().includes('environment')
-          );
-          
-          if (backCamera) {
-            cameraId = backCamera.id;
-            console.log('📷 Using back camera:', backCamera.label);
-          } else {
-            // Use first available camera
-            cameraId = devices[0].id;
-            console.log('📷 Using first available camera:', devices[0].label);
-          }
-        }
-      } catch (deviceError) {
-        console.warn('⚠️ Could not enumerate cameras, using default facingMode:', deviceError);
+      if (cameras.length > 0) {
+        const safeIndex = targetIndex < cameras.length ? targetIndex : 0;
+        cameraId = cameras[safeIndex].id;
+        setCurrentCameraIndex(safeIndex);
+        console.log(`📷 Using camera ${safeIndex + 1}/${cameras.length}:`, cameras[safeIndex].label);
       }
 
       // Start scanner with camera ID or facingMode
@@ -122,15 +171,49 @@ const CheckInStation: React.FC = () => {
       
       setError(errorMessage);
       toast.error('שגיאה בהפעלת המצלמה');
+      setIsScanning(false);
     }
   };
 
-  const stopScanner = () => {
+  const switchCamera = async () => {
+    if (availableCameras.length < 2) {
+      toast.error('לא נמצאו מצלמות נוספות להחלפה');
+      return;
+    }
+
+    setIsSwitchingCamera(true);
+    try {
+      // Stop current scanner
+      await stopScanner();
+      
+      // Switch to next camera
+      const nextIndex = (currentCameraIndex + 1) % availableCameras.length;
+      setCurrentCameraIndex(nextIndex);
+      
+      // Wait a bit before starting new camera
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Start with new camera
+      await startScanner(nextIndex);
+      
+      const cameraName = availableCameras[nextIndex].label || `מצלמה ${nextIndex + 1}`;
+      toast.success(`החלפה ל${cameraName}`);
+    } catch (err) {
+      console.error('Error switching camera:', err);
+      toast.error('שגיאה בהחלפת מצלמה');
+    } finally {
+      setIsSwitchingCamera(false);
+    }
+  };
+
+  const stopScanner = async () => {
     if (scannerRef.current) {
-      scannerRef.current.stop().catch((err) => {
+      try {
+        await scannerRef.current.stop();
+        scannerRef.current.clear();
+      } catch (err) {
         console.error('Error stopping scanner:', err);
-      });
-      scannerRef.current.clear();
+      }
       scannerRef.current = null;
     }
     setIsScanning(false);
@@ -277,12 +360,34 @@ const CheckInStation: React.FC = () => {
                 <Camera className="h-6 w-6 ml-2" />
                 עמדת סריקה
               </h2>
-              <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                isScanning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {isScanning ? 'סורק...' : 'מוכן'}
+              <div className="flex items-center space-x-3 space-x-reverse">
+                {availableCameras.length > 1 && (
+                  <button
+                    onClick={switchCamera}
+                    disabled={isSwitchingCamera || !isScanning}
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition-colors duration-200"
+                    title="החלף מצלמה"
+                  >
+                    <RotateCcw className={`h-4 w-4 ${isSwitchingCamera ? 'animate-spin' : ''}`} />
+                    <span>{isSwitchingCamera ? 'מחליף...' : 'החלף מצלמה'}</span>
+                  </button>
+                )}
+                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isScanning ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {isScanning ? 'סורק...' : 'מוכן'}
+                </div>
               </div>
             </div>
+            
+            {availableCameras.length > 0 && (
+              <div className="mb-4 text-sm text-gray-600">
+                <p>מצלמה נוכחית: {availableCameras[currentCameraIndex]?.label || `מצלמה ${currentCameraIndex + 1}`}</p>
+                {availableCameras.length > 1 && (
+                  <p className="text-xs text-gray-500">({currentCameraIndex + 1} מתוך {availableCameras.length} מצלמות)</p>
+                )}
+              </div>
+            )}
             
             {error && (
               <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4">
