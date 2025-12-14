@@ -2401,33 +2401,31 @@ export const useEventStore = create<EventStore>()(
           console.log(`✅ Sending to all guests regardless of their RSVP status`);
           
           // Determine template name based on campaign FIRST (before building templateParams)
-          // If campaign has explicit templateName, use it
-          // Otherwise, use default templates based on campaign name
+          // CRITICAL: Override templateName based on campaign name to ensure correct template is used
+          // This ensures "תזכורת אחרונה" always uses "today" template, even if campaign has different templateName
           let templateNameForCampaign = campaign.templateName;
-          if (!templateNameForCampaign) {
-            // Use template 'aa' for "הזמנה ראשונית"
-            if (campaign.name === 'הזמנה ראשונית') {
-              templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
-            } else if (campaign.name === 'תזכורת שנייה') {
-              // Use template 'a' for "תזכורת שנייה"
-              templateNameForCampaign = 'a';
-            } else if (campaign.name === 'תזכורת שבועית') {
-              templateNameForCampaign = 'aa';
-            } else if (campaign.name === 'תזכורת אחרונה') {
-              // Use template 'today' for "תזכורת אחרונה" campaign
-              templateNameForCampaign = 'today';
-            } else if (campaign.name === 'תזכורת יום האירוע') {
-              // CRITICAL: Don't use template for "תזכורת יום האירוע" - send custom message content instead
-              // User wants to send the campaign message content, not a template placeholder
-              templateNameForCampaign = undefined;
-            }
-          }
           
-          // CRITICAL: For "תזכורת יום האירוע", always send custom message content, not template
-          // Override any template that might be set
-          if (campaign.name === 'תזכורת יום האירוע') {
+          // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
+          if (campaign.name === 'הזמנה ראשונית') {
+            templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
+          } else if (campaign.name === 'תזכורת שנייה') {
+            // Use template 'a' for "תזכורת שנייה"
+            templateNameForCampaign = 'a';
+          } else if (campaign.name === 'תזכורת שבועית') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת אחרונה') {
+            // CRITICAL: Always use template 'today' for "תזכורת אחרונה" campaign
+            templateNameForCampaign = 'today';
+            console.log('📋 Campaign "תזכורת אחרונה" - using template "today"');
+          } else if (campaign.name === 'תזכורת יום האירוע') {
+            // CRITICAL: Don't use template for "תזכורת יום האירוע" - send custom message content instead
+            // User wants to send the campaign message content, not a template placeholder
             templateNameForCampaign = undefined;
             console.log('📋 Campaign "תזכורת יום האירוע" - will send custom message content, not template');
+          } else if (!templateNameForCampaign) {
+            // If no templateName in campaign and no matching campaign name, use default
+            // (This is a fallback for custom campaigns)
+            templateNameForCampaign = undefined;
           }
           
           // Import helper function once before map
