@@ -25,7 +25,9 @@ import {
   RefreshCw,
   ChevronDown,
   FileSpreadsheet,
-  Camera
+  Camera,
+  Activity,
+  BarChart3
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -77,6 +79,7 @@ const EventManagement: React.FC = () => {
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [showImportModal, setShowImportModal] = useState(false);
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
+  const [showSyncMonitoringModal, setShowSyncMonitoringModal] = useState(false);
   const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
   const [messageChannel, setMessageChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
   const [customMessage, setCustomMessage] = useState('');
@@ -2190,9 +2193,6 @@ const EventManagement: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-        {/* Sync Monitoring Panel */}
-        {id && <SyncMonitoringPanel eventId={id} />}
-        
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-4">
         <div className="flex items-center justify-between">
@@ -2203,6 +2203,14 @@ const EventManagement: React.FC = () => {
               </p>
             </div>
           <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setShowSyncMonitoringModal(true)}
+              className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+              title="פתח חלון ניטור עדכונים וסינכרון"
+            >
+              <Activity className="w-5 h-5 ml-2" />
+              ניטור סינכרון
+            </button>
             <button
               onClick={() => navigate('/')}
                 className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -2989,6 +2997,30 @@ const EventManagement: React.FC = () => {
                 <Send className="w-4 h-4" />
                 <span>שלח הודעה</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sync Monitoring Modal */}
+      {showSyncMonitoringModal && id && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                <Activity className="w-6 h-6 ml-2 text-blue-600" />
+                ניטור עדכונים וסינכרון
+              </h3>
+              <button
+                onClick={() => setShowSyncMonitoringModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                title="סגור חלון"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="border-t border-gray-200 pt-4">
+              <SyncMonitoringPanel eventId={id} />
             </div>
           </div>
         </div>
