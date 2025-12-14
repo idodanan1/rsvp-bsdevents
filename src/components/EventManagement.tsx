@@ -2195,22 +2195,22 @@ const EventManagement: React.FC = () => {
         
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-          <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{currentEvent.coupleName}</h2>
               <p className="text-gray-600 mt-1">
                 {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime} | {currentEvent.venue}
               </p>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => navigate('/')}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigate('/')}
                 className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <ArrowRight className="w-5 h-5 ml-2" />
-                חזרה לדשבורד
-              </button>
-            </div>
+            >
+              <ArrowRight className="w-5 h-5 ml-2" />
+              חזרה לדשבורד
+            </button>
+          </div>
           </div>
         </div>
         
@@ -2993,9 +2993,9 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
       </div>
-    );
+    </div>
+  );
   } catch (error) {
     console.error('Error rendering EventManagement:', error);
     return (
