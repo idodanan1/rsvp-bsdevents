@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, Table, MessageSquare, Home } from 'lucide-react';
-import { formatDate } from '../utils/helpers';
+import { formatDate, formatFullName } from '../utils/helpers';
 import toast from 'react-hot-toast';
 import { messageService } from '../services/messageService';
 
@@ -209,7 +209,7 @@ ${event.coupleName}`;
                   ברוך הבא! 🎉
                 </h1>
                 <p className="text-xl text-gray-600 mb-6">
-                  שלום {guest.firstName} {guest.lastName}
+                  שלום {formatFullName(guest.firstName, guest.lastName)}
                 </p>
               </div>
 

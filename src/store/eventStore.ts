@@ -2656,7 +2656,9 @@ export const useEventStore = create<EventStore>()(
                 eventDate: formatDate(event.eventDate),
                 eventTime: event.eventTime,
                 venue: event.venue,
-                invitationImageUrl: qrCodeImageUrl || event.invitationImageUrl // Use QR code image for event day reminder
+                // CRITICAL: Always use event invitation image first, then QR code, then campaign image
+                // Priority: event.invitationImageUrl > qrCodeImageUrl > campaign.imageUrl
+                invitationImageUrl: event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl
               },
               templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
               buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined

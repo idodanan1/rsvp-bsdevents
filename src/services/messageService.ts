@@ -232,10 +232,17 @@ class MessageService {
     console.log('🔘 DEBUG: Recipient buttons:', recipient.buttons);
     console.log('🔘 DEBUG: Recipient buttons length:', recipient.buttons?.length || 0);
     
+    // CRITICAL: Add event invitation image to templateParams so it's used as header image
+    // This ensures event invitation image is always used, not campaign image
+    if (recipient.eventData?.invitationImageUrl && templateParams) {
+      (templateParams as any).headerImageUrl = recipient.eventData.invitationImageUrl;
+      (templateParams as any).eventData = recipient.eventData; // Also pass full eventData for reference
+    }
+    
     const whatsappMessage: WhatsAppMessage = {
       to: recipient.phoneNumber,
       message: processedMessage,
-      imageUrl: imageUrl,
+      imageUrl: imageUrl, // This is already set to event.invitationImageUrl || campaign.imageUrl
       templateName: templateName,
       templateParams: templateParams,
       buttons: recipient.buttons // Add buttons from recipient

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, formatDateTime, getStatusIcon, getStatusColor } from '../utils/helpers';
+import { calculateEventStats, formatDate, formatDateTime, getStatusIcon, getStatusColor, formatFullName } from '../utils/helpers';
 import { 
   ArrowRight, 
   Users, 
@@ -462,7 +462,7 @@ const EventViewer: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {guest.firstName} {guest.lastName}
+                        {formatFullName(guest.firstName, guest.lastName)}
                       </div>
                       {guest.notes && (
                         <div className="text-sm text-gray-500">{guest.notes}</div>

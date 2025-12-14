@@ -169,8 +169,12 @@ class WhatsAppService {
           
           // Always send image as header component if we have a valid HTTPS image URL
           // This ensures the image is displayed with the message
-          // Priority: headerImageUrl from templateParams > imageUrl from messageData
-          let headerImageUrl = (messageData.templateParams as any)?.headerImageUrl || finalImageUrl;
+          // Priority: headerImageUrl from templateParams > eventData.invitationImageUrl > imageUrl from messageData
+          // CRITICAL: Always prefer event invitation image over campaign image
+          const eventInvitationImage = (messageData.templateParams as any)?.eventData?.invitationImageUrl;
+          const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
+          // CRITICAL: Use headerImageUrl from templateParams if provided, otherwise use event invitation image, then messageData imageUrl
+          let headerImageUrl = headerImageFromParams || eventInvitationImage || finalImageUrl;
           
           // CRITICAL FIX: Always add header image if available, or use placeholder if template requires it
           // Some templates (like "aa") require header image - Meta will reject without it

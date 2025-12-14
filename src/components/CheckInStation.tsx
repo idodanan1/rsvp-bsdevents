@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useEventStore } from '../store/eventStore';
 import { parseQRUrl } from '../services/qrService';
+import { formatFullName } from '../utils/helpers';
 import { CheckCircle, Table, Users, Camera, AlertCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -469,7 +470,7 @@ const CheckInStation: React.FC = () => {
                         {scannedGuest.greeting}
                       </h3>
                       <p className="text-base text-gray-600">
-                        {scannedGuest.firstName} {scannedGuest.lastName}
+                        {formatFullName(scannedGuest.firstName, scannedGuest.lastName)}
                       </p>
                     </div>
 

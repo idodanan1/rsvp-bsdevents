@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, getStatusColor } from '../utils/helpers';
+import { calculateEventStats, formatDate, getStatusColor, formatFullName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -2761,7 +2761,7 @@ const EventManagement: React.FC = () => {
                   <td className="px-4 py-4 w-40">
                     <div>
                       <div className="text-sm font-semibold text-gray-900 break-words">
-                        {guest.firstName} {guest.lastName}
+                        {formatFullName(guest.firstName, guest.lastName)}
                       </div>
                       {guest.notes && (
                         <div className="text-xs text-gray-500 break-words mt-1">{guest.notes}</div>

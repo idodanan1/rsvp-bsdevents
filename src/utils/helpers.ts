@@ -5,6 +5,23 @@ export const generateId = (): string => {
   return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
 };
 
+// Clean name by removing extra spaces
+export const cleanName = (name: string | undefined | null): string => {
+  if (!name) return '';
+  // Trim whitespace and replace multiple spaces with single space
+  return name.trim().replace(/\s+/g, ' ');
+};
+
+// Format full name (first + last) with proper spacing
+export const formatFullName = (firstName: string | undefined | null, lastName: string | undefined | null): string => {
+  const first = cleanName(firstName);
+  const last = cleanName(lastName);
+  if (!first && !last) return '';
+  if (!first) return last;
+  if (!last) return first;
+  return `${first} ${last}`;
+};
+
 // Format phone number for display
 export const formatPhoneNumber = (phone: string): string => {
   // Remove all non-digit characters

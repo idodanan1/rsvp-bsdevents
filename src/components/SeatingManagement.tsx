@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { Table, Guest } from '../types';
 import { Plus, Users, Trash2, Edit, Move, UserPlus, Layout, Search, X, Check, FileText } from 'lucide-react';
+import { formatFullName } from '../utils/helpers';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -286,7 +287,7 @@ const SeatingManagement: React.FC = () => {
           ${sortedTables.map(table => {
             const tableGuests = event.guests.filter(guest => table.guests.includes(guest.id));
             const guestNames = tableGuests.map(guest => 
-              `${guest.firstName} ${guest.lastName}${guest.guestCount > 1 ? ` (${guest.guestCount})` : ''}`
+              `${formatFullName(guest.firstName, guest.lastName)}${guest.guestCount > 1 ? ` (${guest.guestCount})` : ''}`
             ).join(', ') || 'אין אורחים';
             // Calculate total guest count (sum of guestCount, not number of records)
             const totalGuestCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
@@ -394,7 +395,7 @@ const SeatingManagement: React.FC = () => {
     const totalCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
     // Debug log to verify calculation
     console.log(`📊 Table ${tableId} - Records: ${tableGuests.length}, Total guests: ${totalCount}`, 
-      tableGuests.map(g => ({ name: `${g.firstName} ${g.lastName}`, count: g.guestCount || 1 })));
+      tableGuests.map(g => ({ name: formatFullName(g.firstName, g.lastName), count: g.guestCount || 1 })));
     return totalCount;
   };
 
@@ -430,7 +431,7 @@ const SeatingManagement: React.FC = () => {
                 <div className="flex items-center justify-between mb-2">
                   <div>
                     <div className="font-medium text-gray-800">
-                      {guest.firstName} {guest.lastName}
+                      {formatFullName(guest.firstName, guest.lastName)}
                     </div>
                     <div className="text-sm text-gray-600">
                       {guest.phoneNumber}
@@ -585,7 +586,7 @@ const SeatingManagement: React.FC = () => {
                 <div key={guest.id} className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-800">
-                      {guest.firstName} {guest.lastName}
+                      {formatFullName(guest.firstName, guest.lastName)}
                     </span>
                     {guest.tableId && (
                       <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
@@ -867,7 +868,7 @@ const SeatingManagement: React.FC = () => {
                           {guest.seatNumber || index + 1}.
                         </span>
                         <span className="text-sm font-medium text-gray-800">
-                          {guest.firstName} {guest.lastName}
+                          {formatFullName(guest.firstName, guest.lastName)}
                         </span>
                         {guest.guestCount > 1 && (
                           <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
@@ -907,7 +908,7 @@ const SeatingManagement: React.FC = () => {
                     <option value="">הוסף אורח לשולחן</option>
                     {unassignedGuests.map((guest) => (
                       <option key={guest.id} value={guest.id}>
-                        {guest.firstName} {guest.lastName}
+                        {formatFullName(guest.firstName, guest.lastName)}
                       </option>
                     ))}
                   </select>
@@ -929,7 +930,7 @@ const SeatingManagement: React.FC = () => {
             {unassignedGuests.map((guest) => (
               <div key={guest.id} className="flex items-center justify-between bg-white rounded-lg p-3 border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow">
                 <span className="text-sm font-semibold text-gray-900 flex-1 mr-2">
-                  {guest.firstName} {guest.lastName}
+                  {formatFullName(guest.firstName, guest.lastName)}
                   {guest.guestCount > 1 && (
                     <span className="text-xs text-gray-500 block mt-1">
                       {guest.guestCount} אנשים
