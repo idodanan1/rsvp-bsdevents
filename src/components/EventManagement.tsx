@@ -378,7 +378,7 @@ const EventManagement: React.FC = () => {
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
-    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length, 'eventsHash length:', eventsHash.length);
+    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length);
     
     // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
     // This ensures React detects changes when events array updates
@@ -423,8 +423,7 @@ const EventManagement: React.FC = () => {
           const guestCopy = {
             ...g,
             responseDate: g.responseDate ? (typeof g.responseDate === 'string' ? new Date(g.responseDate) : g.responseDate instanceof Date ? g.responseDate : undefined) : undefined,
-            // CRITICAL: Add a unique key to force new object reference
-            _forceUpdate: eventsHash.substring(0, 10) + eventsVersion
+            // CRITICAL: Remove _forceUpdate to avoid React #310 errors
           };
           // Remove any internal properties that shouldn't be in the final object
           delete (guestCopy as any)._updateTimestamp;
@@ -435,8 +434,7 @@ const EventManagement: React.FC = () => {
           console.warn('⚠️ Error processing guest responseDate:', error, g);
           const guestCopy = { 
             ...g, 
-            responseDate: undefined,
-            _forceUpdate: eventsHash.substring(0, 10) + eventsVersion
+            responseDate: undefined
           };
           delete (guestCopy as any)._updateTimestamp;
           delete (guestCopy as any)._renderKey;
@@ -471,17 +469,12 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include id, eventsVersion, events.length, eventsHash, AND events array itself
-    // This ensures guestsToDisplay recalculates when events array changes
+    // CRITICAL: Dependencies include only id and eventsVersion to avoid React #310 errors
     // eventsVersion is updated when events array changes, triggering re-calculation
-    // events.length ensures we catch when events are added/removed
-    // eventsHash ensures we catch when guest data changes within events (from Zustand subscription)
-    // events array itself ensures we catch when the array reference changes (from Zustand store update)
-    // CRITICAL: Use eventsHash and eventsVersion instead of events array to avoid React #310 errors
-    // eventsHash is a computed string that changes when any event or guest changes
-    // eventsVersion is a counter that increments when events array changes
+    // We don't include eventsHash directly to avoid circular dependencies
+    // eventsVersion already captures changes from eventsHash via the useEffect that updates it
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, eventsHash]);
+  }, [id, eventsVersion]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -651,7 +644,7 @@ const EventManagement: React.FC = () => {
   // This ensures the table updates immediately when guest data changes
   // CRITICAL: Use minimal dependencies to avoid React #310 errors
   const filteredGuests = useMemo(() => {
-    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate, 'eventsVersion:', eventsVersion, 'eventsHash length:', eventsHash.length);
+    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0, 'forceUpdate:', forceUpdate);
     const filtered = guestsToDisplay.filter(guest => {
       const matchesSearch = 
         guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -667,8 +660,9 @@ const EventManagement: React.FC = () => {
       console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
     }
     return filtered;
-    // CRITICAL: Remove eventsHash from dependencies to avoid React #310 errors
-    // guestsToDisplay already depends on eventsHash, so we don't need it here
+    // CRITICAL: Only depend on guestsToDisplay, searchTerm, filterStatus, and forceUpdate
+    // Remove eventsVersion and eventsHash to avoid React #310 errors
+    // guestsToDisplay already captures all changes via eventsVersion
   }, [guestsToDisplay, searchTerm, filterStatus, forceUpdate]);
 
   // Filter guests for modal search
