@@ -17,6 +17,16 @@ services:
     name: rsvp-frontend
     buildCommand: npm install && npm run build -- --mode production
     staticPublishPath: dist
+    buildFilter:
+      paths:
+        - src/**
+        - public/**
+        - index.html
+        - package.json
+        - vite.config.ts
+        - tsconfig.json
+        - tailwind.config.js
+        - postcss.config.js
     envVars:
       - key: NODE_ENV
         value: production

@@ -1536,7 +1536,7 @@ async function handleIncomingMessage(message) {
           try {
             await sendThanksTemplateMessage(phoneNumber);
             console.log('✅ "thanks" template message sent (or attempted)');
-          } catch (error) {
+        } catch (error) {
             console.error('❌ Error sending "thanks" template message:', error);
           }
         } else if (hasThanks) {
@@ -2056,21 +2056,21 @@ async function sendThanksTemplateMessage(phoneNumber, forceSend = false) {
     console.log('📤 Full Payload:', JSON.stringify(messagePayload, null, 2));
     
     try {
-      const response = await axios.post(
-        `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
-        messagePayload,
-        {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
+    const response = await axios.post(
+      `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`,
+      messagePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
           },
           timeout: 10000
-        }
-      );
-      
-      if (response.status === 200) {
+      }
+    );
+    
+    if (response.status === 200) {
         console.log('✅ "thanks" template message sent successfully!');
-        console.log('📱 Response:', JSON.stringify(response.data, null, 2));
+      console.log('📱 Response:', JSON.stringify(response.data, null, 2));
         // CRITICAL: Mark "thanks" as sent to prevent duplicates and stop auto-responses
         // Only mark if not forceSend - if forceSend, we want to allow sending again
         if (!forceSend) {
@@ -2079,20 +2079,20 @@ async function sendThanksTemplateMessage(phoneNumber, forceSend = false) {
         } else {
           console.log('ℹ️ Force send mode - NOT marking "thanks" as sent to allow future sends');
         }
-        console.log('📤 ==========================================');
-      } else {
+      console.log('📤 ==========================================');
+    } else {
         console.warn('⚠️ Failed to send "thanks" template message:', response.status);
-        console.warn('⚠️ Response data:', response.data);
-        console.log('📤 ==========================================');
-      }
-    } catch (error) {
+      console.warn('⚠️ Response data:', response.data);
+      console.log('📤 ==========================================');
+    }
+  } catch (error) {
       console.error('❌ ========== ERROR SENDING "thanks" TEMPLATE MESSAGE ==========');
-      console.error('❌ Error:', error.message);
-      if (error.response) {
-        console.error('❌ Error response status:', error.response.status);
-        console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
-      }
-      console.error('❌ ========================================================');
+    console.error('❌ Error:', error.message);
+    if (error.response) {
+      console.error('❌ Error response status:', error.response.status);
+      console.error('❌ Error response data:', JSON.stringify(error.response.data, null, 2));
+    }
+    console.error('❌ ========================================================');
     }
   } catch (error) {
     console.error('❌ Error in sendThanksTemplateMessage:', error);
@@ -2339,24 +2339,24 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     }
     
     // Add the new update (always add, since we removed all previous ones)
-    pendingUpdates.push(updateData);
-    console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
-    console.log('✅ Phone (formatted):', formattedPhone);
-    console.log('✅ Phone (original):', originalPhone);
+      pendingUpdates.push(updateData);
+      console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
+      console.log('✅ Phone (formatted):', formattedPhone);
+      console.log('✅ Phone (original):', originalPhone);
     console.log('✅ Guest ID:', foundGuest?.id || 'not found');
     console.log('✅ Event ID:', foundEvent?.id || 'not found');
-    console.log('✅ Status:', status);
-    console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
-    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
-    console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
-      phone: u.phoneNumber,
+      console.log('✅ Status:', status);
+      console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
+      console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+      console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
+        phone: u.phoneNumber,
       guestId: u.guestId,
       eventId: u.eventId,
-      status: u.status,
+        status: u.status,
       source: u.source,
-      time: new Date(u.timestamp).toLocaleTimeString()
-    })));
-    console.log('✅ ===============================================');
+        time: new Date(u.timestamp).toLocaleTimeString()
+      })));
+      console.log('✅ ===============================================');
     
   } catch (error) {
     console.error('❌ ========== ERROR UPDATING GUEST STATUS ==========');
@@ -2416,23 +2416,23 @@ function handleMessageStatus(status) {
     if (guest) {
       // Map WhatsApp status to our messageStatus
       let messageStatus = guest.messageStatus;
-      switch (status.status) {
-        case 'sent':
+  switch (status.status) {
+    case 'sent':
           messageStatus = 'sent';
           console.log(`📤 Message sent successfully to ${guest.firstName} ${guest.lastName}`);
-          break;
-        case 'delivered':
+      break;
+    case 'delivered':
           messageStatus = 'delivered';
           console.log(`📨 Message delivered to ${guest.firstName} ${guest.lastName}`);
-          break;
-        case 'read':
+      break;
+    case 'read':
           // Keep delivered status (read is just a notification)
           console.log(`👀 Message read by ${guest.firstName} ${guest.lastName}`);
-          break;
-        case 'failed':
+      break;
+    case 'failed':
           messageStatus = 'failed';
           console.log(`❌ Message failed to send to ${guest.firstName} ${guest.lastName}`);
-          break;
+      break;
       }
 
       // Update guest messageStatus
@@ -4510,7 +4510,7 @@ app.post('/api/events', async (req, res) => {
             }
             
             // Add the new update (always add, since we removed all previous ones)
-            pendingUpdates.push(updateData);
+              pendingUpdates.push(updateData);
             console.log(`✅ Added new guest link update to pendingUpdates (replaced ${updatesToRemove.length} previous update(s)):`, {
                 phone: formattedPhone,
                 originalPhone: originalPhone,

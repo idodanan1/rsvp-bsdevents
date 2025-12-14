@@ -27,7 +27,6 @@ const redirectsPlugin = () => {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), redirectsPlugin()],
-  root: '.',
   publicDir: 'public',
   server: {
     port: 5173,
