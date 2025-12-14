@@ -48,26 +48,79 @@ const CheckInStation: React.FC = () => {
       const html5QrCode = new Html5Qrcode('reader');
       scannerRef.current = html5QrCode;
 
+      // Try to get available cameras
+      let cameraId: string | null = null;
+      let facingMode: string = 'environment'; // Default to back camera
+      
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        console.log('📷 Available cameras:', devices.length);
+        
+        if (devices && devices.length > 0) {
+          // Prefer back camera (environment), but use any available camera
+          const backCamera = devices.find(device => 
+            device.label.toLowerCase().includes('back') || 
+            device.label.toLowerCase().includes('rear') ||
+            device.label.toLowerCase().includes('environment')
+          );
+          
+          if (backCamera) {
+            cameraId = backCamera.id;
+            console.log('📷 Using back camera:', backCamera.label);
+          } else {
+            // Use first available camera
+            cameraId = devices[0].id;
+            console.log('📷 Using first available camera:', devices[0].label);
+          }
+        }
+      } catch (deviceError) {
+        console.warn('⚠️ Could not enumerate cameras, using default facingMode:', deviceError);
+      }
+
+      // Start scanner with camera ID or facingMode
+      const config = cameraId 
+        ? { deviceId: { exact: cameraId } }
+        : { facingMode: facingMode };
+
       await html5QrCode.start(
-        { facingMode: 'environment' }, // Use back camera
+        config,
         {
           fps: 10,
           qrbox: { width: 300, height: 300 },
-          aspectRatio: 1.0
+          aspectRatio: 1.0,
+          disableFlip: false // Allow flipping if needed
         },
         (decodedText) => {
           handleQRScan(decodedText);
         },
         (errorMessage) => {
           // Ignore scanning errors (they're frequent during scanning)
+          // Only log if it's a significant error
+          if (errorMessage && !errorMessage.includes('NotFoundException')) {
+            console.debug('Scanning:', errorMessage);
+          }
         }
       );
 
       setIsScanning(true);
       setError(null);
+      console.log('✅ Scanner started successfully');
     } catch (err: any) {
-      console.error('Error starting scanner:', err);
-      setError('שגיאה בהפעלת המצלמה. אנא ודא שהמצלמה מחוברת וקיבלת הרשאה לשימוש בה.');
+      console.error('❌ Error starting scanner:', err);
+      
+      // Provide more specific error messages
+      let errorMessage = 'שגיאה בהפעלת המצלמה. ';
+      if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
+        errorMessage += 'אנא אשר גישה למצלמה בדפדפן.';
+      } else if (err.name === 'NotFoundError' || err.message?.includes('camera')) {
+        errorMessage += 'לא נמצאה מצלמה במכשיר.';
+      } else if (err.name === 'NotReadableError') {
+        errorMessage += 'המצלמה תפוסה על ידי אפליקציה אחרת.';
+      } else {
+        errorMessage += 'אנא ודא שהמצלמה מחוברת וקיבלת הרשאה לשימוש בה.';
+      }
+      
+      setError(errorMessage);
       toast.error('שגיאה בהפעלת המצלמה');
     }
   };
@@ -237,10 +290,31 @@ const CheckInStation: React.FC = () => {
               </div>
             )}
 
-            <div id="reader" className="w-full rounded-lg overflow-hidden bg-gray-100" style={{ minHeight: '400px' }}></div>
+            <div className="relative w-full rounded-lg overflow-hidden bg-gray-900" style={{ minHeight: '400px' }}>
+              <div id="reader" className="w-full h-full"></div>
+              {!isScanning && !error && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-90">
+                  <div className="text-center text-white">
+                    <Camera className="h-12 w-12 mx-auto mb-4 animate-pulse" />
+                    <p className="text-lg font-medium">מתחיל מצלמה...</p>
+                    <p className="text-sm mt-2 opacity-75">אנא אשר גישה למצלמה בדפדפן</p>
+                  </div>
+                </div>
+              )}
+              {isScanning && (
+                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                  <div className="w-2 h-2 bg-white rounded-full ml-2 animate-pulse"></div>
+                  מצלמה פעילה
+                </div>
+              )}
+            </div>
             
             <div className="mt-4 text-center text-gray-600">
-              <p>הצב את הברקוד מול המצלמה</p>
+              {isScanning ? (
+                <p className="font-medium">הצב את הברקוד מול המצלמה</p>
+              ) : (
+                <p className="text-gray-500">ממתין להפעלת המצלמה...</p>
+              )}
             </div>
           </div>
 
