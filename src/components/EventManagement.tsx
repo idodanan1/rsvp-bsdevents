@@ -2221,15 +2221,15 @@ const EventManagement: React.FC = () => {
                 <p className="text-sm text-gray-600">גם באירוע שלך - 0586859790</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => navigate('/')}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigate('/')}
                 className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <ArrowRight className="w-5 h-5 ml-2" />
-                חזרה לדשבורד
-              </button>
-            </div>
+            >
+              <ArrowRight className="w-5 h-5 ml-2" />
+              חזרה לדשבורד
+            </button>
+          </div>
           </div>
           
           {/* Event Details */}
@@ -3022,8 +3022,8 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
       )}
+        </div>
       </div>
-    </div>
     );
   } catch (error) {
     console.error('Error rendering EventManagement:', error);
