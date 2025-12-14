@@ -640,13 +640,16 @@ const EventManagement: React.FC = () => {
 
   const stats = calculateEventStats(currentEvent);
   
-  // CRITICAL: Use useMemo to ensure filteredGuests updates when guestsToDisplay changes
-  // This ensures the table updates immediately when guest data changes
-  // CRITICAL: Use minimal dependencies to avoid React #310 errors
-  // Remove forceUpdate from dependencies - guestsToDisplay already changes when needed
+  // CRITICAL: Calculate filteredGuests using useMemo with minimal dependencies to avoid React #310 errors
+  // Use guestsKey (string) instead of guestsToDisplay (array) in dependencies to avoid circular dependencies
+  // Access guestsToDisplay inside the memoized function - it's stable and will be current when guestsKey changes
   const filteredGuests = useMemo(() => {
-    console.log('🔄 Recalculating filteredGuests - guestsToDisplay length:', guestsToDisplay?.length || 0);
-    const filtered = guestsToDisplay.filter(guest => {
+    // Access guestsToDisplay directly - it's already memoized and will be current when guestsKey changes
+    const guests = guestsToDisplay || [];
+    const guestsLength = guests.length;
+    console.log('🔄 Recalculating filteredGuests - guests length:', guestsLength, 'guestsKey:', guestsKey.substring(0, 50));
+    
+    const filtered = guests.filter(guest => {
       const matchesSearch = 
         guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -656,15 +659,19 @@ const EventManagement: React.FC = () => {
       
       return matchesSearch && matchesFilter;
     });
+    
     console.log('📊 Filtered guests result:', filtered.length, 'guests');
     if (filtered.length > 0) {
       console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
     }
+    
     return filtered;
-    // CRITICAL: Only depend on guestsToDisplay, searchTerm, and filterStatus
-    // Remove forceUpdate to avoid React #310 errors - guestsToDisplay already captures all changes
-    // guestsToDisplay changes when eventsVersion changes, which happens when events change
-  }, [guestsToDisplay, searchTerm, filterStatus]);
+    // CRITICAL: Use only primitive values (guestsKey, searchTerm, filterStatus) to avoid React #310 errors
+    // guestsKey is a string that changes when guest data changes, avoiding circular dependencies
+    // guestsKey already includes length information in its calculation
+    // Do NOT include guestsToDisplay array or its length in dependencies - access it inside the function instead
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestsKey, searchTerm, filterStatus]);
 
   // Filter guests for modal search
   const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
