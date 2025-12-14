@@ -2314,7 +2314,7 @@ const EventManagement: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
+        </div>
 
       {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
@@ -2993,7 +2993,6 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
       )}
-        </div>
       </div>
     );
   } catch (error) {
