@@ -3022,7 +3022,7 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
       )}
-      </div>
+        </div>
       </div>
     );
   } catch (error) {
