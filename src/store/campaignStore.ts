@@ -4,6 +4,7 @@ import { Campaign, CampaignStore, MessageTemplate } from '../types';
 import { generateId } from '../utils/helpers';
 import { whatsappService } from '../services/whatsappService';
 import { smsService } from '../services/smsService';
+import { schedulerService } from '../services/schedulerService';
 
 // Mock data for development
 const mockCampaigns: Campaign[] = [
@@ -320,10 +321,49 @@ export const useCampaignStore = create<CampaignStore>()(
   scheduleCampaign: async (id, scheduledDate) => {
     set({ isLoading: true, error: null });
     try {
+      const campaign = get().campaigns.find(c => c.id === id);
+      if (!campaign) {
+        throw new Error('קמפיין לא נמצא');
+      }
+
+      // Update campaign with scheduled date and status
       await get().updateCampaign(id, { 
         scheduledDate,
         status: 'scheduled'
       });
+
+      // Get updated campaign
+      const updatedCampaign = get().campaigns.find(c => c.id === id);
+      if (!updatedCampaign) {
+        throw new Error('קמפיין לא נמצא לאחר העדכון');
+      }
+
+      // Schedule the campaign using schedulerService
+      schedulerService.scheduleCampaign(updatedCampaign, async () => {
+        try {
+          // When scheduled time arrives, send the campaign
+          console.log(`⏰ Scheduled time reached for campaign: ${updatedCampaign.name}`);
+          
+          // If campaign has eventId, use eventStore to send it
+          if (updatedCampaign.eventId) {
+            const { useEventStore } = await import('./eventStore');
+            const eventStore = useEventStore.getState();
+            await eventStore.sendCampaign(updatedCampaign.eventId, updatedCampaign.id);
+          } else {
+            // Otherwise, use the local sendCampaign method
+            await get().sendCampaign(id);
+          }
+        } catch (error) {
+          console.error('Error sending scheduled campaign:', error);
+          // Update campaign status to failed
+          const currentCampaign = get().campaigns.find(c => c.id === id);
+          if (currentCampaign) {
+            await get().updateCampaign(id, { status: 'failed' });
+          }
+        }
+      });
+
+      set({ isLoading: false });
     } catch (error) {
       set({ error: 'שגיאה בתזמון הקמפיין', isLoading: false });
     }

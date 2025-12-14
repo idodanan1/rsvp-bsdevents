@@ -31,7 +31,9 @@ import PrivacyPage from './pages/PrivacyPage';
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
+import { useCampaignStore } from './store/campaignStore';
 import { webhookService } from './services/webhookService';
+import { schedulerService } from './services/schedulerService';
 
 // Component to save current location to localStorage
 function LocationSaver() {
@@ -77,11 +79,116 @@ function App() {
       
       // Start webhook polling for button clicks
       webhookService.startPolling(5000); // Poll every 5 seconds
+
+      // Initialize scheduled campaigns
+      const initializeScheduledCampaigns = async () => {
+        try {
+          // Get campaigns from campaignStore
+          const campaignStore = useCampaignStore.getState();
+          const scheduledCampaigns = campaignStore.campaigns.filter(
+            c => c.status === 'scheduled' && c.scheduledDate
+          );
+
+          console.log(`📅 Found ${scheduledCampaigns.length} scheduled campaigns to initialize`);
+
+          // Reschedule each campaign
+          for (const campaign of scheduledCampaigns) {
+            const scheduledTime = new Date(campaign.scheduledDate);
+            const now = new Date();
+
+            // Only schedule if the time hasn't passed
+            if (scheduledTime > now) {
+              schedulerService.scheduleCampaign(campaign, async () => {
+                try {
+                  console.log(`⏰ Scheduled time reached for campaign: ${campaign.name}`);
+                  
+                  // If campaign has eventId, use eventStore to send it
+                  if (campaign.eventId) {
+                    const eventStore = useEventStore.getState();
+                    await eventStore.sendCampaign(campaign.eventId, campaign.id);
+                  } else {
+                    // Otherwise, use the local sendCampaign method
+                    await campaignStore.sendCampaign(campaign.id);
+                  }
+                } catch (error) {
+                  console.error('Error sending scheduled campaign:', error);
+                  // Update campaign status to failed
+                  await campaignStore.updateCampaign(campaign.id, { status: 'failed' });
+                }
+              });
+              console.log(`✅ Rescheduled campaign: ${campaign.name} for ${scheduledTime.toLocaleString('he-IL')}`);
+            } else {
+              // Time has passed, send immediately
+              console.log(`⏰ Campaign "${campaign.name}" scheduled time has passed, sending now...`);
+              try {
+                if (campaign.eventId) {
+                  const eventStore = useEventStore.getState();
+                  await eventStore.sendCampaign(campaign.eventId, campaign.id);
+                } else {
+                  await campaignStore.sendCampaign(campaign.id);
+                }
+              } catch (error) {
+                console.error('Error sending overdue campaign:', error);
+                await campaignStore.updateCampaign(campaign.id, { status: 'failed' });
+              }
+            }
+          }
+
+          // Also check campaigns in events
+          const eventStore = useEventStore.getState();
+          const events = eventStore.events;
+          
+          for (const event of events) {
+            if (event.campaigns) {
+              const eventScheduledCampaigns = event.campaigns.filter(
+                c => c.status === 'scheduled' && c.scheduledDate
+              );
+
+              for (const campaign of eventScheduledCampaigns) {
+                const scheduledTime = new Date(campaign.scheduledDate);
+                const now = new Date();
+
+                if (scheduledTime > now) {
+                  schedulerService.scheduleCampaign(campaign, async () => {
+                    try {
+                      console.log(`⏰ Scheduled time reached for campaign: ${campaign.name}`);
+                      await eventStore.sendCampaign(event.id, campaign.id);
+                    } catch (error) {
+                      console.error('Error sending scheduled campaign:', error);
+                      // Update campaign status in event
+                      await eventStore.updateEvent(event.id, {
+                        campaigns: event.campaigns?.map(c =>
+                          c.id === campaign.id ? { ...c, status: 'failed' } : c
+                        )
+                      });
+                    }
+                  });
+                  console.log(`✅ Rescheduled event campaign: ${campaign.name} for ${scheduledTime.toLocaleString('he-IL')}`);
+                } else {
+                  // Time has passed, send immediately
+                  console.log(`⏰ Event campaign "${campaign.name}" scheduled time has passed, sending now...`);
+                  try {
+                    await eventStore.sendCampaign(event.id, campaign.id);
+                  } catch (error) {
+                    console.error('Error sending overdue event campaign:', error);
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error initializing scheduled campaigns:', error);
+        }
+      };
+
+      // Initialize scheduled campaigns after a short delay to ensure stores are loaded
+      setTimeout(initializeScheduledCampaigns, 1000);
     }
     
     // Cleanup on unmount
     return () => {
       webhookService.stopPolling();
+      schedulerService.clearAll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
