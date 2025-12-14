@@ -421,6 +421,12 @@ const CheckInStation: React.FC = () => {
               </div>
             )}
 
+            {/* Welcome message for guests */}
+            <div className="bg-gradient-to-r from-teal-500 to-blue-500 rounded-lg p-4 mb-4 text-white text-center shadow-lg">
+              <p className="text-lg font-bold mb-1">שלום אורח יקר!</p>
+              <p className="text-base">אנא סרוק את הברקוד שנשלח אליך בוואטסאפ</p>
+            </div>
+
             <div className="relative w-full rounded-lg overflow-hidden bg-gray-900" style={{ minHeight: '400px' }}>
               <div id="reader" className="w-full h-full"></div>
               {!isScanning && !error && (
