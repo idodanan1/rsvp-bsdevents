@@ -4552,9 +4552,10 @@ app.get('/api/events/:eventId', async (req, res) => {
     
     // Check if eventId looks like a userId (starts with "user_")
     // If so, treat it as /api/events/:userId endpoint
-    if (eventId.startsWith('user_')) {
+    // CRITICAL: Only treat as userId if it explicitly starts with "user_"
+    if (eventId && typeof eventId === 'string' && eventId.startsWith('user_')) {
       const userId = eventId;
-      console.log(`📋 Treating ${eventId} as userId, filtering events...`);
+      console.log(`📋 [USER_ID_BRANCH] Treating ${eventId} as userId, filtering events...`);
       
       // CRITICAL: Read directly from file instead of relying on eventsData
       let events = [];
@@ -4564,28 +4565,28 @@ app.get('/api/events/:eventId', async (req, res) => {
           const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
           events = fileData.events || [];
           deletedEvents = fileData.deletedEvents || [];
-          console.log(`📋 Read ${events.length} events directly from file for userId filter`);
+          console.log(`📋 [USER_ID_BRANCH] Read ${events.length} events directly from file for userId filter`);
         } else {
           // Fallback: try loadEvents() and use eventsData
           loadEvents();
           events = eventsData.events || [];
           deletedEvents = eventsData.deletedEvents || [];
-          console.log(`📋 Using eventsData fallback: ${events.length} events`);
+          console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback: ${events.length} events`);
         }
       } catch (error) {
-        console.error(`❌ Error reading events file:`, error);
+        console.error(`❌ [USER_ID_BRANCH] Error reading events file:`, error);
         // Fallback: try loadEvents() and use eventsData
         loadEvents();
         events = eventsData.events || [];
         deletedEvents = eventsData.deletedEvents || [];
-        console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+        console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback after error: ${events.length} events`);
       }
       
       // Filter events by userId
       const userEvents = events.filter(e => e.userId === userId);
       const userDeletedEvents = deletedEvents.filter(e => e.userId === userId);
       
-      console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+      console.log(`📋 [USER_ID_BRANCH] Fetched ${userEvents.length} events for user ${userId}`);
       
       res.json({
         success: true,
@@ -4595,10 +4596,13 @@ app.get('/api/events/:eventId', async (req, res) => {
       return;
     }
     
+    // CRITICAL: Log that we're NOT treating as userId
+    console.log(`📋 [EVENT_ID_BRANCH] NOT treating as userId - eventId="${eventId}", startsWith("user_"): ${eventId.startsWith('user_')}`);
+    
     // Otherwise, treat it as eventId and return single event
     // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
-    console.log(`📋 Treating ${eventId} as eventId, loading single event...`);
-    console.log(`📋 Reading events directly from file for eventId: ${eventId}`);
+    console.log(`📋 [EVENT_ID_BRANCH] Treating ${eventId} as eventId, loading single event...`);
+    console.log(`📋 [EVENT_ID_BRANCH] Reading events directly from file for eventId: ${eventId}`);
     
     // CRITICAL: Read directly from file instead of relying on eventsData
     let events = [];
@@ -4644,12 +4648,12 @@ app.get('/api/events/:eventId', async (req, res) => {
     
     if (!event) {
       console.log(`❌ Event ${eventId} not found`);
-      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+      console.log(`📋 Available event IDs:`, events.map(e => e.id));
       res.status(404).json({
         success: false,
         error: 'Event not found',
         eventId: eventId,
-        availableEventIds: eventsData.events.map(e => e.id)
+        availableEventIds: events.map(e => e.id)
       });
       return;
     }
