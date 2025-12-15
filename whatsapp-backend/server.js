@@ -4497,8 +4497,8 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       return;
     }
     
-    console.log(`📋 Searching for event ${eventId} in ${events.length} events`);
-    console.log(`📋 Available event IDs:`, events.map(e => e.id));
+    console.log(`📋 [GUESTS_ENDPOINT] Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
     
     const event = events.find(e => e.id === eventId);
     
@@ -4517,6 +4517,8 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     const guests = event.guests || [];
     console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
     console.log(`📋 [GUESTS_ENDPOINT] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
+    console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (first 5):`, guests.slice(0, 5).map(g => g.id));
+    console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (last 5):`, guests.slice(-5).map(g => g.id));
     
     res.json({
       success: true,
