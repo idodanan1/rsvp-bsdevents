@@ -1347,20 +1347,35 @@ const ClientDashboard: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12">
+                    #
+                  </th>
+                  <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     מוזמן
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    טלפון
+                  </th>
+                  <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px]">
                     מספר מוזמנים
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
                     סטטוס אישור
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                    הגעה בפועל
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
                     ערוץ
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    תאריך תגובה
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                    שולחן
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                    סטטוס הודעה
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    תאריך שליחה
                   </th>
                 </tr>
               </thead>
@@ -1455,57 +1470,114 @@ const ClientDashboard: React.FC = () => {
                       // Sort descending (newest first)
                       return bDate - aDate;
                     })
-                    .map((guest: any) => {
+                    .map((guest: any, index: number) => {
                       // Ensure guest is valid before rendering
                       if (!guest || typeof guest !== 'object') {
                         return null;
                       }
+                      
+                      const getMessageStatusColor = (status: string) => {
+                        switch (status) {
+                          case 'sent': return 'text-blue-600';
+                          case 'delivered': return 'text-green-600';
+                          case 'failed': return 'text-red-600';
+                          case 'sms_sent': return 'text-purple-600';
+                          default: return 'text-gray-600';
+                        }
+                      };
+                      
+                      const getMessageStatusText = (status: string) => {
+                        switch (status) {
+                          case 'not_sent': return 'לא נשלחה';
+                          case 'sent': return 'נשלחה';
+                          case 'delivered': return 'נשלחה והתקבלה';
+                          case 'failed': return 'נשלחה ונכשלה';
+                          case 'sms_sent': return 'נשלח SMS';
+                          default: return 'לא נשלחה';
+                        }
+                      };
+                      
+                      const getActualAttendanceText = (status: string) => {
+                        switch (status) {
+                          case 'attended': return 'הגיע';
+                          case 'not_attended': return 'לא הגיע';
+                          default: return 'לא סומן';
+                        }
+                      };
+                      
+                      const table = currentEvent.tables?.find((t: any) => t.id === guest.tableId);
+                      
                       return (
-                  <tr key={guest.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-normal">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
+                        <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-4 w-40 whitespace-normal">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900 break-words">
                                 {formatFullName(guest.firstName, guest.lastName)}
-                        </div>
+                              </div>
                               {renderGuestNotes(guest.notes)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {guest.guestCount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
-                          {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
-                           guest.rsvpStatus === 'confirmed' ? 'מגיע' :
-                           guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        {guest.channel === 'whatsapp' ? (
-                          <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                        ) : guest.channel === 'sms' ? (
-                          <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                        ) : (
-                          <Users className="w-4 h-4 text-gray-600 ml-1" />
-                        )}
-                        {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
-                         guest.channel === 'sms' ? 'SMS' : 'ידני'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
-                    </td>
-                  </tr>
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                            {guest.phoneNumber}
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-900 w-24 min-w-[100px] text-center">
+                            {guest.guestCount || 1}
+                          </td>
+                          <td className="px-3 py-4 w-32 min-w-[120px]">
+                            <span className={`text-sm font-semibold ${getStatusColor(guest.rsvpStatus)}`}>
+                              {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
+                               guest.rsvpStatus === 'confirmed' ? 'מגיע' :
+                               guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 w-32 min-w-[120px]">
+                            <span className="text-sm font-semibold">
+                              {getStatusIcon(guest.actualAttendance || 'not_marked')} {getActualAttendanceText(guest.actualAttendance || 'not_marked')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-500 w-32 min-w-[120px]">
+                            <div className="flex items-center">
+                              {guest.channel === 'whatsapp' ? (
+                                <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                              ) : guest.channel === 'sms' ? (
+                                <Phone className="w-4 h-4 text-blue-600 ml-1" />
+                              ) : (
+                                <Users className="w-4 h-4 text-gray-600 ml-1" />
+                              )}
+                              <span>{guest.channel === 'whatsapp' ? 'וואטסאפ' : 
+                                     guest.channel === 'sms' ? 'SMS' : 'ידני'}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                            {table ? (
+                              <span className="font-semibold">שולחן {table.number}</span>
+                            ) : (
+                              <span className="text-gray-400 italic">ללא שולחן</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                            <span className={`font-semibold ${getMessageStatusColor(guest.messageStatus || 'not_sent')}`}>
+                              {getMessageStatusText(guest.messageStatus || 'not_sent')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                            {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
+                          </td>
+                        </tr>
                       );
                     })
                     .filter((row: any) => row !== null)
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                      אין אורחים להצגה
+                    <td colSpan={10} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">אין אורחים</h3>
+                        <p className="text-gray-500">עדיין לא נוספו אורחים לאירוע זה</p>
+                      </div>
                     </td>
                   </tr>
                 )}
