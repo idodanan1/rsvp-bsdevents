@@ -103,7 +103,7 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
     };
 
     checkPendingUpdates();
-    const interval = setInterval(checkPendingUpdates, 5000); // Check every 5 seconds
+    const interval = setInterval(checkPendingUpdates, 15000); // Check every 15 seconds to reduce server load
     return () => clearInterval(interval);
   }, []);
 

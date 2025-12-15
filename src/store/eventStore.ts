@@ -47,7 +47,7 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
 // Track if fetchEvents is in progress to prevent duplicate calls
 let fetchInProgress = false;
 let lastFetchTime = 0;
-const FETCH_DEBOUNCE_MS = 1000; // Minimum 1 second between fetches
+const FETCH_DEBOUNCE_MS = 5000; // Minimum 5 seconds between fetches to reduce server load
 
 export const useEventStore = create<EventStore>()(
   persist(
@@ -64,14 +64,12 @@ export const useEventStore = create<EventStore>()(
         // CRITICAL: Debounce to prevent excessive API calls
         const now = Date.now();
         if (fetchInProgress && !forceRefresh) {
-          console.log('⏭️ Skipping fetchEvents - already in progress');
-          return;
+          return; // Skip silently to reduce console noise
         }
         
         // If last fetch was very recent and not forced, skip
         if (!forceRefresh && (now - lastFetchTime) < FETCH_DEBOUNCE_MS) {
-          console.log(`⏭️ Skipping fetchEvents - debounced (last fetch ${now - lastFetchTime}ms ago)`);
-          return;
+          return; // Skip silently to reduce console noise
         }
         
         fetchInProgress = true;
@@ -92,7 +90,7 @@ export const useEventStore = create<EventStore>()(
 
         // If no userId, don't fetch and don't update state (prevents infinite loops)
         if (!userId) {
-          console.log('⏭️ Skipping fetchEvents - no userId (user not logged in)');
+          fetchInProgress = false; // Reset flag before returning
           return; // Early return - don't update state
         }
 
@@ -2425,11 +2423,10 @@ export const useEventStore = create<EventStore>()(
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');
         if (!webhookService.pollingActive) {
-          console.log('🔄 Starting webhook polling to receive guest updates after campaign send...');
-          webhookService.startPolling(3000); // Poll every 3 seconds for faster updates after campaign
+          webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
         } else {
-          console.log('✅ Webhook polling already active - restarting with faster interval to receive updates immediately');
-          webhookService.startPolling(3000); // Restart with faster interval
+          webhookService.stopPolling();
+          webhookService.startPolling(10000); // Restart with reduced interval to reduce server load
         }
         console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
@@ -2814,7 +2811,7 @@ export const useEventStore = create<EventStore>()(
           // After sending campaign, ensure webhookService is actively listening
           console.log(`📤 Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
           console.log(`👂 System is now actively waiting for guest responses...`);
-          console.log(`📡 Webhook polling is ${webhookService.pollingActive ? 'ACTIVE' : 'INACTIVE'} - checking every 3 seconds for updates`);
+          // Webhook polling status logged only when needed
           console.log(`✅ Updated messageStatus for ${result.successful} guests to "sent"`);
 
           set({

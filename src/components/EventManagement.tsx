@@ -122,23 +122,22 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
     // This ensures EventManagement receives real-time updates from backend
+    // Only start if not already active to avoid duplicate polling
     if (!webhookService.pollingActive) {
-      console.log('🔄 Starting webhookService for EventManagement...');
-      webhookService.startPolling(3000); // Poll every 3 seconds for faster updates
+      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
     }
     
-    // Auto-refresh events every 5 seconds for real-time sync between devices
+    // Auto-refresh events every 15 seconds for real-time sync between devices
     // Using startTransition and silent mode to make updates smooth and non-blocking
-    // Reduced frequency to prevent excessive updates that cause infinite loops
+    // Reduced frequency to prevent excessive updates and reduce server load
     const intervalId = setInterval(() => {
-      console.log('🔄 Auto-refreshing events for real-time sync (silent mode)...');
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(false, true).catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
+          console.error('❌ Error auto-refreshing events:', error);
+        });
       });
-      });
-    }, 5000); // Refresh every 5 seconds to reduce unnecessary updates
+    }, 15000); // Refresh every 15 seconds to reduce server load
 
     return () => {
       clearInterval(intervalId);

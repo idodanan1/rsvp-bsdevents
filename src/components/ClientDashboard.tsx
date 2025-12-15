@@ -137,7 +137,7 @@ const ClientDashboard: React.FC = () => {
       isPollingRef.current = true;
       console.log('🔄 Starting real-time polling for ClientDashboard...');
       
-      // Poll every 5 seconds for updates
+      // Poll every 15 seconds for updates to reduce server load
       pollingIntervalRef.current = window.setInterval(async () => {
         try {
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
@@ -214,8 +214,7 @@ const ClientDashboard: React.FC = () => {
     
     // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
     if (!webhookService.pollingActive) {
-      console.log('🔄 Starting webhookService for ClientDashboard...');
-      webhookService.startPolling(5000); // Poll every 5 seconds
+      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
     }
     
     // Cleanup on unmount

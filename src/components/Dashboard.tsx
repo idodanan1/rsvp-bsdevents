@@ -105,27 +105,25 @@ const Dashboard: React.FC = () => {
     };
   }, [user?.id, sessionId]);
 
-  // CRITICAL: Auto-refresh data every 2 seconds to ensure real-time sync between devices
-  // This ensures that changes made on one device are immediately visible on other devices
+  // CRITICAL: Auto-refresh data every 15 seconds to reduce server load
+  // This ensures that changes made on one device are visible on other devices without excessive API calls
   // Using startTransition to make updates smooth and non-blocking
   useEffect(() => {
     // Fetch immediately on mount to get latest data from API
-    console.log('🔄 Initial fetch from API for real-time sync...');
     fetchEvents(true).catch(error => {
       console.error('❌ Error initial fetch:', error);
     });
     
-    // Set up auto-refresh interval - fetch every 2 seconds for real-time sync
+    // Set up auto-refresh interval - fetch every 15 seconds to reduce server load
     // Using startTransition and silent mode to make updates smooth and non-blocking
     const dataInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing events for real-time sync (silent mode)...');
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(true, true).catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
+          console.error('❌ Error auto-refreshing events:', error);
         });
       });
-    }, 2000); // 2 seconds - fast sync between devices
+    }, 15000); // 15 seconds - balanced sync without excessive load
 
     return () => clearInterval(dataInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

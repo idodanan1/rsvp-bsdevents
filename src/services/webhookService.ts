@@ -26,28 +26,20 @@ class WebhookService {
   }
 
   // Start polling for webhook updates
-  startPolling(intervalMs: number = 5000) {
-    // If already polling, restart with new interval (for faster updates after campaign send)
+  startPolling(intervalMs: number = 10000) {
+    // If already polling, restart with new interval
     if (this.isPolling) {
-      console.log(`🔄 Webhook polling already active - restarting with ${intervalMs}ms interval for faster updates`);
       this.stopPolling();
     }
 
     this.isPolling = true;
-    console.log(`🔄 Starting webhook polling every ${intervalMs}ms`);
-    console.log(`📡 Backend URL: ${BACKEND_URL}`);
-    console.log(`📡 VITE_BACKEND_URL env var: ${import.meta.env.VITE_BACKEND_URL || 'NOT SET (using default)'}`);
-    console.log(`💡 Note: Backend must be running on port 3002 for button clicks to work`);
-    console.log(`👂 System is now actively listening for guest responses...`);
-
     this.pollingInterval = window.setInterval(async () => {
       await this.checkForUpdates();
     }, intervalMs);
 
     // Also check immediately (but don't show error if backend is not running)
-    this.checkForUpdates().catch((error) => {
-      // Log error for debugging but don't show to user
-      console.log('⚠️ Initial webhook check failed (backend might not be running yet):', error.message);
+    this.checkForUpdates().catch(() => {
+      // Silent fail - backend might not be running yet
     });
   }
 
@@ -57,7 +49,6 @@ class WebhookService {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
       this.isPolling = false;
-      console.log('⏹️ Stopped webhook polling');
     }
   }
 
