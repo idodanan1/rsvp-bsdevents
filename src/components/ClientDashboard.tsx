@@ -31,12 +31,12 @@ const renderGuestNotes = (notes: string | undefined) => {
   return (
     <>
       {regularNotes && regularNotes.length > 0 && (
-        <div className="text-xs text-gray-500 break-words mt-1">
-          {regularNotes}
+        <div className="text-xs text-gray-600 break-words mt-2 whitespace-normal">
+          <span className="font-medium text-gray-700">הערה:</span> {regularNotes}
         </div>
       )}
       {transportation && (
-        <div className="text-xs font-medium text-blue-600 break-words mt-1">
+        <div className="text-xs font-medium text-blue-600 break-words mt-1 whitespace-normal">
           🚗 {transportation}
         </div>
       )}
@@ -667,7 +667,7 @@ const ClientDashboard: React.FC = () => {
                   })
                   .map((guest: any) => (
                   <tr key={guest.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
                           {formatFullName(guest.firstName, guest.lastName)}
