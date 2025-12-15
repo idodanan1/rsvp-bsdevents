@@ -184,13 +184,16 @@ const ClientDashboard: React.FC = () => {
           
           if (singleEventResponse.ok) {
             const singleEventData = await singleEventResponse.json();
-            console.log(`🔍 Single event response data:`, {
+            console.log(`🔍 Single event response data (full):`, singleEventData);
+            console.log(`🔍 Single event response data (summary):`, {
               success: singleEventData.success,
               hasEvent: !!singleEventData.event,
               eventId: singleEventData.event?.id,
-              guestsCount: singleEventData.event?.guests?.length || 0
+              guestsCount: singleEventData.event?.guests?.length || 0,
+              responseKeys: Object.keys(singleEventData)
             });
             
+            // CRITICAL: Check multiple possible response formats
             if (singleEventData.success && singleEventData.event) {
               foundEvent = singleEventData.event;
               console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
@@ -198,6 +201,10 @@ const ClientDashboard: React.FC = () => {
               // Fallback: if response doesn't have success field but has event
               foundEvent = singleEventData.event;
               console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
+            } else if (singleEventData.id && singleEventData.id === eventId) {
+              // Fallback: if the response IS the event itself (not wrapped in {success, event})
+              foundEvent = singleEventData;
+              console.log(`✅ Loaded FULL event from /api/events/${eventId} (direct event object): ${foundEvent.guests?.length || 0} guests`);
             } else {
               console.warn(`⚠️ Single event endpoint returned OK but no event data. Response:`, singleEventData);
             }
@@ -411,6 +418,23 @@ const ClientDashboard: React.FC = () => {
                 };
               }
               
+              // CRITICAL: Check if API data is incomplete BEFORE merging
+              // If prev has many more guests than API, don't overwrite with incomplete data
+              const prevGuests = prev.guests || [];
+              const apiGuests = foundEvent.guests || [];
+              const prevGuestsCount = prevGuests.length;
+              const apiGuestsCount = apiGuests.length;
+              
+              // CRITICAL: If API has significantly fewer guests (< 50% of prev), it's incomplete data
+              // Don't overwrite complete data with incomplete data
+              const isIncompleteApiData = prevGuestsCount > 0 && apiGuestsCount > 0 && apiGuestsCount < prevGuestsCount * 0.5;
+              
+              if (isIncompleteApiData) {
+                console.warn(`⚠️ API data appears incomplete (${apiGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING API data to preserve complete data`);
+                console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                return prev; // Keep previous complete data, don't overwrite with incomplete API data
+              }
+              
               // Compare updatedAt timestamps
               const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
               const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
@@ -420,48 +444,27 @@ const ClientDashboard: React.FC = () => {
                 
                 // CRITICAL: Merge guests intelligently - don't lose guests that aren't in API response
                 // API might return partial data (e.g., only 6 guests out of 417)
-                const prevGuests = prev.guests || [];
-                const apiGuests = foundEvent.guests || [];
                 const prevGuestsMap = new Map(prevGuests.map((g: any) => [g.id, g]));
                 const apiGuestsMap = new Map(apiGuests.map((g: any) => [g.id, g]));
                 
-                // If API has significantly fewer guests than prev, it's likely incomplete data
-                // Only merge if API has similar or more guests, or if it's the initial load
-                const apiGuestsCount = apiGuests.length;
-                const prevGuestsCount = prevGuests.length;
-                const isIncompleteApiData = apiGuestsCount > 0 && apiGuestsCount < prevGuestsCount * 0.5; // Less than 50% of prev
-                
                 let mergedGuests = prevGuests;
-                if (!isIncompleteApiData) {
-                  // API data seems complete - merge intelligently
-                  // Update existing guests with API data, add new guests from API
-                  mergedGuests = [...prevGuests];
-                  
-                  // Update existing guests with API data
-                  apiGuests.forEach((apiGuest: any) => {
-                    const index = mergedGuests.findIndex((g: any) => g.id === apiGuest.id);
-                    if (index >= 0) {
-                      // Update existing guest with API data
-                      mergedGuests[index] = apiGuest;
-                    } else {
-                      // Add new guest from API
-                      mergedGuests.push(apiGuest);
-                    }
-                  });
-                  
-                  console.log(`🔍 Merged guests: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${apiGuestsCount} from API)`);
-                } else {
-                  console.warn(`⚠️ API data appears incomplete (${apiGuestsCount} guests vs ${prevGuestsCount} prev) - keeping prev guests`);
-                  // Keep previous guests but update any that exist in API
-                  mergedGuests = prevGuests.map((prevGuest: any) => {
-                    const apiGuest = apiGuestsMap.get(prevGuest.id);
-                    if (apiGuest) {
-                      // Update this guest with API data
-                      return apiGuest;
-                    }
-                    return prevGuest; // Keep prev guest as-is
-                  });
-                }
+                // API data seems complete - merge intelligently
+                // Update existing guests with API data, add new guests from API
+                mergedGuests = [...prevGuests];
+                
+                // Update existing guests with API data
+                apiGuests.forEach((apiGuest: any) => {
+                  const index = mergedGuests.findIndex((g: any) => g.id === apiGuest.id);
+                  if (index >= 0) {
+                    // Update existing guest with API data
+                    mergedGuests[index] = apiGuest;
+                  } else {
+                    // Add new guest from API
+                    mergedGuests.push(apiGuest);
+                  }
+                });
+                
+                console.log(`🔍 Merged guests: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${apiGuestsCount} from API)`);
                 
                 // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
                 // This prevents losing data like coupleName, campaigns, tables, etc.
@@ -521,9 +524,9 @@ const ClientDashboard: React.FC = () => {
       // User is logged in - try fetchEvents first (this returns FULL event data with all guests)
       // Then also load from public API as backup
       console.log(`🔍 User is logged in (${userId}) - using fetchEvents for full event data`);
-      fetchEvents().then(() => {
-        const foundEvent = events.find(e => e.id === eventId);
-        if (foundEvent) {
+          fetchEvents().then(() => {
+            const foundEvent = events.find(e => e.id === eventId);
+            if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -801,7 +804,7 @@ const ClientDashboard: React.FC = () => {
               });
             }
           }
-        } catch (error) {
+    } catch (error) {
           console.warn('⚠️ Polling error (will retry):', error);
         }
       }, 5000); // Poll every 5 seconds
@@ -1225,7 +1228,7 @@ const ClientDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
+            <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
             </div>
             
             {/* Search and Filters */}
@@ -1439,8 +1442,8 @@ const ClientDashboard: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
-                          </td>
-                        </tr>
+                    </td>
+                  </tr>
                       );
                     })
                     .filter((row: any) => row !== null)

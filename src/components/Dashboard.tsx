@@ -120,8 +120,8 @@ const Dashboard: React.FC = () => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(true, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
-        });
+        console.error('❌ Error auto-refreshing events:', error);
+      });
       });
     }, 15000); // 15 seconds - balanced sync without excessive load
 
@@ -758,12 +758,12 @@ const Dashboard: React.FC = () => {
                               // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
                               if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
                                 console.log('✅ Valid image URL received:', data.imageUrl);
-                                setSelectedEventForEdit({
-                                  ...selectedEventForEdit,
-                                  invitationImageUrl: data.imageUrl
-                                });
+                              setSelectedEventForEdit({
+                                ...selectedEventForEdit,
+                                invitationImageUrl: data.imageUrl
+                              });
                                 alert(`✅ התמונה הועלתה בהצלחה!\n\nקישור: ${data.imageUrl}`);
-                              } else {
+                            } else {
                                 alert('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
                                 console.error('❌ Invalid image URL received:', data.imageUrl);
                               }
@@ -851,7 +851,7 @@ const Dashboard: React.FC = () => {
                       // Validate URL format
                       if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
                         setSelectedEventForEdit({
-                          ...selectedEventForEdit,
+                      ...selectedEventForEdit,
                           invitationImageUrl: url
                         });
                       } else if (url === '') {

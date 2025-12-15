@@ -138,28 +138,28 @@ class WebhookService {
 
           // Fallback to phone number search if guestId not found or not provided
           if (!foundGuest) {
-            for (const event of events) {
-              const guest = event.guests?.find((g: any) => {
-                const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-                const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
-                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
-                const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
-                const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
-                
-                return guestPhone === updatePhone || 
-                       guestPhone === updatePhoneWith0 ||
-                       guestPhone === updatePhoneWith972 ||
-                       guestPhoneWith0 === updatePhone ||
-                       guestPhoneWith0 === updatePhoneWith0 ||
-                       guestPhoneWith972 === updatePhone ||
-                       guestPhoneWith972 === updatePhoneWith972;
-              });
+          for (const event of events) {
+            const guest = event.guests?.find((g: any) => {
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+              const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+              const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+              const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
+              const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
+              
+              return guestPhone === updatePhone || 
+                     guestPhone === updatePhoneWith0 ||
+                     guestPhone === updatePhoneWith972 ||
+                     guestPhoneWith0 === updatePhone ||
+                     guestPhoneWith0 === updatePhoneWith0 ||
+                     guestPhoneWith972 === updatePhone ||
+                     guestPhoneWith972 === updatePhoneWith972;
+            });
 
-              if (guest) {
-                foundGuest = guest;
-                foundEventId = event.id;
-                break;
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              break;
               }
             }
           }
@@ -394,9 +394,9 @@ class WebhookService {
               }
             } catch (error) {
               console.warn('⚠️ Could not remove orphaned actualAttendance update from backend:', error);
-            }
-            continue; // Move to next update
           }
+          continue; // Move to next update
+        }
         }
         
         // Skip updates without status, guestCount, or actualAttendance
@@ -436,53 +436,53 @@ class WebhookService {
 
         // Fallback to phone number search if guestId not found or not provided
         if (!foundGuest) {
-          for (const event of events) {
-            const guestCount = event.guests?.length || 0;
-            console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
+        for (const event of events) {
+          const guestCount = event.guests?.length || 0;
+          console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
+          
+          if (!event.guests || event.guests.length === 0) {
+            console.log(`   ⚠️ Event has no guests`);
+            continue;
+          }
+          
+          const guest = event.guests.find(g => {
+            // Normalize both phone numbers for comparison
+            const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+            const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
             
-            if (!event.guests || event.guests.length === 0) {
-              console.log(`   ⚠️ Event has no guests`);
-              continue;
+            if (!guestPhone || !updatePhone) {
+              return false; // Skip if phone numbers are missing
             }
             
-            const guest = event.guests.find(g => {
-              // Normalize both phone numbers for comparison
-              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-              
-              if (!guestPhone || !updatePhone) {
-                return false; // Skip if phone numbers are missing
-              }
-              
-              console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
-              
-              // Try multiple formats
-              const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
-              const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
-              const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
-              const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
-              
-              const matches = guestPhone === updatePhone || 
-                     guestPhone === updatePhoneWith0 ||
-                     guestPhone === updatePhoneWith972 ||
-                     guestPhoneWith972 === updatePhone ||
-                     guestPhoneWith972 === updatePhoneWith972 ||
-                     guestPhoneWith0 === updatePhone ||
-                     guestPhoneWith0 === updatePhoneWith0;
-              
-              if (matches) {
-                console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
-                console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
-              }
-              
-              return matches;
-            });
+            console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
+            
+            // Try multiple formats
+            const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+            const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+            const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+            const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+            
+            const matches = guestPhone === updatePhone || 
+                   guestPhone === updatePhoneWith0 ||
+                   guestPhone === updatePhoneWith972 ||
+                   guestPhoneWith972 === updatePhone ||
+                   guestPhoneWith972 === updatePhoneWith972 ||
+                   guestPhoneWith0 === updatePhone ||
+                   guestPhoneWith0 === updatePhoneWith0;
+            
+            if (matches) {
+              console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
+              console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
+            }
+            
+            return matches;
+          });
 
-            if (guest) {
-              foundGuest = guest;
-              foundEventId = event.id;
-              console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
-              break;
+          if (guest) {
+            foundGuest = guest;
+            foundEventId = event.id;
+            console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
+            break;
             }
           }
         }
@@ -711,39 +711,39 @@ class WebhookService {
             // All automatic "yes" template messages have been disabled
             console.log(`ℹ️ Guest confirmed (source: ${update.source || 'undefined'}) - "yes" template message will NOT be sent`);
             console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
-            
-            // Mark this update as processed
-            this.processedUpdates.add(updateKey);
-            
+          
+          // Mark this update as processed
+          this.processedUpdates.add(updateKey);
+          
             // IMPORTANT: Remove this update from backend AFTER successful update
             // Note: All previous updates for this guest were already removed BEFORE processing (see above)
             setTimeout(async () => {
-              try {
+          try {
                 // Remove this specific update (all previous ones were already removed)
-                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                  method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber,
-                    status: update.status,
-                    responseDate: update.responseDate,
+            const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phoneNumber: update.phoneNumber,
+                status: update.status,
+                responseDate: update.responseDate,
                     guestCount: update.guestCount, // Include guestCount for matching
                     guestId: update.guestId, // Include guestId for precise matching
                     eventId: update.eventId // Include eventId for precise matching
-                  })
-                });
-                if (removeResponse.ok) {
-                  const removeData = await removeResponse.json();
-                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
-                } else {
-                  const errorText = await removeResponse.text();
-                  console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
-                }
-              } catch (error) {
-                console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
-              }
+              })
+            });
+            if (removeResponse.ok) {
+              const removeData = await removeResponse.json();
+              console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+            } else {
+              const errorText = await removeResponse.text();
+              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
+          }
             }, 500); // Wait 500ms before removing to ensure UI has updated
           } else {
             console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);

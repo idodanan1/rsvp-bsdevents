@@ -157,8 +157,8 @@ const EventManagement: React.FC = () => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(false, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
-        });
+        console.error('❌ Error auto-refreshing events:', error);
+      });
       });
     }, 15000); // Refresh every 15 seconds to reduce server load
 
@@ -1345,7 +1345,7 @@ const EventManagement: React.FC = () => {
 
     const eventId = currentEvent.id; // Store eventId to prevent issues if currentEvent changes
     const guestsToDelete = [...selectedGuests]; // Create a copy to avoid issues if state changes
-    
+
     try {
       // Delete all selected guests
       for (const guestId of guestsToDelete) {
@@ -2273,11 +2273,11 @@ const EventManagement: React.FC = () => {
                 const params = {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                                'event_date', 'event_time', 'venue', 'couple_name'],
-                  guest_name: guest.firstName,
+                guest_name: guest.firstName,
                   event_type: currentEvent.eventTypeHebrew || '',
                   groom_name: groomName, // Use the variable we defined above
                   bride_name: brideName, // Use the variable we defined above
-                  event_date: formatDate(currentEvent.eventDate),
+                event_date: formatDate(currentEvent.eventDate),
                   event_time: currentEvent.eventTime || '',
                   venue: currentEvent.venue || '',
                   couple_name: coupleName, // Use the variable we defined above
@@ -2486,7 +2486,7 @@ const EventManagement: React.FC = () => {
             )}
           </div>
         </div>
-        </div>
+      </div>
 
       {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
@@ -3189,7 +3189,7 @@ const EventManagement: React.FC = () => {
               >
                 <X className="w-6 h-6" />
               </button>
-            </div>
+        </div>
             <div className="border-t border-gray-200 pt-4">
               <SyncMonitoringPanel eventId={id} />
             </div>

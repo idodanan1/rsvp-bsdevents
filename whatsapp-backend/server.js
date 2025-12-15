@@ -2696,7 +2696,7 @@ app.post('/api/upload/image', (req, res, next) => {
       
       // Delete local file after successful Imgur upload
       try {
-        fs.unlinkSync(filePath);
+      fs.unlinkSync(filePath);
       } catch (unlinkError) {
         console.warn('⚠️ Could not delete local file:', unlinkError.message);
       }
@@ -4432,16 +4432,16 @@ app.get('/api/events/:eventId', async (req, res) => {
     if (eventId.startsWith('user_')) {
       const userId = eventId;
       console.log(`📋 Treating ${eventId} as userId, filtering events...`);
-      // Filter events by userId
-      const userEvents = eventsData.events.filter(e => e.userId === userId);
-      
-      console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
-      
-      res.json({
-        success: true,
-        events: userEvents,
-        deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
-      });
+    // Filter events by userId
+    const userEvents = eventsData.events.filter(e => e.userId === userId);
+    
+    console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+    
+    res.json({
+      success: true,
+      events: userEvents,
+      deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
+    });
       return;
     }
     
