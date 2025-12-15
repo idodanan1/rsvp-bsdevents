@@ -4430,13 +4430,16 @@ app.options('/api/events/all', (req, res) => {
   res.sendStatus(200);
 });
 
+// ========================================
 // CRITICAL: This route MUST come BEFORE /api/events/:eventId
 // Otherwise Express will match /api/events/:eventId first and treat "eventId/guests" as the eventId
+// ========================================
 // Get guests for a specific event (public endpoint - for client dashboard)
 // CRITICAL: This endpoint returns ONLY the guests array for an event (no truncation)
 // This is a workaround for large events that get truncated in /api/events/all
 // CRITICAL: Read DIRECTLY from file to ensure we have ALL guests
 app.get('/api/events/:eventId/guests', async (req, res) => {
+  console.log(`📋 [GUESTS_ROUTE_REGISTERED] Route /api/events/:eventId/guests is registered`);
   // CRITICAL: Set CORS headers FIRST - before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -4539,7 +4542,9 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
 });
 
 // Handle OPTIONS preflight for /api/events/:eventId/guests
+// CRITICAL: This MUST come before /api/events/:eventId OPTIONS handler
 app.options('/api/events/:eventId/guests', (req, res) => {
+  console.log(`📋 [GUESTS_OPTIONS] OPTIONS /api/events/${req.params.eventId}/guests - Request received`);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
