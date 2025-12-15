@@ -163,7 +163,6 @@ const Dashboard: React.FC = () => {
     if (!selectedEventForEdit) return;
     
     try {
-      console.log('💾 Saving event edit with invitationImageUrl:', selectedEventForEdit.invitationImageUrl);
       const { updateEvent } = useEventStore.getState();
       await updateEvent(selectedEventForEdit.id, {
         coupleName: selectedEventForEdit.coupleName,
@@ -181,7 +180,6 @@ const Dashboard: React.FC = () => {
       
       // Verify the image was saved
       const updatedEvent = useEventStore.getState().events.find(e => e.id === selectedEventForEdit.id);
-      console.log('✅ Event updated. invitationImageUrl:', updatedEvent?.invitationImageUrl);
       
       alert(`✅ האירוע עודכן בהצלחה!${updatedEvent?.invitationImageUrl ? `\n\nתמונת הזמנה: ${updatedEvent.invitationImageUrl}` : '\n\n⚠️ שים לב: תמונת הזמנה לא נשמרה. נא לנסות להעלות שוב.'}`);
       closeEditEventModal();

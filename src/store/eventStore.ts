@@ -13,7 +13,6 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
-    console.log('🌐 Syncing event to API:', { eventId: event.id, guestsCount: event.guests?.length || 0 });
     
     const response = await fetch(`${BACKEND_URL}/api/events`, {
       method: 'POST',
@@ -1376,7 +1375,6 @@ export const useEventStore = create<EventStore>()(
           // Sync to API (for multi-computer access) - CRITICAL for data sync
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           try {
-            console.log('🌐 Syncing new event to API...');
             const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
               method: 'POST',
               headers: {
@@ -1403,16 +1401,12 @@ export const useEventStore = create<EventStore>()(
       updateEvent: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          console.log('💾 updateEvent called with:', { id, updates, invitationImageUrl: updates.invitationImageUrl });
-          
           // CRITICAL: Clean invitationImageUrl - remove local file paths
           const cleanedUpdates = { ...updates };
           if (updates.invitationImageUrl) {
             if (updates.invitationImageUrl.startsWith('file://')) {
               console.warn('⚠️ Removing local file path from invitationImageUrl:', updates.invitationImageUrl);
               cleanedUpdates.invitationImageUrl = undefined; // Remove local file paths
-            } else {
-              console.log('✅ Valid invitationImageUrl:', updates.invitationImageUrl);
             }
           }
           
@@ -1422,7 +1416,6 @@ export const useEventStore = create<EventStore>()(
             const updatedEvents = state.events.map(event => {
               if (event.id === id) {
                 updatedEvent = { ...event, ...cleanedUpdates, updatedAt: new Date() };
-                console.log('✅ Event updated in store:', { id, invitationImageUrl: updatedEvent.invitationImageUrl });
                 return updatedEvent;
               }
               return event;
@@ -1437,7 +1430,6 @@ export const useEventStore = create<EventStore>()(
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             try {
-              console.log('🌐 Syncing updated event to API...');
               await fetch(`${BACKEND_URL}/api/events`, {
                 method: 'POST',
                 headers: {
@@ -1445,7 +1437,6 @@ export const useEventStore = create<EventStore>()(
                 },
                 body: JSON.stringify(updatedEvent)
               });
-              console.log('✅ Event update synced to API');
             } catch (error) {
               console.warn('⚠️ Failed to sync event update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist
