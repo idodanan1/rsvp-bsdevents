@@ -72,21 +72,9 @@ class WebhookService {
       }
 
       const data = await response.json();
-      console.log(`📡 Backend response at ${new Date().toLocaleTimeString()}:`, {
-        success: data.success,
-        updatesCount: data.updates?.length || 0,
-        totalPending: data.totalPending || 0,
-        updates: data.updates
-      });
       
       if (data.success && data.updates && data.updates.length > 0) {
-        console.log(`📨 Found ${data.updates.length} pending updates:`, data.updates);
         await this.processUpdates(data.updates);
-      } else {
-        // Log when no updates found (for debugging)
-        if (data.success) {
-          console.log(`📭 No pending updates (checked at ${new Date().toLocaleTimeString()}, total pending in backend: ${data.totalPending || 0})`);
-        }
       }
     } catch (error: any) {
       // Only log if it's not a connection refused error (backend not running)

@@ -236,16 +236,7 @@ const EventManagement: React.FC = () => {
     // Remove the "|| !currentEvent || currentEvent.id !== id" part to prevent infinite loops
     const shouldUpdate = event.id === id && (guestsChanged || eventChanged || eventActuallyUpdated);
     if (shouldUpdate) {
-      if (guestsChanged) {
-        console.log('🔄 Guests changed detected in events array, updating currentEvent immediately');
-      console.log('📊 Event guests:', event.guests?.map(g => ({ id: g.id, status: g.rsvpStatus, count: g.guestCount })));
-        if (storeCurrentEvent?.guests) {
-          const oldStatus = storeCurrentEvent.guests.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
-          const newStatus = event.guests?.find(g => g.id === event.guests?.[0]?.id)?.rsvpStatus;
-          console.log('📊 Old status:', oldStatus);
-          console.log('📊 New status:', newStatus);
-        }
-      }
+      // Update currentEvent when guests change
       
       // CRITICAL: Always create new object reference with new guest array references to force React re-render
       // This ensures the table updates immediately when guest status changes
@@ -283,8 +274,6 @@ const EventManagement: React.FC = () => {
   // This triggers guestsToDisplay to recalculate without circular dependencies
   // CRITICAL: Also use eventsHash from Zustand store to detect changes
   useEffect(() => {
-    console.log('🔄 EventManagement useEffect for eventsVersion - events.length:', events.length, 'eventsHash length:', eventsHash.length);
-    
     // Create a comprehensive key from events that includes guest data to detect ALL changes
     // This ensures we catch updates even if they're for a different event
     // CRITICAL: Include responseDate in the key to catch timestamp changes
@@ -311,11 +300,6 @@ const EventManagement: React.FC = () => {
     // This ensures we catch changes even if the events array reference doesn't change
     const combinedKey = `${eventsKey}-${eventsHash}`;
     
-    console.log('📊 Events key calculated, length:', events.length, 'lastLength:', lastEventsLengthRef.current);
-    console.log('📊 Events key matches:', eventsKey === lastEventsKeyRef.current ? 'YES' : 'NO');
-    console.log('📊 EventsHash matches:', eventsHash === lastEventsHashRef.current ? 'YES' : 'NO');
-    console.log('📊 Combined key matches:', combinedKey === `${lastEventsKeyRef.current}-${lastEventsHashRef.current}` ? 'YES' : 'NO');
-    
     // Update if events length changed, events key changed, or eventsHash changed
     if (events.length !== lastEventsLengthRef.current || 
         eventsKey !== lastEventsKeyRef.current || 
@@ -325,20 +309,12 @@ const EventManagement: React.FC = () => {
       lastEventsHashRef.current = eventsHash;
       setEventsVersion(prev => {
         const newVersion = prev + 1;
-        console.log('🔄 Events array changed, incrementing eventsVersion to:', newVersion);
-        console.log('📊 Events key or hash changed - this will trigger guestsToDisplay recalculation');
-        console.log('📊 Event IDs in store:', events.map(e => `${e.id}(${e.guests?.length || 0} guests)`).join(', '));
-        // CRITICAL: Log guest statuses to help debug
-        events.forEach(e => {
-          if (e.guests && e.guests.length > 0) {
-            console.log(`📊 Event ${e.id} guests:`, e.guests.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
-          }
-        });
+        // Only log in development mode
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔄 Events array changed, incrementing eventsVersion to:', newVersion);
+        }
         return newVersion;
       });
-    } else {
-      // Log when events array is checked but no change detected
-      console.log('ℹ️ Events array checked - no changes detected (length:', events.length, ', key matches, hash matches)');
     }
   }, [events, eventsHash]); // Include eventsHash to detect changes from Zustand store
   
@@ -366,7 +342,6 @@ const EventManagement: React.FC = () => {
           currentGuestsKey !== newGuestsKey) {
         currentEventFromStoreRef.current = event;
         lastEventIdRef2.current = id;
-        console.log('🔄 Updated currentEventFromStoreRef for event:', id, 'guests:', event.guests?.length || 0);
       }
     } else {
       currentEventFromStoreRef.current = null;
@@ -380,39 +355,26 @@ const EventManagement: React.FC = () => {
   // Get guests from store - ALWAYS use events array to ensure we get the latest data
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
-    console.log('🔄 guestsToDisplay useMemo recalculating - id:', id, 'eventsVersion:', eventsVersion, 'events.length:', events.length);
-    
     // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
     // This ensures React detects changes when events array updates
     // The events array is subscribed via useEventStore(state => state.events) at the top
     const currentEvents = events;
-    console.log('📊 Current events in store (from props):', currentEvents.length, 'events');
     
     // CRITICAL: Always get directly from events array (most up-to-date)
     // Don't rely on currentEventFromStore ref as it might be stale
     // This ensures we always get the latest data, even if update was for a different event
     let event = currentEvents.find(e => e.id === id) || null;
-    console.log('📊 Found event in store:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
-    
-    // Log all guest statuses for debugging
-    if (event?.guests) {
-      console.log('📊 Event guests statuses:', event.guests.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
-    }
-    
     // Fallback to currentEventFromStore if event not found in array
     if (!event) {
       event = currentEventFromStore;
-      console.log('📊 Using currentEventFromStore fallback:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
     }
     
     // Final fallback to currentEvent if it matches the ID
     if (!event && currentEvent && currentEvent.id === id) {
       event = currentEvent;
-      console.log('📊 Using currentEvent fallback:', event ? `${event.id} with ${event.guests?.length || 0} guests` : 'NOT FOUND');
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
-      console.log('📊 Using guests from events array (most up-to-date):', event.guests.length);
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
       // ALWAYS create new object references, even if data appears unchanged
       // This forces React to re-render when eventsVersion changes
@@ -490,14 +452,8 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     try {
       if (guestsKey !== lastGuestsKeyForUpdate.current) {
-        const keyPreview = guestsKey && typeof guestsKey === 'string' ? guestsKey.substring(0, 50) : String(guestsKey);
-        console.log('🔄 guestsKey changed, forcing re-render:', keyPreview);
         lastGuestsKeyForUpdate.current = guestsKey;
-        setForceUpdate(prev => {
-          const newValue = prev + 1;
-          console.log('🔄 forceUpdate incremented to:', newValue);
-          return newValue;
-        });
+        setForceUpdate(prev => prev + 1);
       }
     } catch (error) {
       console.warn('⚠️ Error in guestsKey useEffect:', error);
@@ -509,13 +465,8 @@ const EventManagement: React.FC = () => {
   const lastEventsHashForUpdate = useRef<string>('');
   useEffect(() => {
     if (eventsHash !== lastEventsHashForUpdate.current) {
-      console.log('🔄 eventsHash changed, forcing re-render - hash length:', eventsHash.length);
       lastEventsHashForUpdate.current = eventsHash;
-      setForceUpdate(prev => {
-        const newValue = prev + 1;
-        console.log('🔄 forceUpdate incremented to (from eventsHash):', newValue);
-        return newValue;
-      });
+      setForceUpdate(prev => prev + 1);
     }
   }, [eventsHash]);
   
@@ -525,10 +476,6 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     try {
       const eventId = currentEvent?.id || id || 'unknown';
-      console.log('🔄 EVENT_MANAGEMENT: Guests changed, forcing update');
-      console.log('📊 EVENT_MANAGEMENT: CurrentEvent ID:', eventId);
-      console.log('📊 EVENT_MANAGEMENT: Events count:', events.length);
-      console.log('📊 EVENT_MANAGEMENT: Guests to display:', guestsToDisplay?.length || 0);
       if (guestsToDisplay && guestsToDisplay.length > 0) {
         console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map(g => {
           try {
@@ -590,7 +537,6 @@ const EventManagement: React.FC = () => {
     
     // Check if events array changed at all
     if (allEventsKey !== lastEventsArrayKeyRef.current) {
-      console.log('🔄 Events array changed (any event), updating guestsToDisplay');
       lastEventsArrayKeyRef.current = allEventsKey;
       
       // CRITICAL: eventsVersion is already updated by the other useEffect
@@ -2487,11 +2433,6 @@ const EventManagement: React.FC = () => {
                 {(() => {
                   const attendedGuests = currentEvent.guests?.filter(g => g.actualAttendance === 'attended') || [];
                   const totalAttendedCount = attendedGuests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
-                  console.log('📊 Calculating attended count:', {
-                    records: attendedGuests.length,
-                    totalGuests: totalAttendedCount,
-                    details: attendedGuests.map(g => ({ name: g.firstName, guestCount: g.guestCount || 1 }))
-                  });
                   return totalAttendedCount;
                 })()}
               </p>

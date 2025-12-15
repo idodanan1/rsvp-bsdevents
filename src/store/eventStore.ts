@@ -247,24 +247,9 @@ export const useEventStore = create<EventStore>()(
                 }
                 
                 // CRITICAL: Merge API events with local events, but preserve manual changes
-                console.log('🔍 Starting merge process:', {
-                  apiEventsCount: apiEvents.length,
-                  localEventsCount: localEvents.length,
-                  apiEventIds: apiEvents.map(e => e.id),
-                  localEventIds: localEvents.map(e => e.id)
-                });
-                
                 const state = get();
                 const now = Date.now();
                 const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
-                
-                console.log('🔍 Manual changes before cleanup:', {
-                  total: state.manualChanges.size,
-                  entries: Array.from(state.manualChanges.entries()).map(([key, timestamp]) => ({
-                    key,
-                    age: `${Math.round((now - timestamp) / 1000)}s`
-                  }))
-                });
                 
                 // Clean up old manual changes
                 const cleanedManualChanges = new Map<string, number>();
@@ -277,14 +262,6 @@ export const useEventStore = create<EventStore>()(
                   set({ manualChanges: cleanedManualChanges });
                 }
                 
-                console.log('🔍 Manual changes after cleanup:', {
-                  total: cleanedManualChanges.size,
-                  entries: Array.from(cleanedManualChanges.entries()).map(([key, timestamp]) => ({
-                    key,
-                    age: `${Math.round((now - timestamp) / 1000)}s`
-                  }))
-                });
-                
                 // Merge API events with local events, preserving manual changes
                 const allEvents = apiEvents.map(apiEvent => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
@@ -296,13 +273,6 @@ export const useEventStore = create<EventStore>()(
                   
                   // Find corresponding local event
                   const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
-                  
-                  console.log(`🔍 Processing event ${apiEvent.id}:`, {
-                    hasLocalEvent: !!localEvent,
-                    localEventId: localEvent?.id,
-                    apiGuestsCount: apiEvent.guests?.length || 0,
-                    localGuestsCount: localEvent?.guests?.length || 0
-                  });
                   
                   if (!localEvent) {
                     // Filter out deleted guests even when there's no local event
@@ -334,22 +304,6 @@ export const useEventStore = create<EventStore>()(
                     }; // Use API event if no local version, but filter deleted guests and clean names
                   }
                   
-                  // Log API event guests for debugging
-                console.log(`🔍 Merging event ${apiEvent.id}:`, {
-                  apiGuestsCount: apiEvent.guests.length,
-                  localGuestsCount: localEvent.guests.length,
-                  apiGuestsWithAttendance: apiEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked').map(g => ({
-                    id: g.id,
-                    name: `${g.firstName} ${g.lastName}`,
-                    actualAttendance: g.actualAttendance
-                  })),
-                  localGuestsWithAttendance: localEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked').map(g => ({
-                    id: g.id,
-                    name: `${g.firstName} ${g.lastName}`,
-                    actualAttendance: g.actualAttendance
-                  }))
-                });
-                
                 // Merge guests, preserving manual changes
                   // Get deleted guests for this event to filter them out
                   const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
@@ -380,18 +334,20 @@ export const useEventStore = create<EventStore>()(
                     const lastManualChange = cleanedManualChanges.get(guestKey);
                     const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
                     
-                    // Log comparison for debugging - ALWAYS log, not just on mismatch
-                    console.log(`🔍 Comparing guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
-                      api_actualAttendance: apiGuest.actualAttendance,
-                      local_actualAttendance: localGuest.actualAttendance,
-                      match: apiGuest.actualAttendance === localGuest.actualAttendance,
-                      hasRecentManualChange: hasRecentManualChange,
-                      timeSinceChange: hasRecentManualChange ? `${Math.round((now - lastManualChange) / 1000)}s` : 'N/A',
-                      api_guestCount: apiGuest.guestCount,
-                      local_guestCount: localGuest.guestCount,
-                      api_rsvpStatus: apiGuest.rsvpStatus,
-                      local_rsvpStatus: localGuest.rsvpStatus
-                    });
+                    // Log comparison for debugging - only log mismatches in development
+                    if (process.env.NODE_ENV === 'development' && 
+                        (apiGuest.actualAttendance !== localGuest.actualAttendance ||
+                         apiGuest.guestCount !== localGuest.guestCount ||
+                         apiGuest.rsvpStatus !== localGuest.rsvpStatus)) {
+                      console.log(`🔍 Guest mismatch ${apiGuest.firstName} ${apiGuest.lastName}:`, {
+                        api_actualAttendance: apiGuest.actualAttendance,
+                        local_actualAttendance: localGuest.actualAttendance,
+                        api_guestCount: apiGuest.guestCount,
+                        local_guestCount: localGuest.guestCount,
+                        api_rsvpStatus: apiGuest.rsvpStatus,
+                        local_rsvpStatus: localGuest.rsvpStatus
+                      });
+                    }
                     
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
