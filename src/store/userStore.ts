@@ -153,53 +153,19 @@ export const useUserStore = create<UserStore>()(
             return;
           }
 
-          // התחברות - נסה localStorage קודם (מהיר), ואז backend אם צריך
+          // CRITICAL SECURITY FIX: Always check backend first (source of truth)
+          // Only use localStorage as fallback if backend is unavailable
+          // This prevents logging in as wrong user if localStorage has stale data
           const normalizedEmail = email.toLowerCase().trim();
           
           console.log('🔐 Login attempt:', { email: normalizedEmail });
           
-          // נסה localStorage קודם (מהיר מאוד)
-          const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-          const storedPassword = passwords[normalizedEmail];
-          
-          if (storedPassword && storedPassword === password) {
-            // נמצא ב-localStorage - השתמש בו (מהיר)
-            const stored = localStorage.getItem('rsvp-users-storage');
-            if (stored) {
-              const parsed = JSON.parse(stored);
-              const users: User[] = parsed.state?.users || [];
-              const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
-              
-              if (user) {
-                console.log('✅ Login successful via localStorage (fast):', { id: user.id, email: user.email, name: user.name });
-                // Create session ID for this login
-                const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                sessionStorage.setItem('rsvp-session-id', sessionId);
-                localStorage.setItem('rsvp-last-session-id', sessionId);
-                
-                set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
-                
-                // נסה לסנכרן עם backend ברקע (לא חוסם)
-                const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-                fetch(`${backendUrl}/api/users/login`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: email.trim(), password: password.trim() })
-                }).catch(() => {
-                  // Ignore - just trying to sync in background
-                });
-                
-                return;
-              }
-            }
-          }
-          
-          // לא נמצא ב-localStorage - נסה backend
           const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
+          // CRITICAL: Always try backend first (source of truth)
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // רק 3 שניות - אם זה לא עובד מהר, זה לא עובד
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
             
             // Get existing sessionId if available (to reuse same session for same device)
             // Check localStorage first (persists across browser restarts)
@@ -229,6 +195,16 @@ export const useUserStore = create<UserStore>()(
                 
                 console.log('✅ Login successful via backend:', { id: user.id, email: user.email, name: user.name });
                 
+                // CRITICAL: Verify the user email matches what was requested
+                // This prevents logging in as wrong user if backend returns wrong data
+                if (user.email.toLowerCase().trim() !== normalizedEmail) {
+                  console.error('❌ SECURITY ERROR: Backend returned different user!', {
+                    requested: normalizedEmail,
+                    returned: user.email.toLowerCase().trim()
+                  });
+                  throw new Error('שגיאת אבטחה: השרת החזיר משתמש אחר. אנא נסה שוב.');
+                }
+                
                 // Use sessionId from response if provided, otherwise use existing or create new one
                 const sessionId = data.sessionId || existingSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 // Save to both localStorage (persists) and sessionStorage (current session)
@@ -236,13 +212,69 @@ export const useUserStore = create<UserStore>()(
                 localStorage.setItem('rsvp-last-session-id', sessionId);
                 sessionStorage.setItem('rsvp-session-id', sessionId);
                 
+                // CRITICAL: Clear any old localStorage user data to prevent conflicts
+                // Only keep passwords for offline fallback, but don't use them if backend works
+                const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
+                passwords[normalizedEmail] = password; // Update password for offline fallback
+                localStorage.setItem('rsvp-passwords', JSON.stringify(passwords));
+                
                 set({ user, isAuthenticated: true, isLoading: false });
                 return;
+              } else {
+                // Backend returned error - don't try localStorage, throw error
+                throw new Error('אימייל או סיסמה שגויים');
               }
+            } else {
+              // Backend returned error status
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || 'אימייל או סיסמה שגויים');
             }
           } catch (error: any) {
-            // Backend failed - ignore and continue to error
-            console.log('⚠️ Backend unavailable:', error.message);
+            // Backend failed - only then try localStorage as fallback
+            console.log('⚠️ Backend unavailable or error:', error.message);
+            
+            // Only use localStorage if backend is truly unavailable (network error, not auth error)
+            if (error.name === 'AbortError' || error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+              console.log('🔄 Backend unavailable - trying localStorage fallback');
+              
+              // Try localStorage as fallback (only if backend is unavailable)
+              const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
+              const storedPassword = passwords[normalizedEmail];
+              
+              if (storedPassword && storedPassword === password) {
+                // Found in localStorage - use it (but warn that backend is unavailable)
+                const stored = localStorage.getItem('rsvp-users-storage');
+                if (stored) {
+                  const parsed = JSON.parse(stored);
+                  const users: User[] = parsed.state?.users || [];
+                  const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
+                  
+                  if (user) {
+                    console.warn('⚠️ Login via localStorage fallback (backend unavailable):', { id: user.id, email: user.email, name: user.name });
+                    
+                    // CRITICAL: Verify the user email matches what was requested
+                    if (user.email.toLowerCase().trim() !== normalizedEmail) {
+                      console.error('❌ SECURITY ERROR: localStorage has wrong user!', {
+                        requested: normalizedEmail,
+                        found: user.email.toLowerCase().trim()
+                      });
+                      throw new Error('שגיאת אבטחה: נתונים מקומיים לא תואמים. אנא נסה שוב כשהשרת זמין.');
+                    }
+                    
+                    // Create session ID for this login
+                    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                    sessionStorage.setItem('rsvp-session-id', sessionId);
+                    localStorage.setItem('rsvp-last-session-id', sessionId);
+                    
+                    set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
+                    return;
+                  }
+                }
+              }
+            }
+            
+            // If we get here, either backend returned auth error or localStorage doesn't have the user
+            throw error;
           }
           
           // אם הגענו לכאן - לא נמצא בשום מקום
@@ -468,34 +500,39 @@ export const useUserStore = create<UserStore>()(
       name: 'rsvp-user-storage',
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
-        // CRITICAL SECURITY FIX: Check if this is a new session
-        // Check localStorage first (persists across browser restarts)
-        // This prevents sharing links from auto-logging in as the previous user
-        const sessionIdFromStorage = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id');
-        const storedSessionId = localStorage.getItem('rsvp-last-session-id');
+        // CRITICAL SECURITY FIX: Always verify user from backend on page load
+        // Don't trust localStorage user data - it might be stale or from wrong user
+        // This prevents auto-logging in as wrong user when switching devices/computers
         
-        if (state) {
-          // If no session ID in storage, this is a new browser session
-          // OR if session ID doesn't match, this is a different browser/device
-          if (!sessionIdFromStorage || (storedSessionId && sessionIdFromStorage !== storedSessionId)) {
-            console.log('🔒 New session detected - clearing authentication state for security');
-            // Clear authentication state for security
-            state.user = null;
-            state.isAuthenticated = false;
-            
-            // Generate new session ID
+        if (state && state.user && state.isAuthenticated) {
+          // User is stored in localStorage - verify it's still valid
+          // Don't auto-login - require explicit login to prevent security issues
+          console.log('🔒 User found in localStorage - clearing for security (require explicit login)');
+          
+          // Clear authentication state - require explicit login
+          // This prevents logging in as wrong user when switching devices
+          state.user = null;
+          state.isAuthenticated = false;
+          
+          // Generate new session ID for this browser/device
+          const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          localStorage.setItem('rsvp-session-id', newSessionId);
+          localStorage.setItem('rsvp-last-session-id', newSessionId);
+          sessionStorage.setItem('rsvp-session-id', newSessionId);
+          
+          // Clear old session IDs to prevent conflicts
+          const oldSessionId = localStorage.getItem('rsvp-session-id');
+          if (oldSessionId && oldSessionId !== newSessionId) {
+            console.log('🔒 Cleared old session ID:', oldSessionId);
+          }
+        } else {
+          // No user in state - ensure we have a fresh session ID
+          const sessionIdFromStorage = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id');
+          if (!sessionIdFromStorage) {
             const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             localStorage.setItem('rsvp-session-id', newSessionId);
             localStorage.setItem('rsvp-last-session-id', newSessionId);
             sessionStorage.setItem('rsvp-session-id', newSessionId);
-          } else {
-            // Session matches - keep authentication state
-            // Ensure sessionId is in both storages
-            if (sessionIdFromStorage) {
-              localStorage.setItem('rsvp-session-id', sessionIdFromStorage);
-              localStorage.setItem('rsvp-last-session-id', sessionIdFromStorage);
-              sessionStorage.setItem('rsvp-session-id', sessionIdFromStorage);
-            }
           }
         }
       },
