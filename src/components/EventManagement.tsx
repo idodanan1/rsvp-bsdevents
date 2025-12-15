@@ -96,6 +96,7 @@ const EventManagement: React.FC = () => {
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [messageFilterStatus, setMessageFilterStatus] = useState<string>('all');
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [editingGuest, setEditingGuest] = useState<any>(null);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
@@ -625,7 +626,24 @@ const EventManagement: React.FC = () => {
     
     const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
     
-    return matchesSearch && matchesFilter;
+    // Filter by message status
+    let matchesMessageFilter = true;
+    const currentMessageStatus = guest.messageStatus || 'not_sent'; // Treat undefined as 'not_sent'
+    
+    if (messageFilterStatus === 'sent_not_delivered') {
+      // Show only guests who were sent a message but didn't receive it
+      // This includes 'sent' and 'sms_sent' but excludes 'delivered'
+      matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+    } else if (messageFilterStatus !== 'all') {
+      if (messageFilterStatus === 'not_sent') {
+        // Include both 'not_sent' and undefined (which we treat as 'not_sent')
+        matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
+      } else {
+        matchesMessageFilter = currentMessageStatus === messageFilterStatus;
+      }
+    }
+    
+    return matchesSearch && matchesFilter && matchesMessageFilter;
   });
     
     console.log('📊 Filtered guests result:', filtered.length, 'guests');
@@ -2545,6 +2563,20 @@ const EventManagement: React.FC = () => {
           <option value="confirmed">מגיע</option>
           <option value="declined">לא מגיע</option>
           <option value="maybe">אולי מגיע</option>
+        </select>
+        
+        <select
+          value={messageFilterStatus}
+          onChange={(e) => setMessageFilterStatus(e.target.value)}
+          className="input-field w-full lg:w-56 border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+        >
+          <option value="all">כל סטטוסי הודעות</option>
+          <option value="sent_not_delivered">נשלח ולא התקבל</option>
+          <option value="not_sent">לא נשלחה</option>
+          <option value="sent">נשלחה</option>
+          <option value="delivered">נשלחה והתקבלה</option>
+          <option value="failed">נשלחה ונכשלה</option>
+          <option value="sms_sent">נשלח SMS</option>
         </select>
         
         <button
