@@ -233,7 +233,9 @@ class WebhookService {
               responseDate: update.responseDate ? new Date(update.responseDate) : new Date(),
               // CRITICAL: Preserve existing status - don't overwrite it with undefined
               // Only update guestCount, keep existing rsvpStatus
-              rsvpStatus: foundGuest.rsvpStatus
+              rsvpStatus: foundGuest.rsvpStatus,
+              // CRITICAL: Preserve notes if provided in update, otherwise keep existing notes
+              notes: update.notes !== undefined ? update.notes : foundGuest.notes
             };
 
             await updateGuestResponse(foundEventId, foundGuest.id, updatedGuestForCount);
@@ -635,6 +637,7 @@ class WebhookService {
           
           // CRITICAL: Always use update.guestCount if provided, otherwise use latest guestCount from store
           // This ensures guestCount updates from WhatsApp are preserved
+          // CRITICAL: Also preserve notes from updates (especially from guest_link)
           // CRITICAL: Clean names when updating from webhook
           const updatedGuest = {
             ...latestGuest,
@@ -643,12 +646,14 @@ class WebhookService {
             rsvpStatus: newStatus,
             responseDate: new Date(update.responseDate || Date.now()),
             guestCount: update.guestCount !== undefined ? update.guestCount : latestGuest.guestCount,
+            notes: update.notes !== undefined ? update.notes : latestGuest.notes,
             actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance
           };
           
           console.log(`📊 Updated guest data:`, {
             rsvpStatus: updatedGuest.rsvpStatus,
             guestCount: updatedGuest.guestCount,
+            notes: updatedGuest.notes,
             actualAttendance: updatedGuest.actualAttendance,
             responseDate: updatedGuest.responseDate
           });

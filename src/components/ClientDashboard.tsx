@@ -715,7 +715,7 @@ const ClientDashboard: React.FC = () => {
                       }
                       return (
                         <tr key={guest.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
+                          <td className="px-6 py-4 whitespace-normal">
                             <div>
                               <div className="text-sm font-medium text-gray-900">
                                 {formatFullName(guest.firstName, guest.lastName)}

@@ -2919,13 +2919,14 @@ app.post('/api/guests/add-pending-update', (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source } = req.body;
-  console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source });
+  const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes } = req.body;
+  console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes });
 
-  // CRITICAL: Allow updates with either status OR guestCount (or both)
+  // CRITICAL: Allow updates with either status OR guestCount OR notes (or any combination)
   // This allows guestCount-only updates from WhatsApp without requiring status
-  if (!phoneNumber || !guestId || !eventId || (status === undefined && guestCount === undefined)) {
-    return res.status(400).json({ error: 'Missing required fields: phoneNumber, guestId, eventId, and at least one of status or guestCount' });
+  // Also allows notes-only updates from guest_link
+  if (!phoneNumber || !guestId || !eventId || (status === undefined && guestCount === undefined && notes === undefined)) {
+    return res.status(400).json({ error: 'Missing required fields: phoneNumber, guestId, eventId, and at least one of status, guestCount, or notes' });
   }
 
   const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
@@ -2937,12 +2938,13 @@ app.post('/api/guests/add-pending-update', (req, res) => {
     guestId: guestId,
     eventId: eventId,
     guestCount: guestCount,
+    notes: notes,
     responseDate: responseDate,
     timestamp: Date.now(),
     source: source || 'manual_add'
   };
   
-  // Only include status if it was provided (allows guestCount-only updates)
+  // Only include status if it was provided (allows guestCount-only or notes-only updates)
   if (status !== undefined && status !== null) {
     updateData.status = status;
   }
