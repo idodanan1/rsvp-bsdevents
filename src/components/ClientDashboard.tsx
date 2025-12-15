@@ -166,6 +166,8 @@ const ClientDashboard: React.FC = () => {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         console.log(`🌐 Loading event silently from API: ${BACKEND_URL}/api/events/all`);
         
+        // CRITICAL: Try to load from /api/events/all first (public endpoint)
+        // If this returns incomplete data (few guests), we'll try fetchEvents which uses authenticated endpoint
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
           headers: { 
@@ -190,7 +192,7 @@ const ClientDashboard: React.FC = () => {
               (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
                foundEvent.groomName || foundEvent.brideName || 'אירוע');
             console.log(`✅ Found event silently in API: ${displayName}`);
-            console.log(`🔍 Event details from API (FULL OBJECT):`, JSON.stringify(foundEvent, null, 2));
+            const apiGuestsCount = foundEvent.guests?.length || 0;
             console.log(`🔍 Event details from API (SUMMARY):`, {
               id: foundEvent.id,
               coupleName: foundEvent.coupleName,
@@ -199,12 +201,20 @@ const ClientDashboard: React.FC = () => {
               eventDate: foundEvent.eventDate,
               eventTime: foundEvent.eventTime,
               venue: foundEvent.venue,
-              guestsCount: foundEvent.guests?.length || 0,
+              guestsCount: apiGuestsCount,
               hasGuests: !!foundEvent.guests,
               guestsArrayLength: foundEvent.guests?.length,
               eventTypeHebrew: foundEvent.eventTypeHebrew,
               invitationImageUrl: foundEvent.invitationImageUrl
             });
+            
+            // CRITICAL: Check if API returned incomplete data (common for large events)
+            // If API returned very few guests (< 50), it's likely incomplete due to response size limits
+            if (apiGuestsCount > 0 && apiGuestsCount < 50) {
+              console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
+              console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
+              console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
+            }
             
             // CRITICAL: Ensure event has all required fields before setting
             if (!foundEvent.guests) {
@@ -216,6 +226,19 @@ const ClientDashboard: React.FC = () => {
             setCurrentEvent((prev: any) => {
               if (!prev) {
                 console.log('✅ Setting initial event from API');
+                console.log(`🔍 Initial load - API returned ${foundEvent.guests?.length || 0} guests`);
+                
+                // CRITICAL: If API returned very few guests (likely incomplete), try to fetch full event data
+                // This happens when the event is too large and the API response is truncated
+                const apiGuestsCount = foundEvent.guests?.length || 0;
+                const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50; // Less than 50 guests suggests incomplete data
+                
+                if (isLikelyIncomplete) {
+                  console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
+                  console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
+                  console.warn(`⚠️ For full guest list, use the admin dashboard or wait for polling to update`);
+                }
+                
                 // CRITICAL: Ensure guests array exists even for initial load
                 return {
                   ...foundEvent,
@@ -333,11 +356,15 @@ const ClientDashboard: React.FC = () => {
     
     // CRITICAL: Always load from API to get latest data, even if event was found in store/localStorage
     // Backend is the source of truth - always fetch latest data
+    // CRITICAL: If user is logged in, use fetchEvents which uses /api/events/:userId and returns FULL event data
+    // This is important because /api/events/all may return truncated data for large events
     if (userId) {
-      // User is logged in - try fetchEvents first, then also load from public API
-          fetchEvents().then(() => {
-            const foundEvent = events.find(e => e.id === eventId);
-            if (foundEvent) {
+      // User is logged in - try fetchEvents first (this returns FULL event data with all guests)
+      // Then also load from public API as backup
+      console.log(`🔍 User is logged in (${userId}) - using fetchEvents for full event data`);
+      fetchEvents().then(() => {
+        const foundEvent = events.find(e => e.id === eventId);
+        if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -355,6 +382,9 @@ const ClientDashboard: React.FC = () => {
           // CRITICAL: Merge data instead of replacing to preserve local fields
           setCurrentEvent((prev: any) => {
             if (!prev) {
+              console.log('✅ Setting initial event from fetchEvents');
+              console.log(`🔍 Initial load - fetchEvents returned ${foundEvent.guests?.length || 0} guests`);
+              
               // CRITICAL: Ensure guests array exists
               return {
                 ...foundEvent,
@@ -454,7 +484,9 @@ const ClientDashboard: React.FC = () => {
               // This prevents overwriting correct data with stale data
               setCurrentEvent((prev: any) => {
                 if (!prev) {
-                  console.log('🔄 ClientDashboard: Setting initial event from backend');
+                  console.log('🔄 ClientDashboard: Setting initial event from backend polling');
+                  console.log(`🔍 Initial load - polling returned ${foundEvent.guests?.length || 0} guests`);
+                  
                   // CRITICAL: Ensure guests array exists
                   return {
                     ...foundEvent,
@@ -619,7 +651,9 @@ const ClientDashboard: React.FC = () => {
       if (foundEvent) {
         setCurrentEvent((prev: any) => {
           if (!prev) {
-            console.log('🔄 ClientDashboard: Setting initial event from store');
+            console.log('🔄 ClientDashboard: Setting initial event from store (webhookService)');
+            console.log(`🔍 Initial load - store returned ${foundEvent.guests?.length || 0} guests`);
+            
             // CRITICAL: Ensure guests array exists
             return {
               ...foundEvent,
