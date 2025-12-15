@@ -2877,17 +2877,24 @@ export const useEventStore = create<EventStore>()(
             
             // Replace template variables with actual values
             // Use consistent variable names: {{guest_name}} instead of {{first_name}}
+            // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
+            const coupleName = event.coupleName || 
+              (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
+               event.groomName || event.brideName || 'הזוג');
+            const groomName = event.groomName || '';
+            const brideName = event.brideName || '';
+            
             personalizedMessage = personalizedMessage
               .replace(/\{\{guest_name\}\}/g, guest.firstName)
               .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
-              .replace(/\{\{event_time\}\}/g, event.eventTime)
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew)
-              .replace(/\{\{venue\}\}/g, event.venue)
-              .replace(/\{\{couple_name\}\}/g, event.coupleName)
-              .replace(/\{\{groom_name\}\}/g, event.groomName)
-              .replace(/\{\{bride_name\}\}/g, event.brideName)
+              .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{venue\}\}/g, event.venue || '')
+              .replace(/\{\{couple_name\}\}/g, coupleName)
+              .replace(/\{\{groom_name\}\}/g, groomName)
+              .replace(/\{\{bride_name\}\}/g, brideName)
               .replace(/\{\{table_number\}\}/g, tableNumber.toString())
               .replace(/\{\{guest_response_link\}\}/g, guestLink);
             
@@ -2896,12 +2903,12 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
-              .replace(/\{\{event_time\}\}/g, event.eventTime)
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew)
-              .replace(/\{\{venue\}\}/g, event.venue)
-              .replace(/\{\{couple_name\}\}/g, event.coupleName)
-              .replace(/\{\{groom_name\}\}/g, event.groomName)
-              .replace(/\{\{bride_name\}\}/g, event.brideName)
+              .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{venue\}\}/g, event.venue || '')
+              .replace(/\{\{couple_name\}\}/g, coupleName)
+              .replace(/\{\{groom_name\}\}/g, groomName)
+              .replace(/\{\{bride_name\}\}/g, brideName)
               .replace(/\{\{table_number\}\}/g, tableNumber.toString())
               .replace(/\{\{guest_response_link\}\}/g, guestLink);
             
@@ -2941,6 +2948,13 @@ export const useEventStore = create<EventStore>()(
             
             // Prepare template parameters based on the template name (use corrected templateNameForCampaign)
             // Different templates require different parameters
+            // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
+            const templateCoupleName = event.coupleName || 
+              (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
+               event.groomName || event.brideName || 'הזוג');
+            const templateGroomName = event.groomName || '';
+            const templateBrideName = event.brideName || '';
+            
             let templateParams: any = {};
             
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
@@ -2951,13 +2965,13 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew,
-                groom_name: event.groomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
-                bride_name: event.brideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
+                event_type: event.eventTypeHebrew || '',
+                groom_name: templateGroomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
+                bride_name: templateBrideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(event.eventDate),
-                event_time: event.eventTime,
-                venue: event.venue,
-                couple_name: event.coupleName, // Parameter 8 - at the end of the template
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                couple_name: templateCoupleName, // Parameter 8 - at the end of the template
                 guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                 language: 'he'
               };
@@ -2968,12 +2982,12 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew,
+                event_type: event.eventTypeHebrew || '',
                 event_date: formatDate(event.eventDate),
-                event_time: event.eventTime,
-                venue: event.venue,
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
                 guest_response_link: guestLink,
-                couple_name: event.coupleName,
+                couple_name: templateCoupleName,
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
@@ -2994,11 +3008,11 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
                              'event_time', 'venue', 'table_number'],
                 first_name: guest.firstName, // Parameter 1 - note: uses first_name, not guest_name
-                event_type: event.eventTypeHebrew, // Parameter 2
-                couple_name: event.coupleName, // Parameter 3
+                event_type: event.eventTypeHebrew || '', // Parameter 2
+                couple_name: templateCoupleName, // Parameter 3
                 event_date: formatDate(event.eventDate), // Parameter 4
-                event_time: event.eventTime, // Parameter 5
-                venue: event.venue, // Parameter 6
+                event_time: event.eventTime || '', // Parameter 5
+                venue: event.venue || '', // Parameter 6
                 table_number: tableNumber, // Parameter 7
                 language: 'he' // Hebrew - as shown in Meta template
               };
@@ -3008,12 +3022,12 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew,
+                event_type: event.eventTypeHebrew || '',
                 event_date: formatDate(event.eventDate),
-                event_time: event.eventTime,
-                venue: event.venue,
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
                 guest_response_link: guestLink,
-                couple_name: event.coupleName,
+                couple_name: templateCoupleName,
                 language: 'he'
               };
             }

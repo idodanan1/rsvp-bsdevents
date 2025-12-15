@@ -2150,6 +2150,14 @@ const EventManagement: React.FC = () => {
       let message: string;
       let campaignImageUrl: string | undefined;
       
+      // Get couple name - use groomName & brideName if coupleName is not available
+      // Define this before the if/else so it's available for templateParams
+      const coupleName = currentEvent.coupleName || 
+        (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
+         currentEvent.groomName || currentEvent.brideName || 'הזוג');
+      const groomName = currentEvent.groomName || '';
+      const brideName = currentEvent.brideName || '';
+      
       if (firstCampaign) {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
@@ -2162,12 +2170,12 @@ const EventManagement: React.FC = () => {
           .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
           .replace(/\{\{last_name\}\}/g, guest.lastName)
           .replace(/\{\{event_date\}\}/g, formatDate(currentEvent.eventDate))
-          .replace(/\{\{event_time\}\}/g, currentEvent.eventTime)
-          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew)
-          .replace(/\{\{venue\}\}/g, currentEvent.venue)
-          .replace(/\{\{couple_name\}\}/g, currentEvent.coupleName)
-          .replace(/\{\{groom_name\}\}/g, currentEvent.groomName)
-          .replace(/\{\{bride_name\}\}/g, currentEvent.brideName)
+          .replace(/\{\{event_time\}\}/g, currentEvent.eventTime || '')
+          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew || '')
+          .replace(/\{\{venue\}\}/g, currentEvent.venue || '')
+          .replace(/\{\{couple_name\}\}/g, coupleName)
+          .replace(/\{\{groom_name\}\}/g, groomName)
+          .replace(/\{\{bride_name\}\}/g, brideName)
           .replace(/\{\{table_number\}\}/g, tableNumber.toString())
           .replace(/\{\{guest_response_link\}\}/g, guestLink);
         
@@ -2175,7 +2183,7 @@ const EventManagement: React.FC = () => {
       } else {
         // Fallback to default message if no campaign found
         console.log('⚠️ No campaign found, using default message');
-        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${currentEvent.coupleName}`;
+        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
       }
 
       const { messageService } = await import('../services/messageService');
@@ -2218,17 +2226,18 @@ const EventManagement: React.FC = () => {
               // Template "aa" requires 8 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
+              // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
               templateParams: firstCampaign?.templateName ? ({
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: currentEvent.eventTypeHebrew,
-                groom_name: currentEvent.groomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
-                bride_name: currentEvent.brideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
+                event_type: currentEvent.eventTypeHebrew || '',
+                groom_name: currentEvent.groomName || '', // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
+                bride_name: currentEvent.brideName || '', // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(currentEvent.eventDate),
-                event_time: currentEvent.eventTime,
-                venue: currentEvent.venue,
-                couple_name: currentEvent.coupleName, // Parameter 8 - at the end of the template
+                event_time: currentEvent.eventTime || '',
+                venue: currentEvent.venue || '',
+                couple_name: coupleName, // Parameter 8 - at the end of the template (uses fallback if coupleName is undefined)
                 guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                 language: 'he'
               } as any) : undefined
