@@ -2201,20 +2201,21 @@ const EventManagement: React.FC = () => {
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
               // Add template params if using template "aa"
-              // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
-              // NOTE: couple_name is required by the Meta template (even if not visible in the editor, it's expected by the API)
+              // Template "aa" requires 8 parameters in order (matching the template body):
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams: firstCampaign?.templateName ? ({
-                paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                             'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
                 event_type: currentEvent.eventTypeHebrew,
-                bride_name: currentEvent.brideName, // Parameter 3 - bride_name comes BEFORE groom_name in Meta template
-                groom_name: currentEvent.groomName, // Parameter 4 - groom_name comes AFTER bride_name in Meta template
+                groom_name: currentEvent.groomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
+                bride_name: currentEvent.brideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(currentEvent.eventDate),
                 event_time: currentEvent.eventTime,
                 venue: currentEvent.venue,
-                guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
-                couple_name: currentEvent.coupleName, // Required parameter even though bride_name and groom_name are separate
+                couple_name: currentEvent.coupleName, // Parameter 8 - at the end of the template
+                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                 language: 'he'
               } as any) : undefined
         }]

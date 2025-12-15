@@ -98,19 +98,30 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
+            // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
-            // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
-            const paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
+            // NOTE: For template "aa", guest_response_link is NOT in body parameters - it's only used for the button
+            const templateName = (messageData.templateName || '').toLowerCase();
+            let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
-              : ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
+              : templateName === 'aa' || templateName === 'AA'
+                ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                   'event_date', 'event_time', 'venue', 'couple_name']
+                : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
+            
+            // CRITICAL FIX: Remove guest_response_link from body params for template "aa" if it exists
+            // Template "aa" does NOT include guest_response_link in body parameters - it's only used for the button
+            if (templateName === 'aa' || templateName === 'AA') {
+              paramsOrder = paramsOrder.filter(key => key !== 'guest_response_link');
+            }
             
             // IMPORTANT: Meta requires ALL parameters to be sent in the exact order
             // Even if a parameter is empty, we must send it (as empty string)
             // The filter only removes 'language' and 'paramsOrder' keys, but keeps all actual template parameters
+            // CRITICAL: Also filter out 'guest_response_link' for template "aa" body params (it's only for button)
             bodyParams = paramsOrder
-              .filter((key: string) => key !== 'language' && key !== 'paramsOrder')
+              .filter((key: string) => key !== 'language' && key !== 'paramsOrder' && 
+                      !(templateName === 'aa' && key === 'guest_response_link'))
               .map((key: string) => {
                 const paramValue = messageData.templateParams![key];
                 let textValue = paramValue ? String(paramValue).trim() : '';
@@ -740,8 +751,9 @@ class WhatsAppService {
                 diagnosticMessage += '\n      - No typos or extra spaces in parameter names';
                 diagnosticMessage += `\n   5. Parameters sent: ${messageData.templateParams ? Object.keys(messageData.templateParams).filter(k => k !== 'language' && k !== 'paramsOrder').length : 0}`;
                 diagnosticMessage += '\n   6. Check Error Messages section in Meta for specific parameter causing issue';
-                diagnosticMessage += '\n\n   For template "aa" (9 parameters):';
-                diagnosticMessage += '\n      guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name';
+                diagnosticMessage += '\n\n   For template "aa" (8 parameters):';
+                diagnosticMessage += '\n      guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name';
+                diagnosticMessage += '\n      (guest_response_link is only for button, not in body)';
                 diagnosticMessage += '\n\n   For template "a" (7 parameters):';
                 diagnosticMessage += '\n      guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name';
                 diagnosticMessage += '\n\n   For template "reminer" (7 parameters):';

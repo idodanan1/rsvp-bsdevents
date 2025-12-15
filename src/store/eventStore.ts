@@ -2601,21 +2601,21 @@ export const useEventStore = create<EventStore>()(
             let templateParams: any = {};
             
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
-              // Template "aa" requires 9 parameters in order:
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
-              // NOTE: couple_name is required by the Meta template (even if not visible in the editor, it's expected by the API)
+              // Template "aa" requires 8 parameters in order (matching the template body):
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams = {
-                paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                             'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
                 event_type: event.eventTypeHebrew,
-                bride_name: event.brideName,
-                groom_name: event.groomName,
+                groom_name: event.groomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
+                bride_name: event.brideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime,
                 venue: event.venue,
-                guest_response_link: guestLink,
-                couple_name: event.coupleName,
+                couple_name: event.coupleName, // Parameter 8 - at the end of the template
+                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'a') {
