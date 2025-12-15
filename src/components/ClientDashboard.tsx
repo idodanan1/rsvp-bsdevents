@@ -345,70 +345,21 @@ const ClientDashboard: React.FC = () => {
             setCurrentEvent((prev: any) => {
               if (!prev) {
                 console.log('✅ Setting initial event from API');
-                console.log(`🔍 Initial load - API returned ${foundEvent.guests?.length || 0} guests`);
-                
-                // CRITICAL: If API returned very few guests (likely incomplete), log warning
-                // This happens when the event is too large and the API response is truncated
                 const apiGuestsCount = foundEvent.guests?.length || 0;
-                const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50; // Less than 50 guests suggests incomplete data
+                console.log(`🔍 Initial load - API returned ${apiGuestsCount} guests`);
+                
+                // CRITICAL: If API returned very few guests (< 50), it's likely incomplete data
+                // Don't set incomplete data as initial - wait for complete data from polling or store
+                const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50;
                 
                 if (isLikelyIncomplete) {
                   console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
                   console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
-                  console.warn(`⚠️ Attempting to load full event data...`);
+                  console.warn(`⚠️ NOT setting incomplete data as initial - will wait for complete data from polling or store`);
                   
-                  // CRITICAL: Try to load from /api/events/:userId if user is logged in (this returns full event data)
-                  // Note: This is done asynchronously after setting initial event, not inside setCurrentEvent callback
-                  const userStorage = localStorage.getItem('rsvp-user-storage');
-                  let userId = '';
-                  if (userStorage) {
-                    try {
-                      const parsed = JSON.parse(userStorage);
-                      userId = parsed.state?.user?.id || '';
-                    } catch (e) {
-                      // Ignore parse errors
-                    }
-                  }
-                  
-                  // Load full event data asynchronously (outside of setCurrentEvent callback)
-                  // Try both /api/events/:userId (if logged in) and keep polling for updates
-                  (async () => {
-                    try {
-                      if (userId) {
-                        console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
-                        const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-                          method: 'GET',
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                          },
-                          mode: 'cors',
-                          credentials: 'omit'
-                        });
-                        
-                        if (fullResponse.ok) {
-                          const fullData = await fullResponse.json();
-                          const fullEvents = fullData.events || [];
-                          const fullEvent = fullEvents.find((e: any) => e.id === eventId);
-                          
-                          if (fullEvent && fullEvent.guests && fullEvent.guests.length > apiGuestsCount) {
-                            console.log(`✅ Loaded full event data: ${fullEvent.guests.length} guests (vs ${apiGuestsCount} from /api/events/all)`);
-                            setCurrentEvent({
-                              ...fullEvent,
-                              guests: fullEvent.guests || []
-                            });
-                            return; // Successfully loaded full data
-                          }
-                        }
-                      }
-                      
-                      // If still incomplete, log warning that polling will try to update
-                      console.warn(`⚠️ Could not load full event data. Polling will attempt to update every 5 seconds.`);
-                      console.warn(`⚠️ For immediate full guest list, please log in to the admin dashboard.`);
-                    } catch (error) {
-                      console.warn('⚠️ Failed to load full event data:', error);
-                    }
-                  })();
+                  // CRITICAL: Don't set incomplete data - return null to keep waiting for complete data
+                  // The store or polling will provide complete data later
+                  return null; // Don't set incomplete data
                 }
                 
                 // CRITICAL: Ensure guests array exists even for initial load
