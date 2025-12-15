@@ -101,16 +101,27 @@ class WhatsAppService {
             // Template "aa" requires 8 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
             // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
-            const paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
+            let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
               : ['guest_name', 'event_type', 'bride_name', 'groom_name', 
                  'event_date', 'event_time', 'venue', 'guest_response_link']) as string[];
+            
+            // CRITICAL FIX: Remove couple_name from paramsOrder for template "aa" if it exists
+            // Template "aa" does NOT include couple_name - only bride_name and groom_name
+            const templateName = (messageData.templateName || '').toLowerCase();
+            if (templateName === 'aa' || templateName === 'AA') {
+              paramsOrder = paramsOrder.filter(key => key !== 'couple_name');
+              // Also remove couple_name from templateParams if it exists
+              if (messageData.templateParams && 'couple_name' in messageData.templateParams) {
+                delete messageData.templateParams.couple_name;
+              }
+            }
             
             // IMPORTANT: Meta requires ALL parameters to be sent in the exact order
             // Even if a parameter is empty, we must send it (as empty string)
             // The filter only removes 'language' and 'paramsOrder' keys, but keeps all actual template parameters
             bodyParams = paramsOrder
-              .filter((key: string) => key !== 'language' && key !== 'paramsOrder')
+              .filter((key: string) => key !== 'language' && key !== 'paramsOrder' && key !== 'couple_name')
               .map((key: string) => {
                 const paramValue = messageData.templateParams![key];
                 let textValue = paramValue ? String(paramValue).trim() : '';
