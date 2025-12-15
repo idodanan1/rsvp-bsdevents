@@ -175,6 +175,20 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Get deletedEvents to check if event was deleted
                 const deletedEventIds = new Set(deletedEvents.map((e: any) => e.id));
                 
+                // CRITICAL FIX: Filter out deleted events from API events
+                // This prevents deleted events from being restored when they come back from API
+                const originalApiEventsCount = apiEvents.length;
+                apiEvents = apiEvents.filter((apiEvent: Event) => {
+                  if (deletedEventIds.has(apiEvent.id)) {
+                    console.log(`🚫 Filtering out deleted event ${apiEvent.id} (${apiEvent.coupleName}) from API response`);
+                    return false;
+                  }
+                  return true;
+                });
+                if (originalApiEventsCount > apiEvents.length) {
+                  console.log(`🚫 Filtered out ${originalApiEventsCount - apiEvents.length} deleted event(s) from API response`);
+                }
+                
                 // Find local events that aren't in API (need to sync)
                 // CRITICAL: Don't sync events that were deleted!
                 const localOnlyEvents = localEvents.filter((e: Event) => 
@@ -447,26 +461,34 @@ export const useEventStore = create<EventStore>()(
                 // This prevents data loss when API is empty or has sync issues
                 if (apiEvents.length === 0 && localEvents.length > 0) {
                   console.warn('⚠️ API returned empty events but local events exist - preserving local events');
-                  // Use local events instead of empty API response
-                  const localEventsForUser = localEvents.filter((e: Event) => !userId || e.userId === userId);
+                  // Get deletedEvents from stored data first
+                  let deletedEventsForPreserve: any[] = [];
+                  try {
+                    const stored = localStorage.getItem('rsvp-events-storage');
+                    if (stored) {
+                      const parsed = JSON.parse(stored);
+                      deletedEventsForPreserve = parsed.state?.deletedEvents || [];
+                    }
+                  } catch (e) {
+                    // Ignore parsing errors
+                  }
+                  const deletedEventIdsForPreserve = new Set(deletedEventsForPreserve.map((e: any) => e.id));
+                  // Use local events instead of empty API response, but filter out deleted events
+                  const localEventsForUser = localEvents.filter((e: Event) => {
+                    // CRITICAL: Don't preserve deleted events
+                    if (deletedEventIdsForPreserve.has(e.id)) {
+                      console.log(`🚫 Filtering out deleted event ${e.id} (${e.coupleName}) from preserved local events`);
+                      return false;
+                    }
+                    return !userId || e.userId === userId;
+                  });
                   if (localEventsForUser.length > 0) {
                     console.log(`🛡️ Preserving ${localEventsForUser.length} local events (API returned empty)`);
-                    // Get deletedEvents from stored data
-                    let deletedEvents: any[] = [];
-                    try {
-                      const stored = localStorage.getItem('rsvp-events-storage');
-                      if (stored) {
-                        const parsed = JSON.parse(stored);
-                        deletedEvents = parsed.state?.deletedEvents || [];
-                      }
-                    } catch (e) {
-                      // Ignore parsing errors
-                    }
-                    // Save local events to localStorage
+                    // Save local events to localStorage (without deleted events)
                   localStorage.setItem('rsvp-events-storage', JSON.stringify({
                     state: {
-                        events: localEvents, // Save ALL local events, not just filtered
-                        deletedEvents: deletedEvents,
+                        events: localEventsForUser, // Save filtered local events (without deleted)
+                        deletedEvents: deletedEventsForPreserve,
                       currentEvent: null
                     }
                   }));
@@ -519,8 +541,15 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL FIX: Only save events that belong to current user!
                 // Don't save events from other users at all!
                 // IMPORTANT: Exclude admin events (admin-fixed-id) for regular users
+                // CRITICAL: Also filter out deleted events to prevent them from being restored
+                const deletedEventIdsForSave = new Set(deletedEvents.map((e: any) => e.id));
                 const eventsToSaveFiltered = userId 
                   ? eventsToSave.filter((e: Event) => {
+                      // CRITICAL: Don't save deleted events
+                      if (deletedEventIdsForSave.has(e.id)) {
+                        console.log(`🚫 Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
+                        return false;
+                      }
                       // If event belongs to admin, exclude it for regular users
                       if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
                         return false;
@@ -528,7 +557,14 @@ export const useEventStore = create<EventStore>()(
                       // Keep events that belong to current user or have no userId/anonymous
                       return e.userId === userId || !e.userId || e.userId === 'anonymous';
                     })
-                  : eventsToSave;
+                  : eventsToSave.filter((e: Event) => {
+                      // CRITICAL: Don't save deleted events even if no userId filter
+                      if (deletedEventIdsForSave.has(e.id)) {
+                        console.log(`🚫 Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
+                        return false;
+                      }
+                      return true;
+                    });
                 
                 // Save ONLY current user's events to localStorage
                 localStorage.setItem('rsvp-events-storage', JSON.stringify({
@@ -543,7 +579,9 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
                 // CRITICAL: Always create new array reference to ensure React detects changes
                 const finalEvents = allEventsWithRemaining.length > 0 ? [...allEventsWithRemaining] : [...localEvents];
-                const filteredEvents = userId ? finalEvents.filter((e: Event) => e.userId === userId) : finalEvents;
+                // CRITICAL: Filter out deleted events before filtering by userId
+                const finalEventsWithoutDeleted = finalEvents.filter((e: Event) => !deletedEventIds.has(e.id));
+                const filteredEvents = userId ? finalEventsWithoutDeleted.filter((e: Event) => e.userId === userId) : finalEventsWithoutDeleted;
                 
                 // CRITICAL: If filteredEvents is empty but we have local events, preserve them
                 if (filteredEvents.length === 0 && localEvents.length > 0) {
@@ -579,6 +617,11 @@ export const useEventStore = create<EventStore>()(
                     });
                   
                   const localEventsForUser = eventsToShow.filter((e: Event) => {
+                    // CRITICAL: Don't show deleted events
+                    if (deletedEventIds.has(e.id)) {
+                      console.log(`🚫 Filtering out deleted event ${e.id} (${e.coupleName}) from localEventsForUser`);
+                      return false;
+                    }
                     // Exclude admin events for regular users
                     if (e.userId === 'admin-fixed-id' && userId !== 'admin-fixed-id') {
                       return false;
