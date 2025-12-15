@@ -98,8 +98,6 @@ export const useEventStore = create<EventStore>()(
           set({ isLoading: true, error: null });
         }
         try {
-          console.log('🔍 Fetching events for user:', { userId, userEmail, forceRefresh });
-
           // Try to fetch from API first (for syncing between computers)
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           let apiEvents: Event[] = [];
@@ -114,7 +112,6 @@ export const useEventStore = create<EventStore>()(
             if (!forceRefresh) {
               const cachedEvents = cacheService.get<Event[]>(cacheKey);
               if (cachedEvents && cachedEvents.length > 0) {
-                console.log(`💾 Using cached events (${cachedEvents.length} events) for immediate display`);
                 // Use cache for immediate display, but still fetch from API in background
                 apiEvents = cachedEvents;
                 useCache = true;
@@ -125,16 +122,13 @@ export const useEventStore = create<EventStore>()(
             // Even if we have cache, we need fresh data from API
             if (forceRefresh || !useCache || true) { // Always fetch from API
               try {
-                console.log('🌐 Fetching events from API...');
                 const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
                 if (response.ok) {
                   const data = await response.json();
                   apiEvents = data.events || [];
-                  console.log(`✅ Fetched ${apiEvents.length} events from API`);
                   
                   // Cache the API response (5 seconds TTL for fast updates)
                   cacheService.set(cacheKey, apiEvents, 5000);
-                  console.log(`💾 Cached events for user ${userId}`);
                 
                 // Get local events to merge
                 // CRITICAL: Always read from localStorage to get the latest events (including newly created ones)
@@ -157,16 +151,13 @@ export const useEventStore = create<EventStore>()(
                       })) || []
                     }));
                     
-                    console.log('📦 Loaded local events from storage:', localEvents.length);
                     // Log recently created events (within last 5 minutes)
                     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
                     const recentEvents = localEvents.filter((e: Event) => {
                       const createdAt = e.createdAt ? new Date(e.createdAt).getTime() : 0;
                       return createdAt > fiveMinutesAgo;
                     });
-                    if (recentEvents.length > 0) {
-                      console.log('🆕 Found recently created events:', recentEvents.map(e => ({ id: e.id, name: e.coupleName })));
-                    }
+                    // Recent events logged for debugging if needed
                   } catch (e) {
                     console.warn('⚠️ Error parsing local events:', e);
                   }
@@ -177,7 +168,6 @@ export const useEventStore = create<EventStore>()(
                 if (currentState.events && currentState.events.length > 0) {
                   currentState.events.forEach((stateEvent: Event) => {
                     if (!localEvents.find(e => e.id === stateEvent.id)) {
-                      console.log('🆕 Found new event in state not in storage:', stateEvent.id);
                       localEvents.push(stateEvent);
                     }
                   });
@@ -550,8 +540,6 @@ export const useEventStore = create<EventStore>()(
                   }
                 }));
                 
-                console.log('💾 Saved events to localStorage:', eventsToSaveFiltered.length, 'events (current user only)');
-                
                 // Use API events as primary source (they're synced)
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
                 // CRITICAL: Always create new array reference to ensure React detects changes
@@ -657,8 +645,6 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Create new array reference to force React re-render
                 // This ensures the table updates when events are synced from API (other devices)
-                console.log('🔄 Creating new events array reference from API sync to force React re-render');
-                console.log('📊 Setting events:', uniqueEvents.length, 'events with', uniqueEvents.reduce((sum, e) => sum + (e.guests?.length || 0), 0), 'total guests');
                 
                 // CRITICAL: Create deep copy of events with new references for all nested objects
                 // This ensures React detects ALL changes, including nested guest changes
@@ -4359,9 +4345,6 @@ export const useEventStore = create<EventStore>()(
                 }
               });
               
-              console.log('💾 Saving to storage - Current user events:', mergedEvents.length);
-              console.log('💾 Events from state:', currentEventsFromState.length);
-              
               // CRITICAL: Clean all guest names before saving to localStorage
               const cleanedMergedEvents = mergedEvents.map((event: Event) => ({
                 ...event,
@@ -4425,18 +4408,8 @@ export const useEventStore = create<EventStore>()(
         };
       },
       onRehydrateStorage: () => (state) => {
-        console.log('🔄 Rehydrating from localStorage...', state);
         if (state) {
-          console.log('📋 Restored events:', state.events?.length || 0);
-          state.events?.forEach((event: any, index: number) => {
-            console.log(`📅 Event ${index + 1}:`, {
-              id: event.id,
-              coupleName: event.coupleName,
-              guestsCount: event.guests?.length || 0,
-              campaignsCount: event.campaigns?.length || 0,
-              tablesCount: event.tables?.length || 0
-            });
-          });
+          // Events restored from localStorage
         }
       },
     }

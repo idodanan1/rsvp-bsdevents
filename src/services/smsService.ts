@@ -17,10 +17,7 @@ class SMSService {
   
   constructor() {
     try {
-      console.log('🔧 SMS Service initialized:');
-      console.log('📱 Account SID:', this.accountSid);
-      console.log('🔑 Auth Token:', this.authToken ? 'Set' : 'Not set');
-      console.log('🌐 API URL:', this.apiUrl);
+      // SMS Service initialized
     } catch (error) {
       console.error('❌ Error initializing SMS Service:', error);
       // Don't throw - allow app to continue loading

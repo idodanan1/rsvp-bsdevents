@@ -27,10 +27,7 @@ class WhatsAppService {
   
   constructor() {
     try {
-      console.log('🔧 WhatsApp Service initialized:');
-      console.log('📱 Phone Number ID:', this.phoneNumberId);
-      console.log('🔑 Access Token:', this.accessToken ? 'Set' : 'Not set');
-      console.log('🌐 Using WhatsApp Business API directly');
+      // WhatsApp Service initialized
     } catch (error) {
       console.error('❌ Error initializing WhatsApp Service:', error);
       // Don't throw - allow app to continue loading
@@ -60,10 +57,6 @@ class WhatsAppService {
       const accessToken = this.accessToken;
       const phoneNumberId = this.phoneNumberId;
       
-      console.log('📞 WhatsApp Business phone:', phoneNumber);
-      console.log('🔑 Access Token:', accessToken ? 'Set' : 'Not set');
-      console.log('📱 Phone Number ID:', phoneNumberId);
-
       // Build message payload - exactly as Meta requires
       // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
       let messagePayload: any = {

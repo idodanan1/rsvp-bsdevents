@@ -68,7 +68,6 @@ export const useClientStore = create<ClientStore>()(
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state && parsed.state.clients) {
-              console.log('📋 Found existing clients:', parsed.state.clients.length);
               set({ 
                 clients: parsed.state.clients, 
                 reminders: parsed.state.reminders || [],

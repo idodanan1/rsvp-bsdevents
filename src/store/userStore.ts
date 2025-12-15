@@ -489,7 +489,6 @@ export const useUserStore = create<UserStore>()(
             localStorage.setItem('rsvp-last-session-id', newSessionId);
             sessionStorage.setItem('rsvp-session-id', newSessionId);
           } else {
-            console.log('🔄 Rehydrating user state for existing session...');
             // Session matches - keep authentication state
             // Ensure sessionId is in both storages
             if (sessionIdFromStorage) {

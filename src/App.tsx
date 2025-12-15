@@ -52,14 +52,9 @@ function App() {
   const fetchClients = useClientStore(state => state.fetchClients);
   const { user, isAuthenticated, logout } = useUserStore();
   
-  // Log app initialization
+  // App initialization
   React.useEffect(() => {
-    console.log('🚀 App component initialized');
-    console.log('🚀 Current URL:', window.location.href);
-    console.log('🚀 Current hash:', window.location.hash);
-    console.log('🚀 Current pathname:', window.location.pathname);
-    console.log('🚀 Is authenticated:', isAuthenticated);
-    console.log('🚀 Has user:', !!user);
+    // App initialized
   }, []);
 
   // Load data in background - don't block rendering
@@ -89,7 +84,7 @@ function App() {
             c => c.status === 'scheduled' && c.scheduledDate
           );
 
-          console.log(`📅 Found ${scheduledCampaigns.length} scheduled campaigns to initialize`);
+          // Initialize scheduled campaigns
 
           // Reschedule each campaign
           for (const campaign of scheduledCampaigns) {

@@ -148,7 +148,6 @@ const Dashboard: React.FC = () => {
 
   // פתיחת חלון עריכת אירוע
   const handleEditEvent = (event: any) => {
-    console.log('Edit button clicked for event:', event);
     setSelectedEventForEdit(event);
     setShowEditEventModal(true);
   };
@@ -379,8 +378,6 @@ const Dashboard: React.FC = () => {
               const maybe = event.guests.filter(g => g.rsvpStatus === 'maybe').length;
               const pending = event.guests.filter(g => g.rsvpStatus === 'pending').length;
               const total = event.guests.length;
-              
-              console.log('Event ID:', event.id, 'Event Name:', event.coupleName);
 
               return (
                 <div 
@@ -448,31 +445,26 @@ const Dashboard: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Edit button clicked for event:', event);
                           handleEditEvent(event);
                         }}
                         onPointerUp={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Edit button pointer up for event:', event);
                           handleEditEvent(event);
                         }}
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Edit button pointer down for event:', event);
                           handleEditEvent(event);
                         }}
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Edit button clicked for event:', event);
                           handleEditEvent(event);
                         }}
                         onTouchStart={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('Edit button touched for event:', event);
                           handleEditEvent(event);
                         }}
                         className="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors cursor-pointer"
@@ -498,7 +490,6 @@ const Dashboard: React.FC = () => {
                         onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          console.log('View button pointer down for event:', event);
                           navigate(`/event/${event.id}/view`);
                         }}
                         onMouseDown={(e) => {
