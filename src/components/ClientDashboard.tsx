@@ -660,10 +660,19 @@ const ClientDashboard: React.FC = () => {
                   .sort((a: any, b: any) => {
                     // Sort by responseDate (most recent first)
                     // Guests with responseDate come first, then guests without
-                    const aDate = a.responseDate ? new Date(a.responseDate).getTime() : 0;
-                    const bDate = b.responseDate ? new Date(b.responseDate).getTime() : 0;
-                    // Sort descending (newest first)
-                    return bDate - aDate;
+                    try {
+                      const aDate = a.responseDate && a.responseDate !== null && a.responseDate !== undefined 
+                        ? new Date(a.responseDate).getTime() 
+                        : 0;
+                      const bDate = b.responseDate && b.responseDate !== null && b.responseDate !== undefined 
+                        ? new Date(b.responseDate).getTime() 
+                        : 0;
+                      // Sort descending (newest first)
+                      return bDate - aDate;
+                    } catch (error) {
+                      // If date parsing fails, treat as 0 (no date)
+                      return 0;
+                    }
                   })
                   .map((guest: any) => (
                   <tr key={guest.id} className="hover:bg-gray-50">
