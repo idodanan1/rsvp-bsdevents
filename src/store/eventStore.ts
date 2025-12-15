@@ -901,13 +901,13 @@ export const useEventStore = create<EventStore>()(
               name: 'הזמנה ראשונית',
               message: `🎉 שלום {{guest_name}}!
 
-אנחנו שמחים להזמין אותך ל{{event_type}} של {{couple_name}}!
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
-📅 {{event_date}} | 🕐 {{event_time}}
-📍 {{venue}}
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
 
-{{guest_response_link}}
-
+אנא אשר/י הגעה 
 בברכה,
 {{couple_name}} 💕`,
               channel: 'whatsapp' as const,
@@ -937,35 +937,32 @@ export const useEventStore = create<EventStore>()(
                 }
               ],
               // SMS fallback with link
-              smsMessage: `שלום {{guest_name}}! 
+              smsMessage: `🎉 שלום {{guest_name}}!
 
-אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
 🕐 שעה: {{event_time}}
 📍 מיקום: {{venue}}
 
-אנא אשר/י הגעה בקישור הבא:
-{{guest_response_link}}
-
+אנא אשר/י הגעה 
 בברכה,
-{{couple_name}}`
+{{couple_name}} 💕`
             },
             {
               id: generateId(),
               name: 'תזכורת שנייה',
-              message: `⏰ שלום {{guest_name}}! 
+              message: `🎉 שלום {{guest_name}}!
 
-תזכורת חמה: ה{{event_type}} של {{couple_name}} מתקרב! 
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
 🕐 שעה: {{event_time}}
 📍 מיקום: {{venue}}
 
-אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
-🔗 {{guest_response_link}}
-
-מחכים לראות אותך! 🎉`,
+אנא אשר/י הגעה 
+בברכה,
+{{couple_name}} 💕`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 14 * 24 * 60 * 60 * 1000), // 14 days before
               status: 'draft' as const,
@@ -986,38 +983,31 @@ export const useEventStore = create<EventStore>()(
                 }
               ],
               // SMS fallback with link
-              smsMessage: `שלום {{guest_name}}! 
+              smsMessage: `🎉 שלום {{guest_name}}!
 
-תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
 🕐 שעה: {{event_time}}
 📍 מיקום: {{venue}}
 
-אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
-{{guest_response_link}}
-
-מחכים לראות אותך!`
+אנא אשר/י הגעה 
+בברכה,
+{{couple_name}} 💕`
             },
             {
               id: generateId(),
               name: 'תזכורת שבועית',
-              message: `⏰ שלום {{guest_name}}!
+              message: `🎉 שלום {{guest_name}}!
 
-תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
-
 🕐 שעה: {{event_time}}
-
 📍 מיקום: {{venue}}
 
-אנא אשר/י הגעה עד סוף השבוע:
-
-🔗 {{guest_response_link}}
-
+אנא אשר/י הגעה 
 בברכה,
-
 {{couple_name}} 💕`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days before
@@ -1039,21 +1029,17 @@ export const useEventStore = create<EventStore>()(
                 }
               ],
               // SMS fallback with link
-              smsMessage: `⏰ שלום {{guest_name}}!
+              smsMessage: `🎉 שלום {{guest_name}}!
 
-תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+אנחנו שמחים להזמין אותך לחתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
-
 🕐 שעה: {{event_time}}
-
 📍 מיקום: {{venue}}
 
-אנא אשר/י הגעה עד סוף השבוע:
-{{guest_response_link}}
-
+אנא אשר/י הגעה 
 בברכה,
-{{couple_name}}`
+{{couple_name}} 💕`
             },
             {
               id: generateId(),
@@ -1113,24 +1099,17 @@ export const useEventStore = create<EventStore>()(
             {
               id: generateId(),
               name: 'תזכורת יום האירוע',
-              message: `🎉 שלום {{guest_name}}! 
-
-היום זה היום! ה{{event_type}} של {{couple_name}} מתקיים היום! 
+              message: `🎉 שלום {{guest_name}}!
+מחר זה קורה! החתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
 🕐 שעה: {{event_time}}
 📍 מיקום: {{venue}}
 🪑 שולחן: {{table_number}}
 
-סרוק את קוד ה-QR המצורף כשתגיע לאולם כדי:
-✅ לקבל הודעה על מספר השולחן שלך
-✅ לקבל ברכה אישית
-✅ להירשם במערכת שהגעת
+🔗 לעדכון סטטוס ההגעה לחץ
 
-מחכים לראות אותך! 💕
-
-בברכה,
-{{couple_name}}`,
+לא לשכוח להביא מצב רוח טוב! 😊`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(new Date(eventData.eventDate).setHours(8, 0, 0, 0)), // Same day at 8 AM
               status: 'draft' as const,
@@ -1149,21 +1128,17 @@ export const useEventStore = create<EventStore>()(
                 }
               ],
               // SMS fallback with link
-              smsMessage: `שלום {{guest_name}}! 
-
-היום זה היום! ה{{event_type}} של {{couple_name}} מתקיים היום! 
+              smsMessage: `🎉 שלום {{guest_name}}!
+מחר זה קורה! החתונה של {{couple_name}}!
 
 📅 תאריך: {{event_date}}
 🕐 שעה: {{event_time}}
 📍 מיקום: {{venue}}
 🪑 שולחן: {{table_number}}
 
-סרוק את קוד ה-QR המצורף כשתגיע לאולם.
+🔗 לעדכון סטטוס ההגעה לחץ
 
-מחכים לראות אותך!
-
-בברכה,
-{{couple_name}}`
+לא לשכוח להביא מצב רוח טוב! 😊`
             },
             {
               id: generateId(),
