@@ -4450,7 +4450,20 @@ app.get('/api/events/:eventId', async (req, res) => {
     console.log(`📋 Loading events from file for eventId: ${eventId}`);
     loadEvents();
     
+    // CRITICAL: Ensure eventsData.events exists and is an array
+    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
+      console.error(`❌ eventsData.events is not an array! eventsData:`, eventsData);
+      res.status(500).json({
+        success: false,
+        error: 'Events data not available',
+        details: 'eventsData.events is not an array'
+      });
+      return;
+    }
+    
     console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
+    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+    
     const event = eventsData.events.find(e => e.id === eventId);
     
     if (!event) {
@@ -4458,7 +4471,8 @@ app.get('/api/events/:eventId', async (req, res) => {
       console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
       res.status(404).json({
         success: false,
-        error: 'Event not found'
+        error: 'Event not found',
+        availableEventIds: eventsData.events.map(e => e.id)
       });
       return;
     }
@@ -4473,7 +4487,13 @@ app.get('/api/events/:eventId', async (req, res) => {
       event: event
     };
     
-    console.log(`📋 Response data size: ${JSON.stringify(responseData).length} bytes`);
+    const responseSize = JSON.stringify(responseData).length;
+    console.log(`📋 Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
+    
+    // CRITICAL: Set response headers to handle large responses
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', responseSize.toString());
+    
     res.json(responseData);
   } catch (error) {
     console.error('❌ Error fetching event:', error);
