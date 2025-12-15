@@ -180,8 +180,17 @@ const ClientDashboard: React.FC = () => {
             credentials: 'omit'
           });
           
+          console.log(`🔍 Single event response status: ${singleEventResponse.status} ${singleEventResponse.statusText}`);
+          
           if (singleEventResponse.ok) {
             const singleEventData = await singleEventResponse.json();
+            console.log(`🔍 Single event response data:`, {
+              success: singleEventData.success,
+              hasEvent: !!singleEventData.event,
+              eventId: singleEventData.event?.id,
+              guestsCount: singleEventData.event?.guests?.length || 0
+            });
+            
             if (singleEventData.success && singleEventData.event) {
               foundEvent = singleEventData.event;
               console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
@@ -189,12 +198,17 @@ const ClientDashboard: React.FC = () => {
               // Fallback: if response doesn't have success field but has event
               foundEvent = singleEventData.event;
               console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
+            } else {
+              console.warn(`⚠️ Single event endpoint returned OK but no event data. Response:`, singleEventData);
             }
           } else if (singleEventResponse.status === 404) {
             console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
+          } else {
+            const errorText = await singleEventResponse.text();
+            console.error(`❌ Single event endpoint returned error ${singleEventResponse.status}:`, errorText);
           }
         } catch (error) {
-          console.log(`⚠️ Single event endpoint error, trying other endpoints:`, error);
+          console.error(`❌ Single event endpoint error, trying other endpoints:`, error);
         }
         
         // If single event endpoint didn't work, try /api/events/:userId (but it may also truncate)

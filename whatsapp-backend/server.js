@@ -4425,11 +4425,13 @@ app.get('/api/events/:eventId', async (req, res) => {
   
   try {
     const { eventId } = req.params;
+    console.log(`📋 GET /api/events/${eventId} - Request received`);
     
     // Check if eventId looks like a userId (starts with "user_")
     // If so, treat it as /api/events/:userId endpoint
     if (eventId.startsWith('user_')) {
       const userId = eventId;
+      console.log(`📋 Treating ${eventId} as userId, filtering events...`);
       // Filter events by userId
       const userEvents = eventsData.events.filter(e => e.userId === userId);
       
@@ -4445,12 +4447,15 @@ app.get('/api/events/:eventId', async (req, res) => {
     
     // Otherwise, treat it as eventId and return single event
     // CRITICAL: Reload events from file first to ensure we have latest data
+    console.log(`📋 Loading events from file for eventId: ${eventId}`);
     loadEvents();
     
+    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
     const event = eventsData.events.find(e => e.id === eventId);
     
     if (!event) {
       console.log(`❌ Event ${eventId} not found`);
+      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
       res.status(404).json({
         success: false,
         error: 'Event not found'
@@ -4458,15 +4463,21 @@ app.get('/api/events/:eventId', async (req, res) => {
       return;
     }
     
-    console.log(`📋 GET /api/events/${eventId} - Returning event with ${event.guests?.length || 0} guests`);
+    const guestsCount = event.guests?.length || 0;
+    console.log(`📋 GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
+    console.log(`📋 Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
     
     // CRITICAL: Return the FULL event with ALL guests (no truncation)
-    res.json({
+    const responseData = {
       success: true,
       event: event
-    });
+    };
+    
+    console.log(`📋 Response data size: ${JSON.stringify(responseData).length} bytes`);
+    res.json(responseData);
   } catch (error) {
     console.error('❌ Error fetching event:', error);
+    console.error('❌ Error stack:', error.stack);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
       success: false,
