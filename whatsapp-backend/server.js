@@ -4351,13 +4351,31 @@ app.get('/api/events/all', async (req, res) => {
   
   try {
     
-    // CRITICAL: Reload events from file first to ensure we have latest data
-    // This ensures sync between multiple server instances
-    loadEvents();
-    
-    // CRITICAL: Use eventsData.events from memory (not from file directly)
-    // This ensures we return the most up-to-date events that may have been updated in memory
-    const events = eventsData.events || [];
+    // CRITICAL: Read directly from file to ensure we have latest data
+    // This bypasses any potential memory issues or stale data
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        events = fileData.events || [];
+        console.log(`📋 [EVENTS_ALL] Read ${events.length} events directly from file`);
+        
+        // Log guest counts for debugging
+        events.forEach(e => {
+          const guestCount = e.guests?.length || 0;
+          console.log(`📋 [EVENTS_ALL] Event ${e.id}: ${guestCount} guests`);
+        });
+      } else {
+        console.warn(`⚠️ [EVENTS_ALL] Events file does not exist, using memory fallback`);
+        loadEvents();
+        events = eventsData.events || [];
+      }
+    } catch (error) {
+      console.error(`❌ [EVENTS_ALL] Error reading events file:`, error);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+    }
     
     console.log(`📋 Events in memory: ${events.length}`);
     console.log(`📋 Events file path: ${eventsFilePath}`);
@@ -4417,6 +4435,7 @@ app.options('/api/events/all', (req, res) => {
 // Get guests for a specific event (public endpoint - for client dashboard)
 // CRITICAL: This endpoint returns ONLY the guests array for an event (no truncation)
 // This is a workaround for large events that get truncated in /api/events/all
+// CRITICAL: Read DIRECTLY from file to ensure we have ALL guests
 app.get('/api/events/:eventId/guests', async (req, res) => {
   // CRITICAL: Set CORS headers FIRST - before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -4427,30 +4446,44 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
   
   try {
     const { eventId } = req.params;
-    console.log(`📋 GET /api/events/${eventId}/guests - Request received`);
+    console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Request received`);
+    console.log(`📋 [GUESTS_ENDPOINT] Events file path: ${eventsFilePath}`);
+    console.log(`📋 [GUESTS_ENDPOINT] Events file exists: ${fs.existsSync(eventsFilePath)}`);
     
     // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
-    console.log(`📋 Reading events directly from file for guests endpoint`);
+    // This is CRITICAL because eventsData might be stale or incomplete
+    console.log(`📋 [GUESTS_ENDPOINT] Reading events directly from file`);
     
     let events = [];
     try {
       if (fs.existsSync(eventsFilePath)) {
-        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+        console.log(`📋 [GUESTS_ENDPOINT] File size: ${fileContent.length} bytes`);
+        const fileData = JSON.parse(fileContent);
         events = fileData.events || [];
-        console.log(`📋 Read ${events.length} events directly from file`);
+        console.log(`📋 [GUESTS_ENDPOINT] Read ${events.length} events directly from file`);
+        
+        // Log guest counts for debugging
+        events.forEach(e => {
+          const guestCount = e.guests?.length || 0;
+          if (e.id === eventId) {
+            console.log(`📋 [GUESTS_ENDPOINT] Found event ${eventId} with ${guestCount} guests in file`);
+          }
+        });
       } else {
-        console.warn(`⚠️ Events file does not exist: ${eventsFilePath}`);
+        console.warn(`⚠️ [GUESTS_ENDPOINT] Events file does not exist: ${eventsFilePath}`);
         // Fallback: try loadEvents() and use eventsData
         loadEvents();
         events = eventsData.events || [];
-        console.log(`📋 Using eventsData fallback: ${events.length} events`);
+        console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback: ${events.length} events`);
       }
     } catch (error) {
-      console.error(`❌ Error reading events file:`, error);
+      console.error(`❌ [GUESTS_ENDPOINT] Error reading events file:`, error);
+      console.error(`❌ [GUESTS_ENDPOINT] Error stack:`, error.stack);
       // Fallback: try loadEvents() and use eventsData
       loadEvents();
       events = eventsData.events || [];
-      console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+      console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback after error: ${events.length} events`);
     }
     
     // CRITICAL: Ensure events is an array
