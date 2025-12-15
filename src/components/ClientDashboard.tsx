@@ -208,8 +208,30 @@ const ClientDashboard: React.FC = () => {
               const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
               
               if (newUpdatedAt >= prevUpdatedAt) {
-                console.log('✅ Updating from API (newer or same timestamp)');
-                return foundEvent;
+                console.log('✅ Updating from API (newer or same timestamp) - merging data');
+                // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
+                // This prevents losing data like coupleName, campaigns, tables, etc.
+                const mergedEvent = {
+                  ...prev, // Start with previous data
+                  ...foundEvent, // Override with API data (which is newer)
+                  // CRITICAL: Preserve important fields from prev if they're missing in API
+                  coupleName: foundEvent.coupleName || prev.coupleName,
+                  campaigns: foundEvent.campaigns || prev.campaigns || [],
+                  tables: foundEvent.tables || prev.tables || [],
+                  venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                  eventImages: foundEvent.eventImages || prev.eventImages || [],
+                  // CRITICAL: Merge guests intelligently - API has source of truth for guest data
+                  guests: foundEvent.guests || prev.guests || []
+                };
+                console.log('🔍 Merged event data:', {
+                  coupleName: mergedEvent.coupleName,
+                  groomName: mergedEvent.groomName,
+                  brideName: mergedEvent.brideName,
+                  guestsCount: mergedEvent.guests?.length || 0,
+                  campaignsCount: mergedEvent.campaigns?.length || 0,
+                  tablesCount: mergedEvent.tables?.length || 0
+                });
+                return mergedEvent;
               } else {
                 console.log('⚠️ Ignoring API data (older than current)');
                 console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
@@ -262,7 +284,7 @@ const ClientDashboard: React.FC = () => {
             updatedAt: foundEvent.updatedAt
           });
           
-          // CRITICAL: Only update if new data is more recent than current
+          // CRITICAL: Merge data instead of replacing to preserve local fields
           setCurrentEvent((prev: any) => {
             if (!prev) {
               return foundEvent;
@@ -273,8 +295,21 @@ const ClientDashboard: React.FC = () => {
             const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
             
             if (newUpdatedAt >= prevUpdatedAt) {
-              console.log('✅ Updating from fetchEvents (newer or same timestamp)');
-              return foundEvent;
+              console.log('✅ Updating from fetchEvents (newer or same timestamp) - merging data');
+              // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
+              const mergedEvent = {
+                ...prev, // Start with previous data
+                ...foundEvent, // Override with fetchEvents data (which is newer)
+                // CRITICAL: Preserve important fields from prev if they're missing
+                coupleName: foundEvent.coupleName || prev.coupleName,
+                campaigns: foundEvent.campaigns || prev.campaigns || [],
+                tables: foundEvent.tables || prev.tables || [],
+                venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                eventImages: foundEvent.eventImages || prev.eventImages || [],
+                // CRITICAL: Merge guests intelligently
+                guests: foundEvent.guests || prev.guests || []
+              };
+              return mergedEvent;
             } else {
               console.log('⚠️ Ignoring fetchEvents data (older than current)');
               return prev; // Keep current (newer) data
@@ -381,9 +416,22 @@ const ClientDashboard: React.FC = () => {
                   }
                 }
                 
-                if (hasChanged) {
-                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling');
-                  return foundEvent;
+                if (hasChanged || newUpdatedAt > prevUpdatedAt) {
+                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
+                  // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
+                  const mergedEvent = {
+                    ...prev, // Start with previous data
+                    ...foundEvent, // Override with polling data (which is newer)
+                    // CRITICAL: Preserve important fields from prev if they're missing
+                    coupleName: foundEvent.coupleName || prev.coupleName,
+                    campaigns: foundEvent.campaigns || prev.campaigns || [],
+                    tables: foundEvent.tables || prev.tables || [],
+                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                    eventImages: foundEvent.eventImages || prev.eventImages || [],
+                    // CRITICAL: Use API guests (source of truth) but preserve any local-only guests
+                    guests: foundEvent.guests || prev.guests || []
+                  };
+                  return mergedEvent;
                 }
                 return prev;
               });
