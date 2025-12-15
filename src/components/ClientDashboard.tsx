@@ -58,13 +58,43 @@ const ClientDashboard: React.FC = () => {
     
     console.log(`🔍 ClientDashboard loading event silently: ${eventId}`);
     
-    // Try to find event in current events first (for fast initial display)
-      const event = events.find(e => e.id === eventId);
-      if (event) {
+    // CRITICAL: Try to load from localStorage FIRST (even on new device) - might have data from previous session
+    // This is important because API might return incomplete data for large events
+    let eventFromStorage: any = null;
+    try {
+      const stored = localStorage.getItem('rsvp-events-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.state && parsed.state.events) {
+          eventFromStorage = parsed.state.events.find((e: any) => e.id === eventId);
+          if (eventFromStorage) {
+            const displayName = eventFromStorage.coupleName || 
+              (eventFromStorage.groomName && eventFromStorage.brideName ? `${eventFromStorage.groomName} & ${eventFromStorage.brideName}` : 
+               eventFromStorage.groomName || eventFromStorage.brideName || 'אירוע');
+            console.log(`✅ Found event in localStorage: ${displayName} - ${eventFromStorage.guests?.length || 0} guests`);
+            console.log(`🔍 Event details from localStorage:`, {
+              coupleName: eventFromStorage.coupleName,
+              groomName: eventFromStorage.groomName,
+              brideName: eventFromStorage.brideName,
+              eventDate: eventFromStorage.eventDate,
+              venue: eventFromStorage.venue,
+              guestsCount: eventFromStorage.guests?.length || 0,
+              updatedAt: eventFromStorage.updatedAt
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing localStorage:', error);
+    }
+    
+    // Try to find event in current events (for fast initial display)
+    const event = events.find(e => e.id === eventId);
+    if (event) {
       const displayName = event.coupleName || 
         (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
          event.groomName || event.brideName || 'אירוע');
-      console.log(`✅ Found event in store: ${displayName} - showing immediately, will update from backend`);
+      console.log(`✅ Found event in store: ${displayName} - ${event.guests?.length || 0} guests`);
       console.log(`🔍 Event details:`, {
         coupleName: event.coupleName,
         groomName: event.groomName,
@@ -75,7 +105,7 @@ const ClientDashboard: React.FC = () => {
         updatedAt: event.updatedAt
       });
       
-      // CRITICAL: Only set if we don't have currentEvent or if this is newer
+      // CRITICAL: Prefer store over localStorage if both exist (store is more up-to-date)
       setCurrentEvent((prev: any) => {
         if (!prev) {
           return event;
@@ -88,75 +118,50 @@ const ClientDashboard: React.FC = () => {
         if (newUpdatedAt >= prevUpdatedAt) {
           console.log('✅ Updating from store (newer or same timestamp)');
           return event;
-      } else {
+        } else {
           console.log('⚠️ Ignoring store data (older than current)');
           return prev; // Keep current (newer) data
         }
       });
       // Continue to load from API to get latest data
-    }
-    
-    // Try to load from localStorage (for fast display if not in store)
-    if (!event) {
-        try {
-          const stored = localStorage.getItem('rsvp-events-storage');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.state && parsed.state.events) {
-              const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-              if (foundEvent) {
-              const displayName = foundEvent.coupleName || 
-                (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
-                 foundEvent.groomName || foundEvent.brideName || 'אירוע');
-              console.log(`✅ Found event in localStorage: ${displayName} - showing immediately, will update from backend`);
-              console.log(`🔍 Event details from localStorage:`, {
-                coupleName: foundEvent.coupleName,
-                groomName: foundEvent.groomName,
-                brideName: foundEvent.brideName,
-                eventDate: foundEvent.eventDate,
-                venue: foundEvent.venue,
-                guestsCount: foundEvent.guests?.length || 0,
-                updatedAt: foundEvent.updatedAt
-              });
-              
-              // CRITICAL: Only set if we don't have currentEvent or if this is newer
-              setCurrentEvent((prev: any) => {
-                if (!prev) {
-                  // CRITICAL: Ensure guests array exists
-                  return {
-                    ...foundEvent,
-                    guests: foundEvent.guests || []
-                  };
-                }
-                
-                // Compare updatedAt timestamps
-                const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
-                const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
-                
-                if (newUpdatedAt >= prevUpdatedAt) {
-                  console.log('✅ Updating from localStorage (newer or same timestamp)');
-                  // CRITICAL: Merge to preserve fields and ensure guests array exists
-                  return {
-                    ...prev,
-                    ...foundEvent,
-                    coupleName: foundEvent.coupleName || prev.coupleName,
-                    campaigns: foundEvent.campaigns || prev.campaigns || [],
-                    tables: foundEvent.tables || prev.tables || [],
-                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
-                    eventImages: foundEvent.eventImages || prev.eventImages || [],
-                    guests: foundEvent.guests || prev.guests || []
-                  };
-                } else {
-                  console.log('⚠️ Ignoring localStorage data (older than current)');
-                  return prev; // Keep current (newer) data
-                }
-              });
-            }
-          }
+    } else if (eventFromStorage) {
+      // Use localStorage data if store doesn't have it
+      const displayName = eventFromStorage.coupleName || 
+        (eventFromStorage.groomName && eventFromStorage.brideName ? `${eventFromStorage.groomName} & ${eventFromStorage.brideName}` : 
+         eventFromStorage.groomName || eventFromStorage.brideName || 'אירוע');
+      console.log(`✅ Using event from localStorage: ${displayName} - ${eventFromStorage.guests?.length || 0} guests`);
+      
+      setCurrentEvent((prev: any) => {
+        if (!prev) {
+          // CRITICAL: Ensure guests array exists
+          return {
+            ...eventFromStorage,
+            guests: eventFromStorage.guests || []
+          };
         }
-      } catch (error) {
-        console.error('Error parsing localStorage:', error);
-      }
+        
+        // Compare updatedAt timestamps
+        const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+        const newUpdatedAt = eventFromStorage.updatedAt ? (eventFromStorage.updatedAt instanceof Date ? eventFromStorage.updatedAt.getTime() : new Date(eventFromStorage.updatedAt).getTime()) : 0;
+        
+        if (newUpdatedAt >= prevUpdatedAt) {
+          console.log('✅ Updating from localStorage (newer or same timestamp)');
+          // CRITICAL: Merge to preserve fields and ensure guests array exists
+          return {
+            ...prev,
+            ...eventFromStorage,
+            coupleName: eventFromStorage.coupleName || prev.coupleName,
+            campaigns: eventFromStorage.campaigns || prev.campaigns || [],
+            tables: eventFromStorage.tables || prev.tables || [],
+            venueLayout: eventFromStorage.venueLayout || prev.venueLayout,
+            eventImages: eventFromStorage.eventImages || prev.eventImages || [],
+            guests: eventFromStorage.guests || prev.guests || []
+          };
+        } else {
+          console.log('⚠️ Ignoring localStorage data (older than current)');
+          return prev; // Keep current (newer) data
+        }
+      });
     }
     
     // CRITICAL: Always load from public API endpoint to get latest data (backend is source of truth)
