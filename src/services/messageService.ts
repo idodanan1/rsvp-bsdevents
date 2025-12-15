@@ -182,51 +182,34 @@ class MessageService {
     
     const hasMessageContent = processedMessage && processedMessage.trim().length > 0;
     
-    // CRITICAL: If there's custom message content from campaign, prefer it over template
-    // This allows campaigns like "תזכורת יום האירוע" to send custom content instead of template placeholders
-    // Only use template if it's a first message AND no custom content is available
-    if (hasMessageContent && !isFirstMessage) {
-      // Custom message content available and not first message → send custom message (ignore template)
-      console.log('📋 Custom message content available - sending custom message instead of template');
-      templateName = undefined;
-      templateParams = undefined;
-    } else if (hasMessageContent && isFirstMessage && !templateName) {
-      // Custom message content available but it's first message and no template → still need template for Meta
-      // But if templateName is explicitly undefined (campaign wants custom message), try to send custom message
-      console.log('📋 First message with custom content but no template - will use hello_world as fallback');
-      console.log('⚠️ Note: Meta requires template for first messages, but campaign wants custom content');
-      // Keep templateName as undefined to try sending custom message (may fail if Meta rejects)
-      templateName = undefined;
-      templateParams = undefined;
+    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template
+    // This ensures campaigns that specify a template (like "הזמנה ראשונית" with template 'aa') 
+    // will use the Meta template, not the campaign message content
+    if (templateName) {
+      // Explicit template provided → ALWAYS use template (Meta will use template content, not campaign message)
+      console.log('📋 Explicit template provided:', templateName, '- using Meta template (campaign message content will be ignored)');
+      console.log('📋 Template parameters:', templateParams);
+      // Keep templateName and templateParams as provided - Meta will use template content
+      // The campaign.message content will be ignored when using templates
     } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
-      if (templateName) {
-        // Use explicit template from campaign
-        console.log('📋 First message with explicit template from campaign:', templateName);
-        console.log('📋 Using template (Meta requirement for first messages)');
-        // Keep templateName and templateParams as provided
-      } else {
-        // No template from campaign → use hello_world as fallback
-        console.log('📋 First message - no template from campaign, using "hello_world" template');
-        console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
-        templateName = 'hello_world';
-        templateParams = {
-          language: 'en_US'
-        };
-      }
+      // No explicit template from campaign → use hello_world as fallback
+      console.log('📋 First message - no template from campaign, using "hello_world" template');
+      console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
+      templateName = 'hello_world';
+      templateParams = {
+        language: 'en_US'
+      };
+    } else if (hasMessageContent) {
+      // NOT FIRST MESSAGE and no template → send regular message with campaign content
+      console.log('📋 Not first message - sending regular text message with campaign content');
+      templateName = undefined;
+      templateParams = undefined;
     } else {
-      // NOT FIRST MESSAGE - can send regular message
-      if (templateName) {
-        // Template provided but not first message → don't use template (send regular message)
-        console.log('📋 Not first message - ignoring template, sending regular message');
-        templateName = undefined;
-        templateParams = undefined;
-      } else {
-        // No template → send regular message
-        console.log('📋 Not first message - sending regular text message');
-        templateName = undefined;
-        templateParams = undefined;
-      }
+      // No template and no message content → send regular message
+      console.log('📋 No template and no message content - sending empty message');
+      templateName = undefined;
+      templateParams = undefined;
     }
     
     console.log('🔘 DEBUG: Recipient buttons:', recipient.buttons);
