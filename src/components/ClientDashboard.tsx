@@ -243,40 +243,62 @@ const ClientDashboard: React.FC = () => {
           console.error(`❌ Single event endpoint error, trying other endpoints:`, error);
         }
         
-        // CRITICAL: ALWAYS try to load guests from /api/events/:eventId/guests endpoint FIRST
+        // CRITICAL: ALWAYS try to load guests from /api/events/:eventId/guests endpoint
         // This endpoint returns only the guests array, which should not be truncated
         // This is the PRIMARY method for getting all guests for large events
+        // We'll try this multiple times if needed
         let fullGuestsList: any[] | null = null;
-        try {
-          console.log(`🔄 Attempting to load ALL guests from /api/events/${eventId}/guests`);
-          const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
+        const loadGuestsFromEndpoint = async (retryCount = 0): Promise<any[] | null> => {
+          const MAX_RETRIES = 3;
+          const RETRY_DELAY = 1000;
           
-          if (guestsResponse.ok) {
-            const guestsData = await guestsResponse.json();
-            console.log(`🔍 Guests endpoint response:`, {
-              success: guestsData.success,
-              guestsCount: guestsData.guests?.length || 0,
-              total: guestsData.total
+          try {
+            console.log(`🔄 Attempting to load ALL guests from /api/events/${eventId}/guests (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+            const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              mode: 'cors',
+              credentials: 'omit',
+              cache: 'no-store'
             });
             
-            if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
-              fullGuestsList = guestsData.guests;
-              console.log(`✅ Loaded ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+            if (guestsResponse.ok) {
+              const guestsData = await guestsResponse.json();
+              console.log(`🔍 Guests endpoint response:`, {
+                success: guestsData.success,
+                guestsCount: guestsData.guests?.length || 0,
+                total: guestsData.total
+              });
+              
+              if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+                console.log(`✅ Loaded ${guestsData.guests.length} guests from /api/events/${eventId}/guests`);
+                return guestsData.guests;
+              }
+            } else if (guestsResponse.status === 404 && retryCount < MAX_RETRIES) {
+              console.log(`⚠️ Guests endpoint returned 404, retrying in ${RETRY_DELAY}ms...`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+              return loadGuestsFromEndpoint(retryCount + 1);
+            } else {
+              console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
             }
-          } else {
-            console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
+          } catch (error) {
+            console.log(`⚠️ Guests endpoint error (attempt ${retryCount + 1}):`, error);
+            if (retryCount < MAX_RETRIES) {
+              console.log(`🔄 Retrying guests endpoint in ${RETRY_DELAY}ms...`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+              return loadGuestsFromEndpoint(retryCount + 1);
+            }
           }
-        } catch (error) {
-          console.log(`⚠️ Guests endpoint error:`, error);
-        }
+          return null;
+        };
+        
+        // Try to load guests from endpoint
+        fullGuestsList = await loadGuestsFromEndpoint();
         
         // If single event endpoint didn't work, try /api/events/:userId (but it may also truncate)
         if (!foundEvent) {
@@ -365,6 +387,13 @@ const ClientDashboard: React.FC = () => {
           }
         }
         
+        // CRITICAL: If we haven't loaded guests yet, try again now that we have the event
+        // This ensures we always try to load full guest list, even if event was found from /api/events/all
+        if (!fullGuestsList && foundEvent) {
+          console.log(`🔄 Event found but guests not loaded yet, retrying guests endpoint...`);
+          fullGuestsList = await loadGuestsFromEndpoint();
+        }
+        
         // If we found the event from any endpoint, use it
         if (foundEvent) {
           const displayName = foundEvent.coupleName || 
@@ -372,18 +401,21 @@ const ClientDashboard: React.FC = () => {
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
           console.log(`✅ Found event silently in API: ${displayName}`);
           
-          // CRITICAL: If we loaded full guests list from /api/events/:eventId/guests, use it instead
+          // CRITICAL: If we loaded full guests list from /api/events/:eventId/guests, ALWAYS use it
+          // This ensures we have ALL guests, not just the truncated list from /api/events/all
           if (fullGuestsList && fullGuestsList.length > 0) {
-            console.log(`✅ Merging ${fullGuestsList.length} guests from /api/events/${eventId}/guests with event data`);
+            console.log(`✅ Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests (full list)`);
             foundEvent.guests = fullGuestsList;
           } else {
-            // CRITICAL: If guests endpoint failed but we have event data, try to load guests from /api/events/all
-            // This is a fallback for when the guests endpoint doesn't work
+            // CRITICAL: If guests endpoint failed but we have event data, warn about incomplete data
             const eventFromAll = foundEvent;
-            if (eventFromAll.guests && eventFromAll.guests.length < 50) {
-              console.warn(`⚠️ Event has only ${eventFromAll.guests.length} guests - may be incomplete`);
-              console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
-              console.warn(`⚠️ Will use partial data and wait for polling to update`);
+            const currentGuestsCount = eventFromAll.guests?.length || 0;
+            if (currentGuestsCount > 0 && currentGuestsCount < 50) {
+              console.warn(`⚠️ Event has only ${currentGuestsCount} guests - may be incomplete`);
+              console.warn(`⚠️ Guests endpoint failed - cannot load full guest list`);
+              console.warn(`⚠️ Will use partial data and polling will attempt to update`);
+            } else if (currentGuestsCount === 0) {
+              console.warn(`⚠️ Event has no guests - guests endpoint failed or event is empty`);
             }
           }
           
@@ -669,22 +701,96 @@ const ClientDashboard: React.FC = () => {
       pollingIntervalRef.current = window.setInterval(async () => {
         try {
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
           
-          if (response.ok) {
-            const data = await response.json();
-            const allEvents = data.events || [];
-            const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          // CRITICAL: Try to load full event with all guests from /api/events/:eventId FIRST
+          // This ensures we get ALL guests, not truncated data from /api/events/all
+          let foundEvent: any = null;
+          let fullGuestsList: any[] | null = null;
+          
+          try {
+            const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              mode: 'cors',
+              credentials: 'omit',
+              cache: 'no-store'
+            });
             
+            if (singleEventResponse.ok) {
+              const singleEventData = await singleEventResponse.json();
+              if (singleEventData.success && singleEventData.event) {
+                foundEvent = singleEventData.event;
+                console.log(`✅ Polling: Loaded event from /api/events/${eventId} with ${foundEvent.guests?.length || 0} guests`);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Polling: Single event endpoint failed, trying /api/events/all:', error);
+          }
+          
+          // CRITICAL: Always try to load guests from /api/events/:eventId/guests
+          // This ensures we have ALL guests even if single event endpoint returned incomplete data
+          try {
+            const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              mode: 'cors',
+              credentials: 'omit',
+              cache: 'no-store'
+            });
+            
+            if (guestsResponse.ok) {
+              const guestsData = await guestsResponse.json();
+              if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+                fullGuestsList = guestsData.guests;
+                console.log(`✅ Polling: Loaded ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Polling: Guests endpoint failed:', error);
+          }
+          
+          // Fallback to /api/events/all if single event endpoint didn't work
+          if (!foundEvent) {
+            const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+              },
+              mode: 'cors',
+              credentials: 'omit',
+              cache: 'no-store'
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              const allEvents = data.events || [];
+              foundEvent = allEvents.find((e: any) => e.id === eventId);
+            }
+          }
+          
+          // CRITICAL: If we loaded full guests list, use it instead of event's guests
           if (foundEvent) {
+            if (fullGuestsList && fullGuestsList.length > 0) {
+              console.log(`✅ Polling: Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+              foundEvent.guests = fullGuestsList;
+            } else if (foundEvent.guests && foundEvent.guests.length < 50) {
+              console.warn(`⚠️ Polling: Event has only ${foundEvent.guests.length} guests - may be incomplete`);
+            }
+            
+            if (foundEvent) {
               // CRITICAL: Only update if new data is more recent or has actual changes
               // This prevents overwriting correct data with stale data
               setCurrentEvent((prev: any) => {
