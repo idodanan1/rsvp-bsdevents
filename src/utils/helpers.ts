@@ -279,11 +279,20 @@ export const getFrontendUrl = (): string => {
 };
 
 // Generate guest response link (works on all devices)
+// CRITICAL: Always includes eventId to distinguish between events, even if guests are identical
 export const generateGuestResponseLink = (eventId: string, guestId: string): string => {
+  // Validate inputs
+  if (!eventId || !guestId) {
+    console.error('❌ generateGuestResponseLink: Missing eventId or guestId', { eventId, guestId });
+    throw new Error('EventId and guestId are required to generate guest response link');
+  }
+  
   const frontendUrl = getFrontendUrl();
   // Use HashRouter format for static hosting compatibility
+  // Format: /#/guest-response/{eventId}?guest={guestId}
+  // This ensures each link is unique per event, even if guests have the same ID across events
   const link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}`;
-  console.log('🔗 Generated guest response link:', link);
+  console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId);
   return link;
 };
 

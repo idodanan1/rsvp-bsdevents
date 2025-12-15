@@ -488,15 +488,24 @@ const GuestResponse = () => {
   // Track if we've given up loading (for showing error after timeout)
   const [hasGivenUpLoading, setHasGivenUpLoading] = useState(false);
 
-  // CRITICAL: If there are duplicate events with the same ID, find the one that contains the guest
-  // This ensures we update the correct event when there are duplicates
+  // CRITICAL: Always use eventId from URL to find the correct event
+  // This ensures we update the correct event even if there are guests with the same ID in different events
+  // The eventId in the URL is the primary identifier that distinguishes between events
   let event = null;
   if (eventId && guestId) {
-    // First, try to find event that contains the guest with the matching guestId
-    event = events.find(e => e.id === eventId && e.guests?.some(g => g.id === guestId));
-    if (!event) {
-      // Fallback: find any event with the matching eventId
-      event = events.find(e => e.id === eventId);
+    // CRITICAL: First find event by eventId (this is the primary identifier)
+    // Then verify the guest exists in that specific event
+    // This ensures we always use the correct event, even if guests have the same ID across events
+    event = events.find(e => e.id === eventId);
+    if (event) {
+      // Verify guest exists in this specific event
+      const guestInEvent = event.guests?.find(g => g.id === guestId);
+      if (!guestInEvent) {
+        console.warn(`⚠️ Guest ${guestId} not found in event ${eventId}, but event exists`);
+        // Still use the event - guest might be added later or ID might be wrong
+      }
+    } else {
+      console.warn(`⚠️ Event ${eventId} not found in store`);
     }
   } else if (eventId) {
     // If no guestId, just find by eventId (but prefer the most recent one if duplicates exist)
@@ -512,6 +521,8 @@ const GuestResponse = () => {
     } else {
       event = matchingEvents[0];
     }
+  } else {
+    console.error('❌ No eventId provided in URL - cannot identify event');
   }
   
   // Fallback to directEvent if not found in store
@@ -611,10 +622,22 @@ const GuestResponse = () => {
     }
     
     // CRITICAL: Final verification - ensure eventId matches
+    // This is the most important check - the eventId in the URL is the primary identifier
+    // that distinguishes between events, even if guests have the same ID across events
     if (eventId && currentEvent.id !== eventId) {
       console.error(`❌ Event ID mismatch! URL eventId: ${eventId}, Current event ID: ${currentEvent.id}`);
+      console.error(`❌ This should never happen - eventId from URL must match the event`);
       setSubmitStatus('error');
-      setErrorMessage('אירוע לא תואם');
+      setErrorMessage(`אירוע לא תואם. מזהה אירוע בקישור: ${eventId}, מזהה אירוע שנמצא: ${currentEvent.id}`);
+      return;
+    }
+    
+    // CRITICAL: Additional verification - ensure guest belongs to the correct event
+    if (guestId && currentEvent && !currentEvent.guests?.find(g => g.id === guestId)) {
+      console.error(`❌ Guest ${guestId} not found in event ${eventId}`);
+      console.error(`❌ This ensures we're updating the correct guest in the correct event`);
+      setSubmitStatus('error');
+      setErrorMessage(`אורח לא נמצא באירוע זה. מזהה אירוע: ${eventId}, מזהה אורח: ${guestId}`);
       return;
     }
     

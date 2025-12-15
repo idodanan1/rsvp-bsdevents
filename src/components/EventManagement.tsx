@@ -31,6 +31,32 @@ import {
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
+// Helper function to parse and display guest notes with transportation
+const renderGuestNotes = (notes: string | undefined) => {
+  if (!notes) return null;
+  
+  const transportationMatch = notes.match(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/);
+  const transportation = transportationMatch ? transportationMatch[1] : null;
+  const regularNotes = transportationMatch 
+    ? notes.replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/, '').trim()
+    : notes;
+  
+  return (
+    <>
+      {regularNotes && regularNotes.length > 0 && (
+        <div className="text-xs text-gray-500 break-words mt-1">
+          {regularNotes}
+        </div>
+      )}
+      {transportation && (
+        <div className="text-xs font-medium text-blue-600 break-words mt-1">
+          🚗 {transportation}
+        </div>
+      )}
+    </>
+  );
+};
+
 const EventManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -2755,30 +2781,7 @@ const EventManagement: React.FC = () => {
                       <div className="text-sm font-semibold text-gray-900 break-words">
                         {formatFullName(guest.firstName, guest.lastName)}
                       </div>
-                      {guest.notes && (() => {
-                        // Parse notes to separate transportation from regular notes
-                        const notes = guest.notes || '';
-                        const transportationMatch = notes.match(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/);
-                        const transportation = transportationMatch ? transportationMatch[1] : null;
-                        const regularNotes = transportationMatch 
-                          ? notes.replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/, '').trim()
-                          : notes;
-                        
-                        return (
-                          <>
-                            {regularNotes && regularNotes.length > 0 && (
-                              <div className="text-xs text-gray-500 break-words mt-1">
-                                {regularNotes}
-                              </div>
-                            )}
-                            {transportation && (
-                              <div className="text-xs font-medium text-blue-600 break-words mt-1">
-                                🚗 {transportation}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
+                      {renderGuestNotes(guest.notes)}
                     </div>
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
