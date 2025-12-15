@@ -660,19 +660,41 @@ const ClientDashboard: React.FC = () => {
                   .sort((a: any, b: any) => {
                     // Sort by responseDate (most recent first)
                     // Guests with responseDate come first, then guests without
-                    try {
-                      const aDate = a.responseDate && a.responseDate !== null && a.responseDate !== undefined 
-                        ? new Date(a.responseDate).getTime() 
-                        : 0;
-                      const bDate = b.responseDate && b.responseDate !== null && b.responseDate !== undefined 
-                        ? new Date(b.responseDate).getTime() 
-                        : 0;
-                      // Sort descending (newest first)
-                      return bDate - aDate;
-                    } catch (error) {
-                      // If date parsing fails, treat as 0 (no date)
-                      return 0;
+                    let aDate = 0;
+                    let bDate = 0;
+                    
+                    // Safely get date for guest a
+                    if (a && a.responseDate) {
+                      try {
+                        const aDateObj = new Date(a.responseDate);
+                        if (aDateObj instanceof Date && !isNaN(aDateObj.getTime())) {
+                          const time = aDateObj.getTime();
+                          if (typeof time === 'number' && isFinite(time)) {
+                            aDate = time;
+                          }
+                        }
+                      } catch (e) {
+                        // Ignore errors, keep aDate as 0
+                      }
                     }
+                    
+                    // Safely get date for guest b
+                    if (b && b.responseDate) {
+                      try {
+                        const bDateObj = new Date(b.responseDate);
+                        if (bDateObj instanceof Date && !isNaN(bDateObj.getTime())) {
+                          const time = bDateObj.getTime();
+                          if (typeof time === 'number' && isFinite(time)) {
+                            bDate = time;
+                          }
+                        }
+                      } catch (e) {
+                        // Ignore errors, keep bDate as 0
+                      }
+                    }
+                    
+                    // Sort descending (newest first)
+                    return bDate - aDate;
                   })
                   .map((guest: any) => (
                   <tr key={guest.id} className="hover:bg-gray-50">
