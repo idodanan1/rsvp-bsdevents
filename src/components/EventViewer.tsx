@@ -83,16 +83,24 @@ const EventViewer: React.FC = () => {
         
         if (response.ok) {
           const data = await response.json();
-          setNewImageUrl(data.imageUrl);
-          // Auto-add the image to the event
-          if (currentEvent && data.imageUrl) {
-            const updatedImages = [...(currentEvent.eventImages || []), data.imageUrl];
-            await updateEvent(currentEvent.id, { eventImages: updatedImages });
-            setShowImageUpload(false);
-            setNewImageUrl('');
+          // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
+          if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
+            setNewImageUrl(data.imageUrl);
+            // Auto-add the image to the event
+            if (currentEvent && data.imageUrl) {
+              const updatedImages = [...(currentEvent.eventImages || []), data.imageUrl];
+              await updateEvent(currentEvent.id, { eventImages: updatedImages });
+              setShowImageUpload(false);
+              setNewImageUrl('');
+            }
+          } else {
+            alert('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
+            console.error('❌ Invalid image URL received:', data.imageUrl);
           }
         } else {
-          alert('שגיאה בהעלאת התמונה');
+          const errorData = await response.json().catch(() => ({}));
+          alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
+          console.error('❌ Image upload failed:', errorData);
         }
       } catch (error) {
         console.error('Error uploading image:', error);

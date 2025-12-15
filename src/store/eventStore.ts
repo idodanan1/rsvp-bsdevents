@@ -276,6 +276,13 @@ export const useEventStore = create<EventStore>()(
                 
                 // Merge API events with local events, preserving manual changes
                 const allEvents = apiEvents.map(apiEvent => {
+                  // CRITICAL: Clean invitationImageUrl - remove local file paths
+                  let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
+                  if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
+                    console.warn('⚠️ Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
+                    cleanedInvitationImageUrl = undefined; // Remove local file paths
+                  }
+                  
                   // Find corresponding local event
                   const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
                   
@@ -289,6 +296,14 @@ export const useEventStore = create<EventStore>()(
                   if (!localEvent) {
                     // Filter out deleted guests even when there's no local event
                     const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
+                    
+                    // CRITICAL: Clean invitationImageUrl - remove local file paths
+                    let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
+                    if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
+                      console.warn('⚠️ Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
+                      cleanedInvitationImageUrl = undefined; // Remove local file paths
+                    }
+                    
                     const filteredGuests = apiEvent.guests
                       .filter(guest => {
                         if (deletedGuestIds.includes(guest.id)) {
@@ -301,7 +316,11 @@ export const useEventStore = create<EventStore>()(
                         firstName: cleanName(guest.firstName),
                         lastName: cleanName(guest.lastName)
                       }));
-                    return { ...apiEvent, guests: filteredGuests }; // Use API event if no local version, but filter deleted guests and clean names
+                    return { 
+                      ...apiEvent, 
+                      invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
+                      guests: filteredGuests 
+                    }; // Use API event if no local version, but filter deleted guests and clean names
                   }
                   
                   // Log API event guests for debugging
@@ -427,6 +446,7 @@ export const useEventStore = create<EventStore>()(
                   
                   return {
                     ...apiEvent,
+                    invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
                     guests: [...mergedGuests, ...localOnlyGuests],
                     updatedAt: new Date(Math.max(
                       new Date(apiEvent.updatedAt || 0).getTime(),
@@ -912,6 +932,13 @@ export const useEventStore = create<EventStore>()(
         console.log('🔍 createEvent called with:', eventData);
         set({ isLoading: true, error: null });
         try {
+          // CRITICAL: Clean invitationImageUrl - remove local file paths
+          let cleanedInvitationImageUrl = eventData.invitationImageUrl;
+          if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
+            console.warn('⚠️ Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
+            cleanedInvitationImageUrl = undefined; // Remove local file paths
+          }
+          
           const eventId = generateId();
           
           // Create 5 default campaigns according to the correct schedule
@@ -1251,6 +1278,7 @@ export const useEventStore = create<EventStore>()(
 
           const newEvent: Event = {
             ...eventData,
+            invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
             id: eventId,
             userId: userId || 'anonymous', // Add userId
             userEmail: userEmail || '', // Add userEmail for re-registration matching
@@ -1422,12 +1450,21 @@ export const useEventStore = create<EventStore>()(
       updateEvent: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
+          // CRITICAL: Clean invitationImageUrl - remove local file paths
+          const cleanedUpdates = { ...updates };
+          if (updates.invitationImageUrl) {
+            if (updates.invitationImageUrl.startsWith('file://')) {
+              console.warn('⚠️ Removing local file path from invitationImageUrl:', updates.invitationImageUrl);
+              cleanedUpdates.invitationImageUrl = undefined; // Remove local file paths
+            }
+          }
+          
           let updatedEvent: Event | null = null;
           
           set(state => {
             const updatedEvents = state.events.map(event => {
               if (event.id === id) {
-                updatedEvent = { ...event, ...updates, updatedAt: new Date() };
+                updatedEvent = { ...event, ...cleanedUpdates, updatedAt: new Date() };
                 return updatedEvent;
               }
               return event;

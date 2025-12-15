@@ -757,12 +757,20 @@ const Dashboard: React.FC = () => {
                             
                             if (response.ok) {
                               const data = await response.json();
-                              setSelectedEventForEdit({
-                                ...selectedEventForEdit,
-                                invitationImageUrl: data.imageUrl
-                              });
+                              // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
+                              if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
+                                setSelectedEventForEdit({
+                                  ...selectedEventForEdit,
+                                  invitationImageUrl: data.imageUrl
+                                });
+                              } else {
+                                alert('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
+                                console.error('❌ Invalid image URL received:', data.imageUrl);
+                              }
                             } else {
-                              alert('שגיאה בהעלאת התמונה');
+                              const errorData = await response.json().catch(() => ({}));
+                              alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
+                              console.error('❌ Image upload failed:', errorData);
                             }
                           } catch (error) {
                             console.error('Error uploading image:', error);

@@ -361,13 +361,21 @@ const CreateEvent: React.FC = () => {
                     
                     if (response.ok) {
                       const data = await response.json();
-                      setFormData(prev => ({
-                        ...prev,
-                        invitationImageUrl: data.imageUrl
-                      }));
-                      toast.success('✅ התמונה הועלתה בהצלחה!');
+                      // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
+                      if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
+                        setFormData(prev => ({
+                          ...prev,
+                          invitationImageUrl: data.imageUrl
+                        }));
+                        toast.success('✅ התמונה הועלתה בהצלחה!');
+                      } else {
+                        toast.error('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
+                        console.error('❌ Invalid image URL received:', data.imageUrl);
+                      }
                     } else {
-                      toast.error('שגיאה בהעלאת התמונה');
+                      const errorData = await response.json().catch(() => ({}));
+                      toast.error(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
+                      console.error('❌ Image upload failed:', errorData);
                     }
                   } catch (error) {
                     console.error('Error uploading image:', error);
