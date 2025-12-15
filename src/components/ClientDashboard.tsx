@@ -57,8 +57,8 @@ const ClientDashboard: React.FC = () => {
     console.log(`🔍 ClientDashboard loading event silently: ${eventId}`);
     
     // Try to find event in current events first (for fast initial display)
-    const event = events.find(e => e.id === eventId);
-    if (event) {
+      const event = events.find(e => e.id === eventId);
+      if (event) {
       const displayName = event.coupleName || 
         (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
          event.groomName || event.brideName || 'אירוע');
@@ -86,7 +86,7 @@ const ClientDashboard: React.FC = () => {
         if (newUpdatedAt >= prevUpdatedAt) {
           console.log('✅ Updating from store (newer or same timestamp)');
           return event;
-        } else {
+      } else {
           console.log('⚠️ Ignoring store data (older than current)');
           return prev; // Keep current (newer) data
         }
@@ -96,13 +96,13 @@ const ClientDashboard: React.FC = () => {
     
     // Try to load from localStorage (for fast display if not in store)
     if (!event) {
-      try {
-        const stored = localStorage.getItem('rsvp-events-storage');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (parsed.state && parsed.state.events) {
-            const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-            if (foundEvent) {
+        try {
+          const stored = localStorage.getItem('rsvp-events-storage');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.state && parsed.state.events) {
+              const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
+              if (foundEvent) {
               const displayName = foundEvent.coupleName || 
                 (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
                  foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -120,7 +120,11 @@ const ClientDashboard: React.FC = () => {
               // CRITICAL: Only set if we don't have currentEvent or if this is newer
               setCurrentEvent((prev: any) => {
                 if (!prev) {
-                  return foundEvent;
+                  // CRITICAL: Ensure guests array exists
+                  return {
+                    ...foundEvent,
+                    guests: foundEvent.guests || []
+                  };
                 }
                 
                 // Compare updatedAt timestamps
@@ -129,7 +133,17 @@ const ClientDashboard: React.FC = () => {
                 
                 if (newUpdatedAt >= prevUpdatedAt) {
                   console.log('✅ Updating from localStorage (newer or same timestamp)');
-                  return foundEvent;
+                  // CRITICAL: Merge to preserve fields and ensure guests array exists
+                  return {
+                    ...prev,
+                    ...foundEvent,
+                    coupleName: foundEvent.coupleName || prev.coupleName,
+                    campaigns: foundEvent.campaigns || prev.campaigns || [],
+                    tables: foundEvent.tables || prev.tables || [],
+                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                    eventImages: foundEvent.eventImages || prev.eventImages || [],
+                    guests: foundEvent.guests || prev.guests || []
+                  };
                 } else {
                   console.log('⚠️ Ignoring localStorage data (older than current)');
                   return prev; // Keep current (newer) data
@@ -200,7 +214,11 @@ const ClientDashboard: React.FC = () => {
             setCurrentEvent((prev: any) => {
               if (!prev) {
                 console.log('✅ Setting initial event from API');
-                return foundEvent;
+                // CRITICAL: Ensure guests array exists even for initial load
+                return {
+                  ...foundEvent,
+                  guests: foundEvent.guests || []
+                };
               }
               
               // Compare updatedAt timestamps
@@ -315,9 +333,9 @@ const ClientDashboard: React.FC = () => {
     // Backend is the source of truth - always fetch latest data
     if (userId) {
       // User is logged in - try fetchEvents first, then also load from public API
-      fetchEvents().then(() => {
-        const foundEvent = events.find(e => e.id === eventId);
-        if (foundEvent) {
+          fetchEvents().then(() => {
+            const foundEvent = events.find(e => e.id === eventId);
+            if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -335,7 +353,11 @@ const ClientDashboard: React.FC = () => {
           // CRITICAL: Merge data instead of replacing to preserve local fields
           setCurrentEvent((prev: any) => {
             if (!prev) {
-              return foundEvent;
+              // CRITICAL: Ensure guests array exists
+              return {
+                ...foundEvent,
+                guests: foundEvent.guests || []
+              };
             }
             
             // Compare updatedAt timestamps
@@ -425,13 +447,17 @@ const ClientDashboard: React.FC = () => {
             const allEvents = data.events || [];
             const foundEvent = allEvents.find((e: any) => e.id === eventId);
             
-            if (foundEvent) {
+          if (foundEvent) {
               // CRITICAL: Only update if new data is more recent or has actual changes
               // This prevents overwriting correct data with stale data
               setCurrentEvent((prev: any) => {
                 if (!prev) {
                   console.log('🔄 ClientDashboard: Setting initial event from backend');
-                  return foundEvent;
+                  // CRITICAL: Ensure guests array exists
+                  return {
+                    ...foundEvent,
+                    guests: foundEvent.guests || []
+                  };
                 }
                 
                 // CRITICAL: Compare updatedAt timestamps to ensure we only update with newer data
@@ -453,7 +479,18 @@ const ClientDashboard: React.FC = () => {
                 // Check if number of guests changed
                 if (prevGuestsMap.size !== newGuestsMap.size) {
                   console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
-                  return foundEvent;
+                  // CRITICAL: Merge data instead of replacing to preserve fields and ensure guests array exists
+                  const mergedEvent = {
+                    ...prev,
+                    ...foundEvent,
+                    coupleName: foundEvent.coupleName || prev.coupleName,
+                    campaigns: foundEvent.campaigns || prev.campaigns || [],
+                    tables: foundEvent.tables || prev.tables || [],
+                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                    eventImages: foundEvent.eventImages || prev.eventImages || [],
+                    guests: foundEvent.guests || prev.guests || [] // Ensure guests array always exists
+                  };
+                  return mergedEvent;
                 }
                 
                 // CRITICAL: If new data is older, don't update even if guests changed
@@ -581,7 +618,11 @@ const ClientDashboard: React.FC = () => {
         setCurrentEvent((prev: any) => {
           if (!prev) {
             console.log('🔄 ClientDashboard: Setting initial event from store');
-            return foundEvent;
+            // CRITICAL: Ensure guests array exists
+            return {
+              ...foundEvent,
+              guests: foundEvent.guests || []
+            };
           }
           
           // Compare guests by ID, not by index (guests might be in different order)
@@ -591,7 +632,17 @@ const ClientDashboard: React.FC = () => {
           // Check if number of guests changed
           if (prevGuestsMap.size !== newGuestsMap.size) {
             console.log('🔄 ClientDashboard: Guest count changed, updating from store');
-            return foundEvent;
+            // CRITICAL: Merge to preserve fields and ensure guests array exists
+            return {
+              ...prev,
+              ...foundEvent,
+              coupleName: foundEvent.coupleName || prev.coupleName,
+              campaigns: foundEvent.campaigns || prev.campaigns || [],
+              tables: foundEvent.tables || prev.tables || [],
+              venueLayout: foundEvent.venueLayout || prev.venueLayout,
+              eventImages: foundEvent.eventImages || prev.eventImages || [],
+              guests: foundEvent.guests || prev.guests || []
+            };
           }
           
           // Check if any guest data changed
@@ -617,7 +668,17 @@ const ClientDashboard: React.FC = () => {
           
           if (hasChanged) {
             console.log('🔄 ClientDashboard: Event updated silently from store (webhookService)');
-            return foundEvent;
+            // CRITICAL: Merge to preserve fields and ensure guests array exists
+            return {
+              ...prev,
+              ...foundEvent,
+              coupleName: foundEvent.coupleName || prev.coupleName,
+              campaigns: foundEvent.campaigns || prev.campaigns || [],
+              tables: foundEvent.tables || prev.tables || [],
+              venueLayout: foundEvent.venueLayout || prev.venueLayout,
+              eventImages: foundEvent.eventImages || prev.eventImages || [],
+              guests: foundEvent.guests || prev.guests || []
+            };
           }
           return prev;
         });
@@ -1047,41 +1108,41 @@ const ClientDashboard: React.FC = () => {
                         return null;
                       }
                       return (
-                        <tr key={guest.id} className="hover:bg-gray-50">
+                  <tr key={guest.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-normal">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
                                 {formatFullName(guest.firstName, guest.lastName)}
-                              </div>
+                        </div>
                               {renderGuestNotes(guest.notes)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {guest.guestCount}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
-                                {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
-                                 guest.rsvpStatus === 'confirmed' ? 'מגיע' :
-                                 guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex items-center">
-                              {guest.channel === 'whatsapp' ? (
-                                <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                              ) : guest.channel === 'sms' ? (
-                                <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                              ) : (
-                                <Users className="w-4 h-4 text-gray-600 ml-1" />
-                              )}
-                              {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
-                               guest.channel === 'sms' ? 'SMS' : 'ידני'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {guest.guestCount}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
+                          {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
+                           guest.rsvpStatus === 'confirmed' ? 'מגיע' :
+                           guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center">
+                        {guest.channel === 'whatsapp' ? (
+                          <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                        ) : guest.channel === 'sms' ? (
+                          <Phone className="w-4 h-4 text-blue-600 ml-1" />
+                        ) : (
+                          <Users className="w-4 h-4 text-gray-600 ml-1" />
+                        )}
+                        {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
+                         guest.channel === 'sms' ? 'SMS' : 'ידני'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
                           </td>
                         </tr>

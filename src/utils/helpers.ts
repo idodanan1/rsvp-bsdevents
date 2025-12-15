@@ -144,26 +144,28 @@ export const formatTime = (time: string | Date): string => {
 
 // Calculate event statistics
 export const calculateEventStats = (event: Event): EventStats => {
+  // CRITICAL: Ensure guests array exists to prevent errors
+  const guests = event.guests || [];
   // Calculate total guests count (sum of guestCount for all guests)
-  const totalGuests = event.guests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
+  const totalGuests = guests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
   // Calculate confirmed guests count (sum of guestCount for confirmed guests)
-  const confirmed = event.guests
+  const confirmed = guests
     .filter(g => g.rsvpStatus === 'confirmed')
     .reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
   // Calculate declined guests count (sum of guestCount for declined guests)
-  const declined = event.guests
+  const declined = guests
     .filter(g => g.rsvpStatus === 'declined')
     .reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
   // Calculate maybe guests count (sum of guestCount for maybe guests)
-  const maybe = event.guests
+  const maybe = guests
     .filter(g => g.rsvpStatus === 'maybe')
     .reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
   // Calculate pending guests count (sum of guestCount for pending guests)
-  const pending = event.guests
+  const pending = guests
     .filter(g => g.rsvpStatus === 'pending')
     .reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
@@ -171,7 +173,7 @@ export const calculateEventStats = (event: Event): EventStats => {
   const responseRate = totalGuests > 0 ? Math.round(((confirmed + declined + maybe) / totalGuests) * 100) : 0;
   
   // Calculate attended guests count (sum of guestCount for attended guests)
-  const attended = event.guests
+  const attended = guests
     .filter(g => g.actualAttendance === 'attended')
     .reduce((sum, g) => sum + (g.guestCount || 1), 0);
   
