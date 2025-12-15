@@ -4453,6 +4453,8 @@ app.get('/api/events/:eventId', async (req, res) => {
     // CRITICAL: Ensure eventsData.events exists and is an array
     if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
       console.error(`❌ eventsData.events is not an array! eventsData:`, eventsData);
+      console.error(`❌ eventsData type:`, typeof eventsData);
+      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
       res.status(500).json({
         success: false,
         error: 'Events data not available',
@@ -4460,6 +4462,9 @@ app.get('/api/events/:eventId', async (req, res) => {
       });
       return;
     }
+    
+    console.log(`📋 Events loaded: ${eventsData.events.length} events`);
+    console.log(`📋 Event IDs:`, eventsData.events.map(e => e.id));
     
     console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
     console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
@@ -4538,6 +4543,8 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     // CRITICAL: Ensure eventsData.events exists and is an array
     if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
       console.error(`❌ eventsData.events is not an array!`);
+      console.error(`❌ eventsData type:`, typeof eventsData);
+      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
       res.status(500).json({
         success: false,
         error: 'Events data not available'
@@ -4545,13 +4552,18 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       return;
     }
     
+    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
+    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+    
     const event = eventsData.events.find(e => e.id === eventId);
     
     if (!event) {
       console.log(`❌ Event ${eventId} not found`);
+      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
       res.status(404).json({
         success: false,
-        error: 'Event not found'
+        error: 'Event not found',
+        availableEventIds: eventsData.events.map(e => e.id)
       });
       return;
     }

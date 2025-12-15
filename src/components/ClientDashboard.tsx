@@ -376,6 +376,15 @@ const ClientDashboard: React.FC = () => {
           if (fullGuestsList && fullGuestsList.length > 0) {
             console.log(`✅ Merging ${fullGuestsList.length} guests from /api/events/${eventId}/guests with event data`);
             foundEvent.guests = fullGuestsList;
+          } else {
+            // CRITICAL: If guests endpoint failed but we have event data, try to load guests from /api/events/all
+            // This is a fallback for when the guests endpoint doesn't work
+            const eventFromAll = foundEvent;
+            if (eventFromAll.guests && eventFromAll.guests.length < 50) {
+              console.warn(`⚠️ Event has only ${eventFromAll.guests.length} guests - may be incomplete`);
+              console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
+              console.warn(`⚠️ Will use partial data and wait for polling to update`);
+            }
           }
           
           const apiGuestsCount = foundEvent.guests?.length || 0;
@@ -400,7 +409,8 @@ const ClientDashboard: React.FC = () => {
           if (apiGuestsCount > 0 && apiGuestsCount < 50 && !fullGuestsList) {
             console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
             console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
-            console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
+            console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
+            console.warn(`⚠️ For full guest list, please log in to the admin dashboard or wait for polling to update`);
           } else if (fullGuestsList && fullGuestsList.length > apiGuestsCount) {
             console.log(`✅ Using ${fullGuestsList.length} guests from separate endpoint (vs ${apiGuestsCount} from event data)`);
           }
