@@ -287,17 +287,21 @@ export const useEventStore = create<EventStore>()(
                   });
                   
                   if (!localEvent) {
-                    console.log(`➡️ No local event found for ${apiEvent.id}, using API event directly`);
                     // Filter out deleted guests even when there's no local event
                     const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
-                    const filteredGuests = apiEvent.guests.filter(guest => {
-                      if (deletedGuestIds.includes(guest.id)) {
-                        console.log(`🚫 Skipping deleted guest from API (no local event): ${guest.firstName} ${guest.lastName} (${guest.id})`);
-                        return false;
-                      }
-                      return true;
-                    });
-                    return { ...apiEvent, guests: filteredGuests }; // Use API event if no local version, but filter deleted guests
+                    const filteredGuests = apiEvent.guests
+                      .filter(guest => {
+                        if (deletedGuestIds.includes(guest.id)) {
+                          return false;
+                        }
+                        return true;
+                      })
+                      .map(guest => ({
+                        ...guest,
+                        firstName: cleanName(guest.firstName),
+                        lastName: cleanName(guest.lastName)
+                      }));
+                    return { ...apiEvent, guests: filteredGuests }; // Use API event if no local version, but filter deleted guests and clean names
                   }
                   
                   // Log API event guests for debugging
@@ -333,8 +337,12 @@ export const useEventStore = create<EventStore>()(
                     const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
                     
                     if (!localGuest) {
-                      console.log(`➕ New guest from API: ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id})`);
-                      return apiGuest; // Use API guest if no local version
+                      // Clean names when loading from API
+                      return {
+                        ...apiGuest,
+                        firstName: cleanName(apiGuest.firstName),
+                        lastName: cleanName(apiGuest.lastName)
+                      };
                     }
                     
                     // Check if there was a manual change for this guest
@@ -357,15 +365,12 @@ export const useEventStore = create<EventStore>()(
                     
                     if (hasRecentManualChange) {
                       // Preserve local guest data (manual change is recent)
-                      console.log(`🛡️ Preserving manual change for guest ${apiGuest.id} in event ${apiEvent.id} (${Math.round((now - lastManualChange) / 1000)}s ago)`);
-                      console.log(`🛡️ Preserving fields:`, {
-                        guestCount: localGuest.guestCount,
-                        rsvpStatus: localGuest.rsvpStatus,
-                        actualAttendance: localGuest.actualAttendance,
-                        notes: localGuest.notes,
-                        tableId: localGuest.tableId
-                      });
-                      return localGuest;
+                      // CRITICAL: Clean names even when preserving local data
+                      return {
+                        ...localGuest,
+                        firstName: cleanName(localGuest.firstName),
+                        lastName: cleanName(localGuest.lastName)
+                      };
                     }
                     
                     // CRITICAL: For tableId and actualAttendance, preserve local values if they differ from API
@@ -388,9 +393,10 @@ export const useEventStore = create<EventStore>()(
                     const preserveActualAttendance = shouldPreserveLocalField('actualAttendance');
                     
                     if (preserveTableId || preserveActualAttendance) {
-                      console.log(`🔄 Preserving local tableId/actualAttendance for guest ${apiGuest.id} (API might not have synced yet)`);
                       return {
                         ...apiGuest,
+                        firstName: cleanName(apiGuest.firstName),
+                        lastName: cleanName(apiGuest.lastName),
                         tableId: preserveTableId ? localGuest.tableId : apiGuest.tableId,
                         actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance
                       };
@@ -398,30 +404,26 @@ export const useEventStore = create<EventStore>()(
                     
                     // No recent manual change - merge: ALWAYS use API data (it's the source of truth)
                     // API has the latest data from all devices
-                    console.log(`✅ Using API data for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}):`, {
-                      actualAttendance: apiGuest.actualAttendance,
-                      guestCount: apiGuest.guestCount,
-                      rsvpStatus: apiGuest.rsvpStatus,
-                      tableId: apiGuest.tableId,
-                      note: 'No manual change - API is source of truth'
-                    });
-                    
-                    // CRITICAL: Verify API has actualAttendance value
-                    if (apiGuest.actualAttendance === undefined || apiGuest.actualAttendance === null) {
-                      console.warn(`⚠️ API does not have actualAttendance field for guest ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id}) - this might cause sync issues`);
-                    } else if (apiGuest.actualAttendance !== 'not_marked') {
-                      console.log(`✅ API has actualAttendance value: ${apiGuest.actualAttendance} - this will sync to other devices`);
-                    }
-                    // Note: 'not_marked' is a valid state, no warning needed
-                    
-                    return apiGuest;
+                    // CRITICAL: Clean names when using API data
+                    return {
+                      ...apiGuest,
+                      firstName: cleanName(apiGuest.firstName),
+                      lastName: cleanName(apiGuest.lastName)
+                    };
                   });
                   
                   // Add any local guests that aren't in API (and aren't deleted)
-                  const localOnlyGuests = localEvent.guests.filter((lg: Guest) => 
-                    !apiEvent.guests.find((ag: Guest) => ag.id === lg.id) &&
-                    !deletedGuestIds.includes(lg.id) // Don't add deleted guests
-                  );
+                  // CRITICAL: Clean names for local-only guests as well
+                  const localOnlyGuests = localEvent.guests
+                    .filter((lg: Guest) => 
+                      !apiEvent.guests.find((ag: Guest) => ag.id === lg.id) &&
+                      !deletedGuestIds.includes(lg.id) // Don't add deleted guests
+                    )
+                    .map((lg: Guest) => ({
+                      ...lg,
+                      firstName: cleanName(lg.firstName),
+                      lastName: cleanName(lg.lastName)
+                    }));
                   
                   return {
                     ...apiEvent,
