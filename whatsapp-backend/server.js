@@ -2561,8 +2561,46 @@ async function uploadToImgur(filePath) {
   }
 }
 
-// Upload image endpoint
-app.post('/api/upload/image', upload.single('image'), async (req, res) => {
+// Upload image endpoint with multer error handling
+app.post('/api/upload/image', (req, res, next) => {
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      // Handle multer errors
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({
+            success: false,
+            error: 'הקובץ גדול מדי. מקסימום 5MB'
+          });
+        }
+        if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+          return res.status(400).json({
+            success: false,
+            error: 'שדה הקובץ לא תקין. אנא השתמש בשדה "image"'
+          });
+        }
+        return res.status(400).json({
+          success: false,
+          error: `שגיאת העלאה: ${err.message}`
+        });
+      }
+      // Handle file filter errors
+      if (err.message === 'Only image files are allowed!') {
+        return res.status(400).json({
+          success: false,
+          error: 'רק קבצי תמונה מותרים (JPG, PNG, GIF, WEBP)'
+        });
+      }
+      // Other errors
+      console.error('❌ Multer error:', err);
+      return res.status(500).json({
+        success: false,
+        error: `שגיאה בהעלאת הקובץ: ${err.message}`
+      });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     if (!req.file) {
       console.error('❌ No file received in upload request');
@@ -4831,6 +4869,31 @@ app.get('/api/events/:userId/deleted', async (req, res) => {
     console.error('❌ Error fetching deleted events:', error);
     res.status(500).json({ error: 'שגיאה בקבלת אירועים שנמחקו' });
   }
+});
+
+// Global error handler - MUST be before app.listen
+// This catches any unhandled errors and returns JSON instead of HTML
+app.use((err, req, res, next) => {
+  // Don't send response if headers already sent
+  if (res.headersSent) {
+    return next(err);
+  }
+  
+  console.error('❌ Unhandled error:', err);
+  console.error('❌ Error stack:', err.stack);
+  
+  // Set CORS headers even on errors
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  
+  // Return JSON error response
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    error: err.message || 'Internal server error',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 app.listen(PORT, '0.0.0.0', () => {
