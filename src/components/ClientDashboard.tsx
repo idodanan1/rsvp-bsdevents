@@ -174,12 +174,12 @@ const ClientDashboard: React.FC = () => {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         console.log(`🔄 Loading from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}), BACKEND_URL: ${BACKEND_URL}`);
         
-        // CRITICAL: Try to load single event by ID FIRST (this returns FULL event data without truncation)
-        // This is the preferred method for large events that get truncated in /api/events/all or /api/events/:userId
+        // CRITICAL: Use /api/events/all FIRST - this endpoint works reliably
+        // The /api/events/:eventId endpoint has issues on Render (returns wrong format)
         let foundEvent: any = null;
         try {
-          console.log(`🔄 Attempting to load single event with ALL guests: ${BACKEND_URL}/api/events/${eventId}`);
-          const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
+          console.log(`🔄 Loading all events from: ${BACKEND_URL}/api/events/all`);
+          const allEventsResponse = await fetch(`${BACKEND_URL}/api/events/all`, {
             method: 'GET',
             headers: { 
               'Content-Type': 'application/json',
@@ -189,62 +189,35 @@ const ClientDashboard: React.FC = () => {
             credentials: 'omit'
           });
           
-          console.log(`🔍 Single event response status: ${singleEventResponse.status} ${singleEventResponse.statusText}`);
+          console.log(`🔍 All events response status: ${allEventsResponse.status} ${allEventsResponse.statusText}`);
           
-          if (singleEventResponse.ok) {
-            const singleEventData = await singleEventResponse.json();
-            console.log(`🔍 Single event response data (full):`, singleEventData);
-            console.log(`🔍 Single event response data (summary):`, {
-              success: singleEventData.success,
-              hasEvent: !!singleEventData.event,
-              hasEvents: !!singleEventData.events,
-              eventsLength: singleEventData.events?.length || 0,
-              eventId: singleEventData.event?.id || singleEventData.id,
-              guestsCount: singleEventData.event?.guests?.length || singleEventData.guests?.length || 0,
-              responseKeys: Object.keys(singleEventData)
-            });
+          if (allEventsResponse.ok) {
+            const allEventsData = await allEventsResponse.json();
+            const allEvents = allEventsData.events || [];
+            console.log(`🔍 All events response: ${allEvents.length} events`);
+            console.log(`🔍 Looking for eventId: ${eventId}`);
+            console.log(`🔍 Available event IDs:`, allEvents.map((e: any) => e.id));
             
-            // CRITICAL: Check multiple possible response formats
-            if (singleEventData.success && singleEventData.event) {
-              // Standard format: {success: true, event: {...}}
-              foundEvent = singleEventData.event;
-              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
-            } else if (singleEventData.event) {
-              // Fallback: if response doesn't have success field but has event
-              foundEvent = singleEventData.event;
-              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
-            } else if (singleEventData.id && singleEventData.id === eventId) {
-              // Fallback: if the response IS the event itself (not wrapped in {success, event})
-              foundEvent = singleEventData;
-              console.log(`✅ Loaded FULL event from /api/events/${eventId} (direct event object): ${foundEvent.guests?.length || 0} guests`);
-            } else if (singleEventData.success && singleEventData.events && Array.isArray(singleEventData.events)) {
-              // Fallback: if response has events array (like userId endpoint), find the event
-              const eventFromArray = singleEventData.events.find((e: any) => e.id === eventId);
-              if (eventFromArray) {
-                foundEvent = eventFromArray;
-                console.log(`✅ Loaded FULL event from /api/events/${eventId} (from events array): ${foundEvent.guests?.length || 0} guests`);
-              } else {
-                console.warn(`⚠️ Single event endpoint returned events array but event ${eventId} not found in array`);
-                console.warn(`⚠️ Available event IDs in array:`, singleEventData.events.map((e: any) => e.id));
+            // Find the event in the array
+            foundEvent = allEvents.find((e: any) => e.id === eventId);
+            
+            if (foundEvent) {
+              const guestsCount = foundEvent.guests?.length || 0;
+              console.log(`✅ Found event in /api/events/all with ${guestsCount} guests`);
+              console.log(`🔍 Event name: ${foundEvent.coupleName || (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : foundEvent.groomName || foundEvent.brideName || 'אירוע')}`);
+              
+              // CRITICAL: Log guest details for debugging
+              if (guestsCount > 0) {
+                console.log(`🔍 First few guests:`, foundEvent.guests.slice(0, 3).map((g: any) => ({ id: g.id, name: g.firstName + ' ' + g.lastName })));
               }
             } else {
-              console.warn(`⚠️ Single event endpoint returned OK but no event data. Response structure:`, {
-                keys: Object.keys(singleEventData),
-                hasSuccess: 'success' in singleEventData,
-                hasEvent: 'event' in singleEventData,
-                hasEvents: 'events' in singleEventData,
-                hasId: 'id' in singleEventData,
-                fullResponse: singleEventData
-              });
+              console.warn(`⚠️ Event ${eventId} not found in /api/events/all`);
             }
-          } else if (singleEventResponse.status === 404) {
-            console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
           } else {
-            const errorText = await singleEventResponse.text();
-            console.error(`❌ Single event endpoint returned error ${singleEventResponse.status}:`, errorText);
+            console.warn(`⚠️ All events endpoint returned ${allEventsResponse.status}`);
           }
         } catch (error) {
-          console.error(`❌ Single event endpoint error, trying other endpoints:`, error);
+          console.error(`❌ All events endpoint error:`, error);
         }
         
         // CRITICAL: ALWAYS try to load guests from /api/events/:eventId/guests endpoint
@@ -408,13 +381,21 @@ const ClientDashboard: React.FC = () => {
             console.log(`✅ Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests (full list)`);
             foundEvent.guests = fullGuestsList;
           } else {
-            // CRITICAL: If guests endpoint failed but we have event data, warn about incomplete data
+            // CRITICAL: Check if data from /api/events/all is incomplete
             const eventFromAll = foundEvent;
             const currentGuestsCount = eventFromAll.guests?.length || 0;
-            if (currentGuestsCount > 0 && currentGuestsCount < 50) {
+            
+            // CRITICAL: If we have fewer than expected guests, log detailed info
+            if (currentGuestsCount > 0 && currentGuestsCount < 100) {
               console.warn(`⚠️ Event has only ${currentGuestsCount} guests - may be incomplete`);
-              console.warn(`⚠️ Guests endpoint failed - cannot load full guest list`);
-              console.warn(`⚠️ Will use partial data and polling will attempt to update`);
+              console.warn(`⚠️ This might indicate the backend file has incomplete data`);
+              console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
+              console.warn(`⚠️ Will use partial data from /api/events/all`);
+              
+              // Log guest details for debugging
+              if (eventFromAll.guests && eventFromAll.guests.length > 0) {
+                console.log(`🔍 Guest IDs in response:`, eventFromAll.guests.slice(0, 5).map((g: any) => g.id));
+              }
             } else if (currentGuestsCount === 0) {
               console.warn(`⚠️ Event has no guests - guests endpoint failed or event is empty`);
             }
