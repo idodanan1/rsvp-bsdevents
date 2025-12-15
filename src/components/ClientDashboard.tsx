@@ -14,7 +14,8 @@ import {
   Calendar,
   MapPin,
   Download,
-  Share2
+  Share2,
+  Search
 } from 'lucide-react';
 
 // Helper function to parse and display guest notes with transportation
@@ -48,6 +49,7 @@ const ClientDashboard: React.FC = () => {
   const { events, fetchEvents } = useEventStore();
   const [currentEvent, setCurrentEvent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false); // Start with false - show page immediately
+  const [searchTerm, setSearchTerm] = useState('');
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
 
@@ -606,8 +608,18 @@ const ClientDashboard: React.FC = () => {
 
         {/* Guests List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="חפש לפי שם..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pr-10 pl-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
           </div>
           
           <div className="overflow-x-auto">
@@ -632,7 +644,28 @@ const ClientDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentEvent.guests.map((guest: any) => (
+                {currentEvent.guests
+                  .slice() // Create a copy to avoid mutating the original array
+                  .filter((guest: any) => {
+                    // Filter by search term (search in first name, last name, or full name)
+                    if (!searchTerm) return true;
+                    const searchLower = searchTerm.toLowerCase();
+                    const fullName = formatFullName(guest.firstName, guest.lastName).toLowerCase();
+                    const firstName = (guest.firstName || '').toLowerCase();
+                    const lastName = (guest.lastName || '').toLowerCase();
+                    return fullName.includes(searchLower) || 
+                           firstName.includes(searchLower) || 
+                           lastName.includes(searchLower);
+                  })
+                  .sort((a: any, b: any) => {
+                    // Sort by responseDate (most recent first)
+                    // Guests with responseDate come first, then guests without
+                    const aDate = a.responseDate ? new Date(a.responseDate).getTime() : 0;
+                    const bDate = b.responseDate ? new Date(b.responseDate).getTime() : 0;
+                    // Sort descending (newest first)
+                    return bDate - aDate;
+                  })
+                  .map((guest: any) => (
                   <tr key={guest.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
