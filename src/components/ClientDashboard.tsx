@@ -228,7 +228,7 @@ const ClientDashboard: React.FC = () => {
                 console.log('✅ Setting initial event from API');
                 console.log(`🔍 Initial load - API returned ${foundEvent.guests?.length || 0} guests`);
                 
-                // CRITICAL: If API returned very few guests (likely incomplete), try to fetch full event data
+                // CRITICAL: If API returned very few guests (likely incomplete), log warning
                 // This happens when the event is too large and the API response is truncated
                 const apiGuestsCount = foundEvent.guests?.length || 0;
                 const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50; // Less than 50 guests suggests incomplete data
@@ -239,6 +239,7 @@ const ClientDashboard: React.FC = () => {
                   console.warn(`⚠️ For full guest list, use the admin dashboard or wait for polling to update`);
                   
                   // CRITICAL: Try to load from /api/events/:userId if user is logged in (this returns full event data)
+                  // Note: This is done asynchronously after setting initial event, not inside setCurrentEvent callback
                   const userStorage = localStorage.getItem('rsvp-user-storage');
                   let userId = '';
                   if (userStorage) {
@@ -251,34 +252,37 @@ const ClientDashboard: React.FC = () => {
                   }
                   
                   if (userId) {
-                    console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
-                    try {
-                      const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-                        method: 'GET',
-                        headers: { 
-                          'Content-Type': 'application/json',
-                          'Accept': 'application/json'
-                        },
-                        mode: 'cors',
-                        credentials: 'omit'
-                      });
-                      
-                      if (fullResponse.ok) {
-                        const fullData = await fullResponse.json();
-                        const fullEvents = fullData.events || [];
-                        const fullEvent = fullEvents.find((e: any) => e.id === eventId);
+                    // Load full event data asynchronously (outside of setCurrentEvent callback)
+                    (async () => {
+                      try {
+                        console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
+                        const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+                          method: 'GET',
+                          headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                          },
+                          mode: 'cors',
+                          credentials: 'omit'
+                        });
                         
-                        if (fullEvent && fullEvent.guests && fullEvent.guests.length > apiGuestsCount) {
-                          console.log(`✅ Loaded full event data: ${fullEvent.guests.length} guests (vs ${apiGuestsCount} from /api/events/all)`);
-                          return {
-                            ...fullEvent,
-                            guests: fullEvent.guests || []
-                          };
+                        if (fullResponse.ok) {
+                          const fullData = await fullResponse.json();
+                          const fullEvents = fullData.events || [];
+                          const fullEvent = fullEvents.find((e: any) => e.id === eventId);
+                          
+                          if (fullEvent && fullEvent.guests && fullEvent.guests.length > apiGuestsCount) {
+                            console.log(`✅ Loaded full event data: ${fullEvent.guests.length} guests (vs ${apiGuestsCount} from /api/events/all)`);
+                            setCurrentEvent({
+                              ...fullEvent,
+                              guests: fullEvent.guests || []
+                            });
+                          }
                         }
+                      } catch (error) {
+                        console.warn('⚠️ Failed to load full event data:', error);
                       }
-                    } catch (error) {
-                      console.warn('⚠️ Failed to load full event data:', error);
-                    }
+                    })();
                   }
                 }
                 
