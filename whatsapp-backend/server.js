@@ -4429,14 +4429,34 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     const { eventId } = req.params;
     console.log(`📋 GET /api/events/${eventId}/guests - Request received`);
     
-    // CRITICAL: Reload events from file first to ensure we have latest data
-    loadEvents();
+    // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
+    console.log(`📋 Reading events directly from file for guests endpoint`);
     
-    // CRITICAL: Ensure eventsData.events exists and is an array
-    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
-      console.error(`❌ eventsData.events is not an array!`);
-      console.error(`❌ eventsData type:`, typeof eventsData);
-      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        events = fileData.events || [];
+        console.log(`📋 Read ${events.length} events directly from file`);
+      } else {
+        console.warn(`⚠️ Events file does not exist: ${eventsFilePath}`);
+        // Fallback: try loadEvents() and use eventsData
+        loadEvents();
+        events = eventsData.events || [];
+        console.log(`📋 Using eventsData fallback: ${events.length} events`);
+      }
+    } catch (error) {
+      console.error(`❌ Error reading events file:`, error);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+      console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+    }
+    
+    // CRITICAL: Ensure events is an array
+    if (!Array.isArray(events)) {
+      console.error(`❌ events is not an array!`);
+      console.error(`❌ events type:`, typeof events);
       res.status(500).json({
         success: false,
         error: 'Events data not available'
@@ -4444,10 +4464,10 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       return;
     }
     
-    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
-    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+    console.log(`📋 Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 Available event IDs:`, events.map(e => e.id));
     
-    const event = eventsData.events.find(e => e.id === eventId);
+    const event = events.find(e => e.id === eventId);
     
     if (!event) {
       console.log(`❌ Event ${eventId} not found`);
@@ -4506,10 +4526,21 @@ app.get('/api/events/:eventId', async (req, res) => {
   try {
     const { eventId } = req.params;
     console.log(`📋 GET /api/events/${eventId} - Request received`);
-    console.log(`📋 EventId type: ${typeof eventId}, value: "${eventId}", starts with "user_": ${eventId.startsWith('user_')}`);
+    console.log(`📋 EventId type: ${typeof eventId}, value: "${eventId}"`);
+    
+    // CRITICAL: Validate eventId
+    if (!eventId || typeof eventId !== 'string' || eventId.trim() === '') {
+      console.error(`❌ Invalid eventId: ${eventId}`);
+      res.status(400).json({
+        success: false,
+        error: 'Invalid eventId',
+        message: 'EventId is required and must be a non-empty string'
+      });
+      return;
+    }
     
     // CRITICAL: Reject eventIds that contain "/" - these should be handled by /api/events/:eventId/guests route
-    if (eventId && eventId.includes('/')) {
+    if (eventId.includes('/')) {
       console.log(`❌ Invalid eventId format: contains "/" - should use /api/events/:eventId/guests instead`);
       res.status(400).json({
         success: false,
@@ -4521,50 +4552,95 @@ app.get('/api/events/:eventId', async (req, res) => {
     
     // Check if eventId looks like a userId (starts with "user_")
     // If so, treat it as /api/events/:userId endpoint
-    if (eventId && eventId.startsWith('user_')) {
+    if (eventId.startsWith('user_')) {
       const userId = eventId;
       console.log(`📋 Treating ${eventId} as userId, filtering events...`);
-      // CRITICAL: Reload events from file first
-      loadEvents();
+      
+      // CRITICAL: Read directly from file instead of relying on eventsData
+      let events = [];
+      let deletedEvents = [];
+      try {
+        if (fs.existsSync(eventsFilePath)) {
+          const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+          events = fileData.events || [];
+          deletedEvents = fileData.deletedEvents || [];
+          console.log(`📋 Read ${events.length} events directly from file for userId filter`);
+        } else {
+          // Fallback: try loadEvents() and use eventsData
+          loadEvents();
+          events = eventsData.events || [];
+          deletedEvents = eventsData.deletedEvents || [];
+          console.log(`📋 Using eventsData fallback: ${events.length} events`);
+        }
+      } catch (error) {
+        console.error(`❌ Error reading events file:`, error);
+        // Fallback: try loadEvents() and use eventsData
+        loadEvents();
+        events = eventsData.events || [];
+        deletedEvents = eventsData.deletedEvents || [];
+        console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+      }
+      
       // Filter events by userId
-      const userEvents = (eventsData.events || []).filter(e => e.userId === userId);
+      const userEvents = events.filter(e => e.userId === userId);
+      const userDeletedEvents = deletedEvents.filter(e => e.userId === userId);
       
       console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
       
       res.json({
         success: true,
         events: userEvents,
-        deletedEvents: (eventsData.deletedEvents || []).filter(e => e.userId === userId)
+        deletedEvents: userDeletedEvents
       });
       return;
     }
     
     // Otherwise, treat it as eventId and return single event
-    // CRITICAL: Reload events from file first to ensure we have latest data
+    // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
     console.log(`📋 Treating ${eventId} as eventId, loading single event...`);
-    console.log(`📋 Loading events from file for eventId: ${eventId}`);
-    loadEvents();
+    console.log(`📋 Reading events directly from file for eventId: ${eventId}`);
     
-    // CRITICAL: Ensure eventsData.events exists and is an array
-    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
-      console.error(`❌ eventsData.events is not an array! eventsData:`, eventsData);
-      console.error(`❌ eventsData type:`, typeof eventsData);
-      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
+    // CRITICAL: Read directly from file instead of relying on eventsData
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        events = fileData.events || [];
+        console.log(`📋 Read ${events.length} events directly from file`);
+      } else {
+        console.warn(`⚠️ Events file does not exist: ${eventsFilePath}`);
+        // Fallback: try loadEvents() and use eventsData
+        loadEvents();
+        events = eventsData.events || [];
+        console.log(`📋 Using eventsData fallback: ${events.length} events`);
+      }
+    } catch (error) {
+      console.error(`❌ Error reading events file:`, error);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+      console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+    }
+    
+    // CRITICAL: Ensure events is an array
+    if (!Array.isArray(events)) {
+      console.error(`❌ events is not an array! events:`, events);
+      console.error(`❌ events type:`, typeof events);
       res.status(500).json({
         success: false,
         error: 'Events data not available',
-        details: 'eventsData.events is not an array'
+        details: 'events is not an array'
       });
       return;
     }
     
-    console.log(`📋 Events loaded: ${eventsData.events.length} events`);
-    console.log(`📋 Event IDs:`, eventsData.events.map(e => e.id));
+    console.log(`📋 Events loaded: ${events.length} events`);
+    console.log(`📋 Event IDs:`, events.map(e => e.id));
     
-    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
-    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+    console.log(`📋 Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 Available event IDs:`, events.map(e => e.id));
     
-    const event = eventsData.events.find(e => e.id === eventId);
+    const event = events.find(e => e.id === eventId);
     
     if (!event) {
       console.log(`❌ Event ${eventId} not found`);
