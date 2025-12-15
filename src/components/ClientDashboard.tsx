@@ -305,24 +305,35 @@ const ClientDashboard: React.FC = () => {
         
         // If single event endpoint didn't work, try /api/events/all
         if (!foundEvent) {
-          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            const allEvents = data.events || [];
-            console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
-            console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
-            console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            });
             
-            foundEvent = allEvents.find((e: any) => e.id === eventId);
+            if (response.ok) {
+              const data = await response.json();
+              const allEvents = data.events || [];
+              console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
+              console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
+              console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
+              
+              foundEvent = allEvents.find((e: any) => e.id === eventId);
+              
+              if (!foundEvent) {
+                console.error(`❌ Event ${eventId} not found in API`);
+                console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
+              }
+            } else {
+              console.error(`❌ API returned error: ${response.status}`);
+            }
+          } catch (error) {
+            console.error('❌ Failed to fetch from /api/events/all:', error);
           }
         }
         
@@ -522,12 +533,6 @@ const ClientDashboard: React.FC = () => {
                 return prev; // Keep current (newer) data
               }
             });
-          } else {
-            console.error(`❌ Event ${eventId} not found in API`);
-            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
-          }
-        } else {
-          console.error(`❌ API returned error: ${response.status}`);
         }
       } catch (error) {
         console.error('❌ Failed to load event from API:', error);
