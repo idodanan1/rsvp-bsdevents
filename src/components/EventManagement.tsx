@@ -2147,6 +2147,16 @@ const EventManagement: React.FC = () => {
       const firstCampaign = currentEvent.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
                             currentEvent.campaigns?.[0];
       
+      // Debug: Log campaigns info
+      console.log('🔍 DEBUG Campaigns check:', {
+        campaignsExists: !!currentEvent.campaigns,
+        campaignsLength: currentEvent.campaigns?.length || 0,
+        campaignsNames: currentEvent.campaigns?.map(c => c.name) || [],
+        firstCampaignFound: !!firstCampaign,
+        firstCampaignName: firstCampaign?.name,
+        firstCampaignTemplateName: firstCampaign?.templateName
+      });
+      
       let message: string;
       let campaignImageUrl: string | undefined;
       
@@ -2157,6 +2167,10 @@ const EventManagement: React.FC = () => {
          currentEvent.groomName || currentEvent.brideName || 'הזוג');
       const groomName = currentEvent.groomName || '';
       const brideName = currentEvent.brideName || '';
+      
+      // CRITICAL: If no campaign found, use template "aa" directly for first messages
+      // This ensures we always use the correct template even if campaigns are missing
+      const shouldUseTemplateAA = !firstCampaign || firstCampaign?.templateName === 'aa' || firstCampaign?.name === 'הזמנה ראשונית';
       
       if (firstCampaign) {
         console.log('📧 Using first campaign message:', firstCampaign.name);
@@ -2182,7 +2196,8 @@ const EventManagement: React.FC = () => {
         campaignImageUrl = firstCampaign.imageUrl;
       } else {
         // Fallback to default message if no campaign found
-        console.log('⚠️ No campaign found, using default message');
+        // BUT: For first messages, we should use template "aa" instead of regular message
+        console.log('⚠️ No campaign found, but will use template "aa" for first message');
         message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
       }
 
@@ -2202,13 +2217,23 @@ const EventManagement: React.FC = () => {
       console.log('🔍 DEBUG: Campaign templateName:', firstCampaign?.templateName);
       console.log('🔍 DEBUG: First campaign:', firstCampaign?.name);
       console.log('🔍 DEBUG: First campaign exists:', !!firstCampaign);
+      console.log('🔍 DEBUG: Should use template AA:', shouldUseTemplateAA);
+      console.log('🔍 DEBUG: Guest firstMessageSent:', guest.firstMessageSent);
+      
+      // CRITICAL: For first messages, always use template "aa" if no campaign found or campaign doesn't specify template
+      // This ensures we use the correct Meta template instead of hello_world
+      let templateNameToUse = firstCampaign?.templateName;
+      if (!templateNameToUse && (!guest.firstMessageSent || shouldUseTemplateAA)) {
+        // No template from campaign, but this is a first message or should use template AA
+        templateNameToUse = 'aa';
+        console.log('✅ Using template "aa" for first message (no campaign template found)');
+      }
       
       const result = await messageService.sendBulkMessages({
         message,
         imageUrl: finalImageUrl,
-        // Use template from campaign if it's the first campaign
-        // CRITICAL: Always use templateName from campaign, even if it's 'aa'
-        templateName: firstCampaign?.templateName || undefined,
+        // Use template from campaign if it's the first campaign, otherwise use 'aa' for first messages
+        templateName: templateNameToUse || undefined,
         recipients: [{
           id: guest.id,
           firstName: guest.firstName,
@@ -2233,7 +2258,8 @@ const EventManagement: React.FC = () => {
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
-              templateParams: firstCampaign?.templateName ? ({
+              // CRITICAL: Use template params if templateName is 'aa' (either from campaign or forced)
+              templateParams: (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? ({
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
