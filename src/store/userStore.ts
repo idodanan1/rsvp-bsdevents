@@ -230,50 +230,16 @@ export const useUserStore = create<UserStore>()(
               throw new Error(errorData.error || 'אימייל או סיסמה שגויים');
             }
           } catch (error: any) {
-            // Backend failed - only then try localStorage as fallback
+            // Backend failed - don't use localStorage fallback for security reasons
+            // localStorage might contain stale data from wrong user, especially on new devices
             console.log('⚠️ Backend unavailable or error:', error.message);
             
-            // Only use localStorage if backend is truly unavailable (network error, not auth error)
+            // If backend is truly unavailable (network error), provide helpful error message
             if (error.name === 'AbortError' || error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-              console.log('🔄 Backend unavailable - trying localStorage fallback');
-              
-              // Try localStorage as fallback (only if backend is unavailable)
-              const passwords: Record<string, string> = JSON.parse(localStorage.getItem('rsvp-passwords') || '{}');
-              const storedPassword = passwords[normalizedEmail];
-              
-              if (storedPassword && storedPassword === password) {
-                // Found in localStorage - use it (but warn that backend is unavailable)
-                const stored = localStorage.getItem('rsvp-users-storage');
-                if (stored) {
-                  const parsed = JSON.parse(stored);
-                  const users: User[] = parsed.state?.users || [];
-                  const user = users.find((u: User) => u.email.toLowerCase().trim() === normalizedEmail);
-                  
-                  if (user) {
-                    console.warn('⚠️ Login via localStorage fallback (backend unavailable):', { id: user.id, email: user.email, name: user.name });
-                    
-                    // CRITICAL: Verify the user email matches what was requested
-                    if (user.email.toLowerCase().trim() !== normalizedEmail) {
-                      console.error('❌ SECURITY ERROR: localStorage has wrong user!', {
-                        requested: normalizedEmail,
-                        found: user.email.toLowerCase().trim()
-                      });
-                      throw new Error('שגיאת אבטחה: נתונים מקומיים לא תואמים. אנא נסה שוב כשהשרת זמין.');
-                    }
-                    
-                    // Create session ID for this login
-                    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                    sessionStorage.setItem('rsvp-session-id', sessionId);
-                    localStorage.setItem('rsvp-last-session-id', sessionId);
-                    
-                    set({ user: { ...user, isAdmin: false }, isAuthenticated: true, isLoading: false });
-                    return;
-                  }
-                }
-              }
+              throw new Error('השרת לא זמין כרגע. אנא בדוק את החיבור לאינטרנט ונסה שוב. אם הבעיה נמשכת, אנא צור קשר עם התמיכה.');
             }
             
-            // If we get here, either backend returned auth error or localStorage doesn't have the user
+            // For auth errors or other errors, throw the original error
             throw error;
           }
           

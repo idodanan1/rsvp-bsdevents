@@ -395,6 +395,7 @@ export const useEventStore = create<EventStore>()(
                     
                     // CRITICAL: Compare responseDate to determine which update is newer
                     // Use the newer update, not just API data blindly
+                    // This ensures that recent manual updates are not overwritten by stale API data
                     const localResponseDate = localGuest.responseDate 
                       ? (localGuest.responseDate instanceof Date 
                           ? localGuest.responseDate.getTime() 
@@ -406,14 +407,29 @@ export const useEventStore = create<EventStore>()(
                           : new Date(apiGuest.responseDate).getTime())
                       : 0;
                     
-                    // If local update is newer (based on responseDate), use local data
-                    // This ensures that recent updates are not overwritten by stale API data
-                    if (localResponseDate > apiResponseDate && localResponseDate > 0) {
-                      console.log(`🔄 Using local guest data (newer responseDate): ${localGuest.firstName} ${localGuest.lastName}`, {
-                        localResponseDate: new Date(localResponseDate).toISOString(),
-                        apiResponseDate: new Date(apiResponseDate).toISOString(),
+                    // CRITICAL: If local has a newer responseDate OR if there was a recent manual change,
+                    // preserve local data completely to prevent overwriting manual updates
+                    // Also check if critical fields differ - if they do and local is newer or equal, preserve local
+                    const localIsNewer = localResponseDate > apiResponseDate && localResponseDate > 0;
+                    const datesAreEqual = localResponseDate === apiResponseDate && localResponseDate > 0;
+                    const criticalFieldsDiffer = (
+                      localGuest.rsvpStatus !== apiGuest.rsvpStatus ||
+                      localGuest.guestCount !== apiGuest.guestCount ||
+                      localGuest.actualAttendance !== apiGuest.actualAttendance
+                    );
+                    
+                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync),
+                    // or if there was a recent manual change, preserve local data
+                    if (localIsNewer || (datesAreEqual && criticalFieldsDiffer) || hasRecentManualChange) {
+                      const reason = localIsNewer ? 'newer responseDate' : 
+                                    (datesAreEqual && criticalFieldsDiffer) ? 'equal date but critical fields differ' :
+                                    'recent manual change';
+                      console.log(`🔄 Using local guest data (${reason}): ${localGuest.firstName} ${localGuest.lastName}`, {
+                        localResponseDate: localResponseDate > 0 ? new Date(localResponseDate).toISOString() : 'none',
+                        apiResponseDate: apiResponseDate > 0 ? new Date(apiResponseDate).toISOString() : 'none',
                         localRsvpStatus: localGuest.rsvpStatus,
-                        apiRsvpStatus: apiGuest.rsvpStatus
+                        apiRsvpStatus: apiGuest.rsvpStatus,
+                        hasRecentManualChange
                       });
                       return {
                         ...localGuest,
@@ -422,7 +438,7 @@ export const useEventStore = create<EventStore>()(
                       };
                     }
                     
-                    // API data is newer or equal - use API data (it's the source of truth)
+                    // API data is newer - use API data (it's the source of truth)
                     // API has the latest data from all devices
                     // CRITICAL: Clean names when using API data
                     return {
