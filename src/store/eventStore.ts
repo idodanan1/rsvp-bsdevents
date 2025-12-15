@@ -2573,11 +2573,12 @@ export const useEventStore = create<EventStore>()(
             let templateParams: any = {};
             
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
-              // Template "aa" requires 9 parameters in order:
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
+              // Template "aa" requires 8 parameters in order:
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link
+              // NOTE: couple_name is NOT included because bride_name and groom_name are already provided
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                             'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                             'event_date', 'event_time', 'venue', 'guest_response_link'],
                 guest_name: guest.firstName,
                 event_type: event.eventTypeHebrew,
                 bride_name: event.brideName,
@@ -2586,7 +2587,6 @@ export const useEventStore = create<EventStore>()(
                 event_time: event.eventTime,
                 venue: event.venue,
                 guest_response_link: guestLink,
-                couple_name: event.coupleName,
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'a') {

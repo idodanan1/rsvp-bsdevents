@@ -2201,8 +2201,8 @@ const EventManagement: React.FC = () => {
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
               // Add template params if using template "aa"
-              // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
-              // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
+              // Template "aa" requires 8 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link
+              // NOTE: couple_name is NOT included because bride_name and groom_name are already provided
               templateParams: firstCampaign?.templateName ? {
                 guest_name: guest.firstName,
                 event_type: currentEvent.eventTypeHebrew,
@@ -2211,8 +2211,7 @@ const EventManagement: React.FC = () => {
                 event_date: formatDate(currentEvent.eventDate),
                 event_time: currentEvent.eventTime,
                 venue: currentEvent.venue,
-                guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
-                couple_name: currentEvent.coupleName
+                guest_response_link: guestLink // Using guest_response_link as per Meta template definition
               } : undefined
         }]
       });
