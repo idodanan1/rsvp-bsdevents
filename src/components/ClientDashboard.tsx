@@ -270,59 +270,96 @@ const ClientDashboard: React.FC = () => {
         
         // Fallback to public endpoint
         console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
-        const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-          method: 'GET',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          mode: 'cors',
-          credentials: 'omit'
-        });
         
-        if (response.ok) {
-          const data = await response.json();
-          const allEvents = data.events || [];
-          console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
-          console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
-          console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
+        // CRITICAL: Try to load single event by ID first (this returns FULL event data without truncation)
+        // This is the preferred method for large events that get truncated in /api/events/all
+        let foundEvent: any = null;
+        try {
+          console.log(`🔄 Attempting to load single event with ALL guests: ${BACKEND_URL}/api/events/${eventId}`);
+          const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
           
-          const foundEvent = allEvents.find((e: any) => e.id === eventId);
+          if (singleEventResponse.ok) {
+            const singleEventData = await singleEventResponse.json();
+            if (singleEventData.success && singleEventData.event) {
+              foundEvent = singleEventData.event;
+              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
+            } else if (singleEventData.event) {
+              // Fallback: if response doesn't have success field but has event
+              foundEvent = singleEventData.event;
+              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
+            }
+          } else if (singleEventResponse.status === 404) {
+            console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Single event endpoint error, falling back to /api/events/all:`, error);
+        }
+        
+        // If single event endpoint didn't work, try /api/events/all
+        if (!foundEvent) {
+          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
           
-          if (foundEvent) {
-            const displayName = foundEvent.coupleName || 
-              (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
-               foundEvent.groomName || foundEvent.brideName || 'אירוע');
-            console.log(`✅ Found event silently in API: ${displayName}`);
-            const apiGuestsCount = foundEvent.guests?.length || 0;
-            console.log(`🔍 Event details from API (SUMMARY):`, {
-              id: foundEvent.id,
-              coupleName: foundEvent.coupleName,
-              groomName: foundEvent.groomName,
-              brideName: foundEvent.brideName,
-              eventDate: foundEvent.eventDate,
-              eventTime: foundEvent.eventTime,
-              venue: foundEvent.venue,
-              guestsCount: apiGuestsCount,
-              hasGuests: !!foundEvent.guests,
-              guestsArrayLength: foundEvent.guests?.length,
-              eventTypeHebrew: foundEvent.eventTypeHebrew,
-              invitationImageUrl: foundEvent.invitationImageUrl
-            });
+          if (response.ok) {
+            const data = await response.json();
+            const allEvents = data.events || [];
+            console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
+            console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
+            console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
             
-            // CRITICAL: Check if API returned incomplete data (common for large events)
-            // If API returned very few guests (< 50), it's likely incomplete due to response size limits
-            if (apiGuestsCount > 0 && apiGuestsCount < 50) {
-              console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
-              console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
-              console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
-            }
-            
-            // CRITICAL: Ensure event has all required fields before setting
-            if (!foundEvent.guests) {
-              console.warn('⚠️ Event from API has no guests array, initializing empty array');
-              foundEvent.guests = [];
-            }
+            foundEvent = allEvents.find((e: any) => e.id === eventId);
+          }
+        }
+        
+        if (foundEvent) {
+          const displayName = foundEvent.coupleName || 
+            (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
+             foundEvent.groomName || foundEvent.brideName || 'אירוע');
+          console.log(`✅ Found event silently in API: ${displayName}`);
+          const apiGuestsCount = foundEvent.guests?.length || 0;
+          console.log(`🔍 Event details from API (SUMMARY):`, {
+            id: foundEvent.id,
+            coupleName: foundEvent.coupleName,
+            groomName: foundEvent.groomName,
+            brideName: foundEvent.brideName,
+            eventDate: foundEvent.eventDate,
+            eventTime: foundEvent.eventTime,
+            venue: foundEvent.venue,
+            guestsCount: apiGuestsCount,
+            hasGuests: !!foundEvent.guests,
+            guestsArrayLength: foundEvent.guests?.length,
+            eventTypeHebrew: foundEvent.eventTypeHebrew,
+            invitationImageUrl: foundEvent.invitationImageUrl
+          });
+          
+          // CRITICAL: Check if API returned incomplete data (common for large events)
+          // If API returned very few guests (< 50), it's likely incomplete due to response size limits
+          if (apiGuestsCount > 0 && apiGuestsCount < 50) {
+            console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
+            console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
+            console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
+          }
+          
+          // CRITICAL: Ensure event has all required fields before setting
+          if (!foundEvent.guests) {
+            console.warn('⚠️ Event from API has no guests array, initializing empty array');
+            foundEvent.guests = [];
+          }
             
             // CRITICAL: Only update if new data is more recent than current
             setCurrentEvent((prev: any) => {

@@ -4412,24 +4412,78 @@ app.options('/api/events/all', (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/api/events/:userId', async (req, res) => {
+// Get a single event by ID (public endpoint - for client dashboard)
+// CRITICAL: This endpoint returns a SINGLE event with ALL guests (no truncation)
+// This is important for large events that get truncated in /api/events/all
+app.get('/api/events/:eventId', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST - before any other operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  
   try {
-    const { userId } = req.params;
+    const { eventId } = req.params;
     
-    // Filter events by userId
-    const userEvents = eventsData.events.filter(e => e.userId === userId);
+    // Check if eventId looks like a userId (starts with "user_")
+    // If so, treat it as /api/events/:userId endpoint
+    if (eventId.startsWith('user_')) {
+      const userId = eventId;
+      // Filter events by userId
+      const userEvents = eventsData.events.filter(e => e.userId === userId);
+      
+      console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+      
+      res.json({
+        success: true,
+        events: userEvents,
+        deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
+      });
+      return;
+    }
     
-    console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+    // Otherwise, treat it as eventId and return single event
+    // CRITICAL: Reload events from file first to ensure we have latest data
+    loadEvents();
     
+    const event = eventsData.events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log(`❌ Event ${eventId} not found`);
+      res.status(404).json({
+        success: false,
+        error: 'Event not found'
+      });
+      return;
+    }
+    
+    console.log(`📋 GET /api/events/${eventId} - Returning event with ${event.guests?.length || 0} guests`);
+    
+    // CRITICAL: Return the FULL event with ALL guests (no truncation)
     res.json({
       success: true,
-      events: userEvents,
-      deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
+      event: event
     });
   } catch (error) {
-    console.error('❌ Error fetching events:', error);
-    res.status(500).json({ error: 'שגיאה בקבלת אירועים' });
+    console.error('❌ Error fetching event:', error);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בקבלת אירוע',
+      details: error.message 
+    });
   }
+});
+
+// Handle OPTIONS preflight for /api/events/:eventId
+app.options('/api/events/:eventId', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
 });
 
 // Get all events (for admin or public access)
