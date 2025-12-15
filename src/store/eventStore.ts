@@ -1520,16 +1520,63 @@ export const useEventStore = create<EventStore>()(
           });
           
           // Sync to API (for multi-computer access)
+          // CRITICAL: Send only the updated fields, not the entire event with all guests
+          // This prevents 413 errors when updating event details for large events
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             try {
-              await fetch(`${BACKEND_URL}/api/events`, {
+              // Create a minimal payload with only event details (no guests)
+              const eventUpdatePayload = {
+                id: updatedEvent.id,
+                userId: updatedEvent.userId,
+                ...cleanedUpdates, // Only the fields that were updated
+                updatedAt: updatedEvent.updatedAt
+              };
+              
+              console.log('📤 Sending event update (details only, no guests):', {
+                eventId: updatedEvent.id,
+                updatedFields: Object.keys(cleanedUpdates),
+                payloadSize: JSON.stringify(eventUpdatePayload).length
+              });
+              
+              const response = await fetch(`${BACKEND_URL}/api/events`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(updatedEvent)
+                body: JSON.stringify(eventUpdatePayload)
               });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.warn('⚠️ API sync failed:', response.status, errorText);
+                
+                // If 413 error, try sending only the most critical fields
+                if (response.status === 413) {
+                  console.log('🔄 413 error - trying minimal payload with only critical fields...');
+                  const minimalPayload = {
+                    id: updatedEvent.id,
+                    userId: updatedEvent.userId,
+                    ...cleanedUpdates
+                  };
+                  
+                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(minimalPayload)
+                  });
+                  
+                  if (retryResponse.ok) {
+                    console.log('✅ Event update synced with minimal payload');
+                  } else {
+                    console.warn('⚠️ Minimal payload also failed:', retryResponse.status);
+                  }
+                }
+              } else {
+                console.log('✅ Event update synced to API successfully');
+              }
             } catch (error) {
               console.warn('⚠️ Failed to sync event update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist
