@@ -78,13 +78,14 @@ function App() {
       // Initialize scheduled campaigns
       const initializeScheduledCampaigns = async () => {
         try {
+          // Clear all existing scheduled tasks to prevent duplicates
+          schedulerService.clearAll();
+          
           // Get campaigns from campaignStore
           const campaignStore = useCampaignStore.getState();
           const scheduledCampaigns = campaignStore.campaigns.filter(
             c => c.status === 'scheduled' && c.scheduledDate
           );
-
-          // Initialize scheduled campaigns
 
           // Reschedule each campaign
           for (const campaign of scheduledCampaigns) {

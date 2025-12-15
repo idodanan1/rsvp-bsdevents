@@ -31,7 +31,7 @@ import MessagePreview from './MessagePreview';
 const CampaignManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, sendCampaign, sendTestMessage } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, sendCampaign, sendTestMessage, scheduleCampaign: scheduleEventCampaign } = useEventStore();
   const { createCampaign, updateCampaign, deleteCampaign, scheduleCampaign, isLoading } = useCampaignStore();
   
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
@@ -306,16 +306,27 @@ const CampaignManagement: React.FC = () => {
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schedulingCampaign) return;
+    if (!schedulingCampaign || !currentEvent) return;
 
     try {
       const scheduledDateTime = new Date(`${scheduleData.scheduledDate}T${scheduleData.scheduledTime}`);
-      await scheduleCampaign(schedulingCampaign.id, scheduledDateTime);
+      
+      // Check if this is an event campaign (has eventId) or a standalone campaign
+      if (schedulingCampaign.eventId || currentEvent.campaigns?.some(c => c.id === schedulingCampaign.id)) {
+        // Schedule through eventStore
+        await scheduleEventCampaign(currentEvent.id, schedulingCampaign.id, scheduledDateTime);
+        console.log(`✅ Scheduled event campaign: ${schedulingCampaign.name} for ${scheduledDateTime.toLocaleString('he-IL')}`);
+      } else {
+        // Schedule through campaignStore (standalone campaign)
+        await scheduleCampaign(schedulingCampaign.id, scheduledDateTime);
+        console.log(`✅ Scheduled standalone campaign: ${schedulingCampaign.name} for ${scheduledDateTime.toLocaleString('he-IL')}`);
+      }
       
       setShowScheduleModal(false);
       setSchedulingCampaign(null);
     } catch (error) {
       console.error('Error scheduling campaign:', error);
+      alert('שגיאה בתזמון הקמפיין. אנא נסה שוב.');
     }
   };
 

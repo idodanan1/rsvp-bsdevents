@@ -2492,6 +2492,71 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
+      scheduleCampaign: async (eventId: string, campaignId: string, scheduledDate: Date): Promise<void> => {
+        set({ isLoading: true, error: null });
+        try {
+          const event = get().events.find(e => e.id === eventId);
+          if (!event) {
+            throw new Error('Event not found');
+          }
+
+          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          if (!campaign) {
+            throw new Error('Campaign not found');
+          }
+
+          // Cancel any existing scheduled task for this campaign
+          const { schedulerService } = await import('../services/schedulerService');
+          schedulerService.cancelCampaign(campaignId);
+
+          // Update campaign with scheduled date and status
+          const updatedCampaigns = event.campaigns?.map(c =>
+            c.id === campaignId
+              ? { ...c, scheduledDate, status: 'scheduled' as const }
+              : c
+          );
+
+          await get().updateEvent(eventId, {
+            campaigns: updatedCampaigns
+          });
+
+          // Get updated campaign for scheduling
+          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedCampaign = updatedEvent?.campaigns?.find(c => c.id === campaignId);
+          
+          if (!updatedCampaign) {
+            throw new Error('Campaign not found after update');
+          }
+
+          // Schedule the campaign using schedulerService
+          schedulerService.scheduleCampaign(updatedCampaign, async () => {
+            try {
+              console.log(`⏰ Scheduled time reached for campaign: ${updatedCampaign.name}`);
+              await get().sendCampaign(eventId, campaignId);
+            } catch (error) {
+              console.error('Error sending scheduled campaign:', error);
+              // Update campaign status to failed
+              const currentEvent = get().events.find(e => e.id === eventId);
+              if (currentEvent) {
+                const failedCampaigns = currentEvent.campaigns?.map(c =>
+                  c.id === campaignId ? { ...c, status: 'failed' as const } : c
+                );
+                await get().updateEvent(eventId, {
+                  campaigns: failedCampaigns
+                });
+              }
+            }
+          });
+
+          console.log(`✅ Scheduled campaign: ${updatedCampaign.name} for ${scheduledDate.toLocaleString('he-IL')}`);
+          set({ isLoading: false });
+        } catch (error) {
+          console.error('Error scheduling campaign:', error);
+          set({ error: 'שגיאה בתזמון הקמפיין', isLoading: false });
+          throw error;
+        }
+      },
+
       sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');

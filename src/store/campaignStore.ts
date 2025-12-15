@@ -326,6 +326,9 @@ export const useCampaignStore = create<CampaignStore>()(
         throw new Error('קמפיין לא נמצא');
       }
 
+      // Cancel any existing scheduled task for this campaign
+      schedulerService.cancelCampaign(id);
+
       // Update campaign with scheduled date and status
       await get().updateCampaign(id, { 
         scheduledDate,
@@ -363,6 +366,7 @@ export const useCampaignStore = create<CampaignStore>()(
         }
       });
 
+      console.log(`✅ Scheduled campaign: ${updatedCampaign.name} for ${scheduledDate.toLocaleString('he-IL')}`);
       set({ isLoading: false });
     } catch (error) {
       set({ error: 'שגיאה בתזמון הקמפיין', isLoading: false });

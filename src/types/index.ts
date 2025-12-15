@@ -227,6 +227,7 @@ export interface EventStore {
   importGuestsFromExcel: (eventId: string, data: ExcelImportData[]) => Promise<void>;
   exportGuestsToExcel: (eventId: string) => Promise<void>;
   createCampaign: (campaign: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  scheduleCampaign: (eventId: string, campaignId: string, scheduledDate: Date) => Promise<void>;
   sendCampaign: (eventId: string, campaignId: string) => Promise<any>;
   sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms') => Promise<boolean>;
   updateExistingEventsCampaigns: () => void;
