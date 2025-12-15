@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, VenueLayout, Campaign } from '../types';
-import { generateId, formatDate } from '../utils/helpers';
+import { generateId, formatDate, cleanName } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
@@ -1555,7 +1555,9 @@ export const useEventStore = create<EventStore>()(
         try {
           const newGuest: Guest = {
             ...guestData,
-            id: generateId()
+            id: generateId(),
+            firstName: cleanName(guestData.firstName),
+            lastName: cleanName(guestData.lastName)
           };
           
           console.log('🔍 Generated new guest:', newGuest);
@@ -1646,9 +1648,18 @@ export const useEventStore = create<EventStore>()(
                   ? updateResponseDate 
                   : currentResponseDate;
                 
+                // Clean names if they're being updated
+                const cleanedUpdates = { ...updates };
+                if (updates.firstName !== undefined) {
+                  cleanedUpdates.firstName = cleanName(updates.firstName);
+                }
+                if (updates.lastName !== undefined) {
+                  cleanedUpdates.lastName = cleanName(updates.lastName);
+                }
+                
                 return { 
                   ...guest, 
-                  ...updates,
+                  ...cleanedUpdates,
                   // Always update responseDate when critical fields change
                   responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now)
                 };
@@ -1930,9 +1941,15 @@ export const useEventStore = create<EventStore>()(
                       // This ensures old updates don't persist in the table
                       if (isNewerUpdate) {
                         // Completely replace with new update - don't merge old values
+                        // Clean names if they're being updated
+                        const cleanedFirstName = updatedGuest.firstName !== undefined ? cleanName(updatedGuest.firstName) : guest.firstName;
+                        const cleanedLastName = updatedGuest.lastName !== undefined ? cleanName(updatedGuest.lastName) : guest.lastName;
+                        
                         const mergedGuest = { 
                           ...guest, // Keep base guest properties (id, firstName, lastName, etc.)
                           ...updatedGuest, // Override with ALL new values from updatedGuest
+                          firstName: cleanedFirstName,
+                          lastName: cleanedLastName,
                           // Always use new values if provided (latest update completely replaces old one)
                           rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
                           guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
@@ -2318,8 +2335,8 @@ export const useEventStore = create<EventStore>()(
         try {
           const newGuests: Guest[] = data.map(guestData => ({
             id: generateId(),
-            firstName: guestData.firstName,
-            lastName: guestData.lastName,
+            firstName: cleanName(guestData.firstName),
+            lastName: cleanName(guestData.lastName),
             phoneNumber: guestData.phoneNumber,
             guestCount: guestData.guestCount,
             notes: guestData.notes,

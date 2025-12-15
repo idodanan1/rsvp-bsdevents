@@ -1952,8 +1952,8 @@ const EventManagement: React.FC = () => {
             });
             
             await addGuest(currentEvent.id, {
-              firstName: guest.firstName,
-              lastName: guest.lastName || '',
+              firstName: guest.firstName?.trim() || '',
+              lastName: guest.lastName?.trim() || '',
               phoneNumber: guest.phoneNumber,
               guestCount: guest.guestCount,
               tableId: guest.tableId,
