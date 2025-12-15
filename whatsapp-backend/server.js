@@ -4470,19 +4470,20 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     const event = events.find(e => e.id === eventId);
     
     if (!event) {
-      console.log(`❌ Event ${eventId} not found`);
-      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+      console.log(`❌ [GUESTS_ENDPOINT] Event ${eventId} not found`);
+      console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
       res.status(404).json({
         success: false,
         error: 'Event not found',
         eventId: eventId,
-        availableEventIds: eventsData.events.map(e => e.id)
+        availableEventIds: events.map(e => e.id)
       });
       return;
     }
     
     const guests = event.guests || [];
-    console.log(`📋 GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
+    console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
+    console.log(`📋 [GUESTS_ENDPOINT] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
     
     res.json({
       success: true,
@@ -4638,17 +4639,17 @@ app.get('/api/events/:eventId', async (req, res) => {
       return;
     }
     
-    console.log(`📋 Events loaded: ${events.length} events`);
-    console.log(`📋 Event IDs:`, events.map(e => e.id));
+    console.log(`📋 [EVENT_ID_BRANCH] Events loaded: ${events.length} events`);
+    console.log(`📋 [EVENT_ID_BRANCH] Event IDs:`, events.map(e => e.id));
     
-    console.log(`📋 Searching for event ${eventId} in ${events.length} events`);
-    console.log(`📋 Available event IDs:`, events.map(e => e.id));
+    console.log(`📋 [EVENT_ID_BRANCH] Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 [EVENT_ID_BRANCH] Available event IDs:`, events.map(e => e.id));
     
     const event = events.find(e => e.id === eventId);
     
     if (!event) {
-      console.log(`❌ Event ${eventId} not found`);
-      console.log(`📋 Available event IDs:`, events.map(e => e.id));
+      console.log(`❌ [EVENT_ID_BRANCH] Event ${eventId} not found`);
+      console.log(`📋 [EVENT_ID_BRANCH] Available event IDs:`, events.map(e => e.id));
       res.status(404).json({
         success: false,
         error: 'Event not found',
@@ -4659,19 +4660,23 @@ app.get('/api/events/:eventId', async (req, res) => {
     }
     
     const guestsCount = event.guests?.length || 0;
-    console.log(`📋 GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
-    console.log(`📋 Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
+    console.log(`📋 [EVENT_ID_BRANCH] GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
+    console.log(`📋 [EVENT_ID_BRANCH] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
     
     // CRITICAL: Return the FULL event with ALL guests (no truncation)
     // IMPORTANT: Must return {success: true, event: event} format (singular "event", not "events")
+    // CRITICAL: NEVER return {success: true, events: [...]} format - this is ONLY for userId endpoint
     const responseData = {
       success: true,
       event: event
     };
     
     const responseSize = JSON.stringify(responseData).length;
-    console.log(`📋 Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
-    console.log(`📋 Response format: {success: true, event: {...}}`);
+    console.log(`📋 [EVENT_ID_BRANCH] Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📋 [EVENT_ID_BRANCH] Response format: {success: true, event: {...}}`);
+    console.log(`📋 [EVENT_ID_BRANCH] Response keys:`, Object.keys(responseData));
+    console.log(`📋 [EVENT_ID_BRANCH] Has event:`, !!responseData.event);
+    console.log(`📋 [EVENT_ID_BRANCH] Has events:`, !!responseData.events);
     
     // CRITICAL: Set response headers to handle large responses
     res.setHeader('Content-Type', 'application/json');
@@ -4688,7 +4693,7 @@ app.get('/api/events/:eventId', async (req, res) => {
       details: error.message 
     });
   }
-});
+}););
 
 // Handle OPTIONS preflight for /api/events/:eventId
 app.options('/api/events/:eventId', (req, res) => {
