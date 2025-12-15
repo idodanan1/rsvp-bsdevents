@@ -4517,6 +4517,75 @@ app.options('/api/events/:eventId', (req, res) => {
   res.sendStatus(200);
 });
 
+// Get guests for a specific event (public endpoint - for client dashboard)
+// CRITICAL: This endpoint returns ONLY the guests array for an event (no truncation)
+// This is a workaround for large events that get truncated in /api/events/all
+app.get('/api/events/:eventId/guests', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST - before any other operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  try {
+    const { eventId } = req.params;
+    console.log(`📋 GET /api/events/${eventId}/guests - Request received`);
+    
+    // CRITICAL: Reload events from file first to ensure we have latest data
+    loadEvents();
+    
+    // CRITICAL: Ensure eventsData.events exists and is an array
+    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
+      console.error(`❌ eventsData.events is not an array!`);
+      res.status(500).json({
+        success: false,
+        error: 'Events data not available'
+      });
+      return;
+    }
+    
+    const event = eventsData.events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log(`❌ Event ${eventId} not found`);
+      res.status(404).json({
+        success: false,
+        error: 'Event not found'
+      });
+      return;
+    }
+    
+    const guests = event.guests || [];
+    console.log(`📋 GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
+    
+    res.json({
+      success: true,
+      eventId: eventId,
+      guests: guests,
+      total: guests.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching guests:', error);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בקבלת אורחים',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/events/:eventId/guests
+app.options('/api/events/:eventId/guests', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
+});
+
 // Get all events (for admin or public access)
 app.get('/api/events', async (req, res) => {
   try {

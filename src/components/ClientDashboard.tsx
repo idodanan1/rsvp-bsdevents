@@ -193,13 +193,16 @@ const ClientDashboard: React.FC = () => {
             console.log(`🔍 Single event response data (summary):`, {
               success: singleEventData.success,
               hasEvent: !!singleEventData.event,
-              eventId: singleEventData.event?.id,
-              guestsCount: singleEventData.event?.guests?.length || 0,
+              hasEvents: !!singleEventData.events,
+              eventsLength: singleEventData.events?.length || 0,
+              eventId: singleEventData.event?.id || singleEventData.id,
+              guestsCount: singleEventData.event?.guests?.length || singleEventData.guests?.length || 0,
               responseKeys: Object.keys(singleEventData)
             });
             
             // CRITICAL: Check multiple possible response formats
             if (singleEventData.success && singleEventData.event) {
+              // Standard format: {success: true, event: {...}}
               foundEvent = singleEventData.event;
               console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
             } else if (singleEventData.event) {
@@ -210,8 +213,25 @@ const ClientDashboard: React.FC = () => {
               // Fallback: if the response IS the event itself (not wrapped in {success, event})
               foundEvent = singleEventData;
               console.log(`✅ Loaded FULL event from /api/events/${eventId} (direct event object): ${foundEvent.guests?.length || 0} guests`);
+            } else if (singleEventData.success && singleEventData.events && Array.isArray(singleEventData.events)) {
+              // Fallback: if response has events array (like userId endpoint), find the event
+              const eventFromArray = singleEventData.events.find((e: any) => e.id === eventId);
+              if (eventFromArray) {
+                foundEvent = eventFromArray;
+                console.log(`✅ Loaded FULL event from /api/events/${eventId} (from events array): ${foundEvent.guests?.length || 0} guests`);
+              } else {
+                console.warn(`⚠️ Single event endpoint returned events array but event ${eventId} not found in array`);
+                console.warn(`⚠️ Available event IDs in array:`, singleEventData.events.map((e: any) => e.id));
+              }
             } else {
-              console.warn(`⚠️ Single event endpoint returned OK but no event data. Response:`, singleEventData);
+              console.warn(`⚠️ Single event endpoint returned OK but no event data. Response structure:`, {
+                keys: Object.keys(singleEventData),
+                hasSuccess: 'success' in singleEventData,
+                hasEvent: 'event' in singleEventData,
+                hasEvents: 'events' in singleEventData,
+                hasId: 'id' in singleEventData,
+                fullResponse: singleEventData
+              });
             }
           } else if (singleEventResponse.status === 404) {
             console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
@@ -221,6 +241,41 @@ const ClientDashboard: React.FC = () => {
           }
         } catch (error) {
           console.error(`❌ Single event endpoint error, trying other endpoints:`, error);
+        }
+        
+        // CRITICAL: ALWAYS try to load guests from /api/events/:eventId/guests endpoint FIRST
+        // This endpoint returns only the guests array, which should not be truncated
+        // This is the PRIMARY method for getting all guests for large events
+        let fullGuestsList: any[] | null = null;
+        try {
+          console.log(`🔄 Attempting to load ALL guests from /api/events/${eventId}/guests`);
+          const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (guestsResponse.ok) {
+            const guestsData = await guestsResponse.json();
+            console.log(`🔍 Guests endpoint response:`, {
+              success: guestsData.success,
+              guestsCount: guestsData.guests?.length || 0,
+              total: guestsData.total
+            });
+            
+            if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+              fullGuestsList = guestsData.guests;
+              console.log(`✅ Loaded ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+            }
+          } else {
+            console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
+          }
+        } catch (error) {
+          console.log(`⚠️ Guests endpoint error:`, error);
         }
         
         // If single event endpoint didn't work, try /api/events/:userId (but it may also truncate)
@@ -316,6 +371,13 @@ const ClientDashboard: React.FC = () => {
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
           console.log(`✅ Found event silently in API: ${displayName}`);
+          
+          // CRITICAL: If we loaded full guests list from /api/events/:eventId/guests, use it instead
+          if (fullGuestsList && fullGuestsList.length > 0) {
+            console.log(`✅ Merging ${fullGuestsList.length} guests from /api/events/${eventId}/guests with event data`);
+            foundEvent.guests = fullGuestsList;
+          }
+          
           const apiGuestsCount = foundEvent.guests?.length || 0;
           console.log(`🔍 Event details from API (SUMMARY):`, {
             id: foundEvent.id,
@@ -329,15 +391,18 @@ const ClientDashboard: React.FC = () => {
             hasGuests: !!foundEvent.guests,
             guestsArrayLength: foundEvent.guests?.length,
             eventTypeHebrew: foundEvent.eventTypeHebrew,
-            invitationImageUrl: foundEvent.invitationImageUrl
+            invitationImageUrl: foundEvent.invitationImageUrl,
+            guestsFromSeparateEndpoint: fullGuestsList ? fullGuestsList.length : 0
           });
           
           // CRITICAL: Check if API returned incomplete data (common for large events)
           // If API returned very few guests (< 50), it's likely incomplete due to response size limits
-          if (apiGuestsCount > 0 && apiGuestsCount < 50) {
+          if (apiGuestsCount > 0 && apiGuestsCount < 50 && !fullGuestsList) {
             console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
             console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
             console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
+          } else if (fullGuestsList && fullGuestsList.length > apiGuestsCount) {
+            console.log(`✅ Using ${fullGuestsList.length} guests from separate endpoint (vs ${apiGuestsCount} from event data)`);
           }
           
           // CRITICAL: Ensure event has all required fields before setting
@@ -354,17 +419,16 @@ const ClientDashboard: React.FC = () => {
                 console.log(`🔍 Initial load - API returned ${apiGuestsCount} guests`);
                 
                 // CRITICAL: If API returned very few guests (< 50), it's likely incomplete data
-                // Don't set incomplete data as initial - wait for complete data from polling or store
+                // But we still set it as initial if we don't have any data yet, and polling will update it
                 const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50;
                 
                 if (isLikelyIncomplete) {
                   console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
                   console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
-                  console.warn(`⚠️ NOT setting incomplete data as initial - will wait for complete data from polling or store`);
+                  console.warn(`⚠️ Setting incomplete data as initial - polling will attempt to update with complete data`);
                   
-                  // CRITICAL: Don't set incomplete data - return null to keep waiting for complete data
-                  // The store or polling will provide complete data later
-                  return null; // Don't set incomplete data
+                  // CRITICAL: Set incomplete data as initial, but polling will try to update it
+                  // This ensures the user sees something immediately, even if incomplete
                 }
                 
                 // CRITICAL: Ensure guests array exists even for initial load
