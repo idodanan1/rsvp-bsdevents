@@ -393,7 +393,36 @@ export const useEventStore = create<EventStore>()(
                       };
                     }
                     
-                    // No recent manual change - merge: ALWAYS use API data (it's the source of truth)
+                    // CRITICAL: Compare responseDate to determine which update is newer
+                    // Use the newer update, not just API data blindly
+                    const localResponseDate = localGuest.responseDate 
+                      ? (localGuest.responseDate instanceof Date 
+                          ? localGuest.responseDate.getTime() 
+                          : new Date(localGuest.responseDate).getTime())
+                      : 0;
+                    const apiResponseDate = apiGuest.responseDate 
+                      ? (apiGuest.responseDate instanceof Date 
+                          ? apiGuest.responseDate.getTime() 
+                          : new Date(apiGuest.responseDate).getTime())
+                      : 0;
+                    
+                    // If local update is newer (based on responseDate), use local data
+                    // This ensures that recent updates are not overwritten by stale API data
+                    if (localResponseDate > apiResponseDate && localResponseDate > 0) {
+                      console.log(`🔄 Using local guest data (newer responseDate): ${localGuest.firstName} ${localGuest.lastName}`, {
+                        localResponseDate: new Date(localResponseDate).toISOString(),
+                        apiResponseDate: new Date(apiResponseDate).toISOString(),
+                        localRsvpStatus: localGuest.rsvpStatus,
+                        apiRsvpStatus: apiGuest.rsvpStatus
+                      });
+                      return {
+                        ...localGuest,
+                        firstName: cleanName(localGuest.firstName),
+                        lastName: cleanName(localGuest.lastName)
+                      };
+                    }
+                    
+                    // API data is newer or equal - use API data (it's the source of truth)
                     // API has the latest data from all devices
                     // CRITICAL: Clean names when using API data
                     return {
