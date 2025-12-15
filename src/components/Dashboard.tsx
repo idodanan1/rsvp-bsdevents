@@ -164,6 +164,7 @@ const Dashboard: React.FC = () => {
     if (!selectedEventForEdit) return;
     
     try {
+      console.log('💾 Saving event edit with invitationImageUrl:', selectedEventForEdit.invitationImageUrl);
       const { updateEvent } = useEventStore.getState();
       await updateEvent(selectedEventForEdit.id, {
         coupleName: selectedEventForEdit.coupleName,
@@ -178,7 +179,12 @@ const Dashboard: React.FC = () => {
         eventTypeHebrew: selectedEventForEdit.eventTypeHebrew,
         invitationImageUrl: selectedEventForEdit.invitationImageUrl
       });
-      alert('✅ האירוע עודכן בהצלחה!');
+      
+      // Verify the image was saved
+      const updatedEvent = useEventStore.getState().events.find(e => e.id === selectedEventForEdit.id);
+      console.log('✅ Event updated. invitationImageUrl:', updatedEvent?.invitationImageUrl);
+      
+      alert(`✅ האירוע עודכן בהצלחה!${updatedEvent?.invitationImageUrl ? `\n\nתמונת הזמנה: ${updatedEvent.invitationImageUrl}` : '\n\n⚠️ שים לב: תמונת הזמנה לא נשמרה. נא לנסות להעלות שוב.'}`);
       closeEditEventModal();
     } catch (error) {
       console.error('❌ Error updating event:', error);
@@ -757,20 +763,23 @@ const Dashboard: React.FC = () => {
                             
                             if (response.ok) {
                               const data = await response.json();
+                              console.log('✅ Image upload response:', data);
                               // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
                               if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
+                                console.log('✅ Valid image URL received:', data.imageUrl);
                                 setSelectedEventForEdit({
                                   ...selectedEventForEdit,
                                   invitationImageUrl: data.imageUrl
                                 });
+                                alert(`✅ התמונה הועלתה בהצלחה!\n\nקישור: ${data.imageUrl}`);
                               } else {
                                 alert('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
                                 console.error('❌ Invalid image URL received:', data.imageUrl);
                               }
                             } else {
                               const errorData = await response.json().catch(() => ({}));
-                              alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
                               console.error('❌ Image upload failed:', errorData);
+                              alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}\n\nנא לנסות שוב או להעלות תמונה אחרת.`);
                             }
                           } catch (error) {
                             console.error('Error uploading image:', error);

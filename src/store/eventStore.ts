@@ -146,6 +146,17 @@ export const useEventStore = create<EventStore>()(
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
                     deletedEvents = parsed.state?.deletedEvents || [];
+                    
+                    // CRITICAL: Clean all guest names in local events to fix existing data
+                    localEvents = localEvents.map((event: Event) => ({
+                      ...event,
+                      guests: event.guests?.map((guest: Guest) => ({
+                        ...guest,
+                        firstName: cleanName(guest.firstName),
+                        lastName: cleanName(guest.lastName)
+                      })) || []
+                    }));
+                    
                     console.log('📦 Loaded local events from storage:', localEvents.length);
                     // Log recently created events (within last 5 minutes)
                     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
@@ -1450,12 +1461,16 @@ export const useEventStore = create<EventStore>()(
       updateEvent: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
+          console.log('💾 updateEvent called with:', { id, updates, invitationImageUrl: updates.invitationImageUrl });
+          
           // CRITICAL: Clean invitationImageUrl - remove local file paths
           const cleanedUpdates = { ...updates };
           if (updates.invitationImageUrl) {
             if (updates.invitationImageUrl.startsWith('file://')) {
               console.warn('⚠️ Removing local file path from invitationImageUrl:', updates.invitationImageUrl);
               cleanedUpdates.invitationImageUrl = undefined; // Remove local file paths
+            } else {
+              console.log('✅ Valid invitationImageUrl:', updates.invitationImageUrl);
             }
           }
           
@@ -1465,6 +1480,7 @@ export const useEventStore = create<EventStore>()(
             const updatedEvents = state.events.map(event => {
               if (event.id === id) {
                 updatedEvent = { ...event, ...cleanedUpdates, updatedAt: new Date() };
+                console.log('✅ Event updated in store:', { id, invitationImageUrl: updatedEvent.invitationImageUrl });
                 return updatedEvent;
               }
               return event;
@@ -2732,6 +2748,14 @@ export const useEventStore = create<EventStore>()(
             console.log('🔘 DEBUG: Personalized buttons created:', personalizedButtons);
             console.log('🔘 DEBUG: Personalized buttons length:', personalizedButtons.length);
             
+            const eventInvitationImageUrl = event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl;
+            console.log('🖼️ sendCampaign - Image URL priority:', {
+              eventInvitationImageUrl: event.invitationImageUrl,
+              qrCodeImageUrl: qrCodeImageUrl,
+              campaignImageUrl: campaign.imageUrl,
+              finalImageUrl: eventInvitationImageUrl
+            });
+            
             return {
               id: guest.id,
               firstName: guest.firstName,
@@ -2751,7 +2775,7 @@ export const useEventStore = create<EventStore>()(
                 venue: event.venue,
                 // CRITICAL: Always use event invitation image first, then QR code, then campaign image
                 // Priority: event.invitationImageUrl > qrCodeImageUrl > campaign.imageUrl
-                invitationImageUrl: event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl
+                invitationImageUrl: eventInvitationImageUrl
               },
               templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
               buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined
@@ -4364,6 +4388,7 @@ export const useEventStore = create<EventStore>()(
               const stateEventsMap = new Map(currentEventsFromState.map((e: Event) => [e.id, e]));
               
               // Merge: use updated events from state, keep others from storage (only current user's events)
+              // CRITICAL: Clean guest names before saving
               const mergedEvents = currentUserEventsFromStorage.map((storedEvent: Event) => {
                 const updatedEvent = stateEventsMap.get(storedEvent.id);
                 return updatedEvent || storedEvent;
@@ -4381,8 +4406,18 @@ export const useEventStore = create<EventStore>()(
               console.log('💾 Saving to storage - Current user events:', mergedEvents.length);
               console.log('💾 Events from state:', currentEventsFromState.length);
               
+              // CRITICAL: Clean all guest names before saving to localStorage
+              const cleanedMergedEvents = mergedEvents.map((event: Event) => ({
+                ...event,
+                guests: event.guests?.map((guest: Guest) => ({
+                  ...guest,
+                  firstName: cleanName(guest.firstName),
+                  lastName: cleanName(guest.lastName)
+                })) || []
+              }));
+              
               return {
-                events: mergedEvents, // ONLY current user's events
+                events: cleanedMergedEvents, // ONLY current user's events
                 deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
                 deletedGuests: state.deletedGuests || parsed.state.deletedGuests || {},
                 currentEvent: state.currentEvent || parsed.state.currentEvent || null
@@ -4393,8 +4428,19 @@ export const useEventStore = create<EventStore>()(
           // If no storage exists, save current state (for first-time users)
           if (state.events && state.events.length > 0) {
             console.log('💾 No storage found, saving current state events:', state.events.length);
+            
+            // CRITICAL: Clean all guest names before saving to localStorage
+            const cleanedEvents = state.events.map((event: Event) => ({
+              ...event,
+              guests: event.guests?.map((guest: Guest) => ({
+                ...guest,
+                firstName: cleanName(guest.firstName),
+                lastName: cleanName(guest.lastName)
+              })) || []
+            }));
+            
             return {
-              events: state.events,
+              events: cleanedEvents,
               deletedEvents: state.deletedEvents || [],
               deletedGuests: state.deletedGuests || {},
               currentEvent: state.currentEvent || null
@@ -4405,8 +4451,18 @@ export const useEventStore = create<EventStore>()(
         }
         
         // Fallback: if we can't merge, at least save what we have
+        // CRITICAL: Clean all guest names before saving to localStorage
+        const cleanedFallbackEvents = (state.events || []).map((event: Event) => ({
+          ...event,
+          guests: event.guests?.map((guest: Guest) => ({
+            ...guest,
+            firstName: cleanName(guest.firstName),
+            lastName: cleanName(guest.lastName)
+          })) || []
+        }));
+        
         return { 
-          events: state.events || [],
+          events: cleanedFallbackEvents,
           deletedEvents: state.deletedEvents || [],
           deletedGuests: state.deletedGuests || {},
           currentEvent: state.currentEvent || null
