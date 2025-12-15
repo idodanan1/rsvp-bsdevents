@@ -98,13 +98,13 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "aa" requires 8 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link
+            // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
             // NOTE: Based on error message, the parameter name in Meta is "guest_response_link"
             const paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
               : ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                 'event_date', 'event_time', 'venue', 'guest_response_link']) as string[];
+                 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
             
             // IMPORTANT: Meta requires ALL parameters to be sent in the exact order
             // Even if a parameter is empty, we must send it (as empty string)
@@ -740,8 +740,8 @@ class WhatsAppService {
                 diagnosticMessage += '\n      - No typos or extra spaces in parameter names';
                 diagnosticMessage += `\n   5. Parameters sent: ${messageData.templateParams ? Object.keys(messageData.templateParams).filter(k => k !== 'language' && k !== 'paramsOrder').length : 0}`;
                 diagnosticMessage += '\n   6. Check Error Messages section in Meta for specific parameter causing issue';
-                diagnosticMessage += '\n\n   For template "aa" (8 parameters):';
-                diagnosticMessage += '\n      guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link';
+                diagnosticMessage += '\n\n   For template "aa" (9 parameters):';
+                diagnosticMessage += '\n      guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name';
                 diagnosticMessage += '\n\n   For template "a" (7 parameters):';
                 diagnosticMessage += '\n      guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name';
                 diagnosticMessage += '\n\n   For template "reminer" (7 parameters):';
