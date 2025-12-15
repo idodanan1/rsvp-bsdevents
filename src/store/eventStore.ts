@@ -1821,6 +1821,38 @@ export const useEventStore = create<EventStore>()(
             newStatus: updatedGuest.rsvpStatus
           });
           
+          // CRITICAL: Mark manual change for guest_link updates to prevent webhook from overwriting them
+          // This ensures updates from guest response page are protected from being overwritten by webhook updates
+          if (updatedGuest.source === 'guest_link') {
+            const guestKey = `${eventId}-${guestId}`;
+            set(state => {
+              const newManualChanges = new Map(state.manualChanges);
+              newManualChanges.set(guestKey, Date.now());
+              return { manualChanges: newManualChanges };
+            });
+            console.log(`🛡️ Marked manual change for ${guestKey} (source: guest_link) - webhook updates will be blocked for 10s`);
+            
+            // Also mark in webhookService to ensure protection
+            try {
+              const webhookModule = await import('../services/webhookService');
+              webhookModule.webhookService.markManualChange(eventId, guestId);
+            } catch (error) {
+              console.warn('⚠️ Could not mark manual change in webhookService:', error);
+            }
+          }
+          
+          // CRITICAL: Ensure responseDate is always current for guest_link updates
+          // This ensures the update is always considered "newer" than previous updates
+          if (updatedGuest.source === 'guest_link' && updatedGuest.responseDate) {
+            const currentDate = new Date();
+            const updateDate = new Date(updatedGuest.responseDate);
+            // If update date is older than current time, use current time
+            if (updateDate.getTime() < currentDate.getTime()) {
+              updatedGuest.responseDate = currentDate;
+              console.log(`🔄 Updated responseDate to current time for guest_link update`);
+            }
+          }
+          
           // CRITICAL: Check if event exists in store BEFORE calling set()
           const existingEvent = currentState.events.find(e => e.id === eventId);
           

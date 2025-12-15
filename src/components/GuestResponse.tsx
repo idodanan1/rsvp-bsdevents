@@ -668,6 +668,10 @@ const GuestResponse = () => {
           finalNotes = finalNotes ? `${finalNotes} | ${transportationText}` : transportationText;
         }
         
+        // CRITICAL: Always use current time for responseDate to ensure update is always considered "newer"
+        // This ensures repeated updates from guest_link are always processed
+        const currentResponseDate = new Date();
+        
         const updatedGuest = {
           ...guestToUpdate,
           firstName: cleanName(guestToUpdate.firstName),
@@ -675,7 +679,7 @@ const GuestResponse = () => {
           guestCount: formData.guestCount,
           notes: finalNotes,
           rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe', // EXPLICITLY set status
-          responseDate: new Date(),
+          responseDate: currentResponseDate, // CRITICAL: Always use current time
           actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
           source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
         };
@@ -752,12 +756,15 @@ const GuestResponse = () => {
             finalNotes = finalNotes ? `${finalNotes} | ${transportationText}` : transportationText;
           }
           
+          // CRITICAL: Always use current time for responseDate to ensure update is always considered "newer"
+          const currentResponseDate = new Date();
+          
           const updatedGuest = {
             ...foundGuest,
             guestCount: formData.guestCount,
             notes: finalNotes,
             rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
-            responseDate: new Date(),
+            responseDate: currentResponseDate, // CRITICAL: Always use current time
             actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
             source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
           };
