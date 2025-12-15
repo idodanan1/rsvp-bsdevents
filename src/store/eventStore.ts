@@ -2147,12 +2147,17 @@ export const useEventStore = create<EventStore>()(
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
             
+            if (!updatedGuest) {
+              console.warn('⚠️ Updated guest not found, cannot sync to API');
+              return updatedEvent;
+            }
+            
             try {
               console.log('🌐 Syncing guest response update to API...');
-              console.log('📤 Sending updated event:', {
+              console.log('📤 Sending guest update only (not full event to avoid 413):', {
                 eventId: updatedEvent.id,
                 guestId: guestId,
-                updatedGuest: updatedGuest ? {
+                updatedGuest: {
                   id: updatedGuest.id,
                   firstName: updatedGuest.firstName,
                   lastName: updatedGuest.lastName,
@@ -2160,105 +2165,100 @@ export const useEventStore = create<EventStore>()(
                   rsvpStatus: updatedGuest.rsvpStatus,
                   guestCount: updatedGuest.guestCount,
                   responseDate: updatedGuest.responseDate
-                } : 'NOT FOUND'
-              });
-              console.log('📤 Full event data being sent:', {
-                eventId: updatedEvent.id,
-                guestsCount: updatedEvent.guests?.length || 0,
-                updatedGuestIndex: updatedEvent.guests?.findIndex(g => g.id === guestId) ?? -1
-              });
-              
-              // CRITICAL: Use await to ensure the update is sent before continuing
-              // This ensures the backend receives the update and adds it to pendingUpdates
-              const response = await fetch(`${BACKEND_URL}/api/events`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updatedEvent)
-              });
-              
-              if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Guest response update synced to API:', result);
-                console.log('✅ Update should now be in pendingUpdates for webhook service to process');
-                
-                // CRITICAL: If update is from guest_link, directly add to pendingUpdates in backend
-                // This ensures the webhook service picks it up even if status didn't "change"
-                if (updatedGuest && (updatedGuest.source === 'guest_link' || !updatedGuest.source)) {
-                  try {
-                    console.log('🌐 Directly adding guest_link update to backend pendingUpdates...');
-                    const pendingUpdatePayload = {
-                      phoneNumber: updatedGuest.phoneNumber,
-                      guestId: updatedGuest.id,
-                      eventId: eventId,
-                      status: updatedGuest.rsvpStatus,
-                      guestCount: updatedGuest.guestCount,
-                      responseDate: updatedGuest.responseDate?.toISOString() || new Date().toISOString(),
-                      source: 'guest_link'
-                    };
-                    const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(pendingUpdatePayload)
-                    });
-                    if (addPendingResponse.ok) {
-                      console.log('✅ Guest_link update successfully added to backend pendingUpdates.');
-                    } else {
-                      const errorText = await addPendingResponse.text();
-                      console.warn('⚠️ Failed to add guest_link update to backend pendingUpdates:', addPendingResponse.status, errorText);
-                    }
-                  } catch (error) {
-                    console.warn('⚠️ Error directly adding guest_link update to backend pendingUpdates:', error);
-                  }
                 }
+              });
+              
+              // CRITICAL: Send only the guest update to pendingUpdates, not the entire event
+              // This avoids 413 errors for large events (e.g., 417 guests) and ensures the update is synced
+              const pendingUpdatePayload = {
+                phoneNumber: updatedGuest.phoneNumber,
+                guestId: updatedGuest.id,
+                eventId: eventId,
+                status: updatedGuest.rsvpStatus,
+                guestCount: updatedGuest.guestCount,
+                actualAttendance: updatedGuest.actualAttendance,
+                notes: updatedGuest.notes,
+                responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
+                source: updatedGuest.source || 'guest_link'
+              };
+              
+              const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pendingUpdatePayload)
+              });
+              
+              if (addPendingResponse.ok) {
+                console.log('✅ Guest update successfully added to backend pendingUpdates.');
+                console.log('✅ Update will be processed by webhook service and synced to all devices');
                 
-                // CRITICAL: Don't force refresh immediately - let webhook service handle it
-                // This prevents race conditions and ensures consistent updates across devices
-                // The webhook service will poll and process the update from pendingUpdates
-              } else {
-                const errorText = await response.text();
-                console.warn('⚠️ API sync failed:', response.status, errorText);
-                // Retry once after a short delay
-                setTimeout(async () => {
-                  try {
-                    const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify(updatedEvent)
-                    });
-                    if (retryResponse.ok) {
-                      console.log('✅ Guest response update synced to API (retry successful)');
-                    } else {
-                      console.warn('⚠️ API sync retry failed:', retryResponse.status);
-                    }
-                  } catch (retryError) {
-                    console.warn('⚠️ API sync retry error:', retryError);
+                // CRITICAL: Also update the event in API with minimal data (only the updated guest)
+                // This ensures the update is persisted even if webhook service fails
+                // We send only the updated guest, not the entire event, to avoid 413 errors
+                try {
+                  console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
+                  const minimalEventUpdate = {
+                    id: updatedEvent.id,
+                    userId: updatedEvent.userId,
+                    guests: [updatedGuest], // Only send the updated guest
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(minimalEventUpdate)
+                  });
+                  
+                  if (apiUpdateResponse.ok) {
+                    console.log('✅ Event updated in API with minimal data (only updated guest)');
+                  } else {
+                    const apiErrorText = await apiUpdateResponse.text();
+                    console.warn('⚠️ Failed to update event in API (but pendingUpdates was successful):', apiUpdateResponse.status, apiErrorText);
+                    // Don't fail - pendingUpdates was successful, webhook service will handle it
                   }
-                }, 1000);
+                } catch (apiError) {
+                  console.warn('⚠️ Error updating event in API (but pendingUpdates was successful):', apiError);
+                  // Don't fail - pendingUpdates was successful, webhook service will handle it
+                }
+              } else {
+                const errorText = await addPendingResponse.text();
+                console.warn('⚠️ Failed to add guest update to backend pendingUpdates:', addPendingResponse.status, errorText);
+                
+                // Fallback: Try to send minimal event update (only the changed guest)
+                // This is a last resort if pendingUpdates endpoint fails
+                try {
+                  console.log('🔄 Fallback: Attempting to send minimal event update...');
+                  const minimalEventUpdate = {
+                    id: updatedEvent.id,
+                    userId: updatedEvent.userId,
+                    guests: [updatedGuest], // Only send the updated guest
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  const fallbackResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(minimalEventUpdate)
+                  });
+                  
+                  if (fallbackResponse.ok) {
+                    console.log('✅ Minimal event update synced to API (fallback successful)');
+                  } else {
+                    const fallbackErrorText = await fallbackResponse.text();
+                    console.warn('⚠️ Fallback sync failed:', fallbackResponse.status, fallbackErrorText);
+                  }
+                } catch (fallbackError) {
+                  console.warn('⚠️ Fallback sync error:', fallbackError);
+                }
               }
+              
+              // CRITICAL: Don't force refresh immediately - let webhook service handle it
+              // This prevents race conditions and ensures consistent updates across devices
+              // The webhook service will poll and process the update from pendingUpdates
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
-              // Retry once after a short delay
-              setTimeout(async () => {
-                try {
-                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(updatedEvent)
-                  });
-                  if (retryResponse.ok) {
-                    console.log('✅ Guest response update synced to API (retry successful)');
-                  }
-                } catch (retryError) {
-                  console.warn('⚠️ API sync retry error:', retryError);
-                }
-              }, 1000);
-              // Continue - localStorage is already updated by Zustand persist
+              // Don't retry with full event - it will fail with 413 for large events
             }
           }
         } catch (error) {
