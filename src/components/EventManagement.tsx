@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, getStatusColor, formatFullName } from '../utils/helpers';
+import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -695,7 +695,8 @@ const EventManagement: React.FC = () => {
       console.log('📤 Calling addGuest...');
       await addGuest(currentEvent.id, {
         ...newGuest,
-        lastName: '', // שם משפחה לא נדרש יותר
+        firstName: cleanName(newGuest.firstName),
+        lastName: cleanName(newGuest.lastName || ''), // שם משפחה לא נדרש יותר
         rsvpStatus: 'pending',
         channel: 'whatsapp', // ברירת מחדל - WhatsApp
         actualAttendance: 'not_marked'
@@ -752,10 +753,10 @@ const EventManagement: React.FC = () => {
         eventId: currentEvent.id 
       });
       
-      // Update in store first
+      // Update in store first - clean names before updating
       await updateGuest(currentEvent.id, editingGuest.id, {
-        firstName: newGuest.firstName,
-        lastName: newGuest.lastName,
+        firstName: cleanName(newGuest.firstName),
+        lastName: cleanName(newGuest.lastName),
         phoneNumber: newGuest.phoneNumber,
         guestCount: newGuest.guestCount,
         notes: newGuest.notes

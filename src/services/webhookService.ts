@@ -1,4 +1,5 @@
 // Webhook Service - Handles WhatsApp button clicks and updates guest status
+import { cleanName } from '../utils/helpers';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
 
@@ -643,8 +644,11 @@ class WebhookService {
           
           // CRITICAL: Always use update.guestCount if provided, otherwise use latest guestCount from store
           // This ensures guestCount updates from WhatsApp are preserved
+          // CRITICAL: Clean names when updating from webhook
           const updatedGuest = {
             ...latestGuest,
+            firstName: cleanName(latestGuest.firstName),
+            lastName: cleanName(latestGuest.lastName),
             rsvpStatus: newStatus,
             responseDate: new Date(update.responseDate || Date.now()),
             guestCount: update.guestCount !== undefined ? update.guestCount : latestGuest.guestCount,

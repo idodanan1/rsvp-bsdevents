@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Client, ClientEvent, Reminder, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types';
-import { generateId, formatDate } from '../utils/helpers';
+import { generateId, formatDate, cleanName } from '../utils/helpers';
 
 export interface ClientStore {
   clients: Client[];
@@ -92,6 +92,8 @@ export const useClientStore = create<ClientStore>()(
           const newClient: Client = {
             ...clientData,
             id: generateId(),
+            firstName: cleanName(clientData.firstName),
+            lastName: cleanName(clientData.lastName),
             events: [],
             totalEvents: 0,
             totalGuests: 0,
@@ -111,14 +113,23 @@ export const useClientStore = create<ClientStore>()(
       updateClient: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
+          // Clean names if they're being updated
+          const cleanedUpdates = { ...updates };
+          if (updates.firstName !== undefined) {
+            cleanedUpdates.firstName = cleanName(updates.firstName);
+          }
+          if (updates.lastName !== undefined) {
+            cleanedUpdates.lastName = cleanName(updates.lastName);
+          }
+          
           set(state => ({
             clients: state.clients.map(client =>
               client.id === id
-                ? { ...client, ...updates, updatedAt: new Date() }
+                ? { ...client, ...cleanedUpdates, updatedAt: new Date() }
                 : client
             ),
             currentClient: state.currentClient?.id === id 
-              ? { ...state.currentClient, ...updates, updatedAt: new Date() }
+              ? { ...state.currentClient, ...cleanedUpdates, updatedAt: new Date() }
               : state.currentClient,
             isLoading: false
           }));

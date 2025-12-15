@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import type { useEventStore as UseEventStoreType } from '../store/eventStore';
-import { formatDate, formatDateTime, formatFullName } from '../utils/helpers';
+import { formatDate, formatDateTime, formatFullName, cleanName } from '../utils/helpers';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
 
 const GuestResponse = () => {
@@ -647,6 +647,8 @@ const GuestResponse = () => {
         
         const updatedGuest = {
           ...guestToUpdate,
+          firstName: cleanName(guestToUpdate.firstName),
+          lastName: cleanName(guestToUpdate.lastName),
           guestCount: formData.guestCount,
           notes: finalNotes,
           rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe', // EXPLICITLY set status
