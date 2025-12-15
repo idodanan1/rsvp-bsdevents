@@ -745,10 +745,19 @@ const Dashboard: React.FC = () => {
                             formData.append('image', file);
                             
                             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+                            
+                            // Show loading indicator
+                            const uploadButton = e.target as HTMLInputElement;
+                            const originalDisabled = uploadButton.disabled;
+                            uploadButton.disabled = true;
+                            
                             const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
                               method: 'POST',
+                              // Don't set Content-Type header - browser will set it automatically with boundary
                               body: formData
                             });
+                            
+                            uploadButton.disabled = originalDisabled;
                             
                             if (response.ok) {
                               const data = await response.json();
@@ -773,16 +782,28 @@ const Dashboard: React.FC = () => {
                               } catch {
                                 errorData = { error: errorText || response.statusText };
                               }
+                              const errorMessage = errorData.error || errorData.message || response.statusText || 'שגיאה לא ידועה';
                               console.error('❌ Image upload failed:', {
                                 status: response.status,
                                 statusText: response.statusText,
                                 error: errorData
                               });
                               
+                              // Show detailed error message
+                              alert(
+                                `❌ שגיאה בהעלאת התמונה לשרת\n\n` +
+                                `קוד שגיאה: ${response.status}\n` +
+                                `הודעה: ${errorMessage}\n\n` +
+                                `💡 פתרונות אפשריים:\n` +
+                                `1. נסה להעלות תמונה קטנה יותר (מקסימום 5MB)\n` +
+                                `2. ודא שהקובץ הוא תמונה בפורמט תקני (JPG, PNG, GIF)\n` +
+                                `3. נסה להעלות את התמונה ל-Imgur (https://imgur.com/upload) ולהזין את הקישור כאן`
+                              );
+                              
                               // Offer alternative: use URL input instead
                               const useUrl = confirm(
-                                `שגיאה בהעלאת התמונה לשרת (${response.status}): ${errorData.error || response.statusText}\n\n` +
-                                `האם תרצה להזין קישור לתמונה ישירות במקום? (חייב להיות URL נגיש דרך האינטרנט, למשל מ-Imgur או Google Drive)`
+                                `האם תרצה להזין קישור לתמונה ישירות במקום?\n\n` +
+                                `(חייב להיות URL נגיש דרך האינטרנט, למשל מ-Imgur או Google Drive)`
                               );
                               
                               if (useUrl) {
@@ -826,21 +847,30 @@ const Dashboard: React.FC = () => {
                     value={selectedEventForEdit.invitationImageUrl || ''}
                     onChange={(e) => {
                       const url = e.target.value.trim();
+                      
+                      // Reject file:// URLs - user should use file upload instead
+                      if (url.startsWith('file://')) {
+                        alert('⚠️ לא ניתן להשתמש בנתיב מקומי.\n\nאנא השתמש באפשרות "העלאת קובץ" למעלה, או העלה את התמונה ל-Imgur (https://imgur.com/upload) והזן את הקישור כאן.');
+                        e.target.value = '';
+                        return;
+                      }
+                      
                       // Validate URL format
                       if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
                         setSelectedEventForEdit({
                           ...selectedEventForEdit,
                           invitationImageUrl: url
                         });
-                        console.log('✅ Image URL set:', url);
                       } else if (url === '') {
                         // Allow clearing the URL
                         setSelectedEventForEdit({
                           ...selectedEventForEdit,
                           invitationImageUrl: undefined
                         });
-                      } else {
-                        console.warn('⚠️ Invalid URL format:', url);
+                      } else if (url) {
+                        // Only warn if there's actually a value (not empty)
+                        alert('⚠️ פורמט URL לא תקין. הקישור חייב להתחיל ב-http:// או https://');
+                        e.target.value = '';
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

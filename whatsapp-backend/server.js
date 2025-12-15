@@ -2565,14 +2565,24 @@ async function uploadToImgur(filePath) {
 app.post('/api/upload/image', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
+      console.error('❌ No file received in upload request');
       return res.status(400).json({
         success: false,
-        error: 'No image file provided'
+        error: 'No image file provided. Please select an image file.'
       });
     }
 
     const filePath = req.file.path;
-    console.log('📤 Uploading image:', req.file.filename);
+    console.log('📤 Uploading image:', req.file.filename, 'Size:', req.file.size, 'bytes');
+    
+    // Verify file exists
+    if (!fs.existsSync(filePath)) {
+      console.error('❌ Uploaded file does not exist at path:', filePath);
+      return res.status(500).json({
+        success: false,
+        error: 'File was not saved correctly on server'
+      });
+    }
     
     // Try to upload to Imgur first (for HTTPS support)
     let imageUrl;
@@ -2582,9 +2592,14 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
       console.log('✅ Image uploaded to Imgur successfully:', imageUrl);
       
       // Delete local file after successful Imgur upload
-      fs.unlinkSync(filePath);
+      try {
+        fs.unlinkSync(filePath);
+      } catch (unlinkError) {
+        console.warn('⚠️ Could not delete local file:', unlinkError.message);
+      }
     } catch (imgurError) {
       console.warn('⚠️ Imgur upload failed, using local server:', imgurError.message);
+      console.warn('⚠️ Imgur error details:', imgurError);
       
       // Fallback to local server
       const serverUrl = process.env.SERVER_URL || 
@@ -2599,6 +2614,11 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
       }
       
       imageUrl = `${serverUrl}/uploads/${req.file.filename}`;
+      
+      // Verify the file is accessible
+      if (!fs.existsSync(filePath)) {
+        throw new Error('Local file was not saved correctly');
+      }
     }
     
     console.log('✅ Image uploaded successfully:', imageUrl);
@@ -2610,9 +2630,14 @@ app.post('/api/upload/image', upload.single('image'), async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Image upload error:', error);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Provide more detailed error message
+    const errorMessage = error.message || 'Unknown error occurred';
     res.status(500).json({
       success: false,
-      error: 'Failed to upload image'
+      error: `Failed to upload image: ${errorMessage}`,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
