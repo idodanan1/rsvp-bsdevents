@@ -1801,9 +1801,67 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     
     console.log(`🔄 Updating guest count for ${phoneNumber} to ${guestCount}`);
     
+    // CRITICAL: Find guest by phone number to get guestId and eventId
+    // This ensures the correct guest is updated, even if multiple guests share the same phone number
+    loadEvents(); // Reload events to get latest data
+    let foundGuest = null;
+    let foundEvent = null;
+    
+    // CRITICAL: Find ALL guests with matching phone number, then select the most relevant one
+    // This ensures we update the correct guest even if multiple guests share the same phone number
+    const matchingGuests = [];
+    
+    for (const event of eventsData.events) {
+      if (event.guests && event.guests.length > 0) {
+        const eventGuests = event.guests.filter(g => {
+          if (!g.phoneNumber) return false;
+          const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+          const updatePhone = phoneNumber.replace(/[^0-9]/g, '');
+          
+          if (!guestPhone || !updatePhone) return false;
+          
+          const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+          const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+          const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+          const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+          
+          return guestPhone === updatePhone || 
+                 guestPhone === updatePhoneWith0 ||
+                 guestPhone === updatePhoneWith972 ||
+                 guestPhoneWith972 === updatePhone ||
+                 guestPhoneWith972 === updatePhoneWith972 ||
+                 guestPhoneWith0 === updatePhone ||
+                 guestPhoneWith0 === updatePhoneWith0;
+        });
+        
+        // Add matching guests with their event
+        eventGuests.forEach(guest => {
+          matchingGuests.push({ guest, event });
+        });
+      }
+    }
+    
+    // Select the most relevant guest (prefer guests with pending status, then confirmed, then declined)
+    if (matchingGuests.length > 0) {
+      // Sort by status priority: pending > confirmed > declined > maybe
+      matchingGuests.sort((a, b) => {
+        const statusPriority = { 'pending': 0, 'confirmed': 1, 'maybe': 2, 'declined': 3 };
+        const aPriority = statusPriority[a.guest.rsvpStatus] || 99;
+        const bPriority = statusPriority[b.guest.rsvpStatus] || 99;
+        return aPriority - bPriority;
+      });
+      
+      foundGuest = matchingGuests[0].guest;
+      foundEvent = matchingGuests[0].event;
+      
+      console.log(`✅ Found guest for guest count update: ${foundGuest.firstName} ${foundGuest.lastName} (${foundGuest.id}) in event ${foundEvent.id}`);
+    } else {
+      console.warn(`⚠️ No guest found for phone ${phoneNumber} - guest count update will be stored without guestId/eventId`);
+    }
+    
     // CRITICAL: Frontend expects separate updates for status and guestCount
     // Send guestCount update WITHOUT status so frontend can process it correctly
-    const guestCountUpdate = {
+    const guestCountUpdate: any = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
@@ -1812,6 +1870,13 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
       timestamp: Date.now(),
       source: 'guest_count' // Mark as coming from guest count response (not button click)
     };
+    
+    // CRITICAL: Include guestId and eventId if found (required for webhook service to process correctly)
+    if (foundGuest && foundEvent) {
+      guestCountUpdate.guestId = foundGuest.id;
+      guestCountUpdate.eventId = foundEvent.id;
+      console.log(`✅ Added guestId (${foundGuest.id}) and eventId (${foundEvent.id}) to guest count update`);
+    }
     
     // Add guest count update (frontend will process this separately from status update)
     pendingUpdates.push(guestCountUpdate);
@@ -2857,24 +2922,30 @@ app.post('/api/guests/add-pending-update', (req, res) => {
   const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source } = req.body;
   console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source });
 
-  if (!phoneNumber || !guestId || !eventId || !status) {
-    return res.status(400).json({ error: 'Missing required fields for pending update' });
+  // CRITICAL: Allow updates with either status OR guestCount (or both)
+  // This allows guestCount-only updates from WhatsApp without requiring status
+  if (!phoneNumber || !guestId || !eventId || (status === undefined && guestCount === undefined)) {
+    return res.status(400).json({ error: 'Missing required fields: phoneNumber, guestId, eventId, and at least one of status or guestCount' });
   }
 
   const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
   const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
 
-  const updateData = {
+  const updateData: any = {
     phoneNumber: formattedPhone,
     originalPhoneNumber: originalPhone,
     guestId: guestId,
     eventId: eventId,
-    status: status,
     guestCount: guestCount,
     responseDate: responseDate,
     timestamp: Date.now(),
     source: source || 'manual_add'
   };
+  
+  // Only include status if it was provided (allows guestCount-only updates)
+  if (status !== undefined && status !== null) {
+    updateData.status = status;
+  }
 
   // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
   const updatesToRemove = [];

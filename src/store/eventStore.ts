@@ -2170,17 +2170,24 @@ export const useEventStore = create<EventStore>()(
               
               // CRITICAL: Send only the guest update to pendingUpdates, not the entire event
               // This avoids 413 errors for large events (e.g., 417 guests) and ensures the update is synced
-              const pendingUpdatePayload = {
+              // CRITICAL: Only include status if it was actually updated (not undefined)
+              // If only guestCount was updated, don't send status to avoid overwriting it
+              const pendingUpdatePayload: any = {
                 phoneNumber: updatedGuest.phoneNumber,
                 guestId: updatedGuest.id,
                 eventId: eventId,
-                status: updatedGuest.rsvpStatus,
                 guestCount: updatedGuest.guestCount,
                 actualAttendance: updatedGuest.actualAttendance,
                 notes: updatedGuest.notes,
                 responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
                 source: updatedGuest.source || 'guest_link'
               };
+              
+              // Only include status if it was explicitly updated (not undefined)
+              // This ensures guestCount-only updates don't overwrite status
+              if (updatedGuest.rsvpStatus !== undefined && updatedGuest.rsvpStatus !== null) {
+                pendingUpdatePayload.status = updatedGuest.rsvpStatus;
+              }
               
               const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
                 method: 'POST',

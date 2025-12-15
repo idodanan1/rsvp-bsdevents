@@ -230,7 +230,10 @@ class WebhookService {
               ...foundGuest,
               guestCount: update.guestCount,
               // CRITICAL: Include responseDate to ensure timestamp is updated
-              responseDate: update.responseDate ? new Date(update.responseDate) : new Date()
+              responseDate: update.responseDate ? new Date(update.responseDate) : new Date(),
+              // CRITICAL: Preserve existing status - don't overwrite it with undefined
+              // Only update guestCount, keep existing rsvpStatus
+              rsvpStatus: foundGuest.rsvpStatus
             };
 
             await updateGuestResponse(foundEventId, foundGuest.id, updatedGuestForCount);
