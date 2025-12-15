@@ -59,8 +59,38 @@ const ClientDashboard: React.FC = () => {
     // Try to find event in current events first (for fast initial display)
     const event = events.find(e => e.id === eventId);
     if (event) {
-      console.log(`✅ Found event in store: ${event.coupleName} - showing immediately, will update from backend`);
-      setCurrentEvent(event);
+      const displayName = event.coupleName || 
+        (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
+         event.groomName || event.brideName || 'אירוע');
+      console.log(`✅ Found event in store: ${displayName} - showing immediately, will update from backend`);
+      console.log(`🔍 Event details:`, {
+        coupleName: event.coupleName,
+        groomName: event.groomName,
+        brideName: event.brideName,
+        eventDate: event.eventDate,
+        venue: event.venue,
+        guestsCount: event.guests?.length || 0,
+        updatedAt: event.updatedAt
+      });
+      
+      // CRITICAL: Only set if we don't have currentEvent or if this is newer
+      setCurrentEvent((prev: any) => {
+        if (!prev) {
+          return event;
+        }
+        
+        // Compare updatedAt timestamps
+        const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+        const newUpdatedAt = event.updatedAt ? (event.updatedAt instanceof Date ? event.updatedAt.getTime() : new Date(event.updatedAt).getTime()) : 0;
+        
+        if (newUpdatedAt >= prevUpdatedAt) {
+          console.log('✅ Updating from store (newer or same timestamp)');
+          return event;
+        } else {
+          console.log('⚠️ Ignoring store data (older than current)');
+          return prev; // Keep current (newer) data
+        }
+      });
       // Continue to load from API to get latest data
     }
     
@@ -73,8 +103,38 @@ const ClientDashboard: React.FC = () => {
           if (parsed.state && parsed.state.events) {
             const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
             if (foundEvent) {
-              console.log(`✅ Found event in localStorage: ${foundEvent.coupleName} - showing immediately, will update from backend`);
-              setCurrentEvent(foundEvent);
+              const displayName = foundEvent.coupleName || 
+                (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
+                 foundEvent.groomName || foundEvent.brideName || 'אירוע');
+              console.log(`✅ Found event in localStorage: ${displayName} - showing immediately, will update from backend`);
+              console.log(`🔍 Event details from localStorage:`, {
+                coupleName: foundEvent.coupleName,
+                groomName: foundEvent.groomName,
+                brideName: foundEvent.brideName,
+                eventDate: foundEvent.eventDate,
+                venue: foundEvent.venue,
+                guestsCount: foundEvent.guests?.length || 0,
+                updatedAt: foundEvent.updatedAt
+              });
+              
+              // CRITICAL: Only set if we don't have currentEvent or if this is newer
+              setCurrentEvent((prev: any) => {
+                if (!prev) {
+                  return foundEvent;
+                }
+                
+                // Compare updatedAt timestamps
+                const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+                const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
+                
+                if (newUpdatedAt >= prevUpdatedAt) {
+                  console.log('✅ Updating from localStorage (newer or same timestamp)');
+                  return foundEvent;
+                } else {
+                  console.log('⚠️ Ignoring localStorage data (older than current)');
+                  return prev; // Keep current (newer) data
+                }
+              });
             }
           }
         }
@@ -103,13 +163,63 @@ const ClientDashboard: React.FC = () => {
         if (response.ok) {
           const data = await response.json();
           const allEvents = data.events || [];
+          console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
+          console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
+          console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
+          
           const foundEvent = allEvents.find((e: any) => e.id === eventId);
           
           if (foundEvent) {
-            console.log(`✅ Found event silently in API: ${foundEvent.coupleName}`);
-            setCurrentEvent(foundEvent);
+            const displayName = foundEvent.coupleName || 
+              (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
+               foundEvent.groomName || foundEvent.brideName || 'אירוע');
+            console.log(`✅ Found event silently in API: ${displayName}`);
+            console.log(`🔍 Event details from API (FULL OBJECT):`, JSON.stringify(foundEvent, null, 2));
+            console.log(`🔍 Event details from API (SUMMARY):`, {
+              id: foundEvent.id,
+              coupleName: foundEvent.coupleName,
+              groomName: foundEvent.groomName,
+              brideName: foundEvent.brideName,
+              eventDate: foundEvent.eventDate,
+              eventTime: foundEvent.eventTime,
+              venue: foundEvent.venue,
+              guestsCount: foundEvent.guests?.length || 0,
+              hasGuests: !!foundEvent.guests,
+              guestsArrayLength: foundEvent.guests?.length,
+              eventTypeHebrew: foundEvent.eventTypeHebrew,
+              invitationImageUrl: foundEvent.invitationImageUrl
+            });
+            
+            // CRITICAL: Ensure event has all required fields before setting
+            if (!foundEvent.guests) {
+              console.warn('⚠️ Event from API has no guests array, initializing empty array');
+              foundEvent.guests = [];
+            }
+            
+            // CRITICAL: Only update if new data is more recent than current
+            setCurrentEvent((prev: any) => {
+              if (!prev) {
+                console.log('✅ Setting initial event from API');
+                return foundEvent;
+              }
+              
+              // Compare updatedAt timestamps
+              const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+              const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
+              
+              if (newUpdatedAt >= prevUpdatedAt) {
+                console.log('✅ Updating from API (newer or same timestamp)');
+                return foundEvent;
+              } else {
+                console.log('⚠️ Ignoring API data (older than current)');
+                console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
+                console.log(`   New updatedAt: ${new Date(newUpdatedAt).toISOString()}`);
+                return prev; // Keep current (newer) data
+              }
+            });
           } else {
             console.error(`❌ Event ${eventId} not found in API`);
+            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
           }
         } else {
           console.error(`❌ API returned error: ${response.status}`);
@@ -138,8 +248,38 @@ const ClientDashboard: React.FC = () => {
       fetchEvents().then(() => {
         const foundEvent = events.find(e => e.id === eventId);
         if (foundEvent) {
-          console.log(`✅ Found event silently via fetchEvents: ${foundEvent.coupleName}`);
-          setCurrentEvent(foundEvent);
+          const displayName = foundEvent.coupleName || 
+            (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
+             foundEvent.groomName || foundEvent.brideName || 'אירוע');
+          console.log(`✅ Found event silently via fetchEvents: ${displayName}`);
+          console.log(`🔍 Event details from fetchEvents:`, {
+            coupleName: foundEvent.coupleName,
+            groomName: foundEvent.groomName,
+            brideName: foundEvent.brideName,
+            eventDate: foundEvent.eventDate,
+            venue: foundEvent.venue,
+            guestsCount: foundEvent.guests?.length || 0,
+            updatedAt: foundEvent.updatedAt
+          });
+          
+          // CRITICAL: Only update if new data is more recent than current
+          setCurrentEvent((prev: any) => {
+            if (!prev) {
+              return foundEvent;
+            }
+            
+            // Compare updatedAt timestamps
+            const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+            const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
+            
+            if (newUpdatedAt >= prevUpdatedAt) {
+              console.log('✅ Updating from fetchEvents (newer or same timestamp)');
+              return foundEvent;
+            } else {
+              console.log('⚠️ Ignoring fetchEvents data (older than current)');
+              return prev; // Keep current (newer) data
+            }
+          });
         }
         // Still load from public API to ensure we have the absolute latest data
         loadFromAPI();
@@ -181,11 +321,24 @@ const ClientDashboard: React.FC = () => {
             const foundEvent = allEvents.find((e: any) => e.id === eventId);
             
             if (foundEvent) {
-              // Always update to ensure latest data is shown (backend is source of truth)
+              // CRITICAL: Only update if new data is more recent or has actual changes
+              // This prevents overwriting correct data with stale data
               setCurrentEvent((prev: any) => {
                 if (!prev) {
                   console.log('🔄 ClientDashboard: Setting initial event from backend');
                   return foundEvent;
+                }
+                
+                // CRITICAL: Compare updatedAt timestamps to ensure we only update with newer data
+                const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+                const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
+                
+                // If new data is older, don't update (prevents overwriting with stale data)
+                if (newUpdatedAt < prevUpdatedAt) {
+                  console.log('⚠️ ClientDashboard: Ignoring older data from backend (prevents overwriting correct data)');
+                  console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
+                  console.log(`   New updatedAt: ${new Date(newUpdatedAt).toISOString()}`);
+                  return prev; // Keep previous (newer) data
                 }
                 
                 // Compare guests by ID, not by index (guests might be in different order)
@@ -198,7 +351,16 @@ const ClientDashboard: React.FC = () => {
                   return foundEvent;
                 }
                 
-                // Check if any guest data changed
+                // CRITICAL: If new data is older, don't update even if guests changed
+                // This prevents overwriting newer manual changes with older API data
+                if (newUpdatedAt < prevUpdatedAt) {
+                  console.log('⚠️ ClientDashboard: Ignoring older data from polling (prevents overwriting correct data)');
+                  console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
+                  console.log(`   New updatedAt: ${new Date(newUpdatedAt).toISOString()}`);
+                  return prev; // Keep previous (newer) data
+                }
+                
+                // Check if any guest data changed (only if timestamps are same or new is newer)
                 let hasChanged = false;
                 for (const [guestId, newGuest] of newGuestsMap) {
                   const prevGuest = prevGuestsMap.get(guestId);
@@ -220,7 +382,7 @@ const ClientDashboard: React.FC = () => {
                 }
                 
                 if (hasChanged) {
-                  console.log('🔄 ClientDashboard: Event data updated silently from backend');
+                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling');
                   return foundEvent;
                 }
                 return prev;
@@ -411,7 +573,16 @@ const ClientDashboard: React.FC = () => {
             <div className="flex items-center space-x-4">
               <div className="text-2xl">🎉</div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{currentEvent.coupleName}</h1>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+                </h1>
+                {(currentEvent.groomName || currentEvent.brideName) && (
+                  <p className="text-sm text-gray-600">
+                    {currentEvent.groomName && currentEvent.brideName 
+                      ? `${currentEvent.groomName} & ${currentEvent.brideName}`
+                      : currentEvent.groomName || currentEvent.brideName}
+                  </p>
+                )}
                 <p className="text-sm text-yellow-500 font-medium">בס"ד אירועים - ממשק לקוח</p>
               </div>
             </div>
