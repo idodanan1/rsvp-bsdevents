@@ -924,15 +924,15 @@ export const useEventStore = create<EventStore>()(
                 {
                   type: 'reply' as const,
                   reply: {
-                    id: 'attendance_update',
-                    title: 'לעדכון סטטוס הגעה'
+                    id: 'confirmed',
+                    title: 'מגיע'
                   }
                 },
                 {
                   type: 'reply' as const,
                   reply: {
-                    id: 'gift_info',
-                    title: 'להענקת מתנה'
+                    id: 'declined',
+                    title: 'לא אוכל להגיע'
                   }
                 }
               ],
@@ -977,8 +977,15 @@ export const useEventStore = create<EventStore>()(
                 {
                   type: 'reply',
                   reply: {
-                    id: 'attendance_update',
-                    title: 'לעדכון סטטוס הגעה'
+                    id: 'confirmed',
+                    title: 'מגיע'
+                  }
+                },
+                {
+                  type: 'reply',
+                  reply: {
+                    id: 'declined',
+                    title: 'לא אוכל להגיע'
                   }
                 }
               ],
@@ -1023,8 +1030,15 @@ export const useEventStore = create<EventStore>()(
                 {
                   type: 'reply',
                   reply: {
-                    id: 'attendance_update',
-                    title: 'לעדכון סטטוס הגעה'
+                    id: 'confirmed',
+                    title: 'מגיע'
+                  }
+                },
+                {
+                  type: 'reply',
+                  reply: {
+                    id: 'declined',
+                    title: 'לא אוכל להגיע'
                   }
                 }
               ],
@@ -1072,8 +1086,15 @@ export const useEventStore = create<EventStore>()(
                 {
                   type: 'reply',
                   reply: {
-                    id: 'attendance_update',
-                    title: 'לעדכון סטטוס הגעה'
+                    id: 'confirmed',
+                    title: 'מגיע'
+                  }
+                },
+                {
+                  type: 'reply',
+                  reply: {
+                    id: 'declined',
+                    title: 'לא אוכל להגיע'
                   }
                 }
               ],
@@ -1122,8 +1143,15 @@ export const useEventStore = create<EventStore>()(
                 {
                   type: 'reply',
                   reply: {
-                    id: 'attendance_update',
-                    title: 'לעדכון סטטוס הגעה'
+                    id: 'confirmed',
+                    title: 'מגיע'
+                  }
+                },
+                {
+                  type: 'reply',
+                  reply: {
+                    id: 'declined',
+                    title: 'לא אוכל להגיע'
                   }
                 }
               ],
