@@ -670,7 +670,7 @@ const EventManagement: React.FC = () => {
   })();
 
   // Filter guests for modal search
-  const modalFilteredGuests = (currentEvent.guests || []).filter(guest => 
+  const modalFilteredGuests = (currentEvent?.guests || []).filter(guest => 
       guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
       (guest.lastName && guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase())) ||
     guest.phoneNumber.includes(modalSearchTerm)
@@ -681,6 +681,11 @@ const EventManagement: React.FC = () => {
     e.preventDefault();
     console.log('🔍 handleAddGuest called with:', newGuest);
     console.log('🔍 currentEvent.id:', currentEvent?.id);
+    
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
     
     if (!newGuest.firstName || !newGuest.phoneNumber) {
       console.log('❌ Missing required fields');
@@ -725,6 +730,12 @@ const EventManagement: React.FC = () => {
 
   const handleUpdateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     if (!editingGuest || !newGuest.firstName || !newGuest.phoneNumber) {
       return;
     }
@@ -774,6 +785,11 @@ const EventManagement: React.FC = () => {
   };
 
   const handleUpdateGuestStatus = async (guestId: string, status: string) => {
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     try {
       console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: currentEvent.id });
       
@@ -811,6 +827,11 @@ const EventManagement: React.FC = () => {
   };
 
   const handleUpdateAttendance = async (guestId: string, attendance: string) => {
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     try {
       console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: currentEvent.id });
       
@@ -850,13 +871,18 @@ const EventManagement: React.FC = () => {
   };
 
   const handleUpdateGuestField = async (guestId: string, updates: any) => {
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     try {
       console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: currentEvent.id });
       
       // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
       // This ensures seating management is updated correctly
       if (updates.tableId !== undefined) {
-        const currentGuest = currentEvent.guests.find(g => g.id === guestId);
+        const currentGuest = currentEvent.guests?.find(g => g.id === guestId);
         const oldTableId = currentGuest?.tableId;
         const newTableId = updates.tableId;
         
@@ -1300,16 +1326,27 @@ const EventManagement: React.FC = () => {
   };
 
   const handleDeleteGuest = async (guestId: string) => {
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
       try {
         await deleteGuest(currentEvent.id, guestId);
       } catch (error) {
         console.error('Error deleting guest:', error);
+        alert('אירעה שגיאה במחיקת המוזמן');
       }
     }
   };
 
   const handleDeleteSelectedGuests = async () => {
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
     if (selectedGuests.length === 0) {
       alert('אנא בחר אורחים למחיקה');
       return;
@@ -1320,18 +1357,30 @@ const EventManagement: React.FC = () => {
       return;
     }
 
+    const eventId = currentEvent.id; // Store eventId to prevent issues if currentEvent changes
+    const guestsToDelete = [...selectedGuests]; // Create a copy to avoid issues if state changes
+    
     try {
       // Delete all selected guests
-      for (const guestId of selectedGuests) {
-        await deleteGuest(currentEvent.id, guestId);
+      for (const guestId of guestsToDelete) {
+        // Double-check event still exists before each deletion
+        const storeState = useEventStore.getState();
+        const eventExists = storeState.events.some(e => e.id === eventId);
+        if (!eventExists) {
+          alert('האירוע נמחק במהלך המחיקה. נא לרענן את הדף.');
+          setSelectedGuests([]);
+          return;
+        }
+        await deleteGuest(eventId, guestId);
       }
       
       // Clear selection after deletion
       setSelectedGuests([]);
-      alert(`נמחקו ${selectedGuests.length} מוזמנים בהצלחה!`);
+      alert(`נמחקו ${guestsToDelete.length} מוזמנים בהצלחה!`);
     } catch (error) {
       console.error('Error deleting selected guests:', error);
       alert('אירעה שגיאה במחיקת המוזמנים');
+      setSelectedGuests([]);
     }
   };
 
