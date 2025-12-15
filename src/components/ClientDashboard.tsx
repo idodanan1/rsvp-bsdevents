@@ -166,9 +166,13 @@ const ClientDashboard: React.FC = () => {
     
     // CRITICAL: Always load from public API endpoint to get latest data (backend is source of truth)
     // This ensures we always have the most up-to-date data, even if event was found in store/localStorage
-    const loadFromAPI = async () => {
+    const loadFromAPI = async (retryCount = 0) => {
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 2000; // 2 seconds between retries
+      
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        console.log(`🔄 Loading from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}), BACKEND_URL: ${BACKEND_URL}`);
         
         // CRITICAL: Try to load single event by ID FIRST (this returns FULL event data without truncation)
         // This is the preferred method for large events that get truncated in /api/events/all or /api/events/:userId
@@ -179,10 +183,14 @@ const ClientDashboard: React.FC = () => {
             method: 'GET',
             headers: { 
               'Content-Type': 'application/json',
-              'Accept': 'application/json'
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
             },
             mode: 'cors',
-            credentials: 'omit'
+            credentials: 'omit',
+            cache: 'no-store',
+            signal: AbortSignal.timeout(30000) // 30 second timeout
           });
           
           console.log(`🔍 Single event response status: ${singleEventResponse.status} ${singleEventResponse.statusText}`);
@@ -360,10 +368,14 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
               },
               mode: 'cors',
-              credentials: 'omit'
+              credentials: 'omit',
+              cache: 'no-store',
+              signal: AbortSignal.timeout(30000) // 30 second timeout
             });
             
             if (response.ok) {
@@ -561,8 +573,46 @@ const ClientDashboard: React.FC = () => {
               }
             });
         }
-      } catch (error) {
-        console.error('❌ Failed to load event from API:', error);
+      } catch (error: any) {
+        const isTimeout = error.name === 'TimeoutError' || error.name === 'AbortError' || error.message?.includes('timeout');
+        const isNetworkError = error.name === 'TypeError' && error.message?.includes('fetch');
+        
+        console.error(`❌ Failed to load event from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          eventId: eventId,
+          isTimeout: isTimeout,
+          isNetworkError: isNetworkError
+        });
+        
+        // Retry if we haven't exceeded max retries (especially for network/timeout errors)
+        if (retryCount < MAX_RETRIES && (isTimeout || isNetworkError || error.name === 'TypeError')) {
+          const retryDelay = isTimeout ? RETRY_DELAY * 2 : RETRY_DELAY; // Longer delay for timeouts
+          console.log(`🔄 Retrying API load in ${retryDelay}ms... (${isTimeout ? 'timeout' : isNetworkError ? 'network' : 'error'})`);
+          setTimeout(() => {
+            loadFromAPI(retryCount + 1);
+          }, retryDelay);
+        } else if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Retrying API load in ${RETRY_DELAY}ms...`);
+          setTimeout(() => {
+            loadFromAPI(retryCount + 1);
+          }, RETRY_DELAY);
+        } else {
+          console.error('❌ Max retries reached. Failed to load event from API.');
+          // CRITICAL: Even if API fails, don't clear currentEvent if we have it
+          // This ensures users can still see data even if API is temporarily unavailable
+          setCurrentEvent((prev: any) => {
+            if (!prev) {
+              console.warn('⚠️ No event data available - API failed and no local data found');
+              return null;
+            } else {
+              console.log('✅ Keeping existing event data despite API failure');
+              return prev; // Keep existing data
+            }
+          });
+        }
       }
     };
     
@@ -1081,10 +1131,14 @@ const ClientDashboard: React.FC = () => {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         },
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(30000) // 30 second timeout
       });
       
       if (response.ok) {
@@ -1153,12 +1207,29 @@ const ClientDashboard: React.FC = () => {
   };
 
   // Show page immediately - no loading screen
+  // But show helpful message if event is not loaded yet
   if (!currentEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">אירוע לא נמצא</h1>
-          <p className="text-gray-600">האירוע המבוקש לא נמצא במערכת</p>
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">טוען אירוע...</h1>
+          <p className="text-gray-600 mb-4">מחפש את האירוע במערכת</p>
+          <p className="text-sm text-gray-500">
+            אם הבעיה נמשכת, נסה לרענן את הדף או לבדוק את החיבור לאינטרנט
+          </p>
+          <button
+            onClick={() => {
+              if (eventId) {
+                window.location.reload();
+              }
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            רענן דף
+          </button>
         </div>
       </div>
     );
