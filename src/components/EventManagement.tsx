@@ -33,47 +33,23 @@ import SyncMonitoringPanel from './SyncMonitoringPanel';
 
 // Helper function to parse and display guest notes with transportation
 const renderGuestNotes = (notes: string | undefined) => {
-  // Debug logging
-  if (notes) {
-    console.log('📝 renderGuestNotes called with notes:', notes);
-  }
-  
   if (!notes || notes.trim() === '') return null;
   
-  // Match transportation pattern - can be at start, middle, or end
-  const transportationMatch = notes.match(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/);
-  const transportation = transportationMatch ? transportationMatch[1] : null;
+  // Remove any transportation-related text (old format or new format)
+  // Match patterns like "| הסעה דרום", "| הסעה צפון", "| אין צורך בהסעה", or just "הסעה"
+  let regularNotes = notes
+    .replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/g, '')
+    .replace(/הסעה\s*$/g, '')
+    .replace(/הסעה\s*\|\s*/g, '')
+    .trim();
   
-  // Extract regular notes by removing transportation part
-  let regularNotes = notes;
-  if (transportationMatch) {
-    regularNotes = notes.replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/, '').trim();
-  }
-  
-  // Debug logging
-  if (notes) {
-    console.log('📝 Parsed notes:', { 
-      original: notes, 
-      transportation, 
-      regularNotes,
-      hasRegularNotes: regularNotes && regularNotes.length > 0,
-      hasTransportation: !!transportation
-    });
-  }
+  // Only show notes if there's actual content after removing transportation
+  if (!regularNotes || regularNotes.length === 0) return null;
   
   return (
-    <>
-      {regularNotes && regularNotes.length > 0 && (
-        <div className="text-xs text-gray-600 break-words mt-1 whitespace-normal">
-          <span className="font-medium text-gray-700">הערה:</span> {regularNotes}
-        </div>
-      )}
-      {transportation && (
-        <div className="text-xs font-medium text-blue-600 break-words mt-1 whitespace-normal">
-          🚗 {transportation}
-        </div>
-      )}
-    </>
+    <div className="text-xs text-gray-600 break-words mt-1 whitespace-normal">
+      <span className="font-medium text-gray-700">הערה:</span> {regularNotes}
+    </div>
   );
 };
 

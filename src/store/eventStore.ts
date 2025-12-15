@@ -1758,49 +1758,52 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
+          // Use lightweight endpoint to avoid 413 errors with large events
           if (updatedEvent) {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
+            
+            if (!updatedGuest) {
+              console.warn('⚠️ Guest not found in updated event, skipping API sync');
+              return;
+            }
             
             // Retry logic for reliable sync
             const syncToAPI = async (retries = 3): Promise<void> => {
               try {
-                console.log('🌐 Syncing guest update to API...');
-                console.log('📤 Sending updated event:', {
+                console.log('🌐 Syncing guest update to API (minimal payload)...');
+                
+                // Send only the guest update via lightweight endpoint to avoid 413 errors
+                const guestUpdatePayload = {
+                  phoneNumber: updatedGuest.phoneNumber,
+                  guestId: guestId,
+                  eventId: updatedEvent.id,
+                  status: updatedGuest.rsvpStatus,
+                  guestCount: updatedGuest.guestCount,
+                  notes: updatedGuest.notes,
+                  responseDate: updatedGuest.responseDate || new Date(),
+                  source: 'manual_update',
+                  // Include other fields that might have changed
+                  firstName: updatedGuest.firstName,
+                  lastName: updatedGuest.lastName,
+                  actualAttendance: updatedGuest.actualAttendance,
+                  tableId: updatedGuest.tableId
+                };
+                
+                console.log('📤 Sending guest update only (not full event):', {
                   eventId: updatedEvent.id,
                   guestId: guestId,
-                  updates: updates,
-                  allFields: Object.keys(updates),
-                  firstName: updates.firstName,
-                  lastName: updates.lastName,
-                  phoneNumber: updates.phoneNumber,
-                  actualAttendance: updates.actualAttendance,
-                  guestCount: updates.guestCount,
-                  rsvpStatus: updates.rsvpStatus,
-                  tableId: updates.tableId
+                  updates: Object.keys(updates),
+                  rsvpStatus: guestUpdatePayload.status,
+                  guestCount: guestUpdatePayload.guestCount
                 });
                 
-                // Log the full guest object being sent
-                const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
-                if (updatedGuest) {
-                  console.log('📤 Full guest object being synced:', {
-                    id: updatedGuest.id,
-                    firstName: updatedGuest.firstName,
-                    lastName: updatedGuest.lastName,
-                    phoneNumber: updatedGuest.phoneNumber,
-                    actualAttendance: updatedGuest.actualAttendance,
-                    guestCount: updatedGuest.guestCount,
-                    rsvpStatus: updatedGuest.rsvpStatus,
-                    tableId: updatedGuest.tableId,
-                    notes: updatedGuest.notes
-                  });
-                }
-                
-                const response = await fetch(`${BACKEND_URL}/api/events`, {
+                const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
-                  body: JSON.stringify(updatedEvent)
+                  body: JSON.stringify(guestUpdatePayload)
                 });
                 
                 if (response.ok) {
