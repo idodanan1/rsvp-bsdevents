@@ -173,6 +173,17 @@ class MessageService {
     let templateName = messageData.templateName;
     let templateParams = recipient.templateParams || messageData.templateParams;
     
+    // Debug logging
+    console.log('🔍 DEBUG templateName check:', {
+      messageDataTemplateName: messageData.templateName,
+      recipientTemplateParams: recipient.templateParams,
+      messageDataTemplateParams: messageData.templateParams,
+      isFirstMessage: isFirstMessage,
+      firstMessageSent: recipient.firstMessageSent,
+      finalTemplateName: templateName,
+      finalTemplateParams: templateParams
+    });
+    
     // Logic for when to use templates:
     // CRITICAL: Meta requires ALL first messages to use approved templates
     // 1. If it's a first message → MUST use template (Meta requirement)
@@ -185,17 +196,30 @@ class MessageService {
     // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template
     // This ensures campaigns that specify a template (like "הזמנה ראשונית" with template 'aa') 
     // will use the Meta template, not the campaign message content
-    if (templateName) {
+    // Check for both truthy value and non-empty string
+    const hasValidTemplate = templateName && typeof templateName === 'string' && templateName.trim().length > 0;
+    
+    console.log('🔍 Template validation:', {
+      templateName,
+      typeofTemplateName: typeof templateName,
+      templateNameLength: templateName ? templateName.length : 0,
+      templateNameTrimmed: templateName ? templateName.trim() : '',
+      hasValidTemplate,
+      isFirstMessage
+    });
+    
+    if (hasValidTemplate) {
       // Explicit template provided → ALWAYS use template (Meta will use template content, not campaign message)
-      console.log('📋 Explicit template provided:', templateName, '- using Meta template (campaign message content will be ignored)');
+      console.log('✅ Explicit template provided:', templateName, '- using Meta template (campaign message content will be ignored)');
       console.log('📋 Template parameters:', templateParams);
       // Keep templateName and templateParams as provided - Meta will use template content
       // The campaign.message content will be ignored when using templates
     } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
       // No explicit template from campaign → use hello_world as fallback
-      console.log('📋 First message - no template from campaign, using "hello_world" template');
+      console.log('⚠️ First message - no valid template from campaign, using "hello_world" template as fallback');
       console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
+      console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
       templateName = 'hello_world';
       templateParams = {
         language: 'en_US'

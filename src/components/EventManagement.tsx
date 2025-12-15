@@ -2198,11 +2198,17 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
+      // Debug: Log template name before sending
+      console.log('🔍 DEBUG: Campaign templateName:', firstCampaign?.templateName);
+      console.log('🔍 DEBUG: First campaign:', firstCampaign?.name);
+      console.log('🔍 DEBUG: First campaign exists:', !!firstCampaign);
+      
       const result = await messageService.sendBulkMessages({
         message,
         imageUrl: finalImageUrl,
         // Use template from campaign if it's the first campaign
-        templateName: firstCampaign?.templateName,
+        // CRITICAL: Always use templateName from campaign, even if it's 'aa'
+        templateName: firstCampaign?.templateName || undefined,
         recipients: [{
           id: guest.id,
           firstName: guest.firstName,
