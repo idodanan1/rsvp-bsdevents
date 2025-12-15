@@ -472,7 +472,7 @@ const EventViewer: React.FC = () => {
                       <div className="text-sm font-medium text-gray-900">
                         {formatFullName(guest.firstName, guest.lastName)}
                       </div>
-                      {(() => {
+                      {guest.notes && (() => {
                         // Parse notes to separate transportation from regular notes
                         const notes = guest.notes || '';
                         const transportationMatch = notes.match(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/);
@@ -483,7 +483,7 @@ const EventViewer: React.FC = () => {
                         
                         return (
                           <>
-                            {regularNotes && (
+                            {regularNotes && regularNotes.length > 0 && (
                               <div className="text-xs text-gray-500 break-words mt-1">
                                 {regularNotes}
                               </div>
