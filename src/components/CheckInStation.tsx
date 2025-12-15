@@ -295,12 +295,13 @@ const CheckInStation: React.FC = () => {
           clearDisplayTimeoutRef.current = null;
         }
         
+        const guestFullName = formatFullName(guest.firstName, guest.lastName);
         setScannedGuest({
           id: guest.id,
           firstName: guest.firstName,
           lastName: guest.lastName,
           tableNumber: tableNumber,
-          greeting: `ברוך הבא ${guest.firstName}!`,
+          greeting: `ברוך הבא ${guestFullName}!`,
           scannedAt: new Date()
         });
         
@@ -329,7 +330,8 @@ const CheckInStation: React.FC = () => {
       await updateGuestResponse(eventId, qrData.guestId, updatedGuest);
 
       // Create greeting message
-      const greeting = `ברוך הבא ${guest.firstName}!`;
+      const guestFullName = formatFullName(guest.firstName, guest.lastName);
+      const greeting = `ברוך הבא ${guestFullName}!`;
 
       // Set scanned guest info to display
       setScannedGuest({
@@ -342,7 +344,7 @@ const CheckInStation: React.FC = () => {
       });
 
       setLastScannedId(qrData.guestId);
-      toast.success(`ברוך הבא ${guest.firstName}!`);
+      toast.success(`ברוך הבא ${guestFullName}!`);
 
       // Clear any existing timeout before setting a new one
       if (clearDisplayTimeoutRef.current) {

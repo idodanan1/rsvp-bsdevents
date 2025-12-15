@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import type { useEventStore as UseEventStoreType } from '../store/eventStore';
-import { formatDate, formatDateTime } from '../utils/helpers';
+import { formatDate, formatDateTime, formatFullName } from '../utils/helpers';
 import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
 
 const GuestResponse = () => {
@@ -538,7 +538,7 @@ const GuestResponse = () => {
       setFormData(prev => ({
         ...prev,
         phoneNumber: currentGuest.phoneNumber || prev.phoneNumber,
-        fullName: `${currentGuest.firstName} ${currentGuest.lastName || ''}`.trim() || prev.fullName,
+        fullName: formatFullName(currentGuest.firstName, currentGuest.lastName) || prev.fullName,
         guestCount: currentGuest.guestCount || prev.guestCount || 1,
         notes: currentGuest.notes || prev.notes || '',
         response: currentGuest.rsvpStatus === 'confirmed' ? 'attending' : 

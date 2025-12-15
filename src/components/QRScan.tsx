@@ -82,8 +82,9 @@ const QRScan: React.FC = () => {
 
       // Send welcome message with table number
       try {
+        const guestFullName = formatFullName(guest.firstName, guest.lastName);
         const welcomeMessage = tableNumber 
-          ? `🎉 שלום ${guest.firstName}! 
+          ? `🎉 שלום ${guestFullName}! 
 
 ברוך הבא ל${event.eventTypeHebrew} של ${event.coupleName}! 
 
@@ -94,7 +95,7 @@ const QRScan: React.FC = () => {
 
 בברכה,
 ${event.coupleName}`
-          : `🎉 שלום ${guest.firstName}! 
+          : `🎉 שלום ${guestFullName}! 
 
 ברוך הבא ל${event.eventTypeHebrew} של ${event.coupleName}! 
 

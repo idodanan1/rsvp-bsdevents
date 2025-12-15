@@ -1083,7 +1083,7 @@ const EventManagement: React.FC = () => {
                           guest.actualAttendance === 'not_attended' ? '✗' : '?';
         
         dataRows.push([
-          `${statusIcon} ${guest.firstName || ''} ${guest.lastName || ''}`.trim(),
+          `${statusIcon} ${formatFullName(guest.firstName, guest.lastName)}`,
           guest.phoneNumber || '',
           `(${guest.guestCount || 1} אנשים)`,
           attendanceStatus,
@@ -1586,7 +1586,7 @@ const EventManagement: React.FC = () => {
         rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
         guestCount: guest.guestCount || 1,
         phoneNumber: guest.phoneNumber || '',
-        fullName: `${guest.firstName || ''} ${guest.lastName || ''}`.trim()
+        fullName: formatFullName(guest.firstName, guest.lastName)
       });
       
       // Style data row
@@ -1852,7 +1852,7 @@ const EventManagement: React.FC = () => {
               warningMessage += `${idx + 1}. מספר טלפון: ${dup.phone}\n`;
               warningMessage += `   מופיע ${dup.count} פעמים בשורות:\n`;
               dup.guests.forEach((guest: any) => {
-                warningMessage += `   - שורה ${guest.rowNumber}: ${guest.firstName} ${guest.lastName || ''}\n`;
+                warningMessage += `   - שורה ${guest.rowNumber}: ${formatFullName(guest.firstName, guest.lastName)}\n`;
               });
               warningMessage += '\n';
             });
@@ -1862,9 +1862,9 @@ const EventManagement: React.FC = () => {
             warningMessage += `\n📋 כפילויות עם אורחים קיימים במערכת (${duplicatesWithExisting.length} אורחים):\n\n`;
             duplicatesWithExisting.forEach((guest: any, idx) => {
               const existingGuest = existingGuests.find(g => g.phoneNumber?.trim() === guest.phoneNumber?.trim());
-              warningMessage += `${idx + 1}. ${guest.firstName} ${guest.lastName || ''} - ${guest.phoneNumber}\n`;
+              warningMessage += `${idx + 1}. ${formatFullName(guest.firstName, guest.lastName)} - ${guest.phoneNumber}\n`;
               if (existingGuest) {
-                warningMessage += `   קיים במערכת: ${existingGuest.firstName} ${existingGuest.lastName || ''}\n`;
+                warningMessage += `   קיים במערכת: ${formatFullName(existingGuest.firstName, existingGuest.lastName)}\n`;
               }
               warningMessage += '\n';
             });
@@ -2218,7 +2218,8 @@ const EventManagement: React.FC = () => {
       if (result.successful > 0) {
         const channel = result.results[0]?.channel === 'whatsapp' ? 'WhatsApp' : 'SMS';
         const warning = result.results[0]?.warning;
-        let message = `✅ הודעה נשלחה בהצלחה ל-${guest.firstName} ${guest.lastName}!\n\n📱 ערוץ: ${channel}\n📞 טלפון: ${guest.phoneNumber}`;
+        const guestFullName = formatFullName(guest.firstName, guest.lastName);
+        let message = `✅ הודעה נשלחה בהצלחה ל-${guestFullName}!\n\n📱 ערוץ: ${channel}\n📞 טלפון: ${guest.phoneNumber}`;
         
         if (warning) {
           message += `\n\n⚠️ הערה חשובה:\n${warning}`;
@@ -2239,7 +2240,8 @@ const EventManagement: React.FC = () => {
         const error = result.results[0]?.error || 'שגיאה לא ידועה';
         console.error('❌ WhatsApp sending failed:', error);
         console.error('📋 Full result:', result);
-        alert(`❌ שגיאה בשליחת הודעה ל-${guest.firstName} ${guest.lastName}\n\n🔍 שגיאה: ${error}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
+        const guestFullName = formatFullName(guest.firstName, guest.lastName);
+        alert(`❌ שגיאה בשליחת הודעה ל-${guestFullName}\n\n🔍 שגיאה: ${error}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
       }
     } catch (error: any) {
       console.error('❌ Error sending message:', error);
