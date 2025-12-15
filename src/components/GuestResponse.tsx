@@ -1033,7 +1033,18 @@ const GuestResponse = () => {
         <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <Heart className="w-6 h-6 fill-current" />
-            <h1 className="text-2xl font-bold">{currentEvent.coupleName}</h1>
+            <div className="text-center">
+              <h1 className="text-2xl font-bold">
+                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+              </h1>
+              {(currentEvent.groomName || currentEvent.brideName) && (
+                <p className="text-white/90 text-lg mt-1">
+                  {currentEvent.groomName && currentEvent.brideName 
+                    ? `${currentEvent.groomName} & ${currentEvent.brideName}`
+                    : currentEvent.groomName || currentEvent.brideName}
+                </p>
+              )}
+            </div>
           </div>
           
           {/* Event Image */}

@@ -386,8 +386,15 @@ const Dashboard: React.FC = () => {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h3 className="text-xl font-bold text-gray-900 mb-1">
-                        {event.coupleName}
+                        {event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע')}
                       </h3>
+                      {(event.groomName || event.brideName) && (
+                        <p className="text-sm text-gray-500 mb-1">
+                          {event.groomName && event.brideName 
+                            ? `${event.groomName} & ${event.brideName}`
+                            : event.groomName || event.brideName}
+                        </p>
+                      )}
                       <p className="text-gray-600 flex items-center font-medium">
                         <Calendar className="w-4 h-4 mr-1" />
                         {formatDate(event.eventDate)} - {event.eventTime}

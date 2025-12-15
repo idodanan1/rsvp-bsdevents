@@ -33,7 +33,7 @@ const CalendarView: React.FC = () => {
   const getEventsForDate = (date: Date): CalendarEvent[] => {
     return events.map(event => ({
       id: event.id,
-      title: event.coupleName,
+      title: event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע'),
       date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
       time: event.eventTime,
       location: event.venue,
@@ -48,7 +48,7 @@ const CalendarView: React.FC = () => {
   const getEventsForMonth = (date: Date): CalendarEvent[] => {
     return events.map(event => ({
       id: event.id,
-      title: event.coupleName,
+      title: event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע'),
       date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
       time: event.eventTime,
       location: event.venue,

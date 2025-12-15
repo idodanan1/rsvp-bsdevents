@@ -154,7 +154,16 @@ const EventViewer: React.FC = () => {
             חזרה לדשבורד
           </button>
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{currentEvent.coupleName}</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+            </h1>
+            {(currentEvent.groomName || currentEvent.brideName) && (
+              <p className="text-gray-500 mt-1 text-xl">
+                {currentEvent.groomName && currentEvent.brideName 
+                  ? `${currentEvent.groomName} & ${currentEvent.brideName}`
+                  : currentEvent.groomName || currentEvent.brideName}
+              </p>
+            )}
             <p className="text-gray-600 flex items-center">
               <Calendar className="w-4 h-4 ml-1" />
               {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime}

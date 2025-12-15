@@ -446,7 +446,16 @@ const ClientDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentEvent.coupleName || 'אירוע'}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+              </h2>
+              {(currentEvent.groomName || currentEvent.brideName) && (
+                <p className="text-gray-500 mb-2 text-lg">
+                  {currentEvent.groomName && currentEvent.brideName 
+                    ? `${currentEvent.groomName} & ${currentEvent.brideName}`
+                    : currentEvent.groomName || currentEvent.brideName}
+                </p>
+              )}
               <div className="flex items-center space-x-6 text-gray-600">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5" />

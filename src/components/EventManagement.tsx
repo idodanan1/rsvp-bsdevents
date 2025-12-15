@@ -2301,7 +2301,16 @@ const EventManagement: React.FC = () => {
         <div className="bg-white rounded-lg shadow-md p-4 mb-4">
         <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">{currentEvent.coupleName}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+              </h2>
+              {(currentEvent.groomName || currentEvent.brideName) && (
+                <p className="text-gray-500 mt-1 text-lg">
+                  {currentEvent.groomName && currentEvent.brideName 
+                    ? `${currentEvent.groomName} & ${currentEvent.brideName}`
+                    : currentEvent.groomName || currentEvent.brideName}
+                </p>
+              )}
               <p className="text-gray-600 mt-1">
                 {formatDate(currentEvent.eventDate)} - {currentEvent.eventTime} | {currentEvent.venue}
               </p>
