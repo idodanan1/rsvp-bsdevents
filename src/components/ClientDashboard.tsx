@@ -444,20 +444,21 @@ const ClientDashboard: React.FC = () => {
       </div>
 
       {/* Main Content */}
+      {currentEvent ? (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Event Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-start justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentEvent.coupleName}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{currentEvent.coupleName || 'אירוע'}</h2>
               <div className="flex items-center space-x-6 text-gray-600">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5" />
-                  <span>{formatDate(currentEvent.eventDate)} - {currentEvent.eventTime}</span>
+                  <span>{currentEvent.eventDate ? formatDate(currentEvent.eventDate) : '-'} - {currentEvent.eventTime || '-'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-5 h-5" />
-                  <span>{currentEvent.venue}</span>
+                  <span>{currentEvent.venue || '-'}</span>
                 </div>
               </div>
             </div>
@@ -579,7 +580,7 @@ const ClientDashboard: React.FC = () => {
                   <span className="text-gray-700">וואטסאפ</span>
                 </div>
                 <span className="text-2xl font-bold text-green-600">
-                  {currentEvent.guests.filter((g: any) => g.channel === 'whatsapp').length}
+                  {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? currentEvent.guests.filter((g: any) => g && g.channel === 'whatsapp').length : 0}
                 </span>
               </div>
               
@@ -589,7 +590,7 @@ const ClientDashboard: React.FC = () => {
                   <span className="text-gray-700">SMS</span>
                 </div>
                 <span className="text-2xl font-bold text-blue-600">
-                  {currentEvent.guests.filter((g: any) => g.channel === 'sms').length}
+                  {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? currentEvent.guests.filter((g: any) => g && g.channel === 'sms').length : 0}
                 </span>
               </div>
               
@@ -599,7 +600,7 @@ const ClientDashboard: React.FC = () => {
                   <span className="text-gray-700">ידני</span>
                 </div>
                 <span className="text-2xl font-bold text-gray-600">
-                  {currentEvent.guests.filter((g: any) => g.channel === 'manual').length}
+                  {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? currentEvent.guests.filter((g: any) => g && g.channel === 'manual').length : 0}
                 </span>
               </div>
             </div>
@@ -644,9 +645,11 @@ const ClientDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentEvent.guests
-                  .slice() // Create a copy to avoid mutating the original array
+                {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? currentEvent.guests
                   .filter((guest: any) => {
+                    // Filter out invalid guests
+                    if (!guest || typeof guest !== 'object') return false;
+                    
                     // Filter by search term (search in first name, last name, or full name)
                     if (!searchTerm) return true;
                     const searchLower = searchTerm.toLowerCase();
@@ -664,39 +667,52 @@ const ClientDashboard: React.FC = () => {
                     let bDate = 0;
                     
                     // Safely get date for guest a
-                    if (a && a.responseDate) {
+                    if (a && typeof a === 'object' && a.responseDate) {
                       try {
-                        const aDateObj = new Date(a.responseDate);
-                        if (aDateObj instanceof Date && !isNaN(aDateObj.getTime())) {
-                          const time = aDateObj.getTime();
-                          if (typeof time === 'number' && isFinite(time)) {
-                            aDate = time;
+                        const aDateValue = a.responseDate;
+                        if (aDateValue) {
+                          const aDateObj = new Date(aDateValue);
+                          if (aDateObj && aDateObj instanceof Date) {
+                            const timeValue = aDateObj.getTime();
+                            if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
+                              aDate = timeValue;
+                            }
                           }
                         }
                       } catch (e) {
                         // Ignore errors, keep aDate as 0
+                        aDate = 0;
                       }
                     }
                     
                     // Safely get date for guest b
-                    if (b && b.responseDate) {
+                    if (b && typeof b === 'object' && b.responseDate) {
                       try {
-                        const bDateObj = new Date(b.responseDate);
-                        if (bDateObj instanceof Date && !isNaN(bDateObj.getTime())) {
-                          const time = bDateObj.getTime();
-                          if (typeof time === 'number' && isFinite(time)) {
-                            bDate = time;
+                        const bDateValue = b.responseDate;
+                        if (bDateValue) {
+                          const bDateObj = new Date(bDateValue);
+                          if (bDateObj && bDateObj instanceof Date) {
+                            const timeValue = bDateObj.getTime();
+                            if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
+                              bDate = timeValue;
+                            }
                           }
                         }
                       } catch (e) {
                         // Ignore errors, keep bDate as 0
+                        bDate = 0;
                       }
                     }
                     
                     // Sort descending (newest first)
                     return bDate - aDate;
                   })
-                  .map((guest: any) => (
+                  .map((guest: any) => {
+                    // Ensure guest is valid before rendering
+                    if (!guest || typeof guest !== 'object') {
+                      return null;
+                    }
+                    return (
                   <tr key={guest.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
@@ -732,15 +748,24 @@ const ClientDashboard: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
+                      {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
                     </td>
                   </tr>
-                ))}
+                    );
+                  })
+                  .filter((row: any) => row !== null)}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-500">טוען נתונים...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

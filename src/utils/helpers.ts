@@ -38,20 +38,42 @@ export const formatPhoneNumber = (phone: string): string => {
 };
 
 // Format date for display
-export const formatDate = (date: Date | string): string => {
-  // Convert string to Date if needed (from localStorage)
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  
-  // Check if date is valid
-  if (isNaN(dateObj.getTime())) {
-    return 'תאריך לא תקין';
+export const formatDate = (date: Date | string | undefined | null): string => {
+  // Handle undefined or null
+  if (!date || date === null || date === undefined) {
+    return '-';
   }
   
-  return new Intl.DateTimeFormat('he-IL', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(dateObj);
+  try {
+    // Convert string to Date if needed (from localStorage)
+    let dateObj: Date;
+    if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else if (date instanceof Date) {
+      dateObj = date;
+    } else {
+      return '-';
+    }
+    
+    // Check if dateObj is valid Date object and has valid getTime method
+    if (!dateObj || !(dateObj instanceof Date) || typeof dateObj.getTime !== 'function') {
+      return '-';
+    }
+    
+    const timeValue = dateObj.getTime();
+    if (isNaN(timeValue) || !isFinite(timeValue)) {
+      return '-';
+    }
+    
+    return new Intl.DateTimeFormat('he-IL', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }).format(dateObj);
+  } catch (error) {
+    // If any error occurs, return '-'
+    return '-';
+  }
 };
 
 // Format date and time for display
