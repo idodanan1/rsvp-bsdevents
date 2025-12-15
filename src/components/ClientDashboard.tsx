@@ -20,18 +20,38 @@ import {
 
 // Helper function to parse and display guest notes with transportation
 const renderGuestNotes = (notes: string | undefined) => {
-  if (!notes) return null;
+  // Debug logging
+  if (notes) {
+    console.log('📝 [ClientDashboard] renderGuestNotes called with notes:', notes);
+  }
   
+  if (!notes || notes.trim() === '') return null;
+  
+  // Match transportation pattern - can be at start, middle, or end
   const transportationMatch = notes.match(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/);
   const transportation = transportationMatch ? transportationMatch[1] : null;
-  const regularNotes = transportationMatch 
-    ? notes.replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/, '').trim()
-    : notes;
+  
+  // Extract regular notes by removing transportation part
+  let regularNotes = notes;
+  if (transportationMatch) {
+    regularNotes = notes.replace(/\|\s*(הסעה דרום|הסעה צפון|אין צורך בהסעה)/, '').trim();
+  }
+  
+  // Debug logging
+  if (notes) {
+    console.log('📝 [ClientDashboard] Parsed notes:', { 
+      original: notes, 
+      transportation, 
+      regularNotes,
+      hasRegularNotes: regularNotes && regularNotes.length > 0,
+      hasTransportation: !!transportation
+    });
+  }
   
   return (
     <>
       {regularNotes && regularNotes.length > 0 && (
-        <div className="text-xs text-gray-600 break-words mt-2 whitespace-normal">
+        <div className="text-xs text-gray-600 break-words mt-1 whitespace-normal">
           <span className="font-medium text-gray-700">הערה:</span> {regularNotes}
         </div>
       )}
