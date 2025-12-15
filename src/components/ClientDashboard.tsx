@@ -46,6 +46,8 @@ const ClientDashboard: React.FC = () => {
   const [currentEvent, setCurrentEvent] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false); // Start with false - show page immediately
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'declined' | 'maybe' | 'pending'>('all');
+  const [messageFilterStatus, setMessageFilterStatus] = useState<'all' | 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sms_sent' | 'sent_not_delivered'>('all');
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
 
@@ -1003,17 +1005,65 @@ const ClientDashboard: React.FC = () => {
 
         {/* Guests List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="חפש לפי שם..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pr-10 pl-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
+            </div>
+            
+            {/* Search and Filters */}
+            <div className="space-y-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="חפש לפי שם או טלפון..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pr-10 pl-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
+                />
+              </div>
+              
+              {/* Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* RSVP Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    סינון לפי סטטוס תגובה
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">הכל</option>
+                    <option value="confirmed">מגיעים</option>
+                    <option value="declined">לא מגיעים</option>
+                    <option value="maybe">אולי מגיעים</option>
+                    <option value="pending">ממתין לתגובה</option>
+                  </select>
+                </div>
+                
+                {/* Message Status Filter */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    סינון לפי סטטוס הודעה
+                  </label>
+                  <select
+                    value={messageFilterStatus}
+                    onChange={(e) => setMessageFilterStatus(e.target.value as any)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">הכל</option>
+                    <option value="not_sent">לא נשלח</option>
+                    <option value="sent">נשלח</option>
+                    <option value="delivered">נמסר</option>
+                    <option value="failed">נכשל</option>
+                    <option value="sms_sent">נשלח SMS</option>
+                    <option value="sent_not_delivered">נשלח ולא נמסר</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -1045,15 +1095,42 @@ const ClientDashboard: React.FC = () => {
                       // Filter out invalid guests
                       if (!guest || typeof guest !== 'object') return false;
                       
-                      // Filter by search term (search in first name, last name, or full name)
-                      if (!searchTerm) return true;
-                      const searchLower = searchTerm.toLowerCase();
-                      const fullName = formatFullName(guest.firstName, guest.lastName).toLowerCase();
-                      const firstName = (guest.firstName || '').toLowerCase();
-                      const lastName = (guest.lastName || '').toLowerCase();
-                      return fullName.includes(searchLower) || 
-                             firstName.includes(searchLower) || 
-                             lastName.includes(searchLower);
+                      // Filter by search term (search in first name, last name, phone number, or full name)
+                      const matchesSearch = (() => {
+                        if (!searchTerm) return true;
+                        const searchLower = searchTerm.toLowerCase();
+                        const fullName = formatFullName(guest.firstName, guest.lastName).toLowerCase();
+                        const firstName = (guest.firstName || '').toLowerCase();
+                        const lastName = (guest.lastName || '').toLowerCase();
+                        const phoneNumber = (guest.phoneNumber || '').replace(/\D/g, '');
+                        const searchNumbers = searchTerm.replace(/\D/g, '');
+                        return fullName.includes(searchLower) || 
+                               firstName.includes(searchLower) || 
+                               lastName.includes(searchLower) ||
+                               (searchNumbers && phoneNumber.includes(searchNumbers));
+                      })();
+                      
+                      // Filter by RSVP status
+                      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+                      
+                      // Filter by message status
+                      let matchesMessageFilter = true;
+                      const currentMessageStatus = guest.messageStatus || 'not_sent'; // Treat undefined as 'not_sent'
+                      
+                      if (messageFilterStatus === 'sent_not_delivered') {
+                        // Show only guests who were sent a message but didn't receive it
+                        // This includes 'sent' and 'sms_sent' but excludes 'delivered'
+                        matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+                      } else if (messageFilterStatus !== 'all') {
+                        if (messageFilterStatus === 'not_sent') {
+                          // Include both 'not_sent' and undefined (which we treat as 'not_sent')
+                          matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
+                        } else {
+                          matchesMessageFilter = currentMessageStatus === messageFilterStatus;
+                        }
+                      }
+                      
+                      return matchesSearch && matchesFilter && matchesMessageFilter;
                     })
                     .sort((a: any, b: any) => {
                       // Sort by responseDate (most recent first)
