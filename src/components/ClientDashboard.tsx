@@ -558,14 +558,27 @@ const ClientDashboard: React.FC = () => {
             const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
             const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
             
+            // CRITICAL: Check if fetchEvents data is incomplete BEFORE merging
+            // If prev has many more guests than fetchEvents, don't overwrite with incomplete data
+            const prevGuests = prev.guests || [];
+            const fetchGuests = foundEvent.guests || [];
+            const prevGuestsCount = prevGuests.length;
+            const fetchGuestsCount = fetchGuests.length;
+            
+            // CRITICAL: If fetchEvents has significantly fewer guests (< 50% of prev), it's incomplete data
+            // Don't overwrite complete data with incomplete data
+            const isIncompleteFetchData = prevGuestsCount > 0 && fetchGuestsCount > 0 && fetchGuestsCount < prevGuestsCount * 0.5;
+            
+            if (isIncompleteFetchData) {
+              console.warn(`⚠️ fetchEvents data appears incomplete (${fetchGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING fetchEvents data to preserve complete data`);
+              console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+              return prev; // Keep previous complete data, don't overwrite with incomplete fetchEvents data
+            }
+            
             if (newUpdatedAt >= prevUpdatedAt) {
               console.log('✅ Updating from fetchEvents (newer or same timestamp) - merging data');
               
               // CRITICAL: Merge guests intelligently - don't lose guests that aren't in fetchEvents data
-              const prevGuests = prev.guests || [];
-              const fetchGuests = foundEvent.guests || [];
-              const prevGuestsCount = prevGuests.length;
-              const fetchGuestsCount = fetchGuests.length;
               const fetchGuestsMap = new Map(fetchGuests.map((g: any) => [g.id, g]));
               
               // Merge guests: update existing, add new, keep prev if not in fetch
@@ -672,16 +685,30 @@ const ClientDashboard: React.FC = () => {
                 const prevGuestsMap = new Map((prev.guests || []).map((g: any) => [g.id, g]));
                 const newGuestsMap = new Map((foundEvent.guests || []).map((g: any) => [g.id, g]));
                 
+                // CRITICAL: Check if polling data is incomplete BEFORE merging
+                // If prev has many more guests than polling, don't overwrite with incomplete data
+                const prevGuests = prev.guests || [];
+                const pollingGuests = foundEvent.guests || [];
+                const prevGuestsCount = prevGuests.length;
+                const pollingGuestsCount = pollingGuests.length;
+                
+                // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
+                // Don't overwrite complete data with incomplete data
+                const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
+                
+                if (isIncompletePollingData) {
+                  console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
+                  console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                  return prev; // Keep previous complete data, don't overwrite with incomplete polling data
+                }
+                
                 // Check if number of guests changed
                 if (prevGuestsMap.size !== newGuestsMap.size) {
                   console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
                   
                   // CRITICAL: If API returned 0 guests but prev has guests, keep prev guests (API data is incomplete)
-                  const apiGuestsCount = foundEvent.guests?.length || 0;
-                  const prevGuestsCount = prev.guests?.length || 0;
-                  
-                  if (apiGuestsCount === 0 && prevGuestsCount > 0) {
-                    console.warn(`⚠️ API returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (API data incomplete)`);
+                  if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
+                    console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
                     // Keep previous guests but update other fields
                     return {
                       ...prev,
@@ -740,50 +767,48 @@ const ClientDashboard: React.FC = () => {
                 }
                 
                 if (hasChanged || newUpdatedAt > prevUpdatedAt) {
-                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
-                  
-                  // CRITICAL: Merge guests intelligently - don't lose guests that aren't in polling data
+                  // CRITICAL: Check if polling data is incomplete BEFORE merging
+                  // If prev has many more guests than polling, don't overwrite with incomplete data
                   const prevGuests = prev.guests || [];
                   const pollingGuests = foundEvent.guests || [];
                   const prevGuestsCount = prevGuests.length;
                   const pollingGuestsCount = pollingGuests.length;
+                  
+                  // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
+                  // Don't overwrite complete data with incomplete data
+                  const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
+                  
+                  if (isIncompletePollingData) {
+                    console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
+                    console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                    return prev; // Keep previous complete data, don't overwrite with incomplete polling data
+                  }
+                  
+                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
+                  
+                  // CRITICAL: Merge guests intelligently - don't lose guests that aren't in polling data
                   const pollingGuestsMap = new Map(pollingGuests.map((g: any) => [g.id, g]));
                   
                   // CRITICAL: If polling returned 0 guests but prev has guests, keep prev guests (polling data is incomplete)
-                  const isIncompletePollingData = (pollingGuestsCount === 0 && prevGuestsCount > 0) || 
-                                                   (pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5);
-                  
                   if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
                     console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
                   }
                   
                   let mergedGuests = prevGuests;
-                  if (!isIncompletePollingData) {
-                    // Polling data seems complete - merge intelligently
-                    mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const pollingGuest = pollingGuestsMap.get(prevGuest.id);
-                      return pollingGuest || prevGuest; // Use polling data if exists, otherwise keep prev
-                    });
-                    
-                    // Add any new guests from polling
-                    pollingGuests.forEach((pollingGuest: any) => {
-                      if (!prevGuests.find((g: any) => g.id === pollingGuest.id)) {
-                        mergedGuests.push(pollingGuest);
-                      }
-                    });
-                    
-                    console.log(`🔍 Merged from polling: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${pollingGuestsCount} from polling)`);
-                  } else {
-                    console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} vs ${prevGuestsCount}) - keeping prev guests, updating only existing`);
-                    // Keep previous guests but update any that exist in polling
-                    mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const pollingGuest = pollingGuestsMap.get(prevGuest.id);
-                      if (pollingGuest) {
-                        return pollingGuest; // Update this guest with polling data
-                      }
-                      return prevGuest; // Keep prev guest as-is
-                    });
-                  }
+                  // Polling data seems complete - merge intelligently
+                  mergedGuests = prevGuests.map((prevGuest: any) => {
+                    const pollingGuest = pollingGuestsMap.get(prevGuest.id);
+                    return pollingGuest || prevGuest; // Use polling data if exists, otherwise keep prev
+                  });
+                  
+                  // Add any new guests from polling
+                  pollingGuests.forEach((pollingGuest: any) => {
+                    if (!prevGuests.find((g: any) => g.id === pollingGuest.id)) {
+                      mergedGuests.push(pollingGuest);
+                    }
+                  });
+                  
+                  console.log(`🔍 Merged from polling: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${pollingGuestsCount} from polling)`);
                   
                   // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
                   const mergedEvent = {
