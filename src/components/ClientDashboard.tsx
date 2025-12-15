@@ -645,115 +645,123 @@ const ClientDashboard: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? currentEvent.guests
-                  .filter((guest: any) => {
-                    // Filter out invalid guests
-                    if (!guest || typeof guest !== 'object') return false;
-                    
-                    // Filter by search term (search in first name, last name, or full name)
-                    if (!searchTerm) return true;
-                    const searchLower = searchTerm.toLowerCase();
-                    const fullName = formatFullName(guest.firstName, guest.lastName).toLowerCase();
-                    const firstName = (guest.firstName || '').toLowerCase();
-                    const lastName = (guest.lastName || '').toLowerCase();
-                    return fullName.includes(searchLower) || 
-                           firstName.includes(searchLower) || 
-                           lastName.includes(searchLower);
-                  })
-                  .sort((a: any, b: any) => {
-                    // Sort by responseDate (most recent first)
-                    // Guests with responseDate come first, then guests without
-                    let aDate = 0;
-                    let bDate = 0;
-                    
-                    // Safely get date for guest a
-                    if (a && typeof a === 'object' && a.responseDate) {
-                      try {
-                        const aDateValue = a.responseDate;
-                        if (aDateValue) {
-                          const aDateObj = new Date(aDateValue);
-                          if (aDateObj && aDateObj instanceof Date) {
-                            const timeValue = aDateObj.getTime();
-                            if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
-                              aDate = timeValue;
+                {currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? (
+                  currentEvent.guests
+                    .filter((guest: any) => {
+                      // Filter out invalid guests
+                      if (!guest || typeof guest !== 'object') return false;
+                      
+                      // Filter by search term (search in first name, last name, or full name)
+                      if (!searchTerm) return true;
+                      const searchLower = searchTerm.toLowerCase();
+                      const fullName = formatFullName(guest.firstName, guest.lastName).toLowerCase();
+                      const firstName = (guest.firstName || '').toLowerCase();
+                      const lastName = (guest.lastName || '').toLowerCase();
+                      return fullName.includes(searchLower) || 
+                             firstName.includes(searchLower) || 
+                             lastName.includes(searchLower);
+                    })
+                    .sort((a: any, b: any) => {
+                      // Sort by responseDate (most recent first)
+                      // Guests with responseDate come first, then guests without
+                      let aDate = 0;
+                      let bDate = 0;
+                      
+                      // Safely get date for guest a
+                      if (a && typeof a === 'object' && a.responseDate) {
+                        try {
+                          const aDateValue = a.responseDate;
+                          if (aDateValue) {
+                            const aDateObj = new Date(aDateValue);
+                            if (aDateObj && aDateObj instanceof Date) {
+                              const timeValue = aDateObj.getTime();
+                              if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
+                                aDate = timeValue;
+                              }
                             }
                           }
+                        } catch (e) {
+                          // Ignore errors, keep aDate as 0
+                          aDate = 0;
                         }
-                      } catch (e) {
-                        // Ignore errors, keep aDate as 0
-                        aDate = 0;
                       }
-                    }
-                    
-                    // Safely get date for guest b
-                    if (b && typeof b === 'object' && b.responseDate) {
-                      try {
-                        const bDateValue = b.responseDate;
-                        if (bDateValue) {
-                          const bDateObj = new Date(bDateValue);
-                          if (bDateObj && bDateObj instanceof Date) {
-                            const timeValue = bDateObj.getTime();
-                            if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
-                              bDate = timeValue;
+                      
+                      // Safely get date for guest b
+                      if (b && typeof b === 'object' && b.responseDate) {
+                        try {
+                          const bDateValue = b.responseDate;
+                          if (bDateValue) {
+                            const bDateObj = new Date(bDateValue);
+                            if (bDateObj && bDateObj instanceof Date) {
+                              const timeValue = bDateObj.getTime();
+                              if (typeof timeValue === 'number' && !isNaN(timeValue) && isFinite(timeValue)) {
+                                bDate = timeValue;
+                              }
                             }
                           }
+                        } catch (e) {
+                          // Ignore errors, keep bDate as 0
+                          bDate = 0;
                         }
-                      } catch (e) {
-                        // Ignore errors, keep bDate as 0
-                        bDate = 0;
                       }
-                    }
-                    
-                    // Sort descending (newest first)
-                    return bDate - aDate;
-                  })
-                  .map((guest: any) => {
-                    // Ensure guest is valid before rendering
-                    if (!guest || typeof guest !== 'object') {
-                      return null;
-                    }
-                    return (
-                  <tr key={guest.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {formatFullName(guest.firstName, guest.lastName)}
-                        </div>
-                        {renderGuestNotes(guest.notes)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {guest.guestCount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
-                          {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
-                           guest.rsvpStatus === 'confirmed' ? 'מגיע' :
-                           guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        {guest.channel === 'whatsapp' ? (
-                          <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                        ) : guest.channel === 'sms' ? (
-                          <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                        ) : (
-                          <Users className="w-4 h-4 text-gray-600 ml-1" />
-                        )}
-                        {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
-                         guest.channel === 'sms' ? 'SMS' : 'ידני'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
+                      
+                      // Sort descending (newest first)
+                      return bDate - aDate;
+                    })
+                    .map((guest: any) => {
+                      // Ensure guest is valid before rendering
+                      if (!guest || typeof guest !== 'object') {
+                        return null;
+                      }
+                      return (
+                        <tr key={guest.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {formatFullName(guest.firstName, guest.lastName)}
+                              </div>
+                              {renderGuestNotes(guest.notes)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {guest.guestCount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
+                                {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
+                                 guest.rsvpStatus === 'confirmed' ? 'מגיע' :
+                                 guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex items-center">
+                              {guest.channel === 'whatsapp' ? (
+                                <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                              ) : guest.channel === 'sms' ? (
+                                <Phone className="w-4 h-4 text-blue-600 ml-1" />
+                              ) : (
+                                <Users className="w-4 h-4 text-gray-600 ml-1" />
+                              )}
+                              {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
+                               guest.channel === 'sms' ? 'SMS' : 'ידני'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })
+                    .filter((row: any) => row !== null)
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                      אין אורחים להצגה
                     </td>
                   </tr>
-                    );
-                  })
-                  .filter((row: any) => row !== null)}
+                )}
               </tbody>
             </table>
           </div>
