@@ -2975,6 +2975,19 @@ export const useEventStore = create<EventStore>()(
                 guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                 language: 'he'
               };
+              
+              // DEBUG: Log template parameters
+              console.log('🔍 DEBUG Template Parameters for "aa" (sendCampaign):', {
+                groom_name: templateParams.groom_name,
+                bride_name: templateParams.bride_name,
+                couple_name: templateParams.couple_name,
+                eventGroomName: event.groomName,
+                eventBrideName: event.brideName,
+                eventCoupleName: event.coupleName,
+                templateCoupleName: templateCoupleName,
+                templateGroomName: templateGroomName,
+                templateBrideName: templateBrideName
+              });
             } else if (templateNameForCampaign === 'a') {
               // CRITICAL: Template "a" requires ONLY 7 parameters (not 9!)
               // Based on error: "body: number of localizable_params (9) does not match the expected number of params (7)"

@@ -2162,11 +2162,21 @@ const EventManagement: React.FC = () => {
       
       // Get couple name - use groomName & brideName if coupleName is not available
       // Define this before the if/else so it's available for templateParams
-      const coupleName = currentEvent.coupleName || 
-        (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
-         currentEvent.groomName || currentEvent.brideName || 'הזוג');
-      const groomName = currentEvent.groomName || '';
-      const brideName = currentEvent.brideName || '';
+        const coupleName = currentEvent.coupleName || 
+          (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
+           currentEvent.groomName || currentEvent.brideName || 'הזוג');
+        const groomName = currentEvent.groomName || '';
+        const brideName = currentEvent.brideName || '';
+        
+        // DEBUG: Log template variables
+        console.log('🔍 DEBUG Template Variables:', {
+          coupleName: coupleName,
+          groomName: groomName,
+          brideName: brideName,
+          eventCoupleName: currentEvent.coupleName,
+          eventGroomName: currentEvent.groomName,
+          eventBrideName: currentEvent.brideName
+        });
       
       // CRITICAL: If no campaign found, use template "aa" directly for first messages
       // This ensures we always use the correct template even if campaigns are missing
@@ -2259,20 +2269,32 @@ const EventManagement: React.FC = () => {
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
               // CRITICAL: Use template params if templateName is 'aa' (either from campaign or forced)
-              templateParams: (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? ({
-                paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                             'event_date', 'event_time', 'venue', 'couple_name'],
-                guest_name: guest.firstName,
-                event_type: currentEvent.eventTypeHebrew || '',
-                groom_name: currentEvent.groomName || '', // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
-                bride_name: currentEvent.brideName || '', // Parameter 4 - bride_name comes AFTER groom_name in Meta template
-                event_date: formatDate(currentEvent.eventDate),
-                event_time: currentEvent.eventTime || '',
-                venue: currentEvent.venue || '',
-                couple_name: coupleName, // Parameter 8 - at the end of the template (uses fallback if coupleName is undefined)
-                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-                language: 'he'
-              } as any) : undefined
+              templateParams: (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
+                const params = {
+                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                               'event_date', 'event_time', 'venue', 'couple_name'],
+                  guest_name: guest.firstName,
+                  event_type: currentEvent.eventTypeHebrew || '',
+                  groom_name: groomName, // Use the variable we defined above
+                  bride_name: brideName, // Use the variable we defined above
+                  event_date: formatDate(currentEvent.eventDate),
+                  event_time: currentEvent.eventTime || '',
+                  venue: currentEvent.venue || '',
+                  couple_name: coupleName, // Use the variable we defined above
+                  guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+                  language: 'he'
+                };
+                
+                // DEBUG: Log template parameters
+                console.log('🔍 DEBUG Template Parameters for "aa":', {
+                  groom_name: params.groom_name,
+                  bride_name: params.bride_name,
+                  couple_name: params.couple_name,
+                  allParams: params
+                });
+                
+                return params as any;
+              })() : undefined
         }]
       });
 
