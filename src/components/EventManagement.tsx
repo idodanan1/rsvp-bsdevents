@@ -2201,11 +2201,11 @@ const EventManagement: React.FC = () => {
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
               // Add template params if using template "aa"
-              // Template "aa" requires 8 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link
-              // NOTE: couple_name is NOT included in the template - only bride_name and groom_name are used
+              // Template "aa" requires 9 parameters in order: guest_name, event_type, bride_name, groom_name, event_date, event_time, venue, guest_response_link, couple_name
+              // NOTE: couple_name is required by the Meta template (even if not visible in the editor, it's expected by the API)
               templateParams: firstCampaign?.templateName ? ({
                 paramsOrder: ['guest_name', 'event_type', 'bride_name', 'groom_name', 
-                             'event_date', 'event_time', 'venue', 'guest_response_link'],
+                             'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
                 event_type: currentEvent.eventTypeHebrew,
                 bride_name: currentEvent.brideName, // Parameter 3 - bride_name comes BEFORE groom_name in Meta template
@@ -2214,6 +2214,7 @@ const EventManagement: React.FC = () => {
                 event_time: currentEvent.eventTime,
                 venue: currentEvent.venue,
                 guest_response_link: guestLink, // Using guest_response_link as per Meta template definition
+                couple_name: currentEvent.coupleName, // Required parameter even though bride_name and groom_name are separate
                 language: 'he'
               } as any) : undefined
         }]
