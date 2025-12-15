@@ -513,6 +513,26 @@ const ClientDashboard: React.FC = () => {
                 // Check if number of guests changed
                 if (prevGuestsMap.size !== newGuestsMap.size) {
                   console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
+                  
+                  // CRITICAL: If API returned 0 guests but prev has guests, keep prev guests (API data is incomplete)
+                  const apiGuestsCount = foundEvent.guests?.length || 0;
+                  const prevGuestsCount = prev.guests?.length || 0;
+                  
+                  if (apiGuestsCount === 0 && prevGuestsCount > 0) {
+                    console.warn(`⚠️ API returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (API data incomplete)`);
+                    // Keep previous guests but update other fields
+                    return {
+                      ...prev,
+                      ...foundEvent,
+                      coupleName: foundEvent.coupleName || prev.coupleName,
+                      campaigns: foundEvent.campaigns || prev.campaigns || [],
+                      tables: foundEvent.tables || prev.tables || [],
+                      venueLayout: foundEvent.venueLayout || prev.venueLayout,
+                      eventImages: foundEvent.eventImages || prev.eventImages || [],
+                      guests: prev.guests || [] // Keep previous guests
+                    };
+                  }
+                  
                   // CRITICAL: Merge data instead of replacing to preserve fields and ensure guests array exists
                   const mergedEvent = {
                     ...prev,
@@ -567,8 +587,13 @@ const ClientDashboard: React.FC = () => {
                   const pollingGuestsCount = pollingGuests.length;
                   const pollingGuestsMap = new Map(pollingGuests.map((g: any) => [g.id, g]));
                   
-                  // If polling has significantly fewer guests, it's likely incomplete data
-                  const isIncompletePollingData = pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
+                  // CRITICAL: If polling returned 0 guests but prev has guests, keep prev guests (polling data is incomplete)
+                  const isIncompletePollingData = (pollingGuestsCount === 0 && prevGuestsCount > 0) || 
+                                                   (pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5);
+                  
+                  if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
+                    console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
+                  }
                   
                   let mergedGuests = prevGuests;
                   if (!isIncompletePollingData) {
