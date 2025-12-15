@@ -183,14 +183,11 @@ const ClientDashboard: React.FC = () => {
             method: 'GET',
             headers: { 
               'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
+              'Accept': 'application/json'
             },
             mode: 'cors',
             credentials: 'omit',
-            cache: 'no-store',
-            signal: AbortSignal.timeout(30000) // 30 second timeout
+            cache: 'no-store'
           });
           
           console.log(`🔍 Single event response status: ${singleEventResponse.status} ${singleEventResponse.statusText}`);
@@ -266,9 +263,7 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Accept': 'application/json'
               },
               mode: 'cors',
               credentials: 'omit',
@@ -368,14 +363,11 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Accept': 'application/json'
               },
               mode: 'cors',
               credentials: 'omit',
-              cache: 'no-store',
-              signal: AbortSignal.timeout(30000) // 30 second timeout
+              cache: 'no-store'
             });
             
             if (response.ok) {
@@ -762,9 +754,7 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Accept': 'application/json'
               },
               mode: 'cors',
               credentials: 'omit',
@@ -789,9 +779,7 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Accept': 'application/json'
               },
               mode: 'cors',
               credentials: 'omit',
@@ -815,9 +803,7 @@ const ClientDashboard: React.FC = () => {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache'
+                'Accept': 'application/json'
               },
               mode: 'cors',
               credentials: 'omit',
@@ -1131,14 +1117,11 @@ const ClientDashboard: React.FC = () => {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Accept': 'application/json'
         },
         mode: 'cors',
         credentials: 'omit',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(30000) // 30 second timeout
+        cache: 'no-store'
       });
       
       if (response.ok) {
