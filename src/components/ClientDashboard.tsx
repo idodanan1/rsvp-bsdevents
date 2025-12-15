@@ -165,114 +165,8 @@ const ClientDashboard: React.FC = () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         
-        // CRITICAL: Try to load from /api/events/:userId first if user is logged in (this returns FULL event data)
-        // This is important because /api/events/all may return truncated data for large events
-        const userStorage = localStorage.getItem('rsvp-user-storage');
-        let userId = '';
-        if (userStorage) {
-          try {
-            const parsed = JSON.parse(userStorage);
-            userId = parsed.state?.user?.id || '';
-          } catch (e) {
-            // Ignore parse errors
-          }
-        }
-        
-        if (userId) {
-          console.log(`🌐 Loading event from authenticated endpoint: ${BACKEND_URL}/api/events/${userId}`);
-          try {
-            const authResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-              method: 'GET',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              mode: 'cors',
-              credentials: 'omit'
-            });
-            
-            if (authResponse.ok) {
-              const authData = await authResponse.json();
-              const authEvents = authData.events || [];
-              const authEvent = authEvents.find((e: any) => e.id === eventId);
-              
-              if (authEvent) {
-                const displayName = authEvent.coupleName || 
-                  (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
-                   authEvent.groomName || authEvent.brideName || 'אירוע');
-                console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
-                console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
-                
-                // CRITICAL: Ensure event has all required fields before setting
-                if (!authEvent.guests) {
-                  console.warn('⚠️ Event from authenticated endpoint has no guests array, initializing empty array');
-                  authEvent.guests = [];
-                }
-                
-                // Use authenticated endpoint data (which should have all guests)
-                setCurrentEvent((prev: any) => {
-                  if (!prev) {
-                    console.log('✅ Setting initial event from authenticated endpoint');
-                    return {
-                      ...authEvent,
-                      guests: authEvent.guests || []
-                    };
-                  }
-                  
-                  // Compare updatedAt timestamps
-                  const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
-                  const newUpdatedAt = authEvent.updatedAt ? (authEvent.updatedAt instanceof Date ? authEvent.updatedAt.getTime() : new Date(authEvent.updatedAt).getTime()) : 0;
-                  
-                  if (newUpdatedAt >= prevUpdatedAt) {
-                    console.log('✅ Updating from authenticated endpoint (newer or same timestamp) - merging data');
-                    // Merge data intelligently
-                    const prevGuests = prev.guests || [];
-                    const authGuests = authEvent.guests || [];
-                    const prevGuestsMap = new Map(prevGuests.map((g: any) => [g.id, g]));
-                    const authGuestsMap = new Map(authGuests.map((g: any) => [g.id, g]));
-                    
-                    // Merge guests: update existing, add new, keep prev if not in auth
-                    const mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const authGuest = authGuestsMap.get(prevGuest.id);
-                      return authGuest || prevGuest;
-                    });
-                    
-                    // Add any new guests from auth
-                    authGuests.forEach((authGuest: any) => {
-                      if (!prevGuests.find((g: any) => g.id === authGuest.id)) {
-                        mergedGuests.push(authGuest);
-                      }
-                    });
-                    
-                    return {
-                      ...prev,
-                      ...authEvent,
-                      coupleName: authEvent.coupleName || prev.coupleName,
-                      campaigns: authEvent.campaigns || prev.campaigns || [],
-                      tables: authEvent.tables || prev.tables || [],
-                      venueLayout: authEvent.venueLayout || prev.venueLayout,
-                      eventImages: authEvent.eventImages || prev.eventImages || [],
-                      guests: mergedGuests
-                    };
-                  } else {
-                    console.log('⚠️ Ignoring authenticated endpoint data (older than current)');
-                    return prev;
-                  }
-                });
-                
-                return; // Successfully loaded from authenticated endpoint
-              }
-            }
-          } catch (error) {
-            console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
-          }
-        }
-        
-        // Fallback to public endpoint
-        console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
-        
-        // CRITICAL: Try to load single event by ID first (this returns FULL event data without truncation)
-        // This is the preferred method for large events that get truncated in /api/events/all
+        // CRITICAL: Try to load single event by ID FIRST (this returns FULL event data without truncation)
+        // This is the preferred method for large events that get truncated in /api/events/all or /api/events/:userId
         let foundEvent: any = null;
         try {
           console.log(`🔄 Attempting to load single event with ALL guests: ${BACKEND_URL}/api/events/${eventId}`);
@@ -300,11 +194,64 @@ const ClientDashboard: React.FC = () => {
             console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
           }
         } catch (error) {
-          console.log(`⚠️ Single event endpoint error, falling back to /api/events/all:`, error);
+          console.log(`⚠️ Single event endpoint error, trying other endpoints:`, error);
         }
         
-        // If single event endpoint didn't work, try /api/events/all
+        // If single event endpoint didn't work, try /api/events/:userId (but it may also truncate)
         if (!foundEvent) {
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              userId = parsed.state?.user?.id || '';
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          if (userId) {
+            console.log(`🌐 Loading event from authenticated endpoint: ${BACKEND_URL}/api/events/${userId}`);
+            try {
+              const authResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+                method: 'GET',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'omit'
+              });
+              
+              if (authResponse.ok) {
+                const authData = await authResponse.json();
+                const authEvents = authData.events || [];
+                const authEvent = authEvents.find((e: any) => e.id === eventId);
+                
+                if (authEvent) {
+                  const displayName = authEvent.coupleName || 
+                    (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
+                     authEvent.groomName || authEvent.brideName || 'אירוע');
+                  console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
+                  console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
+                  
+                  // WARNING: This endpoint may also truncate data for large events
+                  if (authEvent.guests && authEvent.guests.length < 50) {
+                    console.warn(`⚠️ Authenticated endpoint returned only ${authEvent.guests.length} guests - may be incomplete`);
+                  }
+                  
+                  foundEvent = authEvent;
+                }
+              }
+            } catch (error) {
+              console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
+            }
+          }
+        }
+        
+        // Fallback to public endpoint /api/events/all (last resort - may truncate)
+        if (!foundEvent) {
+          console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
           try {
             const response = await fetch(`${BACKEND_URL}/api/events/all`, {
               method: 'GET',
@@ -337,6 +284,7 @@ const ClientDashboard: React.FC = () => {
           }
         }
         
+        // If we found the event from any endpoint, use it
         if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
