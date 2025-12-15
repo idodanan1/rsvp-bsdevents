@@ -4412,116 +4412,8 @@ app.options('/api/events/all', (req, res) => {
   res.sendStatus(200);
 });
 
-// Get a single event by ID (public endpoint - for client dashboard)
-// CRITICAL: This endpoint returns a SINGLE event with ALL guests (no truncation)
-// This is important for large events that get truncated in /api/events/all
-app.get('/api/events/:eventId', async (req, res) => {
-  // CRITICAL: Set CORS headers FIRST - before any other operations
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-  
-  try {
-    const { eventId } = req.params;
-    console.log(`📋 GET /api/events/${eventId} - Request received`);
-    
-    // Check if eventId looks like a userId (starts with "user_")
-    // If so, treat it as /api/events/:userId endpoint
-    if (eventId.startsWith('user_')) {
-      const userId = eventId;
-      console.log(`📋 Treating ${eventId} as userId, filtering events...`);
-    // Filter events by userId
-    const userEvents = eventsData.events.filter(e => e.userId === userId);
-    
-    console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
-    
-    res.json({
-      success: true,
-      events: userEvents,
-      deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
-    });
-      return;
-    }
-    
-    // Otherwise, treat it as eventId and return single event
-    // CRITICAL: Reload events from file first to ensure we have latest data
-    console.log(`📋 Loading events from file for eventId: ${eventId}`);
-    loadEvents();
-    
-    // CRITICAL: Ensure eventsData.events exists and is an array
-    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
-      console.error(`❌ eventsData.events is not an array! eventsData:`, eventsData);
-      console.error(`❌ eventsData type:`, typeof eventsData);
-      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
-      res.status(500).json({
-        success: false,
-        error: 'Events data not available',
-        details: 'eventsData.events is not an array'
-      });
-      return;
-    }
-    
-    console.log(`📋 Events loaded: ${eventsData.events.length} events`);
-    console.log(`📋 Event IDs:`, eventsData.events.map(e => e.id));
-    
-    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
-    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
-    
-    const event = eventsData.events.find(e => e.id === eventId);
-    
-    if (!event) {
-      console.log(`❌ Event ${eventId} not found`);
-      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
-      res.status(404).json({
-        success: false,
-        error: 'Event not found',
-        availableEventIds: eventsData.events.map(e => e.id)
-      });
-      return;
-    }
-    
-    const guestsCount = event.guests?.length || 0;
-    console.log(`📋 GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
-    console.log(`📋 Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
-    
-    // CRITICAL: Return the FULL event with ALL guests (no truncation)
-    const responseData = {
-      success: true,
-      event: event
-    };
-    
-    const responseSize = JSON.stringify(responseData).length;
-    console.log(`📋 Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
-    
-    // CRITICAL: Set response headers to handle large responses
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Length', responseSize.toString());
-    
-    res.json(responseData);
-  } catch (error) {
-    console.error('❌ Error fetching event:', error);
-    console.error('❌ Error stack:', error.stack);
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.status(500).json({ 
-      success: false,
-      error: 'שגיאה בקבלת אירוע',
-      details: error.message 
-    });
-  }
-});
-
-// Handle OPTIONS preflight for /api/events/:eventId
-app.options('/api/events/:eventId', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
-  res.sendStatus(200);
-});
-
+// CRITICAL: This route MUST come BEFORE /api/events/:eventId
+// Otherwise Express will match /api/events/:eventId first and treat "eventId/guests" as the eventId
 // Get guests for a specific event (public endpoint - for client dashboard)
 // CRITICAL: This endpoint returns ONLY the guests array for an event (no truncation)
 // This is a workaround for large events that get truncated in /api/events/all
@@ -4563,6 +4455,7 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       res.status(404).json({
         success: false,
         error: 'Event not found',
+        eventId: eventId,
         availableEventIds: eventsData.events.map(e => e.id)
       });
       return;
@@ -4579,6 +4472,7 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Error fetching guests:', error);
+    console.error('❌ Error stack:', error.stack);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
       success: false,
@@ -4592,6 +4486,134 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
 app.options('/api/events/:eventId/guests', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
+});
+
+// Get a single event by ID (public endpoint - for client dashboard)
+// CRITICAL: This endpoint returns a SINGLE event with ALL guests (no truncation)
+// This is important for large events that get truncated in /api/events/all
+app.get('/api/events/:eventId', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST - before any other operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  try {
+    const { eventId } = req.params;
+    console.log(`📋 GET /api/events/${eventId} - Request received`);
+    console.log(`📋 EventId type: ${typeof eventId}, value: "${eventId}", starts with "user_": ${eventId.startsWith('user_')}`);
+    
+    // CRITICAL: Reject eventIds that contain "/" - these should be handled by /api/events/:eventId/guests route
+    if (eventId && eventId.includes('/')) {
+      console.log(`❌ Invalid eventId format: contains "/" - should use /api/events/:eventId/guests instead`);
+      res.status(400).json({
+        success: false,
+        error: 'Invalid eventId format',
+        message: 'EventId cannot contain "/". Use /api/events/:eventId/guests for guests endpoint.'
+      });
+      return;
+    }
+    
+    // Check if eventId looks like a userId (starts with "user_")
+    // If so, treat it as /api/events/:userId endpoint
+    if (eventId && eventId.startsWith('user_')) {
+      const userId = eventId;
+      console.log(`📋 Treating ${eventId} as userId, filtering events...`);
+      // CRITICAL: Reload events from file first
+      loadEvents();
+      // Filter events by userId
+      const userEvents = (eventsData.events || []).filter(e => e.userId === userId);
+      
+      console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+      
+      res.json({
+        success: true,
+        events: userEvents,
+        deletedEvents: (eventsData.deletedEvents || []).filter(e => e.userId === userId)
+      });
+      return;
+    }
+    
+    // Otherwise, treat it as eventId and return single event
+    // CRITICAL: Reload events from file first to ensure we have latest data
+    console.log(`📋 Treating ${eventId} as eventId, loading single event...`);
+    console.log(`📋 Loading events from file for eventId: ${eventId}`);
+    loadEvents();
+    
+    // CRITICAL: Ensure eventsData.events exists and is an array
+    if (!eventsData || !eventsData.events || !Array.isArray(eventsData.events)) {
+      console.error(`❌ eventsData.events is not an array! eventsData:`, eventsData);
+      console.error(`❌ eventsData type:`, typeof eventsData);
+      console.error(`❌ eventsData.events type:`, typeof eventsData?.events);
+      res.status(500).json({
+        success: false,
+        error: 'Events data not available',
+        details: 'eventsData.events is not an array'
+      });
+      return;
+    }
+    
+    console.log(`📋 Events loaded: ${eventsData.events.length} events`);
+    console.log(`📋 Event IDs:`, eventsData.events.map(e => e.id));
+    
+    console.log(`📋 Searching for event ${eventId} in ${eventsData.events.length} events`);
+    console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+    
+    const event = eventsData.events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log(`❌ Event ${eventId} not found`);
+      console.log(`📋 Available event IDs:`, eventsData.events.map(e => e.id));
+      res.status(404).json({
+        success: false,
+        error: 'Event not found',
+        eventId: eventId,
+        availableEventIds: eventsData.events.map(e => e.id)
+      });
+      return;
+    }
+    
+    const guestsCount = event.guests?.length || 0;
+    console.log(`📋 GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
+    console.log(`📋 Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
+    
+    // CRITICAL: Return the FULL event with ALL guests (no truncation)
+    // IMPORTANT: Must return {success: true, event: event} format (singular "event", not "events")
+    const responseData = {
+      success: true,
+      event: event
+    };
+    
+    const responseSize = JSON.stringify(responseData).length;
+    console.log(`📋 Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📋 Response format: {success: true, event: {...}}`);
+    
+    // CRITICAL: Set response headers to handle large responses
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', responseSize.toString());
+    
+    res.json(responseData);
+  } catch (error) {
+    console.error('❌ Error fetching event:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בקבלת אירוע',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/events/:eventId
+app.options('/api/events/:eventId', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
