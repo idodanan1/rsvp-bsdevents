@@ -777,36 +777,91 @@ const Dashboard: React.FC = () => {
                                 console.error('❌ Invalid image URL received:', data.imageUrl);
                               }
                             } else {
-                              const errorData = await response.json().catch(() => ({}));
-                              console.error('❌ Image upload failed:', errorData);
-                              alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}\n\nנא לנסות שוב או להעלות תמונה אחרת.`);
+                              const errorText = await response.text().catch(() => 'Unknown error');
+                              let errorData;
+                              try {
+                                errorData = JSON.parse(errorText);
+                              } catch {
+                                errorData = { error: errorText || response.statusText };
+                              }
+                              console.error('❌ Image upload failed:', {
+                                status: response.status,
+                                statusText: response.statusText,
+                                error: errorData
+                              });
+                              
+                              // Offer alternative: use URL input instead
+                              const useUrl = confirm(
+                                `שגיאה בהעלאת התמונה לשרת (${response.status}): ${errorData.error || response.statusText}\n\n` +
+                                `האם תרצה להזין קישור לתמונה ישירות במקום? (חייב להיות URL נגיש דרך האינטרנט, למשל מ-Imgur או Google Drive)`
+                              );
+                              
+                              if (useUrl) {
+                                // Focus on URL input
+                                const urlInput = document.querySelector('input[type="url"]') as HTMLInputElement;
+                                if (urlInput) {
+                                  urlInput.focus();
+                                  urlInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                }
+                              }
                             }
                           } catch (error) {
                             console.error('Error uploading image:', error);
-                            alert('שגיאה בהעלאת התמונה');
+                            const useUrl = confirm(
+                              `שגיאה בהעלאת התמונה: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}\n\n` +
+                              `האם תרצה להזין קישור לתמונה ישירות במקום? (חייב להיות URL נגיש דרך האינטרנט)`
+                            );
+                            
+                            if (useUrl) {
+                              // Focus on URL input
+                              const urlInput = document.querySelector('input[type="url"]') as HTMLInputElement;
+                              if (urlInput) {
+                                urlInput.focus();
+                                urlInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }
+                            }
                           }
                         }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      או הכנס קישור לתמונה (חייב להיות URL נגיש דרך האינטרנט)
+                      או הכנס קישור לתמונה (חייב להיות URL נגיש דרך האינטרנט, למשל מ-Imgur או Google Drive)
                     </p>
                   </div>
                   
                   {/* URL input option */}
                   <input
                     type="url"
+                    placeholder="https://example.com/image.jpg או https://i.imgur.com/xxxxx.jpg"
                     value={selectedEventForEdit.invitationImageUrl || ''}
-                    onChange={(e) => setSelectedEventForEdit({
-                      ...selectedEventForEdit,
-                      invitationImageUrl: e.target.value
-                    })}
+                    onChange={(e) => {
+                      const url = e.target.value.trim();
+                      // Validate URL format
+                      if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                        setSelectedEventForEdit({
+                          ...selectedEventForEdit,
+                          invitationImageUrl: url
+                        });
+                        console.log('✅ Image URL set:', url);
+                      } else if (url === '') {
+                        // Allow clearing the URL
+                        setSelectedEventForEdit({
+                          ...selectedEventForEdit,
+                          invitationImageUrl: undefined
+                        });
+                      } else {
+                        console.warn('⚠️ Invalid URL format:', url);
+                      }
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://example.com/invitation.jpg"
+                    placeholder="https://example.com/invitation.jpg או https://i.imgur.com/xxxxx.jpg"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     תמונה זו תוצג בכל ההודעות שנשלחו לאורחים
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 טיפ: אם ההעלאה נכשלת, תוכל להעלות את התמונה ל-Imgur (https://imgur.com/upload) ולהזין את הקישור כאן
                   </p>
                   
                   {/* תצוגת תמונה אם קיימת */}
