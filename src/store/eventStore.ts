@@ -362,10 +362,10 @@ export const useEventStore = create<EventStore>()(
                       };
                     }
                     
-                    // CRITICAL: For tableId and actualAttendance, preserve local values if they differ from API
+                    // CRITICAL: For tableId, actualAttendance, and rsvpStatus, preserve local values if they differ from API
                     // This handles the case where we just updated locally but API hasn't synced yet
                     // Check if local value exists and differs from API, and change was made recently (within 2x protection window)
-                    const shouldPreserveLocalField = (field: 'tableId' | 'actualAttendance') => {
+                    const shouldPreserveLocalField = (field: 'tableId' | 'actualAttendance' | 'rsvpStatus') => {
                       const localValue = localGuest[field];
                       const apiValue = apiGuest[field];
                       
@@ -380,14 +380,16 @@ export const useEventStore = create<EventStore>()(
                     
                     const preserveTableId = shouldPreserveLocalField('tableId');
                     const preserveActualAttendance = shouldPreserveLocalField('actualAttendance');
+                    const preserveRsvpStatus = shouldPreserveLocalField('rsvpStatus');
                     
-                    if (preserveTableId || preserveActualAttendance) {
+                    if (preserveTableId || preserveActualAttendance || preserveRsvpStatus) {
                       return {
                         ...apiGuest,
                         firstName: cleanName(apiGuest.firstName),
                         lastName: cleanName(apiGuest.lastName),
                         tableId: preserveTableId ? localGuest.tableId : apiGuest.tableId,
-                        actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance
+                        actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance,
+                        rsvpStatus: preserveRsvpStatus ? localGuest.rsvpStatus : apiGuest.rsvpStatus
                       };
                     }
                     
@@ -1651,6 +1653,15 @@ export const useEventStore = create<EventStore>()(
               return { manualChanges: newManualChanges };
             });
             console.log(`🛡️ Marked manual change for ${guestKey} (fields: ${Object.keys(updates).join(', ')})`);
+            
+            // Also mark in webhookService to ensure protection from webhook updates
+            try {
+              const webhookModule = await import('../services/webhookService');
+              webhookModule.webhookService.markManualChange(eventId, guestId);
+              console.log(`🛡️ Marked manual change in webhookService for ${guestKey}`);
+            } catch (error) {
+              console.warn('⚠️ Could not mark manual change in webhookService:', error);
+            }
           }
           
           let updatedEvent: Event | null = null;
