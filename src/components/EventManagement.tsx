@@ -44,12 +44,12 @@ const renderGuestNotes = (notes: string | undefined) => {
   return (
     <>
       {regularNotes && regularNotes.length > 0 && (
-        <div className="text-xs text-gray-500 break-words mt-1">
-          {regularNotes}
+        <div className="text-xs text-gray-600 break-words mt-2 whitespace-normal">
+          <span className="font-medium text-gray-700">הערה:</span> {regularNotes}
         </div>
       )}
       {transportation && (
-        <div className="text-xs font-medium text-blue-600 break-words mt-1">
+        <div className="text-xs font-medium text-blue-600 break-words mt-1 whitespace-normal">
           🚗 {transportation}
         </div>
       )}
@@ -2776,7 +2776,7 @@ const EventManagement: React.FC = () => {
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                     />
                   </td>
-                  <td className="px-4 py-4 w-40">
+                  <td className="px-4 py-4 w-40 whitespace-normal">
                     <div>
                       <div className="text-sm font-semibold text-gray-900 break-words">
                         {formatFullName(guest.firstName, guest.lastName)}
