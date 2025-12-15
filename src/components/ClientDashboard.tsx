@@ -186,8 +186,7 @@ const ClientDashboard: React.FC = () => {
               'Accept': 'application/json'
             },
             mode: 'cors',
-            credentials: 'omit',
-            cache: 'no-store'
+            credentials: 'omit'
           });
           
           console.log(`🔍 Single event response status: ${singleEventResponse.status} ${singleEventResponse.statusText}`);
@@ -266,8 +265,7 @@ const ClientDashboard: React.FC = () => {
                 'Accept': 'application/json'
               },
               mode: 'cors',
-              credentials: 'omit',
-              cache: 'no-store'
+              credentials: 'omit'
             });
             
             if (guestsResponse.ok) {
@@ -366,8 +364,7 @@ const ClientDashboard: React.FC = () => {
                 'Accept': 'application/json'
               },
               mode: 'cors',
-              credentials: 'omit',
-              cache: 'no-store'
+              credentials: 'omit'
             });
             
             if (response.ok) {
@@ -757,8 +754,7 @@ const ClientDashboard: React.FC = () => {
                 'Accept': 'application/json'
               },
               mode: 'cors',
-              credentials: 'omit',
-              cache: 'no-store'
+              credentials: 'omit'
             });
             
             if (singleEventResponse.ok) {
@@ -782,8 +778,7 @@ const ClientDashboard: React.FC = () => {
                 'Accept': 'application/json'
               },
               mode: 'cors',
-              credentials: 'omit',
-              cache: 'no-store'
+              credentials: 'omit'
             });
             
             if (guestsResponse.ok) {
@@ -806,8 +801,7 @@ const ClientDashboard: React.FC = () => {
                 'Accept': 'application/json'
               },
               mode: 'cors',
-              credentials: 'omit',
-              cache: 'no-store'
+              credentials: 'omit'
             });
             
             if (response.ok) {
@@ -1120,8 +1114,7 @@ const ClientDashboard: React.FC = () => {
           'Accept': 'application/json'
         },
         mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-store'
+        credentials: 'omit'
       });
       
       if (response.ok) {
