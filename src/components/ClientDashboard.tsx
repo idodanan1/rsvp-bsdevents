@@ -167,7 +167,7 @@ const ClientDashboard: React.FC = () => {
         console.log(`🌐 Loading event silently from API: ${BACKEND_URL}/api/events/all`);
         
         // CRITICAL: Try to load from /api/events/all first (public endpoint)
-        // If this returns incomplete data (few guests), we'll try fetchEvents which uses authenticated endpoint
+        // If this returns incomplete data (few guests), we'll try to load from /api/events/:userId if user is logged in
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
           headers: { 
@@ -237,6 +237,49 @@ const ClientDashboard: React.FC = () => {
                   console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
                   console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
                   console.warn(`⚠️ For full guest list, use the admin dashboard or wait for polling to update`);
+                  
+                  // CRITICAL: Try to load from /api/events/:userId if user is logged in (this returns full event data)
+                  const userStorage = localStorage.getItem('rsvp-user-storage');
+                  let userId = '';
+                  if (userStorage) {
+                    try {
+                      const parsed = JSON.parse(userStorage);
+                      userId = parsed.state?.user?.id || '';
+                    } catch (e) {
+                      // Ignore parse errors
+                    }
+                  }
+                  
+                  if (userId) {
+                    console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
+                    try {
+                      const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+                        method: 'GET',
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        credentials: 'omit'
+                      });
+                      
+                      if (fullResponse.ok) {
+                        const fullData = await fullResponse.json();
+                        const fullEvents = fullData.events || [];
+                        const fullEvent = fullEvents.find((e: any) => e.id === eventId);
+                        
+                        if (fullEvent && fullEvent.guests && fullEvent.guests.length > apiGuestsCount) {
+                          console.log(`✅ Loaded full event data: ${fullEvent.guests.length} guests (vs ${apiGuestsCount} from /api/events/all)`);
+                          return {
+                            ...fullEvent,
+                            guests: fullEvent.guests || []
+                          };
+                        }
+                      }
+                    } catch (error) {
+                      console.warn('⚠️ Failed to load full event data:', error);
+                    }
+                  }
                 }
                 
                 // CRITICAL: Ensure guests array exists even for initial load
