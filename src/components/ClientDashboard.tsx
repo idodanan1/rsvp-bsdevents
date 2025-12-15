@@ -164,10 +164,112 @@ const ClientDashboard: React.FC = () => {
     const loadFromAPI = async () => {
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-        console.log(`🌐 Loading event silently from API: ${BACKEND_URL}/api/events/all`);
         
-        // CRITICAL: Try to load from /api/events/all first (public endpoint)
-        // If this returns incomplete data (few guests), we'll try to load from /api/events/:userId if user is logged in
+        // CRITICAL: Try to load from /api/events/:userId first if user is logged in (this returns FULL event data)
+        // This is important because /api/events/all may return truncated data for large events
+        const userStorage = localStorage.getItem('rsvp-user-storage');
+        let userId = '';
+        if (userStorage) {
+          try {
+            const parsed = JSON.parse(userStorage);
+            userId = parsed.state?.user?.id || '';
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+        
+        if (userId) {
+          console.log(`🌐 Loading event from authenticated endpoint: ${BACKEND_URL}/api/events/${userId}`);
+          try {
+            const authResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            
+            if (authResponse.ok) {
+              const authData = await authResponse.json();
+              const authEvents = authData.events || [];
+              const authEvent = authEvents.find((e: any) => e.id === eventId);
+              
+              if (authEvent) {
+                const displayName = authEvent.coupleName || 
+                  (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
+                   authEvent.groomName || authEvent.brideName || 'אירוע');
+                console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
+                console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
+                
+                // CRITICAL: Ensure event has all required fields before setting
+                if (!authEvent.guests) {
+                  console.warn('⚠️ Event from authenticated endpoint has no guests array, initializing empty array');
+                  authEvent.guests = [];
+                }
+                
+                // Use authenticated endpoint data (which should have all guests)
+                setCurrentEvent((prev: any) => {
+                  if (!prev) {
+                    console.log('✅ Setting initial event from authenticated endpoint');
+                    return {
+                      ...authEvent,
+                      guests: authEvent.guests || []
+                    };
+                  }
+                  
+                  // Compare updatedAt timestamps
+                  const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+                  const newUpdatedAt = authEvent.updatedAt ? (authEvent.updatedAt instanceof Date ? authEvent.updatedAt.getTime() : new Date(authEvent.updatedAt).getTime()) : 0;
+                  
+                  if (newUpdatedAt >= prevUpdatedAt) {
+                    console.log('✅ Updating from authenticated endpoint (newer or same timestamp) - merging data');
+                    // Merge data intelligently
+                    const prevGuests = prev.guests || [];
+                    const authGuests = authEvent.guests || [];
+                    const prevGuestsMap = new Map(prevGuests.map((g: any) => [g.id, g]));
+                    const authGuestsMap = new Map(authGuests.map((g: any) => [g.id, g]));
+                    
+                    // Merge guests: update existing, add new, keep prev if not in auth
+                    const mergedGuests = prevGuests.map((prevGuest: any) => {
+                      const authGuest = authGuestsMap.get(prevGuest.id);
+                      return authGuest || prevGuest;
+                    });
+                    
+                    // Add any new guests from auth
+                    authGuests.forEach((authGuest: any) => {
+                      if (!prevGuests.find((g: any) => g.id === authGuest.id)) {
+                        mergedGuests.push(authGuest);
+                      }
+                    });
+                    
+                    return {
+                      ...prev,
+                      ...authEvent,
+                      coupleName: authEvent.coupleName || prev.coupleName,
+                      campaigns: authEvent.campaigns || prev.campaigns || [],
+                      tables: authEvent.tables || prev.tables || [],
+                      venueLayout: authEvent.venueLayout || prev.venueLayout,
+                      eventImages: authEvent.eventImages || prev.eventImages || [],
+                      guests: mergedGuests
+                    };
+                  } else {
+                    console.log('⚠️ Ignoring authenticated endpoint data (older than current)');
+                    return prev;
+                  }
+                });
+                
+                return; // Successfully loaded from authenticated endpoint
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
+          }
+        }
+        
+        // Fallback to public endpoint
+        console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
         const response = await fetch(`${BACKEND_URL}/api/events/all`, {
           method: 'GET',
           headers: { 
@@ -236,7 +338,7 @@ const ClientDashboard: React.FC = () => {
                 if (isLikelyIncomplete) {
                   console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
                   console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
-                  console.warn(`⚠️ For full guest list, use the admin dashboard or wait for polling to update`);
+                  console.warn(`⚠️ Attempting to load full event data...`);
                   
                   // CRITICAL: Try to load from /api/events/:userId if user is logged in (this returns full event data)
                   // Note: This is done asynchronously after setting initial event, not inside setCurrentEvent callback
@@ -251,10 +353,11 @@ const ClientDashboard: React.FC = () => {
                     }
                   }
                   
-                  if (userId) {
-                    // Load full event data asynchronously (outside of setCurrentEvent callback)
-                    (async () => {
-                      try {
+                  // Load full event data asynchronously (outside of setCurrentEvent callback)
+                  // Try both /api/events/:userId (if logged in) and keep polling for updates
+                  (async () => {
+                    try {
+                      if (userId) {
                         console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
                         const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
                           method: 'GET',
@@ -277,13 +380,18 @@ const ClientDashboard: React.FC = () => {
                               ...fullEvent,
                               guests: fullEvent.guests || []
                             });
+                            return; // Successfully loaded full data
                           }
                         }
-                      } catch (error) {
-                        console.warn('⚠️ Failed to load full event data:', error);
                       }
-                    })();
-                  }
+                      
+                      // If still incomplete, log warning that polling will try to update
+                      console.warn(`⚠️ Could not load full event data. Polling will attempt to update every 5 seconds.`);
+                      console.warn(`⚠️ For immediate full guest list, please log in to the admin dashboard.`);
+                    } catch (error) {
+                      console.warn('⚠️ Failed to load full event data:', error);
+                    }
+                  })();
                 }
                 
                 // CRITICAL: Ensure guests array exists even for initial load
