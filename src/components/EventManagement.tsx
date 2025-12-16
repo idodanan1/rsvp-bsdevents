@@ -2656,14 +2656,23 @@ const EventManagement: React.FC = () => {
               <p className="text-sm font-medium text-orange-700">נותר להושיב</p>
               <p className="text-3xl font-bold text-orange-600">
                 {(() => {
-                  // Calculate total guests count in tables (sum of guestCount)
-                  const seatedGuestsCount = currentEvent.tables?.reduce((acc, table) => {
+                  // Calculate total confirmed guests count (only those who are coming)
+                  const totalConfirmedGuests = stats.confirmed || 0;
+                  
+                  // Calculate seated guests count (only confirmed guests who are seated)
+                  const seatedConfirmedGuestsCount = currentEvent.tables?.reduce((acc, table) => {
                     return acc + table.guests.reduce((sum, guestId) => {
                       const guest = currentEvent.guests.find(g => g.id === guestId);
-                      return sum + (guest?.guestCount || 1);
+                      // Only count confirmed guests (those who are coming)
+                      if (guest && guest.rsvpStatus === 'confirmed') {
+                        return sum + (guest.guestCount || 1);
+                      }
+                      return sum;
                     }, 0);
                   }, 0) || 0;
-                  return stats.totalGuests - seatedGuestsCount;
+                  
+                  // Remaining to seat = total confirmed - seated confirmed
+                  return totalConfirmedGuests - seatedConfirmedGuestsCount;
                 })()}
               </p>
             </div>
