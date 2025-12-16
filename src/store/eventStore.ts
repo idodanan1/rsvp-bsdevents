@@ -2874,13 +2874,38 @@ export const useEventStore = create<EventStore>()(
           // Check if this is the "event day reminder" campaign (contains QR code)
           const isEventDayReminder = campaign.name === 'תזכורת יום האירוע';
           
-          // CRITICAL: Send to ALL guests regardless of their status
-          // User explicitly requested that messages should be sent to all guests, even if they already confirmed or declined
-          // This allows sending reminders and other messages to all guests
-          const filteredGuests = guests;
+          // CRITICAL: Filter guests based on campaign type
+          // 1. Some campaigns (הזמנה ראשונית, תזכורת שנייה, תזכורת שבועית) should only be sent to guests who haven't responded yet
+          // 2. Other campaigns (תזכורת אחרונה, הודעת תודה) should only be sent to guests who confirmed (מגיע)
+          // 3. Some campaigns (תזכורת יום האירוע) should be sent to all guests
+          const campaignsForNonResponded = ['הזמנה ראשונית', 'תזכורת שנייה', 'תזכורת שבועית'];
+          const campaignsForConfirmed = ['תזכורת אחרונה', 'הודעת תודה למגיעים'];
+          const campaignsForAll = ['תזכורת יום האירוע'];
           
-          console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
-          console.log(`✅ Sending to all guests regardless of their RSVP status`);
+          let filteredGuests;
+          if (campaignsForNonResponded.includes(campaign.name)) {
+            // Only send to guests who haven't responded (not confirmed and not declined)
+            filteredGuests = guests.filter(guest => 
+              guest.rsvpStatus !== 'confirmed' && guest.rsvpStatus !== 'declined'
+            );
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests who haven't responded)`);
+            console.log(`✅ Filtering: Only sending to guests with status !== 'confirmed' && !== 'declined'`);
+          } else if (campaignsForConfirmed.includes(campaign.name)) {
+            // Only send to guests who confirmed (מגיע)
+            filteredGuests = guests.filter(guest => guest.rsvpStatus === 'confirmed');
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'confirmed' (מגיע)`);
+          } else if (campaignsForAll.includes(campaign.name)) {
+            // Send to ALL guests regardless of their status
+            filteredGuests = guests;
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
+            console.log(`✅ Sending to all guests regardless of their RSVP status`);
+          } else {
+            // Default: send to all guests (for custom campaigns)
+            filteredGuests = guests;
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (default: all guests)`);
+            console.log(`✅ Sending to all guests (default behavior for custom campaigns)`);
+          }
           
           // Determine template name based on campaign FIRST (before building templateParams)
           // CRITICAL: Override templateName based on campaign name to ensure correct template is used
