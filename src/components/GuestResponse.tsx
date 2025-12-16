@@ -1687,7 +1687,7 @@ const GuestResponse = () => {
             )}
             
             {/* Parents Names - Always show, even if empty */}
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 gap-4 text-sm mt-4">
               <div className="text-center">
                 <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
                 <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
