@@ -1650,7 +1650,7 @@ const GuestResponse = () => {
             <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-200">
               <div className="text-center">
                 <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
-                <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+                <div className="text-lg text-gray-600">20:30</div>
               </div>
               <div className="text-center">
                 <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
@@ -1660,15 +1660,15 @@ const GuestResponse = () => {
           )}
 
           {/* Parents Names */}
-          {(currentEvent.groomName || currentEvent.brideName) && (
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          {(currentEvent.groomParentsName || currentEvent.brideParentsName) && (
+            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
               <div className="text-center">
                 <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
-                <div className="text-gray-600">{currentEvent.groomName || '-'}</div>
+                <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
               </div>
               <div className="text-center">
                 <div className="font-semibold text-gray-700 mb-1">הורי הכלה</div>
-                <div className="text-gray-600">{currentEvent.brideName || '-'}</div>
+                <div className="text-gray-600">{currentEvent.brideParentsName || '-'}</div>
               </div>
             </div>
           )}
@@ -1676,7 +1676,7 @@ const GuestResponse = () => {
 
         {/* Footer */}
         <div className="text-center text-sm text-gray-500 pb-8">
-          <div className="mb-2">LetMeSit</div>
+          <div className="mb-2">בס"ד אירועים</div>
           <div>אישורי הגעה וסידורי הושבה</div>
         </div>
       </div>

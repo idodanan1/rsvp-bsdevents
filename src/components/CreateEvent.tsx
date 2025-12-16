@@ -16,6 +16,8 @@ const CreateEvent: React.FC = () => {
   const [formData, setFormData] = useState({
     groomName: '',
     brideName: '',
+    groomParentsName: '',
+    brideParentsName: '',
     eventDate: '',
     eventTime: '',
     venue: '',
@@ -165,6 +167,8 @@ const CreateEvent: React.FC = () => {
         coupleName: `${formData.groomName} & ${formData.brideName}`,
         groomName: formData.groomName,
         brideName: formData.brideName,
+        groomParentsName: formData.groomParentsName || undefined,
+        brideParentsName: formData.brideParentsName || undefined,
         eventDate: new Date(formData.eventDate),
         eventTime: formData.eventTime,
         venue: formData.venue,
@@ -257,6 +261,39 @@ const CreateEvent: React.FC = () => {
             {errors.brideName && (
               <p className="text-red-500 text-sm mt-1">{errors.brideName}</p>
             )}
+          </div>
+        </div>
+
+        {/* Parents Names */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <User className="w-4 h-4 inline ml-1" />
+              שם הורי החתן (אופציונלי)
+            </label>
+            <input
+              type="text"
+              name="groomParentsName"
+              value={formData.groomParentsName}
+              onChange={handleInputChange}
+              className="input-field"
+              placeholder="הזן את שם הורי החתן"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <User className="w-4 h-4 inline ml-1" />
+              שם הורי הכלה (אופציונלי)
+            </label>
+            <input
+              type="text"
+              name="brideParentsName"
+              value={formData.brideParentsName}
+              onChange={handleInputChange}
+              className="input-field"
+              placeholder="הזן את שם הורי הכלה"
+            />
           </div>
         </div>
 

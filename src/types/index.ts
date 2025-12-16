@@ -73,6 +73,8 @@ export interface Event {
   coupleName: string;
   groomName: string;
   brideName: string;
+  groomParentsName?: string; // שם הורי החתן
+  brideParentsName?: string; // שם הורי הכלה
   eventDate: Date;
   eventTime: string;
   venue: string;

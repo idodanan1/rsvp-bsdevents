@@ -168,6 +168,8 @@ const Dashboard: React.FC = () => {
         coupleName: selectedEventForEdit.coupleName,
         groomName: selectedEventForEdit.groomName,
         brideName: selectedEventForEdit.brideName,
+        groomParentsName: selectedEventForEdit.groomParentsName || undefined,
+        brideParentsName: selectedEventForEdit.brideParentsName || undefined,
         eventDate: selectedEventForEdit.eventDate,
         eventTime: selectedEventForEdit.eventTime,
         venue: selectedEventForEdit.venue,
@@ -620,6 +622,37 @@ const Dashboard: React.FC = () => {
                       onChange={(e) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         brideName: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      שם הורי החתן (אופציונלי)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedEventForEdit.groomParentsName || ''}
+                      onChange={(e) => setSelectedEventForEdit({
+                        ...selectedEventForEdit,
+                        groomParentsName: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      שם הורי הכלה (אופציונלי)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedEventForEdit.brideParentsName || ''}
+                      onChange={(e) => setSelectedEventForEdit({
+                        ...selectedEventForEdit,
+                        brideParentsName: e.target.value
                       })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />

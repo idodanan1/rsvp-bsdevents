@@ -5275,6 +5275,8 @@ app.post('/api/events/sync', async (req, res) => {
           // CRITICAL: Preserve important fields from existing event if not in incoming event
           groomName: incomingEvent.groomName !== undefined ? incomingEvent.groomName : existingEvent.groomName,
           brideName: incomingEvent.brideName !== undefined ? incomingEvent.brideName : existingEvent.brideName,
+          groomParentsName: incomingEvent.groomParentsName !== undefined ? incomingEvent.groomParentsName : existingEvent.groomParentsName,
+          brideParentsName: incomingEvent.brideParentsName !== undefined ? incomingEvent.brideParentsName : existingEvent.brideParentsName,
           coupleName: incomingEvent.coupleName !== undefined ? incomingEvent.coupleName : existingEvent.coupleName,
           eventDate: incomingEvent.eventDate !== undefined ? incomingEvent.eventDate : existingEvent.eventDate,
           eventTime: incomingEvent.eventTime !== undefined ? incomingEvent.eventTime : existingEvent.eventTime,
@@ -5692,6 +5694,8 @@ app.post('/api/events', async (req, res) => {
         // CRITICAL: Preserve important fields from existing event if not in incoming event
         groomName: event.groomName !== undefined ? event.groomName : existingEvent.groomName,
         brideName: event.brideName !== undefined ? event.brideName : existingEvent.brideName,
+        groomParentsName: event.groomParentsName !== undefined ? event.groomParentsName : existingEvent.groomParentsName,
+        brideParentsName: event.brideParentsName !== undefined ? event.brideParentsName : existingEvent.brideParentsName,
         coupleName: event.coupleName !== undefined ? event.coupleName : existingEvent.coupleName,
         eventDate: event.eventDate !== undefined ? event.eventDate : existingEvent.eventDate,
         eventTime: event.eventTime !== undefined ? event.eventTime : existingEvent.eventTime,
