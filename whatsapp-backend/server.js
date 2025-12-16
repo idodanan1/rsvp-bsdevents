@@ -4867,6 +4867,14 @@ app.post('/api/events', async (req, res) => {
       const existingEvent = eventsData.events[existingIndex];
       console.log(`🔄 Updating event ${event.id}`);
       console.log(`📤 Incoming event has ${event.guests?.length || 0} guests`);
+      console.log(`📤 Existing event has ${existingEvent.guests?.length || 0} guests`);
+      console.log(`📤 Incoming event guests type:`, typeof event.guests);
+      console.log(`📤 Incoming event guests is array:`, Array.isArray(event.guests));
+      
+      // CRITICAL: Initialize mergedGuests with existing guests first
+      // This ensures we preserve all existing guests even if incoming event has no guests
+      let mergedGuests = existingEvent.guests ? [...existingEvent.guests] : [];
+      console.log(`📤 Initial mergedGuests count: ${mergedGuests.length}`);
       
       // Check for actualAttendance updates and add to pendingUpdates if rsvpStatus or guestCount changed
       if (event.guests && event.guests.length > 0) {
@@ -5119,8 +5127,8 @@ app.post('/api/events', async (req, res) => {
       
       // Update existing event - CRITICAL: Merge guests properly to preserve all fields
       // Merge guests array: update existing guests, add new ones, keep all others
-      let mergedGuests = [...(existingEvent.guests || [])];
-      
+      // CRITICAL: Use the mergedGuests we already initialized above (line 4876)
+      // Don't redefine it here - just update it if incoming event has guests
       if (event.guests && event.guests.length > 0) {
         // For each incoming guest, update existing or add new
         for (const incomingGuest of event.guests) {
