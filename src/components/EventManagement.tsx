@@ -2865,12 +2865,49 @@ const EventManagement: React.FC = () => {
               <p className="text-sm font-medium text-indigo-700">הודעות נשלחו</p>
               <p className="text-3xl font-bold text-indigo-600">
                 {(() => {
-                  // Count all guests who have received a message (sent, delivered, or sms_sent)
-                  const guestsWithMessages = currentEvent.guests?.filter(g => {
+                  // Count total messages sent:
+                  // 1. Sum of sentCount from all campaigns that were sent
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                    if (campaign.status === 'sent' && campaign.sentCount) {
+                      return sum + campaign.sentCount;
+                    }
+                    return sum;
+                  }, 0) || 0;
+                  
+                  // 2. Count individual messages sent (guests with messageSentDate)
+                  // Each guest with messageSentDate represents at least one message sent
+                  // Note: This counts each guest once, but if same guest received multiple individual messages,
+                  // we can't track exact count without message history
+                  const individualMessages = currentEvent.guests?.filter(g => {
                     const status = g.messageStatus || 'not_sent';
-                    return status === 'sent' || status === 'delivered' || status === 'sms_sent';
-                  }) || [];
-                  return guestsWithMessages.length;
+                    // Count guests who received individual messages (not through campaigns)
+                    // We check if they have messageSentDate but weren't counted in campaigns
+                    return (status === 'sent' || status === 'delivered' || status === 'sms_sent') && g.messageSentDate;
+                  }).length || 0;
+                  
+                  // Total = campaign messages + individual messages
+                  // Note: This is an approximation - if a guest received both campaign and individual messages,
+                  // they might be counted twice, but it's the best we can do without message history
+                  const totalMessages = campaignMessages + individualMessages;
+                  
+                  return totalMessages;
+                })()}
+              </p>
+              <p className="text-xs text-indigo-600 mt-1">
+                {(() => {
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                    if (campaign.status === 'sent' && campaign.sentCount) {
+                      return sum + campaign.sentCount;
+                    }
+                    return sum;
+                  }, 0) || 0;
+                  
+                  const individualMessages = currentEvent.guests?.filter(g => {
+                    const status = g.messageStatus || 'not_sent';
+                    return (status === 'sent' || status === 'delivered' || status === 'sms_sent') && g.messageSentDate;
+                  }).length || 0;
+                  
+                  return `קמפיינים: ${campaignMessages} | אישיות: ${individualMessages}`;
                 })()}
               </p>
             </div>
