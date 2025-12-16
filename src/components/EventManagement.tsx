@@ -115,6 +115,7 @@ const EventManagement: React.FC = () => {
   const removeGuestFromTable = useEventStore(state => state.removeGuestFromTable);
   const moveGuestToTable = useEventStore(state => state.moveGuestToTable);
   const syncCurrentEventToAPI = useEventStore(state => state.syncCurrentEventToAPI);
+  const recreateCampaigns = useEventStore(state => state.recreateCampaigns);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -329,6 +330,42 @@ const EventManagement: React.FC = () => {
       syncedEventsRef.current.delete(currentEvent.id);
     });
   }, [id, currentEvent, syncCurrentEventToAPI]);
+
+  // CRITICAL: Auto-create campaigns if they don't exist
+  // This ensures events always have campaigns available
+  const campaignsCreatedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!id || !currentEvent || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Check if campaigns exist
+    if (currentEvent.campaigns && currentEvent.campaigns.length > 0) {
+      return;
+    }
+    
+    // Only create once per event (tracked by ref)
+    if (campaignsCreatedRef.current.has(currentEvent.id)) {
+      return;
+    }
+    
+    // Mark as created immediately to prevent duplicate creation
+    campaignsCreatedRef.current.add(currentEvent.id);
+    
+    // Create campaigns in background (don't await to avoid blocking UI)
+    console.log(`🔄 Auto-creating campaigns for event ${currentEvent.id}...`);
+    recreateCampaigns(currentEvent.id).then(() => {
+      console.log(`✅ Campaigns created for event ${currentEvent.id}`);
+      // Refresh events to get the updated event with campaigns
+      fetchEvents(false, true).catch((error: any) => {
+        console.warn('⚠️ Failed to refresh events after campaign creation:', error);
+      });
+    }).catch((error: any) => {
+      console.warn('⚠️ Auto-create campaigns failed:', error);
+      // Remove from created set so we can retry later
+      campaignsCreatedRef.current.delete(currentEvent.id);
+    });
+  }, [id, currentEvent, recreateCampaigns, fetchEvents]);
 
   // CRITICAL: Listen for guest status updates and refresh event data from backend
   // This ensures the table updates immediately after guest status changes via GuestResponse page
@@ -2621,6 +2658,26 @@ const EventManagement: React.FC = () => {
             <MessageSquare className="w-4 h-4" />
             <span>ניהול קמפיינים</span>
           </Link>
+          {(!currentEvent.campaigns || currentEvent.campaigns.length === 0) && (
+            <button
+              onClick={async () => {
+                if (!id) return;
+                try {
+                  await recreateCampaigns(id);
+                  await fetchEvents(false, true);
+                  alert('✅ הקמפיינים נוצרו בהצלחה!');
+                } catch (error: any) {
+                  console.error('❌ Error recreating campaigns:', error);
+                  alert(`❌ שגיאה ביצירת קמפיינים: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }}
+              className="btn-warning flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+              title="צור קמפיינים מחדש לאירוע"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>צור קמפיינים</span>
+            </button>
+          )}
           <Link
             to={`/event/${currentEvent.id}/seating`}
             className="btn-secondary flex items-center space-x-2"
