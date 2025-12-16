@@ -22,46 +22,29 @@ const GuestResponse = () => {
   
   // Parse eventId from hash if not in params (HashRouter fallback)
   const parseEventIdFromHash = () => {
-    // CRITICAL: Check if paramEventId contains a URL (concatenated URLs)
-    let cleanedParamEventId = paramEventId;
-    if (paramEventId && (paramEventId.includes('http://') || paramEventId.includes('https://'))) {
-      // Extract the ID part before the URL
-      const idMatch = paramEventId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
-      if (idMatch && idMatch[1]) {
-        console.log(`✅ Extracted eventId from param before URL: ${idMatch[1]}`);
-        cleanedParamEventId = idMatch[1];
-      } else {
-        // If paramEventId contains URL, try to find the last eventId in the concatenated string
-        const allEventIds = paramEventId.match(/\/guest-response\/([a-z0-9]{10,})/gi);
-        if (allEventIds && allEventIds.length > 0) {
-          // Get the last eventId found (most likely the correct one)
-          const lastMatch = allEventIds[allEventIds.length - 1].match(/\/([a-z0-9]{10,})/i);
-          if (lastMatch && lastMatch[1]) {
-            console.log(`✅ Extracted last eventId from concatenated param: ${lastMatch[1]}`);
-            cleanedParamEventId = lastMatch[1];
-          }
-        }
-      }
-    }
-    
-    if (cleanedParamEventId && cleanedParamEventId.length >= 10 && /^[a-z0-9]+$/i.test(cleanedParamEventId)) {
-      console.log(`✅ Found eventId in params: ${cleanedParamEventId}`);
-      return cleanedParamEventId;
-    }
-    
-    // Try to parse from hash
+    // CRITICAL: Always check hash first for concatenated URLs, even if paramEventId exists
+    // The hash contains the full URL including concatenated links
     const hash = window.location.hash;
     console.log(`🔍 Parsing eventId from hash: ${hash}`);
     
     if (hash) {
       // CRITICAL: Find ALL eventIds in the hash (in case of concatenated URLs)
+      // Use a more comprehensive regex that captures eventIds even with query params
       const allMatches = hash.match(/\/guest-response\/([a-z0-9]{10,})/gi);
       if (allMatches && allMatches.length > 0) {
-        // Get the last eventId found (most likely the correct one)
-        const lastMatch = allMatches[allMatches.length - 1].match(/\/([a-z0-9]{10,})/i);
-        if (lastMatch && lastMatch[1]) {
-          console.log(`✅ Found last eventId in hash (from ${allMatches.length} matches): ${lastMatch[1]}`);
-          return lastMatch[1];
+        console.log(`🔍 Found ${allMatches.length} eventId matches in hash:`, allMatches);
+        // Extract all eventIds from matches
+        const eventIds = allMatches.map(m => {
+          const idMatch = m.match(/\/([a-z0-9]{10,})/i);
+          return idMatch ? idMatch[1] : null;
+        }).filter(id => id !== null);
+        
+        if (eventIds.length > 0) {
+          // Get the last eventId found (most likely the correct one)
+          const lastEventId = eventIds[eventIds.length - 1];
+          console.log(`✅ Found last eventId in hash (from ${eventIds.length} matches): ${lastEventId}`);
+          console.log(`🔍 All eventIds found:`, eventIds);
+          return lastEventId;
         }
       }
       
@@ -116,6 +99,12 @@ const GuestResponse = () => {
         console.log(`✅ Found eventId in hash (simple pattern): ${parsedId}`);
         return parsedId;
       }
+    }
+    
+    // Fallback: Check if paramEventId exists and is valid
+    if (paramEventId && paramEventId.length >= 10 && /^[a-z0-9]+$/i.test(paramEventId)) {
+      console.log(`✅ Found eventId in params (fallback): ${paramEventId}`);
+      return paramEventId;
     }
     
     console.warn(`⚠️ Could not parse eventId from URL`);
