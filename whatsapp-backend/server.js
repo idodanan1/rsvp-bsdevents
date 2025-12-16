@@ -4855,6 +4855,24 @@ app.post('/api/events', async (req, res) => {
   try {
     const event = req.body;
     
+    // CRITICAL: Log the incoming request to see what we're receiving
+    console.log(`📥 POST /api/events - Request received`);
+    console.log(`📥 Event ID: ${event.id}`);
+    console.log(`📥 Event userId: ${event.userId}`);
+    console.log(`📥 Incoming event has guests property:`, 'guests' in event);
+    console.log(`📥 Incoming event guests type:`, typeof event.guests);
+    console.log(`📥 Incoming event guests is array:`, Array.isArray(event.guests));
+    console.log(`📥 Incoming event guests count: ${event.guests?.length || 0}`);
+    console.log(`📥 Incoming event keys:`, Object.keys(event));
+    if (event.guests && event.guests.length > 0) {
+      console.log(`📥 First guest sample:`, {
+        id: event.guests[0].id,
+        firstName: event.guests[0].firstName,
+        lastName: event.guests[0].lastName,
+        phoneNumber: event.guests[0].phoneNumber
+      });
+    }
+    
     if (!event.id || !event.userId) {
       return res.status(400).json({ error: 'Event id and userId are required' });
     }
@@ -5185,12 +5203,24 @@ app.post('/api/events', async (req, res) => {
       }
     } else {
       // Create new event
-      eventsData.events.push({
+      const newEvent = {
         ...event,
         createdAt: event.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log(`✨ Created event ${event.id}`);
+      };
+      
+      // CRITICAL: Ensure guests are included in new event
+      if (event.guests && Array.isArray(event.guests)) {
+        newEvent.guests = event.guests;
+        console.log(`✨ Created event ${event.id} with ${event.guests.length} guests`);
+      } else {
+        console.log(`✨ Created event ${event.id} WITHOUT guests (guests not provided)`);
+        console.log(`📥 Event object keys:`, Object.keys(event));
+        console.log(`📥 Event has guests property:`, 'guests' in event);
+        console.log(`📥 Event.guests value:`, event.guests);
+      }
+      
+      eventsData.events.push(newEvent);
     }
     
     // Save to file
