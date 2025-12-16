@@ -2743,7 +2743,7 @@ const EventManagement: React.FC = () => {
       </div>
 
       {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
         <div className="stat-card-orange">
           <div className="flex items-center justify-between">
             <div>
@@ -2856,6 +2856,25 @@ const EventManagement: React.FC = () => {
               <p className="text-3xl font-bold text-yellow-600">{stats.responseRate}%</p>
             </div>
             <MessageSquare className="w-8 h-8 text-yellow-600" />
+          </div>
+        </div>
+
+        <div className="stat-card bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-4 shadow-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-indigo-700">הודעות נשלחו</p>
+              <p className="text-3xl font-bold text-indigo-600">
+                {(() => {
+                  // Count all guests who have received a message (sent, delivered, or sms_sent)
+                  const guestsWithMessages = currentEvent.guests?.filter(g => {
+                    const status = g.messageStatus || 'not_sent';
+                    return status === 'sent' || status === 'delivered' || status === 'sms_sent';
+                  }) || [];
+                  return guestsWithMessages.length;
+                })()}
+              </p>
+            </div>
+            <Send className="w-8 h-8 text-indigo-600" />
           </div>
         </div>
       </div>
