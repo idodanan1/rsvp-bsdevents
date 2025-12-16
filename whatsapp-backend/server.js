@@ -4462,15 +4462,31 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       if (fs.existsSync(eventsFilePath)) {
         const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
         console.log(`📋 [GUESTS_ENDPOINT] File size: ${fileContent.length} bytes`);
+        console.log(`📋 [GUESTS_ENDPOINT] File path: ${eventsFilePath}`);
+        console.log(`📋 [GUESTS_ENDPOINT] File content preview (first 500 chars):`, fileContent.substring(0, 500));
+        
         const fileData = JSON.parse(fileContent);
         events = fileData.events || [];
         console.log(`📋 [GUESTS_ENDPOINT] Read ${events.length} events directly from file`);
+        console.log(`📋 [GUESTS_ENDPOINT] File data structure:`, {
+          hasEvents: 'events' in fileData,
+          eventsType: typeof fileData.events,
+          eventsIsArray: Array.isArray(fileData.events),
+          eventsLength: fileData.events?.length || 0,
+          fileDataKeys: Object.keys(fileData)
+        });
         
         // Log guest counts for debugging
         events.forEach(e => {
           const guestCount = e.guests?.length || 0;
+          console.log(`📋 [GUESTS_ENDPOINT] Event ${e.id}: ${guestCount} guests`);
           if (e.id === eventId) {
             console.log(`📋 [GUESTS_ENDPOINT] Found event ${eventId} with ${guestCount} guests in file`);
+            console.log(`📋 [GUESTS_ENDPOINT] Event object keys:`, Object.keys(e));
+            console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in e);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests value:`, e.guests);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof e.guests);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(e.guests));
           }
         });
       } else {
