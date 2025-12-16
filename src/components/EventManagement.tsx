@@ -480,6 +480,13 @@ const EventManagement: React.FC = () => {
     // The events array is subscribed via useEventStore(state => state.events) at the top
     const currentEvents = events;
     
+    console.log('🔄 guestsToDisplay recalculating:', {
+      eventId: id,
+      eventsLength: currentEvents.length,
+      eventsVersion,
+      eventFound: !!currentEvents.find(e => e.id === id)
+    });
+    
     // CRITICAL: Always get directly from events array (most up-to-date)
     // Don't rely on currentEventFromStore ref as it might be stale
     // This ensures we always get the latest data, even if update was for a different event
@@ -532,14 +539,21 @@ const EventManagement: React.FC = () => {
       ).join('|');
       
       if (newKey !== eventGuestsKeyRef.current) {
-        console.log('📊 Guests data changed:', guests.map(g => ({
-          id: g.id,
-          name: `${g.firstName} ${g.lastName}`,
-          status: g.rsvpStatus,
-          count: g.guestCount,
-          responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
-        })));
+        console.log('📊 Guests data changed in guestsToDisplay:', {
+          eventId: id,
+          guestsCount: guests.length,
+          sampleGuests: guests.slice(0, 3).map(g => ({
+            id: g.id,
+            name: `${g.firstName} ${g.lastName}`,
+            status: g.rsvpStatus,
+            count: g.guestCount,
+            actualAttendance: g.actualAttendance,
+            responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
+          }))
+        });
         eventGuestsKeyRef.current = newKey;
+      } else {
+        console.log('ℹ️ guestsToDisplay: Guests key unchanged, no update needed');
       }
       
       // CRITICAL: Always return a new array reference, even if contents are the same
@@ -553,12 +567,13 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include only id and eventsVersion to avoid React #310 errors
+    // CRITICAL: Dependencies include id, eventsVersion, and events array to ensure immediate updates
     // eventsVersion is updated when events array changes, triggering re-calculation
+    // Including events directly ensures we catch updates immediately, even if eventsVersion hasn't updated yet
     // We don't include eventsHash directly to avoid circular dependencies
     // eventsVersion already captures changes from eventsHash via the useEffect that updates it
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion]);
+  }, [id, eventsVersion, events]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
