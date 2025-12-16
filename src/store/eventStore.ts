@@ -4650,6 +4650,33 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
+      // CRITICAL: Sync a specific event to API (for automatic sync when event is loaded)
+      syncCurrentEventToAPI: async (eventId?: string) => {
+        try {
+          const eventToSync = eventId 
+            ? get().events.find(e => e.id === eventId)
+            : get().currentEvent;
+          
+          if (!eventToSync) {
+            console.warn('⚠️ No event to sync:', eventId || 'currentEvent');
+            return;
+          }
+          
+          // Only sync if event has guests (to avoid unnecessary syncs)
+          if (!eventToSync.guests || eventToSync.guests.length === 0) {
+            console.log(`⏭️ Skipping sync for event ${eventToSync.id} - no guests`);
+            return;
+          }
+          
+          console.log(`🔄 Auto-syncing event ${eventToSync.id} with ${eventToSync.guests.length} guests...`);
+          await syncEventToAPI(eventToSync);
+          console.log(`✅ Auto-synced event ${eventToSync.id} successfully`);
+        } catch (error) {
+          console.warn('⚠️ Failed to auto-sync event:', error);
+          // Don't throw - this is a background sync, shouldn't block UI
+        }
+      },
+
       // CRITICAL: Sync all events from localStorage to API (for multi-computer access)
       syncAllEventsToAPI: async () => {
         set({ isLoading: true, error: null });

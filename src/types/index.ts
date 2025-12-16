@@ -203,6 +203,7 @@ export interface APIResponse<T> {
 // סוגי Store (Zustand)
 export interface EventStore {
   cleanupOtherUsersEvents: () => void;
+  syncCurrentEventToAPI: (eventId?: string) => Promise<void>;
   syncAllEventsToAPI: () => Promise<{ synced: number; failed: number }>;
   events: Event[];
   deletedEvents: (Event & { deletedAt: Date })[];

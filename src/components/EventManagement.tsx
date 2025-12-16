@@ -93,6 +93,7 @@ const EventManagement: React.FC = () => {
   const assignGuestToTable = useEventStore(state => state.assignGuestToTable);
   const removeGuestFromTable = useEventStore(state => state.removeGuestFromTable);
   const moveGuestToTable = useEventStore(state => state.moveGuestToTable);
+  const syncCurrentEventToAPI = useEventStore(state => state.syncCurrentEventToAPI);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -277,6 +278,36 @@ const EventManagement: React.FC = () => {
     // CRITICAL: Do NOT include currentEvent in dependencies to prevent infinite loop
     // The useEffect should only run when events array changes, not when currentEvent changes
   }, [id, events, setCurrentEvent, navigate]); // Removed currentEvent to prevent infinite loop
+
+  // CRITICAL: Auto-sync event to API when it's loaded and has guests
+  // This ensures that if the local event has guests but the server doesn't, it gets synced automatically
+  const syncedEventsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!id || !currentEvent || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Only sync if event has guests
+    if (!currentEvent.guests || currentEvent.guests.length === 0) {
+      return;
+    }
+    
+    // Only sync once per event (tracked by ref)
+    if (syncedEventsRef.current.has(currentEvent.id)) {
+      return;
+    }
+    
+    // Mark as synced immediately to prevent duplicate syncs
+    syncedEventsRef.current.add(currentEvent.id);
+    
+    // Sync in background (don't await to avoid blocking UI)
+    console.log(`🔄 Auto-syncing event ${currentEvent.id} with ${currentEvent.guests.length} guests to server...`);
+    syncCurrentEventToAPI(currentEvent.id).catch((error: any) => {
+      console.warn('⚠️ Auto-sync failed:', error);
+      // Remove from synced set so we can retry later
+      syncedEventsRef.current.delete(currentEvent.id);
+    });
+  }, [id, currentEvent, syncCurrentEventToAPI]);
 
   // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
   const eventGuestsKeyRef = useRef<string>('');
