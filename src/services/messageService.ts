@@ -72,7 +72,7 @@ class MessageService {
       .replace(/\{coupleName\}/g, eventData.coupleName)
       .replace(/\{groomName\}/g, eventData.groomName)
       .replace(/\{brideName\}/g, eventData.brideName)
-      .replace(/\{eventType\}/g, eventData.eventTypeHebrew)
+      .replace(/\{eventType\}/g, eventData.eventTypeHebrew || 'חתונה')
       .replace(/\{eventDate\}/g, eventData.eventDate)
       .replace(/\{eventTime\}/g, eventData.eventTime)
       .replace(/\{venue\}/g, eventData.venue);

@@ -2292,7 +2292,7 @@ const EventManagement: React.FC = () => {
           .replace(/\{\{last_name\}\}/g, guest.lastName)
           .replace(/\{\{event_date\}\}/g, formatDate(currentEvent.eventDate))
           .replace(/\{\{event_time\}\}/g, currentEvent.eventTime || '')
-          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew || '')
+          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew || 'חתונה')
           .replace(/\{\{venue\}\}/g, currentEvent.venue || '')
           .replace(/\{\{couple_name\}\}/g, coupleName)
           .replace(/\{\{groom_name\}\}/g, groomName)
@@ -2371,7 +2371,7 @@ const EventManagement: React.FC = () => {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                                'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                  event_type: currentEvent.eventTypeHebrew || '',
+                  event_type: currentEvent.eventTypeHebrew || 'חתונה',
                   groom_name: groomName, // Use the variable we defined above
                   bride_name: brideName, // Use the variable we defined above
                 event_date: formatDate(currentEvent.eventDate),

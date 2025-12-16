@@ -511,6 +511,7 @@ export const useEventStore = create<EventStore>()(
                     return { 
                       ...apiEvent, 
                       invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
+                      eventTypeHebrew: apiEvent.eventTypeHebrew || 'חתונה', // Ensure eventTypeHebrew is always defined
                       guests: filteredGuests 
                     }; // Use API event if no local version, but filter deleted guests and clean names
                   }
@@ -672,6 +673,7 @@ export const useEventStore = create<EventStore>()(
                   return {
                     ...apiEvent,
                     invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
+                    eventTypeHebrew: apiEvent.eventTypeHebrew || localEvent.eventTypeHebrew || 'חתונה', // Ensure eventTypeHebrew is always defined
                     guests: [...mergedGuests, ...localOnlyGuests],
                     updatedAt: new Date(Math.max(
                       new Date(apiEvent.updatedAt || 0).getTime(),
@@ -2942,7 +2944,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -2956,7 +2958,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -3017,7 +3019,7 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 groom_name: templateGroomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
                 bride_name: templateBrideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(event.eventDate),
@@ -3047,7 +3049,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3073,7 +3075,7 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
                              'event_time', 'venue', 'table_number'],
                 first_name: guest.firstName, // Parameter 1 - note: uses first_name, not guest_name
-                event_type: event.eventTypeHebrew || '', // Parameter 2
+                event_type: event.eventTypeHebrew || 'חתונה', // Parameter 2
                 couple_name: templateCoupleName, // Parameter 3
                 event_date: formatDate(event.eventDate), // Parameter 4
                 event_time: event.eventTime || '', // Parameter 5
@@ -3087,7 +3089,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
