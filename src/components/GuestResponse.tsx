@@ -119,6 +119,31 @@ const GuestResponse = () => {
   
   // Parse guestId from hash or search params
   const parseGuestId = () => {
+    // CRITICAL: Always check hash first for concatenated URLs, even if searchParams has guest
+    // The hash contains the full URL including concatenated links
+    const hash = window.location.hash;
+    if (hash) {
+      // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
+      const allGuestMatches = hash.match(/[?&]guest=([a-z0-9]{10,})/gi);
+      if (allGuestMatches && allGuestMatches.length > 0) {
+        console.log(`🔍 Found ${allGuestMatches.length} guestId matches in hash:`, allGuestMatches);
+        // Extract all guestIds from matches
+        const guestIds = allGuestMatches.map(m => {
+          const idMatch = m.match(/guest=([a-z0-9]{10,})/i);
+          return idMatch ? idMatch[1] : null;
+        }).filter(id => id !== null);
+        
+        if (guestIds.length > 0) {
+          // Get the last guestId found (most likely the correct one)
+          const lastGuestId = guestIds[guestIds.length - 1];
+          console.log(`✅ Found last guestId in hash (from ${guestIds.length} matches): ${lastGuestId}`);
+          console.log(`🔍 All guestIds found:`, guestIds);
+          return lastGuestId;
+        }
+      }
+    }
+    
+    // Fallback: Check search params
     const fromSearch = searchParams.get('guest');
     if (fromSearch) {
       // CRITICAL: Clean the guestId - remove any URL that might be appended
@@ -132,18 +157,6 @@ const GuestResponse = () => {
       if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
         console.log(`✅ Extracted guestId before URL: ${idBeforeUrlMatch[1]}`);
         return idBeforeUrlMatch[1];
-      }
-      
-      // CRITICAL: If there are multiple guest= parameters in the concatenated string,
-      // find ALL of them and return the last one (most likely the correct one)
-      const allGuestMatches = cleaned.match(/[?&]guest=([a-z0-9]{10,})/gi);
-      if (allGuestMatches && allGuestMatches.length > 0) {
-        // Get the last guestId found
-        const lastMatch = allGuestMatches[allGuestMatches.length - 1].match(/guest=([a-z0-9]{10,})/i);
-        if (lastMatch && lastMatch[1]) {
-          console.log(`✅ Extracted last guestId from concatenated search (from ${allGuestMatches.length} matches): ${lastMatch[1]}`);
-          return lastMatch[1];
-        }
       }
       
       // Remove any full URL that might be appended (starts with http:// or https://)
@@ -167,55 +180,6 @@ const GuestResponse = () => {
       }
       
       console.warn(`⚠️ Could not parse valid guestId from search param: ${fromSearch}`);
-    }
-    
-    // Try to parse from hash
-    const hash = window.location.hash;
-    if (hash) {
-      // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
-      const allGuestMatches = hash.match(/[?&]guest=([a-z0-9]{10,})/gi);
-      if (allGuestMatches && allGuestMatches.length > 0) {
-        // Get the last guestId found (most likely the correct one)
-        const lastMatch = allGuestMatches[allGuestMatches.length - 1].match(/guest=([a-z0-9]{10,})/i);
-        if (lastMatch && lastMatch[1]) {
-          console.log(`✅ Extracted last guestId from hash (from ${allGuestMatches.length} matches): ${lastMatch[1]}`);
-          return lastMatch[1];
-        }
-      }
-      
-      const match = hash.match(/[?&]guest=([^&]+)/);
-      if (match && match[1]) {
-        let cleaned = decodeURIComponent(match[1]).trim();
-        
-        // CRITICAL: First, try to extract just the ID part before any URL appears
-        const idBeforeUrlMatch = cleaned.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
-        if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
-          console.log(`✅ Extracted guestId from hash before URL: ${idBeforeUrlMatch[1]}`);
-          return idBeforeUrlMatch[1];
-        }
-        
-        // Remove any full URL that might be appended
-        cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
-        // Remove any hash fragments
-        cleaned = cleaned.replace(/#\/?[^\s]*/g, '').trim();
-        // Remove any trailing slashes
-        cleaned = cleaned.replace(/[\/]+$/g, '').trim();
-        
-        // Only return if it looks like a valid ID
-        if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
-          console.log(`✅ Cleaned guestId from hash: ${cleaned}`);
-          return cleaned;
-        }
-        
-        // Try to extract just the ID part
-        const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
-        if (idMatch && idMatch[1]) {
-          console.log(`✅ Extracted guestId from hash: ${idMatch[1]}`);
-          return idMatch[1];
-        }
-        
-        console.warn(`⚠️ Could not parse valid guestId from hash: ${match[1]}`);
-      }
     }
     
     console.warn(`⚠️ No guestId found in URL`);
@@ -1090,14 +1054,29 @@ const GuestResponse = () => {
   
   // Helper function to generate calendar link
   const generateCalendarLink = () => {
-    const eventDate = new Date(currentEvent.eventDate);
-    const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const endDate = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const title = encodeURIComponent(currentEvent.coupleName || 'חתונה');
-    const details = encodeURIComponent(`${currentEvent.venue || ''}`);
-    const location = encodeURIComponent(currentEvent.venue || '');
+    if (!currentEvent.eventDate) {
+      return '#';
+    }
     
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}`;
+    try {
+      const eventDate = new Date(currentEvent.eventDate);
+      // Check if date is valid
+      if (isNaN(eventDate.getTime())) {
+        console.warn('⚠️ Invalid eventDate:', currentEvent.eventDate);
+        return '#';
+      }
+      
+      const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const endDate = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const title = encodeURIComponent(currentEvent.coupleName || 'חתונה');
+      const details = encodeURIComponent(`${currentEvent.venue || ''}`);
+      const location = encodeURIComponent(currentEvent.venue || '');
+      
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}`;
+    } catch (error) {
+      console.error('❌ Error generating calendar link:', error);
+      return '#';
+    }
   };
 
   // Helper function to generate navigation link
