@@ -5275,6 +5275,83 @@ app.delete('/api/events/:eventId', async (req, res) => {
   }
 });
 
+// CRITICAL: Endpoint to update guests array directly (for fixing empty guests issue)
+// This allows sending all guests to the server even if regular update fails
+app.post('/api/events/:eventId/guests', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  try {
+    const { eventId } = req.params;
+    const { guests } = req.body;
+    
+    console.log(`📥 POST /api/events/${eventId}/guests - Request received`);
+    console.log(`📥 Incoming guests count: ${guests?.length || 0}`);
+    
+    if (!eventId) {
+      return res.status(400).json({ error: 'Event ID is required' });
+    }
+    
+    if (!Array.isArray(guests)) {
+      return res.status(400).json({ error: 'Guests must be an array' });
+    }
+    
+    // Read events directly from file to ensure we have latest data
+    const eventsFilePath = path.join(__dirname, 'events.json');
+    let fileData;
+    
+    if (fs.existsSync(eventsFilePath)) {
+      const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+      fileData = JSON.parse(fileContent);
+    } else {
+      return res.status(404).json({ error: 'Events file not found' });
+    }
+    
+    // Find event
+    const eventIndex = fileData.events.findIndex(e => e.id === eventId);
+    
+    if (eventIndex === -1) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    // Update guests array
+    fileData.events[eventIndex].guests = guests;
+    fileData.events[eventIndex].updatedAt = new Date().toISOString();
+    
+    // Save to file
+    fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+    
+    // Update in-memory data
+    eventsData.events = fileData.events;
+    eventsData.deletedEvents = fileData.deletedEvents || [];
+    
+    console.log(`✅ Updated event ${eventId} with ${guests.length} guests`);
+    
+    res.json({
+      success: true,
+      message: `Updated event with ${guests.length} guests`,
+      guestsCount: guests.length
+    });
+  } catch (error) {
+    console.error('❌ Error updating guests:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון אורחים' });
+  }
+});
+
+// Handle OPTIONS request for guests endpoint
+app.options('/api/events/:eventId/guests', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.sendStatus(200);
+});
+
 // Restore a deleted event
 app.post('/api/events/:eventId/restore', async (req, res) => {
   try {

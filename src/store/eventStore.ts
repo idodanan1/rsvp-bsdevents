@@ -11,6 +11,35 @@ const mockEvents: Event[] = [];
 // Helper function to sync event to API for real-time cross-device sync
 // CRITICAL: Send FULL event WITH guests to ensure all data is synced
 // This is necessary for the client dashboard to display all guests
+// Helper function to sync guests directly using the dedicated endpoint (fallback)
+const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boolean> => {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+  
+  try {
+    console.log(`📤 Syncing ${guests.length} guests directly to API for event ${eventId}...`);
+    
+    const response = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ guests })
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Successfully synced ${guests.length} guests directly to API`);
+      return true;
+    } else {
+      const errorText = await response.text();
+      console.warn(`⚠️ Failed to sync guests directly:`, response.status, errorText);
+      return false;
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to sync guests directly:', error);
+    return false;
+  }
+};
+
 const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
@@ -60,6 +89,16 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
       const errorText = await response.text();
       console.warn('⚠️ API sync failed:', response.status, errorText);
       
+      // CRITICAL: If sync failed but we have guests, try syncing guests directly as fallback
+      if (event.guests && event.guests.length > 0) {
+        console.log(`🔄 Trying to sync guests directly as fallback...`);
+        const guestsSynced = await syncGuestsDirectly(event.id, event.guests);
+        if (guestsSynced) {
+          console.log('✅ Guests synced directly, but event details may not be updated');
+          // Don't return - continue to try event details sync
+        }
+      }
+      
       // If 413 error, try with event details only (fallback)
       if (response.status === 413 && retries > 0) {
         console.log(`🔄 413 error - trying event details only (${retries} retries left)...`);
@@ -85,7 +124,11 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
         });
         
         if (retryResponse.ok) {
-          console.log('✅ Event synced with details only (guests not synced due to size limit)');
+          console.log('✅ Event synced with details only');
+          // If guests weren't synced yet, try syncing them directly
+          if (event.guests && event.guests.length > 0) {
+            await syncGuestsDirectly(event.id, event.guests);
+          }
           return;
         }
       }
@@ -98,6 +141,10 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
     }
   } catch (error) {
     console.warn('⚠️ Failed to sync event to API:', error);
+    // Try syncing guests directly as last resort
+    if (event.guests && event.guests.length > 0) {
+      await syncGuestsDirectly(event.id, event.guests);
+    }
     if (retries > 0) {
       console.log(`🔄 Retrying sync (${retries} retries left)...`);
       await new Promise(resolve => setTimeout(resolve, 1000));
