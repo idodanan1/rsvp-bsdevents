@@ -22,9 +22,31 @@ const GuestResponse = () => {
   
   // Parse eventId from hash if not in params (HashRouter fallback)
   const parseEventIdFromHash = () => {
-    if (paramEventId) {
-      console.log(`✅ Found eventId in params: ${paramEventId}`);
-      return paramEventId;
+    // CRITICAL: Check if paramEventId contains a URL (concatenated URLs)
+    let cleanedParamEventId = paramEventId;
+    if (paramEventId && (paramEventId.includes('http://') || paramEventId.includes('https://'))) {
+      // Extract the ID part before the URL
+      const idMatch = paramEventId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+      if (idMatch && idMatch[1]) {
+        console.log(`✅ Extracted eventId from param before URL: ${idMatch[1]}`);
+        cleanedParamEventId = idMatch[1];
+      } else {
+        // If paramEventId contains URL, try to find the last eventId in the concatenated string
+        const allEventIds = paramEventId.match(/\/guest-response\/([a-z0-9]{10,})/gi);
+        if (allEventIds && allEventIds.length > 0) {
+          // Get the last eventId found (most likely the correct one)
+          const lastMatch = allEventIds[allEventIds.length - 1].match(/\/([a-z0-9]{10,})/i);
+          if (lastMatch && lastMatch[1]) {
+            console.log(`✅ Extracted last eventId from concatenated param: ${lastMatch[1]}`);
+            cleanedParamEventId = lastMatch[1];
+          }
+        }
+      }
+    }
+    
+    if (cleanedParamEventId && cleanedParamEventId.length >= 10 && /^[a-z0-9]+$/i.test(cleanedParamEventId)) {
+      console.log(`✅ Found eventId in params: ${cleanedParamEventId}`);
+      return cleanedParamEventId;
     }
     
     // Try to parse from hash
@@ -32,21 +54,49 @@ const GuestResponse = () => {
     console.log(`🔍 Parsing eventId from hash: ${hash}`);
     
     if (hash) {
+      // CRITICAL: Find ALL eventIds in the hash (in case of concatenated URLs)
+      const allMatches = hash.match(/\/guest-response\/([a-z0-9]{10,})/gi);
+      if (allMatches && allMatches.length > 0) {
+        // Get the last eventId found (most likely the correct one)
+        const lastMatch = allMatches[allMatches.length - 1].match(/\/([a-z0-9]{10,})/i);
+        if (lastMatch && lastMatch[1]) {
+          console.log(`✅ Found last eventId in hash (from ${allMatches.length} matches): ${lastMatch[1]}`);
+          return lastMatch[1];
+        }
+      }
+      
       // Hash format: #/guest-response/eventId?guest=guestId
       // Try multiple patterns to handle different URL formats
       let match = hash.match(/\/guest-response\/([^/?]+)/);
       if (match && match[1]) {
         const parsedId = match[1];
-        console.log(`✅ Found eventId in hash: ${parsedId}`);
-        return parsedId;
+        // Clean the ID if it contains URL
+        if (parsedId.includes('http://') || parsedId.includes('https://')) {
+          const idMatch = parsedId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+          if (idMatch && idMatch[1]) {
+            console.log(`✅ Found eventId in hash (cleaned): ${idMatch[1]}`);
+            return idMatch[1];
+          }
+        } else {
+          console.log(`✅ Found eventId in hash: ${parsedId}`);
+          return parsedId;
+        }
       }
       
       // Try alternative pattern: #guest-response/eventId
       match = hash.match(/guest-response\/([^/?]+)/);
       if (match && match[1]) {
         const parsedId = match[1];
-        console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
-        return parsedId;
+        if (parsedId.includes('http://') || parsedId.includes('https://')) {
+          const idMatch = parsedId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+          if (idMatch && idMatch[1]) {
+            console.log(`✅ Found eventId in hash (alt pattern, cleaned): ${idMatch[1]}`);
+            return idMatch[1];
+          }
+        } else {
+          console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
+          return parsedId;
+        }
       }
       
       // Try pathname if hash doesn't work
@@ -75,7 +125,7 @@ const GuestResponse = () => {
     return null;
   };
   
-  const eventId = paramEventId || parseEventIdFromHash();
+  const eventId = parseEventIdFromHash();
   console.log(`🔍 Final eventId: ${eventId}`);
   
   // Parse guestId from hash or search params
@@ -93,6 +143,18 @@ const GuestResponse = () => {
       if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
         console.log(`✅ Extracted guestId before URL: ${idBeforeUrlMatch[1]}`);
         return idBeforeUrlMatch[1];
+      }
+      
+      // CRITICAL: If there are multiple guest= parameters in the concatenated string,
+      // find ALL of them and return the last one (most likely the correct one)
+      const allGuestMatches = cleaned.match(/[?&]guest=([a-z0-9]{10,})/gi);
+      if (allGuestMatches && allGuestMatches.length > 0) {
+        // Get the last guestId found
+        const lastMatch = allGuestMatches[allGuestMatches.length - 1].match(/guest=([a-z0-9]{10,})/i);
+        if (lastMatch && lastMatch[1]) {
+          console.log(`✅ Extracted last guestId from concatenated search (from ${allGuestMatches.length} matches): ${lastMatch[1]}`);
+          return lastMatch[1];
+        }
       }
       
       // Remove any full URL that might be appended (starts with http:// or https://)
@@ -121,6 +183,17 @@ const GuestResponse = () => {
     // Try to parse from hash
     const hash = window.location.hash;
     if (hash) {
+      // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
+      const allGuestMatches = hash.match(/[?&]guest=([a-z0-9]{10,})/gi);
+      if (allGuestMatches && allGuestMatches.length > 0) {
+        // Get the last guestId found (most likely the correct one)
+        const lastMatch = allGuestMatches[allGuestMatches.length - 1].match(/guest=([a-z0-9]{10,})/i);
+        if (lastMatch && lastMatch[1]) {
+          console.log(`✅ Extracted last guestId from hash (from ${allGuestMatches.length} matches): ${lastMatch[1]}`);
+          return lastMatch[1];
+        }
+      }
+      
       const match = hash.match(/[?&]guest=([^&]+)/);
       if (match && match[1]) {
         let cleaned = decodeURIComponent(match[1]).trim();
