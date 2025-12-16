@@ -1149,13 +1149,12 @@ const GuestResponse = () => {
           <div className="grid grid-cols-1 gap-6 mb-8">
             {/* Hebrew Card */}
             <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200 max-w-md mx-auto">
-              <div className="text-xs text-gray-500 mb-2">בס"ד</div>
+              <div className="text-xs text-gray-500 mb-2">בס"ד אירועים</div>
               <div className="text-4xl font-serif mb-2 text-gray-800">
                 {groomName && brideName ? `${groomName.toUpperCase()} & ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
               </div>
-              <div className="text-sm text-gray-600 mb-3">are getting married</div>
               <div className="text-sm text-gray-700 mb-3">אנו נרגשים ושמחים להזמינכם ליום חתונתנו</div>
-              <div className="text-lg font-bold text-gray-800 mb-3">{eventDateShort}</div>
+              <div className="text-lg font-bold text-gray-800 mb-3">{eventDateFormatted !== '-' ? eventDateFormatted : eventDateShort}</div>
               {currentEvent.venue && (
                 <div className="text-sm text-gray-600 mb-4">{currentEvent.venue}</div>
               )}
@@ -1163,7 +1162,7 @@ const GuestResponse = () => {
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
                   <div>
                     <div className="font-semibold">חופה וקידושין</div>
-                    <div>{currentEvent.eventTime}</div>
+                    <div>20:30</div>
                   </div>
                   <div>
                     <div className="font-semibold">קבלת פנים</div>
