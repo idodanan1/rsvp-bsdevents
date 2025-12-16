@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useMemo, startTransition, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
@@ -800,7 +800,7 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleEditGuest = (guest: any) => {
+  const handleEditGuest = useCallback((guest: any) => {
     setEditingGuest(guest);
     setNewGuest({
       firstName: guest.firstName,
@@ -809,7 +809,7 @@ const EventManagement: React.FC = () => {
       guestCount: guest.guestCount,
       notes: guest.notes || ''
     });
-  };
+  }, []);
 
   const handleUpdateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -867,17 +867,18 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateGuestStatus = async (guestId: string, status: string) => {
-    if (!currentEvent || !currentEvent.id) {
+  const handleUpdateGuestStatus = useCallback(async (guestId: string, status: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
       return;
     }
     
     try {
-      console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: currentEvent.id });
+      console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: event.id });
       
       // Update in store first
-      await updateGuest(currentEvent.id, guestId, {
+      await updateGuest(event.id, guestId, {
         rsvpStatus: status as any,
         responseDate: new Date()
       });
@@ -888,11 +889,11 @@ const EventManagement: React.FC = () => {
       let updatedEvent = storeState.currentEvent;
       
       // If currentEvent doesn't match or is null, get from events array
-      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
+      if (!updatedEvent || updatedEvent.id !== event.id) {
+        updatedEvent = storeState.events.find(e => e.id === event.id) || null;
       }
       
-      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+      if (updatedEvent && updatedEvent.id === event.id) {
         // Create new object reference to force React re-render
         const updatedEventWithNewRef = {
           ...updatedEvent,
@@ -907,19 +908,20 @@ const EventManagement: React.FC = () => {
     } catch (error) {
       console.error('Error updating guest:', error);
     }
-  };
+  }, [updateGuest, setCurrentEvent]);
 
-  const handleUpdateAttendance = async (guestId: string, attendance: string) => {
-    if (!currentEvent || !currentEvent.id) {
+  const handleUpdateAttendance = useCallback(async (guestId: string, attendance: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
       return;
     }
     
     try {
-      console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: currentEvent.id });
+      console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: event.id });
       
       // Update in store first
-      await updateGuest(currentEvent.id, guestId, {
+      await updateGuest(event.id, guestId, {
         actualAttendance: attendance as any,
         attendanceDate: new Date()
       });
@@ -930,11 +932,11 @@ const EventManagement: React.FC = () => {
       let updatedEvent = storeState.currentEvent;
       
       // If currentEvent doesn't match or is null, get from events array
-      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
+      if (!updatedEvent || updatedEvent.id !== event.id) {
+        updatedEvent = storeState.events.find(e => e.id === event.id) || null;
       }
       
-      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+      if (updatedEvent && updatedEvent.id === event.id) {
         // Create new object reference to force React re-render
         const updatedEventWithNewRef = {
           ...updatedEvent,
@@ -951,38 +953,39 @@ const EventManagement: React.FC = () => {
     } catch (error) {
       console.error('❌ Error updating attendance:', error);
     }
-  };
+  }, [updateGuest, setCurrentEvent]);
 
-  const handleUpdateGuestField = async (guestId: string, updates: any) => {
-    if (!currentEvent || !currentEvent.id) {
+  const handleUpdateGuestField = useCallback(async (guestId: string, updates: any) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
       return;
     }
     
     try {
-      console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: currentEvent.id });
+      console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: event.id });
       
       // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
       // This ensures seating management is updated correctly
       if (updates.tableId !== undefined) {
-        const currentGuest = currentEvent.guests?.find(g => g.id === guestId);
+        const currentGuest = event.guests?.find(g => g.id === guestId);
         const oldTableId = currentGuest?.tableId;
         const newTableId = updates.tableId;
         
         if (newTableId && newTableId !== oldTableId) {
           // Moving to a new table
           console.log(`🔄 Moving guest ${guestId} from table ${oldTableId || 'none'} to table ${newTableId}`);
-          await moveGuestToTable(currentEvent.id, guestId, newTableId);
+          await moveGuestToTable(event.id, guestId, newTableId);
         } else if (!newTableId && oldTableId) {
           // Removing from table
           console.log(`🔄 Removing guest ${guestId} from table ${oldTableId}`);
-          await removeGuestFromTable(currentEvent.id, guestId);
+          await removeGuestFromTable(event.id, guestId);
         } else if (newTableId && newTableId === oldTableId) {
           // Same table, just update other fields if any
           const otherUpdates = { ...updates };
           delete otherUpdates.tableId;
           if (Object.keys(otherUpdates).length > 0) {
-            await updateGuest(currentEvent.id, guestId, otherUpdates);
+            await updateGuest(event.id, guestId, otherUpdates);
           }
         }
       } else {
@@ -991,7 +994,7 @@ const EventManagement: React.FC = () => {
         const updatesWithTimestamp = updates.guestCount !== undefined 
           ? { ...updates, responseDate: new Date() }
           : updates;
-        await updateGuest(currentEvent.id, guestId, updatesWithTimestamp);
+        await updateGuest(event.id, guestId, updatesWithTimestamp);
       }
       
       // CRITICAL: Get updated currentEvent from store immediately after update
@@ -1003,7 +1006,7 @@ const EventManagement: React.FC = () => {
       if (hasCriticalField) {
         const storeState = useEventStore.getState();
         const updatedEvent = storeState.currentEvent;
-        if (updatedEvent && updatedEvent.id === currentEvent.id) {
+        if (updatedEvent && updatedEvent.id === event.id) {
           setCurrentEvent(updatedEvent);
           console.log('✅ handleUpdateGuestField - currentEvent updated immediately from store for:', Object.keys(updates).join(', '));
         }
@@ -1011,7 +1014,7 @@ const EventManagement: React.FC = () => {
     } catch (error) {
       console.error('Error updating guest:', error);
     }
-  };
+  }, [updateGuest, setCurrentEvent, moveGuestToTable, removeGuestFromTable]);
 
   const getMessageStatusColor = (status: string) => {
     switch (status) {
@@ -1408,21 +1411,22 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteGuest = async (guestId: string) => {
-    if (!currentEvent || !currentEvent.id) {
+  const handleDeleteGuest = useCallback(async (guestId: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
       return;
     }
     
     if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
       try {
-        await deleteGuest(currentEvent.id, guestId);
+        await deleteGuest(event.id, guestId);
       } catch (error) {
         console.error('Error deleting guest:', error);
         alert('אירעה שגיאה במחיקת המוזמן');
       }
     }
-  };
+  }, [deleteGuest]);
 
   const handleDeleteSelectedGuests = async () => {
     if (!currentEvent || !currentEvent.id) {
@@ -2099,22 +2103,22 @@ const EventManagement: React.FC = () => {
   };
 
   // Send message functions
-  const handleSelectGuest = (guestId: string) => {
+  const handleSelectGuest = useCallback((guestId: string) => {
     setSelectedGuests(prev => 
       prev.includes(guestId) 
         ? prev.filter(id => id !== guestId)
         : [...prev, guestId]
     );
-  };
+  }, []);
 
-  const handleSelectAllGuests = () => {
+  const handleSelectAllGuests = useCallback(() => {
     const allGuestIds = filteredGuests.map(guest => guest.id);
     setSelectedGuests(allGuestIds);
-  };
+  }, [filteredGuests]);
 
-  const handleDeselectAllGuests = () => {
+  const handleDeselectAllGuests = useCallback(() => {
     setSelectedGuests([]);
-  };
+  }, []);
 
   const handleSendMessage = async () => {
     if (selectedGuests.length === 0) {
@@ -2213,18 +2217,24 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleSendToSingleGuest = async (guest: any) => {
+  const handleSendToSingleGuest = useCallback(async (guest: any) => {
     try {
+      const event = useEventStore.getState().currentEvent;
+      if (!event || !event.id) {
+        alert('שגיאה: לא נמצא אירוע פעיל');
+        return;
+      }
+      
       // Use local IP for testing - replace with your actual IP
       const baseUrl = window.location.origin || 'http://192.168.1.47:3001';
       
       // Debug: Check if guest ID is correct
       console.log('🔍 DEBUG - Guest ID from parameter:', guest.id);
       console.log('🔍 DEBUG - Guest object:', guest);
-      console.log('🔍 DEBUG - All guests in event:', currentEvent.guests?.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+      console.log('🔍 DEBUG - All guests in event:', event.guests?.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
       
       // Find the correct guest by name to get the real ID
-      const realGuest = currentEvent.guests?.find(g => 
+      const realGuest = event.guests?.find(g => 
         g.firstName === guest.firstName && g.lastName === guest.lastName
       );
       
@@ -2234,21 +2244,21 @@ const EventManagement: React.FC = () => {
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
       const { generateGuestResponseLink } = await import('../utils/helpers');
-      const guestLink = generateGuestResponseLink(currentEvent.id, guestIdToUse);
+      const guestLink = generateGuestResponseLink(event.id, guestIdToUse);
       
       console.log('🔗 Single guest link:', guestLink);
-      console.log('🔗 Single Event ID:', currentEvent.id);
+      console.log('🔗 Single Event ID:', event.id);
       console.log('🔗 Single Guest ID used:', guestIdToUse);
       
       // Get the first campaign (הזמנה ראשונית)
-      const firstCampaign = currentEvent.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
-                            currentEvent.campaigns?.[0];
+      const firstCampaign = event.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
+                            event.campaigns?.[0];
       
       // Debug: Log campaigns info
       console.log('🔍 DEBUG Campaigns check:', {
-        campaignsExists: !!currentEvent.campaigns,
-        campaignsLength: currentEvent.campaigns?.length || 0,
-        campaignsNames: currentEvent.campaigns?.map(c => c.name) || [],
+        campaignsExists: !!event.campaigns,
+        campaignsLength: event.campaigns?.length || 0,
+        campaignsNames: event.campaigns?.map(c => c.name) || [],
         firstCampaignFound: !!firstCampaign,
         firstCampaignName: firstCampaign?.name,
         firstCampaignTemplateName: firstCampaign?.templateName
@@ -2259,20 +2269,20 @@ const EventManagement: React.FC = () => {
       
       // Get couple name - use groomName & brideName if coupleName is not available
       // Define this before the if/else so it's available for templateParams
-        const coupleName = currentEvent.coupleName || 
-          (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
-           currentEvent.groomName || currentEvent.brideName || 'הזוג');
-        const groomName = currentEvent.groomName || '';
-        const brideName = currentEvent.brideName || '';
+        const coupleName = event.coupleName || 
+          (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
+           event.groomName || event.brideName || 'הזוג');
+        const groomName = event.groomName || '';
+        const brideName = event.brideName || '';
         
         // DEBUG: Log template variables
         console.log('🔍 DEBUG Template Variables:', {
           coupleName: coupleName,
           groomName: groomName,
           brideName: brideName,
-          eventCoupleName: currentEvent.coupleName,
-          eventGroomName: currentEvent.groomName,
-          eventBrideName: currentEvent.brideName
+          eventCoupleName: event.coupleName,
+          eventGroomName: event.groomName,
+          eventBrideName: event.brideName
         });
       
       // CRITICAL: If no campaign found, use template "aa" directly for first messages
@@ -2283,17 +2293,17 @@ const EventManagement: React.FC = () => {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
         // Replace template variables in campaign message
-        const guestTable = currentEvent.tables?.find(table => table.guests.includes(guestIdToUse));
+        const guestTable = event.tables?.find(table => table.guests.includes(guestIdToUse));
         const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
         
         message = firstCampaign.message
           .replace(/\{\{guest_name\}\}/g, guest.firstName)
           .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
           .replace(/\{\{last_name\}\}/g, guest.lastName)
-          .replace(/\{\{event_date\}\}/g, formatDate(currentEvent.eventDate))
-          .replace(/\{\{event_time\}\}/g, currentEvent.eventTime || '')
-          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew || 'חתונה')
-          .replace(/\{\{venue\}\}/g, currentEvent.venue || '')
+          .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
+          .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+          .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
+          .replace(/\{\{venue\}\}/g, event.venue || '')
           .replace(/\{\{couple_name\}\}/g, coupleName)
           .replace(/\{\{groom_name\}\}/g, groomName)
           .replace(/\{\{bride_name\}\}/g, brideName)
@@ -2305,14 +2315,14 @@ const EventManagement: React.FC = () => {
         // Fallback to default message if no campaign found
         // BUT: For first messages, we should use template "aa" instead of regular message
         console.log('⚠️ No campaign found, but will use template "aa" for first message');
-        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
+        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(event.eventDate)}\n📍 ${event.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
       }
 
       const { messageService } = await import('../services/messageService');
       
       // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
       // Priority: event.invitationImageUrl > campaign.imageUrl
-      const finalImageUrl = currentEvent.invitationImageUrl || campaignImageUrl;
+      const finalImageUrl = event.invitationImageUrl || campaignImageUrl;
       
       console.log('🖼️ Image URL priority check:', {
         eventInvitationImageUrl: currentEvent.invitationImageUrl,
@@ -2350,14 +2360,14 @@ const EventManagement: React.FC = () => {
           message: message,
           firstMessageSent: guest.firstMessageSent || false, // Pass first message status
           eventData: {
-            coupleName: currentEvent.coupleName,
-            groomName: currentEvent.groomName,
-            brideName: currentEvent.brideName,
-            eventType: currentEvent.eventType,
-            eventTypeHebrew: currentEvent.eventTypeHebrew,
-            eventDate: formatDate(currentEvent.eventDate),
-            eventTime: currentEvent.eventTime,
-            venue: currentEvent.venue,
+            coupleName: event.coupleName,
+            groomName: event.groomName,
+            brideName: event.brideName,
+            eventType: event.eventType,
+            eventTypeHebrew: event.eventTypeHebrew,
+            eventDate: formatDate(event.eventDate),
+            eventTime: event.eventTime,
+            venue: event.venue,
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
               // Add template params if using template "aa"
@@ -2371,12 +2381,12 @@ const EventManagement: React.FC = () => {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                                'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                  event_type: currentEvent.eventTypeHebrew || 'חתונה',
+                  event_type: event.eventTypeHebrew || 'חתונה',
                   groom_name: groomName, // Use the variable we defined above
                   bride_name: brideName, // Use the variable we defined above
-                event_date: formatDate(currentEvent.eventDate),
-                  event_time: currentEvent.eventTime || '',
-                  venue: currentEvent.venue || '',
+                event_date: formatDate(event.eventDate),
+                  event_time: event.eventTime || '',
+                  venue: event.venue || '',
                   couple_name: coupleName, // Use the variable we defined above
                   guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
                   language: 'he'
@@ -2406,7 +2416,7 @@ const EventManagement: React.FC = () => {
             messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
           }
           
-          updateGuest(currentEvent.id, guest.id, { 
+          updateGuest(event.id, guest.id, { 
             channel: messageResult.channel,
             messageStatus: messageStatus as any,
             messageSentDate: new Date()
@@ -2451,7 +2461,7 @@ const EventManagement: React.FC = () => {
       });
       alert(`❌ שגיאה בשליחת ההודעה\n\n🔍 שגיאה: ${error?.message || 'שגיאה לא ידועה'}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
     }
-  };
+  }, [updateGuest]);
 
   try {
     return (
@@ -2937,7 +2947,7 @@ const EventManagement: React.FC = () => {
                 </th>
               </tr>
             </thead>
-            <tbody key={`${guestsKey}-${forceUpdate}-${eventsVersion}-${filteredGuests.length}-${eventsHash.substring(0, 50)}`} className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
@@ -2965,7 +2975,7 @@ const EventManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredGuests.map((guest, index) => (
-                <tr key={`${guest.id}-${guest.rsvpStatus}-${guest.guestCount}-${guest.actualAttendance}-${guest.tableId}-${eventsVersion}-${index}-${guest.responseDate ? (guest.responseDate instanceof Date ? guest.responseDate.getTime() : new Date(guest.responseDate).getTime()) : ''}`} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
                     {index + 1}
                   </td>
