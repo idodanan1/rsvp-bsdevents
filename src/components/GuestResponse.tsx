@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import type { useEventStore as UseEventStoreType } from '../store/eventStore';
 import { formatDate, formatDateTime, formatFullName, cleanName } from '../utils/helpers';
-import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
+import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart, Navigation, Plus } from 'lucide-react';
 
 const GuestResponse = () => {
   console.log(`🚀 GuestResponse component RENDERED`);
@@ -528,10 +528,10 @@ const GuestResponse = () => {
     event = directEvent;
   }
   
-  const guest = event?.guests.find(g => g.id === guestId) || directGuest;
+  const guest = event?.guests.find((g: any) => g.id === guestId) || directGuest;
   
   // Fallback: Try to find guest by partial ID match
-  const fallbackGuest = event?.guests.find(g => guestId && (g.id.includes(guestId) || guestId.includes(g.id)));
+  const fallbackGuest = event?.guests.find((g: any) => guestId && (g.id.includes(guestId) || guestId.includes(g.id)));
   
   // Use fallback guest if main guest not found
   const finalGuest = guest || fallbackGuest || directGuest;
@@ -597,9 +597,9 @@ const GuestResponse = () => {
     let currentGuest = guest || directGuest || finalGuest;
     if (guestId && currentEvent) {
       // If currentGuest doesn't match guestId or doesn't belong to currentEvent, find it
-      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
-        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
-        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
+                      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find((g: any) => g.id === guestId)) {
+                        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
+                        const guestFromEvent = currentEvent.guests?.find((g: any) => g.id === guestId);
         if (guestFromEvent) {
           console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
           currentGuest = guestFromEvent;
@@ -631,7 +631,7 @@ const GuestResponse = () => {
     }
     
     // CRITICAL: Additional verification - ensure guest belongs to the correct event
-    if (guestId && currentEvent && !currentEvent.guests?.find(g => g.id === guestId)) {
+    if (guestId && currentEvent && !currentEvent.guests?.find((g: any) => g.id === guestId)) {
       console.error(`❌ Guest ${guestId} not found in event ${eventId}`);
       console.error(`❌ This ensures we're updating the correct guest in the correct event`);
       setSubmitStatus('error');
@@ -1026,202 +1026,302 @@ const GuestResponse = () => {
     );
   }
   
+  // Helper function to generate calendar link
+  const generateCalendarLink = () => {
+    const eventDate = new Date(currentEvent.eventDate);
+    const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const endDate = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    const title = encodeURIComponent(currentEvent.coupleName || 'חתונה');
+    const details = encodeURIComponent(`${currentEvent.venue || ''}`);
+    const location = encodeURIComponent(currentEvent.venue || '');
+    
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}`;
+  };
+
+  // Helper function to generate navigation link
+  const generateNavigationLink = () => {
+    if (!currentEvent.venue) return '#';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentEvent.venue)}`;
+  };
+
+  const coupleName = currentEvent.coupleName || 
+    (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
+     currentEvent.groomName || currentEvent.brideName || 'הזוג');
+  const groomName = currentEvent.groomName || '';
+  const brideName = currentEvent.brideName || '';
+  const eventDateFormatted = formatDate(currentEvent.eventDate);
+  const eventDateShort = eventDateFormatted.split(' ')[0]; // Get just the date part
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-pink-50">
-      {/* Header with Event Details */}
-      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Heart className="w-6 h-6 fill-current" />
-            <div className="text-center">
-              <h1 className="text-2xl font-bold">
-                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
-              </h1>
-              {(currentEvent.groomName || currentEvent.brideName) && (
-                <p className="text-white/90 text-lg mt-1">
-                  {currentEvent.groomName && currentEvent.brideName 
-                    ? `${currentEvent.groomName} & ${currentEvent.brideName}`
-                    : currentEvent.groomName || currentEvent.brideName}
-                </p>
+    <div className="min-h-screen" style={{ 
+      background: 'linear-gradient(to bottom, #faf8f5 0%, #faf8f5 50%, #f5f3f0 50%, #f5f3f0 100%)',
+      backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.3) 0%, transparent 50%)'
+    }}>
+      {/* Top section with invitation cards */}
+      <div className="relative pt-8 pb-12">
+        {/* Silky white texture background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-transparent opacity-60" 
+             style={{
+               backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)'
+             }}></div>
+        
+        <div className="max-w-4xl mx-auto px-4 relative z-10">
+          {/* Invitation Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Left Card - English */}
+            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200">
+              <div className="text-6xl font-serif mb-4 text-gray-800">
+                {groomName && brideName ? `${groomName.charAt(0)} & ${brideName.charAt(0)}` : coupleName.charAt(0)}
+              </div>
+              <div className="text-xl font-sans text-gray-700 mb-4">
+                {groomName && brideName ? `${groomName.toUpperCase()} and ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
+              </div>
+              <div className="border-t border-gray-300 my-4"></div>
+              <div className="text-lg font-sans text-gray-600">
+                {eventDateShort}
+              </div>
+            </div>
+
+            {/* Right Card - Hebrew */}
+            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200">
+              <div className="text-xs text-gray-500 mb-2">בס"ד</div>
+              <div className="text-4xl font-serif mb-2 text-gray-800">
+                {groomName && brideName ? `${groomName.toUpperCase()} & ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
+              </div>
+              <div className="text-sm text-gray-600 mb-3">are getting married</div>
+              <div className="text-sm text-gray-700 mb-3">אנו נרגשים ושמחים להזמינכם ליום חתונתנו</div>
+              <div className="text-lg font-bold text-gray-800 mb-3">{eventDateShort}</div>
+              {currentEvent.venue && (
+                <div className="text-sm text-gray-600 mb-4">{currentEvent.venue}</div>
+              )}
+              {currentEvent.eventTime && (
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div>
+                    <div className="font-semibold">חופה וקידושין</div>
+                    <div>{currentEvent.eventTime}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold">קבלת פנים</div>
+                    <div>{currentEvent.eventTime}</div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
-          
+
           {/* Event Image */}
           {currentEvent.invitationImageUrl && (
-            <div className="mb-4 flex justify-center">
+            <div className="mb-6 flex justify-center">
               <img 
                 src={currentEvent.invitationImageUrl} 
                 alt="תמונת האירוע"
-                className="max-w-full h-48 object-cover rounded-xl shadow-lg border-4 border-white"
+                className="max-w-full max-h-96 object-contain rounded-lg shadow-xl"
               />
             </div>
           )}
-          
-          {/* Event Details */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-center space-x-2 text-white/90">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium">{formatDate(currentEvent.eventDate)}</span>
-            </div>
-            {currentEvent.eventTime && (
-              <div className="flex items-center justify-center space-x-2 text-white/90">
-                <Clock className="w-5 h-5" />
-                <span className="font-medium">{currentEvent.eventTime}</span>
-              </div>
-            )}
-            {currentEvent.venue && (
-              <div className="flex items-center justify-center space-x-2 text-white/90">
-                <MapPin className="w-5 h-5" />
-                <span className="font-medium">{currentEvent.venue}</span>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
+        {/* Main RSVP Section */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'serif' }}>
+            {coupleName}
+          </h1>
+          <p className="text-3xl font-light text-gray-600 mb-4 italic">
+            {eventDateShort}
+          </p>
+          {currentEvent.venue && (
+            <p className="text-lg text-gray-700 mb-6">
+              "{currentEvent.venue}"
+            </p>
+          )}
+        </div>
+
+        {/* RSVP Buttons */}
+        {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
+          <div className="text-center mb-8">
+            <div className="flex flex-wrap justify-center gap-4 mb-6">
+              <button
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, response: 'attending' }));
+                  setShowStatusButtons(true);
+                }}
+                className="bg-green-600 text-white rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                style={{ borderRadius: '9999px' }}
+              >
+                נגיע
+              </button>
+              <button
+                onClick={async () => {
+                  const currentEvent = event || directEvent;
+                  const currentGuest = guest || directGuest || finalGuest;
+                  const guestIdToUse = currentGuest?.id || guestId;
+                  
+                  if (currentEvent && guestIdToUse) {
+                    setIsSubmitting(true);
+                    try {
+                      let guestToUpdate = currentGuest;
+                      if (!guestToUpdate && currentEvent.guests) {
+                        guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                      }
+                      
+                      if (guestToUpdate) {
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
+                          notes: formData.notes || '',
+                          rsvpStatus: 'maybe' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link'
+                        };
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        setTimeout(() => {
+                          const storeState = useEventStore.getState();
+                          storeState.fetchEvents(false, true).catch(() => {});
+                        }, 100);
+                        setSubmitStatus('success');
+                      }
+                    } catch (error) {
+                      console.error('Error:', error);
+                      setSubmitStatus('error');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  } else {
+                    setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
+                    setShowStatusButtons(false);
+                    setShowConfirmButton(true);
+                  }
+                }}
+                disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                style={{ borderRadius: '9999px' }}
+              >
+                {isSubmitting ? 'שולח...' : 'אולי'}
+              </button>
+              <button
+                onClick={async () => {
+                  const currentEvent = event || directEvent;
+                  const currentGuest = guest || directGuest || finalGuest;
+                  const guestIdToUse = currentGuest?.id || guestId;
+                  
+                  if (currentEvent && guestIdToUse) {
+                    setIsSubmitting(true);
+                    try {
+                      let guestToUpdate = currentGuest;
+                      if (!guestToUpdate && currentEvent.guests) {
+                        guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                      }
+                      
+                      if (guestToUpdate) {
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
+                          notes: formData.notes || '',
+                          rsvpStatus: 'declined' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link'
+                        };
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        setTimeout(() => {
+                          const storeState = useEventStore.getState();
+                          storeState.fetchEvents(false, true).catch(() => {});
+                        }, 100);
+                        setSubmitStatus('success');
+                      }
+                    } catch (error) {
+                      console.error('Error:', error);
+                      setSubmitStatus('error');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  } else {
+                    setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
+                    setShowStatusButtons(false);
+                    setShowConfirmButton(true);
+                  }
+                }}
+                disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                style={{ borderRadius: '9999px' }}
+              >
+                {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Heart className="w-8 h-8 text-amber-500 fill-current" />
-              <h2 className="text-3xl font-bold text-gray-800">
-                שיניתם תכניות?
-              </h2>
-            </div>
-            <p className="text-lg text-gray-600">
-              נשמח שתעדכנו אותנו
-            </p>
-          </div>
-          {/* Main Status Button */}
           {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
-            <div className="text-center space-y-4">
+            <div className="text-center">
               <button
                 onClick={() => setShowStatusButtons(true)}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl px-12 py-6 font-bold text-xl shadow-2xl hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-3 mx-auto"
+                className="bg-green-600 text-white rounded-lg px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105 mb-4"
               >
-                <Users className="w-7 h-7" />
-                <span>עדכן סטטוס הגעה</span>
-                <svg className="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                לחצו כאן לבחירת כמות
               </button>
-              <div>
-                <button
-                  onClick={() => window.history.back()}
-                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
-                >
-                  ← חזרה
-                </button>
-              </div>
             </div>
           ) : !showGuestCount && !showConfirmButton ? (
             <div className="space-y-4">
               <div className="text-center mb-4">
                 <button
                   onClick={() => setShowStatusButtons(false)}
-                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                  className="text-gray-600 hover:text-gray-700 font-medium text-sm underline"
                 >
                   ← חזרה
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-wrap justify-center gap-4 mb-6">
                 <button
                   onClick={() => {
                     console.log('🟢 "מגיע" button clicked - showing guest count selection');
                     setFormData(prev => ({ ...prev, response: 'attending' }));
                     setShowGuestCount(true);
                   }}
-                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                  className="bg-green-600 text-white rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                  style={{ borderRadius: '9999px' }}
                 >
-                  <CheckCircle className="w-6 h-6" />
-                  <span>מגיע</span>
+                  נגיע
                 </button>
                 
                 <button
                   onClick={async () => {
-                    console.log('🟡 "מתלבט" button clicked - submitting immediately');
-                    // CRITICAL: Always use eventId from URL to find the correct event
-                    let currentEvent = event || directEvent;
+                    const currentEvent = event || directEvent;
+                    const currentGuest = guest || directGuest || finalGuest;
+                    const guestIdToUse = currentGuest?.id || guestId;
                     
-                    // CRITICAL: If eventId is provided, verify that currentEvent matches it
-                    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
-                      console.log(`⚠️ Current event (${currentEvent?.id}) doesn't match eventId from URL (${eventId}), searching in store...`);
-                      const storeState = useEventStore.getState();
-                      const eventFromStore = storeState.events.find(e => e.id === eventId);
-                      if (eventFromStore) {
-                        console.log(`✅ Found event ${eventId} in store: ${eventFromStore.coupleName}`);
-                        currentEvent = eventFromStore;
-                      }
-                    }
-                    
-                    // CRITICAL: Also verify guestId matches the event
-                    let currentGuest = guest || directGuest || finalGuest;
-                    if (guestId && currentEvent) {
-                      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
-                        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
-                        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
-                        if (guestFromEvent) {
-                          console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
-                          currentGuest = guestFromEvent;
-                        }
-                      }
-                    }
-                    
-                    // CRITICAL: Final verification - ensure eventId matches
-                    if (eventId && currentEvent && currentEvent.id !== eventId) {
-                      console.error(`❌ Event ID mismatch! URL eventId: ${eventId}, Current event ID: ${currentEvent.id}`);
-                      setSubmitStatus('error');
-                      setErrorMessage('אירוע לא תואם');
-                      return;
-                    }
-                    
-                    if (currentEvent && currentGuest) {
+                    if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
-                        // CRITICAL: Update formData.response to 'maybe' so the success message displays correctly
-                        setFormData(prev => ({
-                          ...prev,
-                          response: 'maybe' as const
-                        }));
+                        let guestToUpdate = currentGuest;
+                        if (!guestToUpdate && currentEvent.guests) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        }
                         
-                        const updatedGuest = {
-                          ...currentGuest,
-                          guestCount: 1,
-                          notes: formData.notes || '', // Preserve notes if they exist
-                          rsvpStatus: 'maybe' as const,
-                          responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const,
-                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
-                        };
-                        console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
-                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
-                        console.log('📋 EventId from URL:', eventId, 'GuestId from URL:', guestId);
-                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
-                        
-                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
-                        const storeModule = await import('../store/eventStore');
-                        const storeState = storeModule.useEventStore.getState();
-                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
-                        console.log(`🔄 Refreshed guest status after "מתלבט" update: ${refreshedGuest?.rsvpStatus}`);
-                        console.log(`🔄 Refreshed guest count after "מתלבט" update: ${refreshedGuest?.guestCount}`);
-                        
-                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
-                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
-                        // This ensures the table in EventManagement updates immediately
-                        setTimeout(() => {
-                          storeState.fetchEvents(false, true).catch(err => {
-                            console.warn('⚠️ Failed to refresh events after "מתלבט" update:', err);
-                          });
-                        }, 100);
-                        
-                        setSubmitStatus('success');
+                        if (guestToUpdate) {
+                          const updatedGuest = {
+                            ...guestToUpdate,
+                            guestCount: 1,
+                            notes: formData.notes || '',
+                            rsvpStatus: 'maybe' as const,
+                            responseDate: new Date(),
+                            actualAttendance: 'not_marked' as const,
+                            source: 'guest_link'
+                          };
+                          await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                          setTimeout(() => {
+                            const storeState = useEventStore.getState();
+                            storeState.fetchEvents(false, true).catch(() => {});
+                          }, 100);
+                          setSubmitStatus('success');
+                        }
                       } catch (error) {
-                        console.error('❌ Error submitting:', error);
+                        console.error('Error:', error);
                         setSubmitStatus('error');
-                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
                       } finally {
                         setIsSubmitting(false);
                       }
@@ -1232,74 +1332,46 @@ const GuestResponse = () => {
                     }
                   }}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                  style={{ borderRadius: '9999px' }}
                 >
-                  <MessageSquare className="w-6 h-6" />
-                  <span>{isSubmitting ? 'שולח...' : 'מתלבט'}</span>
+                  {isSubmitting ? 'שולח...' : 'אולי'}
                 </button>
                 
                 <button
                   onClick={async () => {
-                    console.log('🔴 "לא מגיע" button clicked - submitting immediately');
                     const currentEvent = event || directEvent;
                     const currentGuest = guest || directGuest || finalGuest;
-                    
-                    // CRITICAL: Use cleaned guestId if currentGuest not found
                     const guestIdToUse = currentGuest?.id || guestId;
-                    console.log('📋 Using guestId:', guestIdToUse, 'from currentGuest:', currentGuest?.id, 'or guestId:', guestId);
                     
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
-                        // If currentGuest not found, create guest object from currentEvent
                         let guestToUpdate = currentGuest;
                         if (!guestToUpdate && currentEvent.guests) {
                           guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
                         }
                         
-                        if (!guestToUpdate) {
-                          console.error('❌ Guest not found in event');
-                          setSubmitStatus('error');
-                          setErrorMessage('אורח לא נמצא');
-                          setIsSubmitting(false);
-                          return;
+                        if (guestToUpdate) {
+                          const updatedGuest = {
+                            ...guestToUpdate,
+                            guestCount: 1,
+                            notes: formData.notes || '',
+                            rsvpStatus: 'declined' as const,
+                            responseDate: new Date(),
+                            actualAttendance: 'not_marked' as const,
+                            source: 'guest_link'
+                          };
+                          await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                          setTimeout(() => {
+                            const storeState = useEventStore.getState();
+                            storeState.fetchEvents(false, true).catch(() => {});
+                          }, 100);
+                          setSubmitStatus('success');
                         }
-                        
-                        const updatedGuest = {
-                          ...guestToUpdate,
-                          guestCount: 1,
-                          notes: formData.notes || '', // Preserve notes if they exist
-                          rsvpStatus: 'declined' as const,
-                          responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const,
-                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
-                        };
-                        console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
-                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', guestIdToUse);
-                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
-                        
-                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
-                        const storeModule = await import('../store/eventStore');
-                        const storeState = storeModule.useEventStore.getState();
-                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestIdToUse);
-                        console.log(`🔄 Refreshed guest status after "לא מגיע" update: ${refreshedGuest?.rsvpStatus}`);
-                        console.log(`🔄 Refreshed guest count after "לא מגיע" update: ${refreshedGuest?.guestCount}`);
-                        
-                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
-                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
-                        // This ensures the table in EventManagement updates immediately
-                        setTimeout(() => {
-                          storeState.fetchEvents(false, true).catch(err => {
-                            console.warn('⚠️ Failed to refresh events after "לא מגיע" update:', err);
-                          });
-                        }, 100);
-                        
-                        setSubmitStatus('success');
                       } catch (error) {
-                        console.error('❌ Error submitting:', error);
+                        console.error('Error:', error);
                         setSubmitStatus('error');
-                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
                       } finally {
                         setIsSubmitting(false);
                       }
@@ -1310,10 +1382,10 @@ const GuestResponse = () => {
                     }
                   }}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                  style={{ borderRadius: '9999px' }}
                 >
-                  <XCircle className="w-6 h-6" />
-                  <span>{isSubmitting ? 'שולח...' : 'לא מגיע'}</span>
+                  {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
                 </button>
               </div>
             </div>
@@ -1479,6 +1551,69 @@ const GuestResponse = () => {
               </div>
             </div>
           ) : null}
+        </div>
+
+        {/* Event Details and Actions */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+          {/* Navigation and Calendar Actions */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <a
+              href={generateNavigationLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="text-2xl mb-2">😊</div>
+              <span className="text-sm font-medium text-gray-700">ניווט לאירוע</span>
+            </a>
+            <a
+              href={generateCalendarLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Calendar className="w-6 h-6 text-gray-700 mb-2" />
+              <span className="text-sm font-medium text-gray-700">הוספה ליומן</span>
+            </a>
+            <div className="flex flex-col items-center justify-center p-4 rounded-lg">
+              <Heart className="w-6 h-6 text-gray-700 mb-2" />
+              <span className="text-sm font-medium text-gray-700">חתונה</span>
+            </div>
+          </div>
+
+          {/* Event Timings */}
+          {currentEvent.eventTime && (
+            <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-200">
+              <div className="text-center">
+                <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
+                <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
+                <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Parents Names */}
+          {(currentEvent.groomName || currentEvent.brideName) && (
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="text-center">
+                <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
+                <div className="text-gray-600">{currentEvent.groomName || '-'}</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-gray-700 mb-1">הורי הכלה</div>
+                <div className="text-gray-600">{currentEvent.brideName || '-'}</div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-500 pb-8">
+          <div className="mb-2">LetMeSit</div>
+          <div>אישורי הגעה וסידורי הושבה</div>
         </div>
       </div>
     </div>
