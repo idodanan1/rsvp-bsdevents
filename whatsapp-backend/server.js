@@ -4520,8 +4520,25 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
     const guests = event.guests || [];
     console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
     console.log(`📋 [GUESTS_ENDPOINT] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
-    console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (first 5):`, guests.slice(0, 5).map(g => g.id));
-    console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (last 5):`, guests.slice(-5).map(g => g.id));
+    console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in event);
+    console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof event.guests);
+    console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(event.guests));
+    console.log(`📋 [GUESTS_ENDPOINT] Event keys:`, Object.keys(event).slice(0, 10));
+    
+    if (guests.length > 0) {
+      console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (first 5):`, guests.slice(0, 5).map(g => g.id));
+      console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (last 5):`, guests.slice(-5).map(g => g.id));
+    } else {
+      console.warn(`⚠️ [GUESTS_ENDPOINT] Event has NO guests! Event object:`, JSON.stringify({
+        id: event.id,
+        coupleName: event.coupleName,
+        groomName: event.groomName,
+        brideName: event.brideName,
+        hasGuestsProperty: 'guests' in event,
+        guestsType: typeof event.guests,
+        guestsValue: event.guests
+      }, null, 2));
+    }
     
     res.json({
       success: true,
