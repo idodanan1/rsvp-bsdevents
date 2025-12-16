@@ -124,13 +124,23 @@ const GuestResponse = () => {
     const hash = window.location.hash;
     if (hash) {
       // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
+      // Use a more comprehensive regex that captures guestIds even with URLs after them
       const allGuestMatches = hash.match(/[?&]guest=([a-z0-9]{10,})/gi);
       if (allGuestMatches && allGuestMatches.length > 0) {
         console.log(`🔍 Found ${allGuestMatches.length} guestId matches in hash:`, allGuestMatches);
-        // Extract all guestIds from matches
+        // Extract all guestIds from matches - get the ID part before any URL or other characters
         const guestIds = allGuestMatches.map(m => {
-          const idMatch = m.match(/guest=([a-z0-9]{10,})/i);
-          return idMatch ? idMatch[1] : null;
+          // Extract the full match including guest= and ID
+          const fullMatch = m;
+          // Try to extract just the ID part (10+ alphanumeric chars)
+          const idMatch = fullMatch.match(/guest=([a-z0-9]{10,})/i);
+          if (idMatch && idMatch[1]) {
+            // Check if the ID is followed by non-alphanumeric characters (like https://)
+            // If so, extract just the ID part
+            const cleanId = idMatch[1].match(/^([a-z0-9]{10,})/i);
+            return cleanId ? cleanId[1] : idMatch[1];
+          }
+          return null;
         }).filter(id => id !== null);
         
         if (guestIds.length > 0) {
@@ -138,6 +148,23 @@ const GuestResponse = () => {
           const lastGuestId = guestIds[guestIds.length - 1];
           console.log(`✅ Found last guestId in hash (from ${guestIds.length} matches): ${lastGuestId}`);
           console.log(`🔍 All guestIds found:`, guestIds);
+          return lastGuestId;
+        }
+      }
+      
+      // Alternative: Try to find guestIds by looking for the pattern more carefully
+      // This handles cases where guest= is followed by URL immediately
+      const alternativeMatches = hash.match(/[?&]guest=([a-z0-9]{10,})(?=[^a-z0-9]|$)/gi);
+      if (alternativeMatches && alternativeMatches.length > 0) {
+        console.log(`🔍 Found ${alternativeMatches.length} guestId matches (alternative method):`, alternativeMatches);
+        const guestIds = alternativeMatches.map(m => {
+          const idMatch = m.match(/guest=([a-z0-9]{10,})/i);
+          return idMatch ? idMatch[1] : null;
+        }).filter(id => id !== null);
+        
+        if (guestIds.length > 0) {
+          const lastGuestId = guestIds[guestIds.length - 1];
+          console.log(`✅ Found last guestId in hash (alternative, from ${guestIds.length} matches): ${lastGuestId}`);
           return lastGuestId;
         }
       }
@@ -1090,8 +1117,19 @@ const GuestResponse = () => {
      currentEvent.groomName || currentEvent.brideName || 'הזוג');
   const groomName = currentEvent.groomName || '';
   const brideName = currentEvent.brideName || '';
-  const eventDateFormatted = formatDate(currentEvent.eventDate);
-  const eventDateShort = eventDateFormatted.split(' ')[0]; // Get just the date part
+  // Safely format event date
+  let eventDateFormatted = '-';
+  let eventDateShort = '-';
+  try {
+    if (currentEvent.eventDate) {
+      eventDateFormatted = formatDate(currentEvent.eventDate);
+      if (eventDateFormatted !== '-') {
+        eventDateShort = eventDateFormatted.split(' ')[0]; // Get just the date part
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Error formatting event date:', error);
+  }
 
   return (
     <div className="min-h-screen" style={{ 
@@ -1108,23 +1146,9 @@ const GuestResponse = () => {
         
         <div className="max-w-4xl mx-auto px-4 relative z-10">
           {/* Invitation Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Left Card - English */}
-            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200">
-              <div className="text-6xl font-serif mb-4 text-gray-800">
-                {groomName && brideName ? `${groomName.charAt(0)} & ${brideName.charAt(0)}` : coupleName.charAt(0)}
-              </div>
-              <div className="text-xl font-sans text-gray-700 mb-4">
-                {groomName && brideName ? `${groomName.toUpperCase()} and ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
-              </div>
-              <div className="border-t border-gray-300 my-4"></div>
-              <div className="text-lg font-sans text-gray-600">
-                {eventDateShort}
-              </div>
-            </div>
-
-            {/* Right Card - Hebrew */}
-            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200">
+          <div className="grid grid-cols-1 gap-6 mb-8">
+            {/* Hebrew Card */}
+            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200 max-w-md mx-auto">
               <div className="text-xs text-gray-500 mb-2">בס"ד</div>
               <div className="text-4xl font-serif mb-2 text-gray-800">
                 {groomName && brideName ? `${groomName.toUpperCase()} & ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
