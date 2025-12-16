@@ -1031,7 +1031,7 @@ const GuestResponse = () => {
               {formData.response === 'attending' 
                 ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!` 
                 : formData.response === 'maybe'
-                ? 'תודה על העדכון!'
+                ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} מתלבטים - נשמח לעדכון!`
                 : 'אנו מצטערים שלא תוכלו להגיע'
               }
             </p>
@@ -1231,6 +1231,9 @@ const GuestResponse = () => {
                       }
                       
                       if (guestToUpdate) {
+                        // CRITICAL: Update formData.response BEFORE showing success message
+                        setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
+                        
                         const updatedGuest = {
                           ...guestToUpdate,
                           guestCount: 1,
@@ -1280,6 +1283,9 @@ const GuestResponse = () => {
                       }
                       
                       if (guestToUpdate) {
+                        // CRITICAL: Update formData.response BEFORE showing success message
+                        setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
+                        
                         const updatedGuest = {
                           ...guestToUpdate,
                           guestCount: 1,
