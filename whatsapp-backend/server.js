@@ -495,6 +495,10 @@ let eventsData = {
 
 // Load events from file on startup
 try {
+  console.log(`📂 Events file path: ${eventsFilePath}`);
+  console.log(`📂 __dirname: ${__dirname}`);
+  console.log(`📂 File exists: ${fs.existsSync(eventsFilePath)}`);
+  
   if (fs.existsSync(eventsFilePath)) {
     const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
     eventsData.events = fileData.events || [];
@@ -502,10 +506,34 @@ try {
     console.log(`✅ Loaded ${eventsData.events.length} events from file`);
   } else {
     console.log('📝 No events file found - starting with empty events');
+    // CRITICAL: Create empty events file on startup to ensure file exists
+    // This helps with Render's file system persistence
+    try {
+      const dir = path.dirname(eventsFilePath);
+      if (!fs.existsSync(dir)) {
+        console.log(`📁 Creating directory: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
+      console.log(`✅ Created empty events file at startup: ${eventsFilePath}`);
+    } catch (createError) {
+      console.error('❌ Error creating events file:', createError);
+    }
   }
 } catch (error) {
   console.error('❌ Error loading events file:', error);
   eventsData = { events: [], deletedEvents: [] };
+  // Try to create empty file as fallback
+  try {
+    const dir = path.dirname(eventsFilePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
+    console.log(`✅ Created empty events file after error: ${eventsFilePath}`);
+  } catch (createError) {
+    console.error('❌ Error creating events file after error:', createError);
+  }
 }
 
 // Load events from file (reload from disk)
@@ -539,8 +567,20 @@ function saveEvents() {
       }
     });
     
+    console.log(`💾 File path: ${eventsFilePath}`);
+    console.log(`💾 File exists before save: ${fs.existsSync(eventsFilePath)}`);
+    
+    // CRITICAL: Ensure directory exists before writing file
+    const dir = path.dirname(eventsFilePath);
+    if (!fs.existsSync(dir)) {
+      console.log(`📁 Creating directory: ${dir}`);
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // CRITICAL: Write file - this will create it if it doesn't exist
     fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
     console.log(`💾 Saved ${eventsData.events.length} events to file`);
+    console.log(`💾 File exists after save: ${fs.existsSync(eventsFilePath)}`);
     
     // CRITICAL: Verify what was saved
     if (fs.existsSync(eventsFilePath)) {
@@ -548,10 +588,14 @@ function saveEvents() {
       const savedData = JSON.parse(savedContent);
       const savedTotalGuests = savedData.events?.reduce((sum, e) => sum + (e.guests?.length || 0), 0) || 0;
       console.log(`💾 Verified: Saved file contains ${savedData.events?.length || 0} events with ${savedTotalGuests} total guests`);
+    } else {
+      console.error(`❌ File was not created! Path: ${eventsFilePath}`);
     }
   } catch (error) {
     console.error('❌ Error saving events file:', error);
     console.error('❌ Error stack:', error.stack);
+    console.error('❌ File path:', eventsFilePath);
+    console.error('❌ __dirname:', __dirname);
   }
 }
 
