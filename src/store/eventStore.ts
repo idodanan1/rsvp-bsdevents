@@ -2615,9 +2615,19 @@ export const useEventStore = create<EventStore>()(
                 }
               }
               
-              // CRITICAL: Don't force refresh immediately - let webhook service handle it
-              // This prevents race conditions and ensures consistent updates across devices
-              // The webhook service will poll and process the update from pendingUpdates
+              // CRITICAL: After successful backend sync, trigger immediate refresh to ensure EventManagement sees the update
+              // This ensures the table updates immediately after guest status change, without waiting for webhook service
+              // Use a small delay to ensure backend has finished processing
+              setTimeout(async () => {
+                try {
+                  console.log('🔄 Triggering immediate events refresh after guest status update...');
+                  const { fetchEvents } = get();
+                  await fetchEvents(false, true); // Force refresh from API
+                  console.log('✅ Events refreshed after guest status update');
+                } catch (refreshError) {
+                  console.warn('⚠️ Failed to refresh events after guest status update:', refreshError);
+                }
+              }, 500); // Small delay to ensure backend has processed the update
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events
