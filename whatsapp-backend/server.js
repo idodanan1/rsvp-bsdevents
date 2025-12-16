@@ -4831,11 +4831,56 @@ app.post('/api/events/sync', async (req, res) => {
     
     console.log(`💾 Syncing ${events.length} events for user ${userId}`);
     
-    // Remove old events for this user
+    // CRITICAL: Read events directly from file to ensure we have latest data
+    const eventsFilePath = path.join(__dirname, 'events.json');
+    let fileData;
+    
+    if (fs.existsSync(eventsFilePath)) {
+      const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+      fileData = JSON.parse(fileContent);
+    } else {
+      fileData = { events: [], deletedEvents: [] };
+    }
+    
+    // Get existing events for this user (to preserve guests)
+    const existingEventsForUser = fileData.events.filter(e => e.userId === userId);
+    console.log(`📋 Found ${existingEventsForUser.length} existing events for user ${userId}`);
+    
+    // Remove old events for this user from in-memory data
     eventsData.events = eventsData.events.filter(e => e.userId !== userId);
     
-    // Add new events
-    eventsData.events.push(...events);
+    // CRITICAL: Merge incoming events with existing events to preserve guests
+    // For each incoming event, check if it exists and merge guests
+    const mergedEvents = events.map(incomingEvent => {
+      const existingEvent = existingEventsForUser.find(e => e.id === incomingEvent.id);
+      
+      if (existingEvent) {
+        // Event exists - merge to preserve guests
+        const mergedEvent = {
+          ...existingEvent,
+          ...incomingEvent,
+          // CRITICAL: Preserve guests from existing event if incoming event doesn't have them
+          guests: incomingEvent.guests && incomingEvent.guests.length > 0 
+            ? incomingEvent.guests 
+            : (existingEvent.guests || []),
+          updatedAt: new Date().toISOString()
+        };
+        
+        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.guests?.length || 0} existing guests, ${incomingEvent.guests?.length || 0} incoming guests → ${mergedEvent.guests?.length || 0} final guests`);
+        
+        return mergedEvent;
+      } else {
+        // New event - use as is
+        console.log(`➕ New event ${incomingEvent.id}: ${incomingEvent.guests?.length || 0} guests`);
+        return {
+          ...incomingEvent,
+          updatedAt: new Date().toISOString()
+        };
+      }
+    });
+    
+    // Add merged events
+    eventsData.events.push(...mergedEvents);
     
     // Save to file
     saveEvents();
@@ -5148,9 +5193,11 @@ app.post('/api/events', async (req, res) => {
       
       // Update existing event - CRITICAL: Merge guests properly to preserve all fields
       // Merge guests array: update existing guests, add new ones, keep all others
-      // CRITICAL: Use the mergedGuests we already initialized above (line 4876)
+      // CRITICAL: Use the mergedGuests we already initialized above (line 4897)
       // Don't redefine it here - just update it if incoming event has guests
-      if (event.guests && event.guests.length > 0) {
+      // CRITICAL: If incoming event has guests: [] (empty array), preserve existing guests
+      // Only merge if incoming event has actual guests (length > 0)
+      if (event.guests && Array.isArray(event.guests) && event.guests.length > 0) {
         // For each incoming guest, update existing or add new
         for (const incomingGuest of event.guests) {
           const existingGuestIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
@@ -5184,13 +5231,24 @@ app.post('/api/events', async (req, res) => {
         }
       }
       
+      // CRITICAL: If incoming event has guests: [] (empty array) but existing event has guests,
+      // preserve existing guests instead of overwriting with empty array
+      const finalGuests = (event.guests && Array.isArray(event.guests) && event.guests.length === 0 && mergedGuests.length > 0)
+        ? mergedGuests  // Preserve existing guests if incoming is empty array
+        : mergedGuests; // Use merged guests (which already preserves existing if incoming has no guests)
+      
       const mergedEvent = {
         ...existingEvent,
         ...event,
-        // CRITICAL: Use merged guests array that preserves all guests
-        guests: mergedGuests,
+        // CRITICAL: Use final guests array that preserves all guests
+        guests: finalGuests,
         updatedAt: new Date().toISOString()
       };
+      
+      // Log warning if we're preserving guests when incoming event had empty array
+      if (event.guests && Array.isArray(event.guests) && event.guests.length === 0 && mergedGuests.length > 0) {
+        console.warn(`⚠️ PRESERVING GUESTS: Incoming event ${event.id} had empty guests array, but preserving ${mergedGuests.length} existing guests`);
+      }
       
       eventsData.events[existingIndex] = mergedEvent;
       console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests (merged from ${existingEvent.guests?.length || 0} existing + ${event.guests?.length || 0} incoming)`);
