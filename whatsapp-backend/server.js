@@ -148,6 +148,309 @@ function sanitizeAccessToken(token) {
   return cleaned;
 }
 
+// Helper function to generate unique ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Helper function to create default campaigns for an event
+function createDefaultCampaigns(eventId, eventDate) {
+  const eventDateObj = eventDate ? (typeof eventDate === 'string' ? new Date(eventDate) : eventDate) : new Date();
+  
+  const campaigns = [
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'הזמנה ראשונית',
+      message: `🎉 שלום {{guest_name}}! 
+
+אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+
+📅 {{event_date}} | 🕐 {{event_time}}
+📍 {{venue}}
+
+{{guest_response_link}}
+
+בברכה,
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      whatsappButtons: [
+        {
+          type: 'url',
+          url: {
+            url: '{{guest_response_link}}',
+            title: 'עדכון סטטוס הגעה'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'decline_attendance',
+            title: 'לא אוכל להגיע'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'confirm_attendance',
+            title: 'מגיע'
+          }
+        }
+      ],
+      smsMessage: `שלום {{guest_name}}! 
+
+אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה בקישור הבא:
+{{guest_response_link}}
+
+בברכה,
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת שנייה',
+      message: `שלום! רק שבועיים לאירוע! 🎊
+
+📅 {{event_date}}
+📍 {{venue}}
+
+אם עדיין לא אישרתם הגעה, אנא עשו זאת עכשיו!
+
+🔗 לאשר הגעה ולעדכן סטטוס: {{guest_response_link}}
+
+נרגש לראות אתכם!`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      whatsappButtons: [
+        {
+          type: 'url',
+          url: {
+            url: '{{guest_response_link}}',
+            title: 'עדכון סטטוס הגעה'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'decline_attendance',
+            title: 'לא אוכל להגיע'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'confirm_attendance',
+            title: 'מגיע'
+          }
+        }
+      ],
+      smsMessage: `שלום {{guest_name}}! 
+
+תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+
+אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
+{{guest_response_link}}
+
+מחכים לראות אותך!`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת שבועית',
+      message: `⏰ שלום {{guest_name}}!
+
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+
+📅 תאריך: {{event_date}}
+
+🕐 שעה: {{event_time}}
+
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה עד סוף השבוע:
+
+🔗 {{guest_response_link}}
+
+בברכה,
+
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      whatsappButtons: [
+        {
+          type: 'url',
+          url: {
+            url: '{{guest_response_link}}',
+            title: 'עדכון סטטוס הגעה'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'decline_attendance',
+            title: 'לא אוכל להגיע'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'confirm_attendance',
+            title: 'מגיע'
+          }
+        }
+      ],
+      smsMessage: `⏰ שלום {{guest_name}}!
+
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+
+📅 תאריך: {{event_date}}
+
+🕐 שעה: {{event_time}}
+
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה עד סוף השבוע:
+
+{{guest_response_link}}
+
+בברכה,
+
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת אחרונה',
+      message: `🎉 שלום {{first_name}}! 
+
+מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+🪑 שולחן: {{table_number}}
+
+אנא הגיעו 15 דקות לפני הזמן.
+
+🔗 לעדכן סטטוס ההגעה לחץ
+
+לא לשכוח להביא מצב רוח טוב! 😊`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'today',
+      whatsappButtons: [
+        {
+          type: 'url',
+          url: {
+            url: '{{guest_response_link}}',
+            title: 'עדכון סטטוס הגעה'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'decline_attendance',
+            title: 'לא אוכל להגיע'
+          }
+        },
+        {
+          type: 'reply',
+          reply: {
+            id: 'confirm_attendance',
+            title: 'מגיע'
+          }
+        }
+      ],
+      smsMessage: `שלום {{first_name}}! 
+
+מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+🪑 שולחן: {{table_number}}
+
+אנא הגיעו 15 דקות לפני הזמן.
+
+🔗 לעדכן סטטוס ההגעה לחץ
+
+לא לשכוח להביא מצב רוח טוב! 😊`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'הודעת תודה למגיעים',
+      message: `🙏 שלום {{guest_name}}! 
+
+תודה רבה שהגעת ל{{event_type}} של {{couple_name}}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות! 💝
+
+תמונות מהאירוע יועלו בקרוב.
+
+באהבה,
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      smsMessage: `שלום {{guest_name}}! 
+
+תודה רבה שהגעת ל{{event_type}} של {{couple_name}}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות!
+
+תמונות מהאירוע יועלו בקרוב.
+
+באהבה,
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ];
+  
+  return campaigns;
+}
+
 // Set default API keys if not provided
 process.env.WANOTIFIER_API_KEY = process.env.WANOTIFIER_API_KEY || 'oUDrqkaOHa6wv2oWZ4SsM31RbxcKLG';
 process.env.CALLMEBOT_API_KEY = process.env.CALLMEBOT_API_KEY || '1234567890';
@@ -4466,14 +4769,42 @@ app.get('/api/events/all', async (req, res) => {
       }
     }
     
-    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint, no userId filter)`);
+    // CRITICAL: Auto-create campaigns for events that don't have them
+    let eventsUpdated = false;
+    const updatedEvents = events.map(event => {
+      if (!event.campaigns || !Array.isArray(event.campaigns) || event.campaigns.length === 0) {
+        console.log(`🔄 [EVENTS_ALL] No campaigns found for event ${event.id}, creating default campaigns...`);
+        const newCampaigns = createDefaultCampaigns(event.id, event.eventDate);
+        eventsUpdated = true;
+        return {
+          ...event,
+          campaigns: newCampaigns,
+          eventTypeHebrew: event.eventTypeHebrew || 'חתונה'
+        };
+      }
+      return event;
+    });
+    
+    // Save updated events to file if campaigns were created
+    if (eventsUpdated) {
+      try {
+        const fileData = { events: updatedEvents, deletedEvents: eventsData.deletedEvents || [] };
+        fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+        eventsData.events = updatedEvents;
+        console.log(`✅ [EVENTS_ALL] Created campaigns and saved to file`);
+      } catch (error) {
+        console.error(`❌ [EVENTS_ALL] Error saving campaigns to file:`, error);
+      }
+    }
+    
+    console.log(`📋 GET /api/events/all - Returning ${updatedEvents.length} events (public endpoint, no userId filter)`);
     
     // CRITICAL: Return ALL events without filtering by userId
     // This allows guest response links to work on any device
     res.json({
       success: true,
-      events: events,
-      total: events.length
+      events: updatedEvents,
+      total: updatedEvents.length
     });
   } catch (error) {
     console.error('❌ Error loading all events:', error);
@@ -4804,12 +5135,38 @@ app.get('/api/events/:eventId', async (req, res) => {
     console.log(`📋 [EVENT_ID_BRANCH] GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
     console.log(`📋 [EVENT_ID_BRANCH] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
     
+    // CRITICAL: Auto-create campaigns if they don't exist
+    let finalEvent = event;
+    if (!event.campaigns || !Array.isArray(event.campaigns) || event.campaigns.length === 0) {
+      console.log(`🔄 [EVENT_ID_BRANCH] No campaigns found for event ${eventId}, creating default campaigns...`);
+      const newCampaigns = createDefaultCampaigns(eventId, event.eventDate);
+      finalEvent = {
+        ...event,
+        campaigns: newCampaigns,
+        eventTypeHebrew: event.eventTypeHebrew || 'חתונה'
+      };
+      
+      // Update event in file and memory
+      try {
+        const eventIndex = events.findIndex(e => e.id === eventId);
+        if (eventIndex >= 0) {
+          events[eventIndex] = finalEvent;
+          const fileData = { events: events, deletedEvents: eventsData.deletedEvents || [] };
+          fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+          eventsData.events = events;
+          console.log(`✅ [EVENT_ID_BRANCH] Created ${newCampaigns.length} campaigns and saved to file`);
+        }
+      } catch (error) {
+        console.error(`❌ [EVENT_ID_BRANCH] Error saving campaigns to file:`, error);
+      }
+    }
+    
     // CRITICAL: Return the FULL event with ALL guests (no truncation)
     // IMPORTANT: Must return {success: true, event: event} format (singular "event", not "events")
     // CRITICAL: NEVER return {success: true, events: [...]} format - this is ONLY for userId endpoint
     const responseData = {
       success: true,
-      event: event
+      event: finalEvent
     };
     
     const responseSize = JSON.stringify(responseData).length;
@@ -4893,31 +5250,65 @@ app.post('/api/events/sync', async (req, res) => {
     // Remove old events for this user from in-memory data
     eventsData.events = eventsData.events.filter(e => e.userId !== userId);
     
-    // CRITICAL: Merge incoming events with existing events to preserve guests
-    // For each incoming event, check if it exists and merge guests
+    // CRITICAL: Merge incoming events with existing events to preserve guests and campaigns
+    // For each incoming event, check if it exists and merge guests and campaigns
     const mergedEvents = events.map(incomingEvent => {
       const existingEvent = existingEventsForUser.find(e => e.id === incomingEvent.id);
       
       if (existingEvent) {
-        // Event exists - merge to preserve guests
+        // CRITICAL: Preserve campaigns from existing event if incoming event doesn't have them
+        let finalCampaigns = existingEvent.campaigns || [];
+        if (incomingEvent.campaigns && Array.isArray(incomingEvent.campaigns) && incomingEvent.campaigns.length > 0) {
+          // Use incoming campaigns if provided
+          finalCampaigns = incomingEvent.campaigns;
+        } else if (!finalCampaigns || finalCampaigns.length === 0) {
+          // CRITICAL: Auto-create campaigns if they don't exist
+          console.log(`🔄 No campaigns found for event ${incomingEvent.id} during sync, creating default campaigns...`);
+          finalCampaigns = createDefaultCampaigns(incomingEvent.id, existingEvent.eventDate || incomingEvent.eventDate);
+          console.log(`✅ Created ${finalCampaigns.length} default campaigns for event ${incomingEvent.id}`);
+        }
+        
+        // Event exists - merge to preserve guests and campaigns
         const mergedEvent = {
           ...existingEvent,
           ...incomingEvent,
+          // CRITICAL: Preserve important fields from existing event if not in incoming event
+          groomName: incomingEvent.groomName !== undefined ? incomingEvent.groomName : existingEvent.groomName,
+          brideName: incomingEvent.brideName !== undefined ? incomingEvent.brideName : existingEvent.brideName,
+          coupleName: incomingEvent.coupleName !== undefined ? incomingEvent.coupleName : existingEvent.coupleName,
+          eventDate: incomingEvent.eventDate !== undefined ? incomingEvent.eventDate : existingEvent.eventDate,
+          eventTime: incomingEvent.eventTime !== undefined ? incomingEvent.eventTime : existingEvent.eventTime,
+          venue: incomingEvent.venue !== undefined ? incomingEvent.venue : existingEvent.venue,
+          eventType: incomingEvent.eventType !== undefined ? incomingEvent.eventType : existingEvent.eventType,
+          eventTypeHebrew: incomingEvent.eventTypeHebrew !== undefined ? incomingEvent.eventTypeHebrew : (existingEvent.eventTypeHebrew || 'חתונה'),
+          invitationImageUrl: incomingEvent.invitationImageUrl !== undefined ? incomingEvent.invitationImageUrl : existingEvent.invitationImageUrl,
           // CRITICAL: Preserve guests from existing event if incoming event doesn't have them
           guests: incomingEvent.guests && incomingEvent.guests.length > 0 
             ? incomingEvent.guests 
             : (existingEvent.guests || []),
+          // CRITICAL: Preserve campaigns
+          campaigns: finalCampaigns,
           updatedAt: new Date().toISOString()
         };
         
         console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.guests?.length || 0} existing guests, ${incomingEvent.guests?.length || 0} incoming guests → ${mergedEvent.guests?.length || 0} final guests`);
+        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.campaigns?.length || 0} existing campaigns, ${incomingEvent.campaigns?.length || 0} incoming campaigns → ${mergedEvent.campaigns?.length || 0} final campaigns`);
         
         return mergedEvent;
       } else {
-        // New event - use as is
+        // New event - use as is, but create campaigns if missing
+        let finalCampaigns = incomingEvent.campaigns || [];
+        if (!finalCampaigns || finalCampaigns.length === 0) {
+          console.log(`🔄 No campaigns found for new event ${incomingEvent.id} during sync, creating default campaigns...`);
+          finalCampaigns = createDefaultCampaigns(incomingEvent.id, incomingEvent.eventDate);
+          console.log(`✅ Created ${finalCampaigns.length} default campaigns for new event ${incomingEvent.id}`);
+        }
+        
         console.log(`➕ New event ${incomingEvent.id}: ${incomingEvent.guests?.length || 0} guests`);
         return {
           ...incomingEvent,
+          campaigns: finalCampaigns,
+          eventTypeHebrew: incomingEvent.eventTypeHebrew || 'חתונה',
           updatedAt: new Date().toISOString()
         };
       }
@@ -5281,6 +5672,18 @@ app.post('/api/events', async (req, res) => {
         ? mergedGuests  // Preserve existing guests if incoming is empty array
         : mergedGuests; // Use merged guests (which already preserves existing if incoming has no guests)
       
+      // CRITICAL: Preserve campaigns from existing event if incoming event doesn't have them
+      let finalCampaigns = existingEvent.campaigns || [];
+      if (event.campaigns && Array.isArray(event.campaigns) && event.campaigns.length > 0) {
+        // Use incoming campaigns if provided
+        finalCampaigns = event.campaigns;
+      } else if (!finalCampaigns || finalCampaigns.length === 0) {
+        // CRITICAL: Auto-create campaigns if they don't exist
+        console.log(`🔄 No campaigns found for event ${event.id}, creating default campaigns...`);
+        finalCampaigns = createDefaultCampaigns(event.id, existingEvent.eventDate || event.eventDate);
+        console.log(`✅ Created ${finalCampaigns.length} default campaigns for event ${event.id}`);
+      }
+      
       // CRITICAL: Preserve all existing event fields that might not be in incoming event
       // This ensures groomName, brideName, eventDate, venue, etc. are not lost
       const mergedEvent = {
@@ -5294,8 +5697,10 @@ app.post('/api/events', async (req, res) => {
         eventTime: event.eventTime !== undefined ? event.eventTime : existingEvent.eventTime,
         venue: event.venue !== undefined ? event.venue : existingEvent.venue,
         eventType: event.eventType !== undefined ? event.eventType : existingEvent.eventType,
-        eventTypeHebrew: event.eventTypeHebrew !== undefined ? event.eventTypeHebrew : existingEvent.eventTypeHebrew,
+        eventTypeHebrew: event.eventTypeHebrew !== undefined ? event.eventTypeHebrew : (existingEvent.eventTypeHebrew || 'חתונה'),
         invitationImageUrl: event.invitationImageUrl !== undefined ? event.invitationImageUrl : existingEvent.invitationImageUrl,
+        // CRITICAL: Preserve campaigns
+        campaigns: finalCampaigns,
         // CRITICAL: Use final guests array that preserves all guests
         guests: finalGuests,
         updatedAt: new Date().toISOString()
@@ -5346,6 +5751,18 @@ app.post('/api/events', async (req, res) => {
         console.log(`📥 Event object keys:`, Object.keys(event));
         console.log(`📥 Event has guests property:`, 'guests' in event);
         console.log(`📥 Event.guests value:`, event.guests);
+      }
+      
+      // CRITICAL: Auto-create campaigns if they don't exist
+      if (!newEvent.campaigns || !Array.isArray(newEvent.campaigns) || newEvent.campaigns.length === 0) {
+        console.log(`🔄 No campaigns found for new event ${event.id}, creating default campaigns...`);
+        newEvent.campaigns = createDefaultCampaigns(event.id, event.eventDate);
+        console.log(`✅ Created ${newEvent.campaigns.length} default campaigns for new event ${event.id}`);
+      }
+      
+      // CRITICAL: Ensure eventTypeHebrew has default value
+      if (!newEvent.eventTypeHebrew) {
+        newEvent.eventTypeHebrew = 'חתונה';
       }
       
       eventsData.events.push(newEvent);
