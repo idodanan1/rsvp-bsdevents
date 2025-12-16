@@ -2011,7 +2011,8 @@ export const useEventStore = create<EventStore>()(
               ? {
                   ...state.currentEvent,
                   guests: updatedGuests,
-                  tables: updatedTables
+                  tables: updatedTables,
+                  updatedAt: new Date() // CRITICAL: Update timestamp to trigger React re-render
                 }
               : state.currentEvent;
             

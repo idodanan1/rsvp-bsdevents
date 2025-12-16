@@ -67,7 +67,8 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Include responseDate timestamp to catch all updates
   const eventsHash = useEventStore(state => {
     // Create a hash from events that changes when any event or guest changes
-    return state.events.map(e => {
+    // CRITICAL: Also include currentEvent to catch immediate updates
+    const eventsHash = state.events.map(e => {
       const guestsHash = e.guests?.map(g => {
         try {
           let responseDateValue = '';
@@ -84,6 +85,26 @@ const EventManagement: React.FC = () => {
       const eventUpdatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
       return `${e.id}:${eventUpdatedAt}:${guestsHash}`;
     }).join('||');
+    
+    // CRITICAL: Also include currentEvent hash to catch immediate updates
+    const currentEventHash = state.currentEvent ? (() => {
+      const guestsHash = state.currentEvent.guests?.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
+        }
+      }).join('|') || '';
+      const eventUpdatedAt = state.currentEvent.updatedAt ? (state.currentEvent.updatedAt instanceof Date ? state.currentEvent.updatedAt.getTime() : new Date(state.currentEvent.updatedAt).getTime()) : 0;
+      return `${state.currentEvent.id}:${eventUpdatedAt}:${guestsHash}`;
+    })() : '';
+    
+    return `${eventsHash}|||${currentEventHash}`;
   });
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
@@ -763,10 +784,18 @@ const EventManagement: React.FC = () => {
         // Fallback: update from events array via useEffect
         console.log('⚠️ handleUpdateGuestStatus - currentEvent not found, will update via useEffect');
       }
+      
+      // CRITICAL: Trigger a refresh from API after a short delay to ensure table updates
+      // This ensures the table reflects the latest data from the server
+      setTimeout(() => {
+        fetchEvents(false, true).catch(error => {
+          console.warn('⚠️ Failed to refresh events after guest status update:', error);
+        });
+      }, 500);
     } catch (error) {
       console.error('Error updating guest:', error);
     }
-  }, [updateGuest, setCurrentEvent]);
+  }, [updateGuest, setCurrentEvent, fetchEvents]);
 
   const handleUpdateAttendance = useCallback(async (guestId: string, attendance: string) => {
     const event = useEventStore.getState().currentEvent;
@@ -807,11 +836,19 @@ const EventManagement: React.FC = () => {
         console.log('⚠️ handleUpdateAttendance - currentEvent not found, will update via useEffect');
       }
       
+      // CRITICAL: Trigger a refresh from API after a short delay to ensure table updates
+      // This ensures the table reflects the latest data from the server
+      setTimeout(() => {
+        fetchEvents(false, true).catch(error => {
+          console.warn('⚠️ Failed to refresh events after attendance update:', error);
+        });
+      }, 500);
+      
       console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {
       console.error('❌ Error updating attendance:', error);
     }
-  }, [updateGuest, setCurrentEvent]);
+  }, [updateGuest, setCurrentEvent, fetchEvents]);
 
   const handleUpdateGuestField = useCallback(async (guestId: string, updates: any) => {
     const event = useEventStore.getState().currentEvent;
