@@ -9,14 +9,15 @@ import { cacheService, CACHE_KEYS } from '../services/cacheService';
 const mockEvents: Event[] = [];
 
 // Helper function to sync event to API for real-time cross-device sync
-// CRITICAL: Send only event details (no guests) to prevent 413 errors
+// CRITICAL: Send FULL event WITH guests to ensure all data is synced
+// This is necessary for the client dashboard to display all guests
 const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
-    // Create minimal payload with only event details (no guests)
-    // Guests will be synced separately via updateGuest/addGuest endpoints
-    const eventDetailsOnly = {
+    // CRITICAL: Send FULL event WITH guests to ensure all data is synced
+    // This is necessary for the client dashboard to display all guests
+    const fullEventPayload = {
       id: event.id,
       userId: event.userId,
       coupleName: event.coupleName,
@@ -30,35 +31,49 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
       eventType: event.eventType,
       eventTypeHebrew: event.eventTypeHebrew,
       invitationImageUrl: event.invitationImageUrl,
+      guests: event.guests || [], // CRITICAL: Include guests!
       createdAt: event.createdAt,
       updatedAt: event.updatedAt
-      // Intentionally exclude guests to prevent 413 errors
     };
+    
+    const payloadSize = JSON.stringify(fullEventPayload).length;
+    console.log(`📤 Syncing FULL event to API:`, {
+      eventId: event.id,
+      guestsCount: event.guests?.length || 0,
+      payloadSize: `${(payloadSize / 1024).toFixed(2)} KB`
+    });
     
     const response = await fetch(`${BACKEND_URL}/api/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(eventDetailsOnly)
+      body: JSON.stringify(fullEventPayload)
     });
     
     if (response.ok) {
-      console.log('✅ Event synced to API successfully:', { eventId: event.id });
+      console.log('✅ FULL event synced to API successfully:', { 
+        eventId: event.id,
+        guestsCount: event.guests?.length || 0
+      });
     } else {
       const errorText = await response.text();
       console.warn('⚠️ API sync failed:', response.status, errorText);
       
-      // If 413 error, try with even more minimal payload
+      // If 413 error, try with event details only (fallback)
       if (response.status === 413 && retries > 0) {
-        console.log(`🔄 413 error - trying minimal payload (${retries} retries left)...`);
-        const minimalPayload = {
+        console.log(`🔄 413 error - trying event details only (${retries} retries left)...`);
+        const eventDetailsOnly = {
           id: event.id,
           userId: event.userId,
           coupleName: event.coupleName,
+          groomName: event.groomName,
+          brideName: event.brideName,
           eventDate: event.eventDate,
           eventTime: event.eventTime,
-          venue: event.venue
+          venue: event.venue,
+          invitationImageUrl: event.invitationImageUrl,
+          updatedAt: event.updatedAt
         };
         
         const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
@@ -66,11 +81,11 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(minimalPayload)
+          body: JSON.stringify(eventDetailsOnly)
         });
         
         if (retryResponse.ok) {
-          console.log('✅ Event synced with minimal payload');
+          console.log('✅ Event synced with details only (guests not synced due to size limit)');
           return;
         }
       }
