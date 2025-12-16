@@ -4733,7 +4733,7 @@ app.get('/api/events/:eventId', async (req, res) => {
       details: error.message 
     });
   }
-}););
+});
 
 // Handle OPTIONS preflight for /api/events/:eventId
 app.options('/api/events/:eventId', (req, res) => {
