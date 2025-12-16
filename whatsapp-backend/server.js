@@ -1861,7 +1861,7 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     
     // CRITICAL: Frontend expects separate updates for status and guestCount
     // Send guestCount update WITHOUT status so frontend can process it correctly
-    const guestCountUpdate: any = {
+    const guestCountUpdate = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
@@ -2932,7 +2932,7 @@ app.post('/api/guests/add-pending-update', (req, res) => {
   const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
   const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
 
-  const updateData: any = {
+  const updateData = {
     phoneNumber: formattedPhone,
     originalPhoneNumber: originalPhone,
     guestId: guestId,
