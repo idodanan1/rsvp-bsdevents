@@ -611,7 +611,9 @@ const upload = multer({
 });
 
 // Middleware
-app.use(express.json()); // Parse JSON bodies
+// CRITICAL: Increase body parser limit to handle large events with many guests (417 guests = ~113KB)
+// Default limit is 100KB, we need at least 200KB for large events
+app.use(express.json({ limit: '10mb' })); // Parse JSON bodies with 10MB limit
 
 // Stripe webhook handler (must be before express.json() to get raw body)
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -681,8 +683,9 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
   }
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// CRITICAL: Increase body parser limit to handle large events with many guests
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(uploadsDir));
@@ -5287,10 +5290,11 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
   
   try {
     const { eventId } = req.params;
-    const { guests } = req.body;
+    const { guests, append } = req.body;
     
     console.log(`📥 POST /api/events/${eventId}/guests - Request received`);
     console.log(`📥 Incoming guests count: ${guests?.length || 0}`);
+    console.log(`📥 Append mode: ${append ? 'true (merge with existing)' : 'false (replace)'}`);
     
     if (!eventId) {
       return res.status(400).json({ error: 'Event ID is required' });
@@ -5318,8 +5322,34 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
     
+    const existingEvent = fileData.events[eventIndex];
+    let finalGuests;
+    
+    if (append && existingEvent.guests && Array.isArray(existingEvent.guests)) {
+      // Merge guests: update existing by ID, add new ones
+      const mergedGuests = [...existingEvent.guests];
+      
+      for (const incomingGuest of guests) {
+        const existingIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
+        if (existingIndex >= 0) {
+          // Update existing guest
+          mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
+        } else {
+          // Add new guest
+          mergedGuests.push(incomingGuest);
+        }
+      }
+      
+      finalGuests = mergedGuests;
+      console.log(`📥 Merged ${guests.length} incoming guests with ${existingEvent.guests.length} existing = ${finalGuests.length} total`);
+    } else {
+      // Replace guests array
+      finalGuests = guests;
+      console.log(`📥 Replacing guests array with ${guests.length} guests`);
+    }
+    
     // Update guests array
-    fileData.events[eventIndex].guests = guests;
+    fileData.events[eventIndex].guests = finalGuests;
     fileData.events[eventIndex].updatedAt = new Date().toISOString();
     
     // Save to file
@@ -5329,12 +5359,12 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
     eventsData.events = fileData.events;
     eventsData.deletedEvents = fileData.deletedEvents || [];
     
-    console.log(`✅ Updated event ${eventId} with ${guests.length} guests`);
+    console.log(`✅ Updated event ${eventId} with ${finalGuests.length} guests`);
     
     res.json({
       success: true,
-      message: `Updated event with ${guests.length} guests`,
-      guestsCount: guests.length
+      message: `Updated event with ${finalGuests.length} guests`,
+      guestsCount: finalGuests.length
     });
   } catch (error) {
     console.error('❌ Error updating guests:', error);

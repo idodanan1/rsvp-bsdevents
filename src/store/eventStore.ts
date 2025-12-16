@@ -12,12 +12,14 @@ const mockEvents: Event[] = [];
 // CRITICAL: Send FULL event WITH guests to ensure all data is synced
 // This is necessary for the client dashboard to display all guests
 // Helper function to sync guests directly using the dedicated endpoint (fallback)
+// If payload is too large, splits into chunks
 const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boolean> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
     console.log(`📤 Syncing ${guests.length} guests directly to API for event ${eventId}...`);
     
+    // Try sending all guests at once first
     const response = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
       method: 'POST',
       headers: {
@@ -29,6 +31,46 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
     if (response.ok) {
       console.log(`✅ Successfully synced ${guests.length} guests directly to API`);
       return true;
+    } else if (response.status === 413) {
+      // Payload too large - split into chunks of 100 guests each
+      console.log(`⚠️ Payload too large (413), splitting into chunks...`);
+      const CHUNK_SIZE = 100;
+      let allSynced = true;
+      
+      for (let i = 0; i < guests.length; i += CHUNK_SIZE) {
+        const chunk = guests.slice(i, i + CHUNK_SIZE);
+        console.log(`📤 Syncing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(guests.length / CHUNK_SIZE)} (${chunk.length} guests)...`);
+        
+        // For chunks, we need to merge with existing guests on server
+        // So we'll use a PATCH endpoint or append to existing
+        const chunkResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ guests: chunk, append: i > 0 }) // append=true for chunks after first
+        });
+        
+        if (!chunkResponse.ok) {
+          console.warn(`⚠️ Failed to sync chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, chunkResponse.status);
+          allSynced = false;
+        } else {
+          console.log(`✅ Synced chunk ${Math.floor(i / CHUNK_SIZE) + 1} successfully`);
+        }
+        
+        // Small delay between chunks to avoid overwhelming server
+        if (i + CHUNK_SIZE < guests.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      if (allSynced) {
+        console.log(`✅ Successfully synced all ${guests.length} guests in chunks`);
+        return true;
+      } else {
+        console.warn(`⚠️ Some chunks failed to sync`);
+        return false;
+      }
     } else {
       const errorText = await response.text();
       console.warn(`⚠️ Failed to sync guests directly:`, response.status, errorText);
