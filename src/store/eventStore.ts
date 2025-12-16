@@ -94,6 +94,8 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
       coupleName: event.coupleName,
       groomName: event.groomName,
       brideName: event.brideName,
+      groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+      brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
       eventDate: event.eventDate,
       eventTime: event.eventTime,
       venue: event.venue,
@@ -150,6 +152,8 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
           coupleName: event.coupleName,
           groomName: event.groomName,
           brideName: event.brideName,
+          groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+          brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
           eventDate: event.eventDate,
           eventTime: event.eventTime,
           venue: event.venue,
@@ -377,6 +381,8 @@ export const useEventStore = create<EventStore>()(
                           coupleName: event.coupleName,
                           groomName: event.groomName,
                           brideName: event.brideName,
+                          groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+                          brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
                           eventDate: event.eventDate,
                           eventTime: event.eventTime,
                           venue: event.venue,
@@ -420,6 +426,8 @@ export const useEventStore = create<EventStore>()(
                               id: event.id,
                               userId: event.userId,
                               coupleName: event.coupleName,
+                              groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+                              brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
                               eventDate: event.eventDate,
                               eventTime: event.eventTime,
                               venue: event.venue
