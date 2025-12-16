@@ -527,10 +527,31 @@ function loadEvents() {
 // Save events to file
 function saveEvents() {
   try {
+    // CRITICAL: Log what we're saving for debugging
+    const totalGuests = eventsData.events.reduce((sum, e) => sum + (e.guests?.length || 0), 0);
+    console.log(`💾 Saving ${eventsData.events.length} events to file (total ${totalGuests} guests)`);
+    
+    // Log guest counts per event
+    eventsData.events.forEach(e => {
+      const guestCount = e.guests?.length || 0;
+      if (guestCount > 0) {
+        console.log(`💾 Event ${e.id}: ${guestCount} guests`);
+      }
+    });
+    
     fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
     console.log(`💾 Saved ${eventsData.events.length} events to file`);
+    
+    // CRITICAL: Verify what was saved
+    if (fs.existsSync(eventsFilePath)) {
+      const savedContent = fs.readFileSync(eventsFilePath, 'utf8');
+      const savedData = JSON.parse(savedContent);
+      const savedTotalGuests = savedData.events?.reduce((sum, e) => sum + (e.guests?.length || 0), 0) || 0;
+      console.log(`💾 Verified: Saved file contains ${savedData.events?.length || 0} events with ${savedTotalGuests} total guests`);
+    }
   } catch (error) {
     console.error('❌ Error saving events file:', error);
+    console.error('❌ Error stack:', error.stack);
   }
 }
 
