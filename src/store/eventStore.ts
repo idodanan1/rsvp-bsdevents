@@ -4600,75 +4600,18 @@ export const useEventStore = create<EventStore>()(
           let failedCount = 0;
 
           // Sync each event individually
-          // CRITICAL: Send only event details (no guests) to prevent 413 errors
+          // CRITICAL: Use syncEventToAPI to send FULL event WITH guests
+          // This ensures all guests are synced to the backend
           for (const event of userEvents) {
             try {
-              // Create minimal payload with only event details (no guests)
-              const eventDetailsOnly = {
-                id: event.id,
-                userId: event.userId,
-                coupleName: event.coupleName,
-                groomName: event.groomName,
-                brideName: event.brideName,
-                eventDate: event.eventDate,
-                eventTime: event.eventTime,
-                venue: event.venue,
-                couplePhone: event.couplePhone,
-                coupleEmail: event.coupleEmail,
-                eventType: event.eventType,
-                eventTypeHebrew: event.eventTypeHebrew,
-                invitationImageUrl: event.invitationImageUrl,
-                createdAt: event.createdAt,
-                updatedAt: event.updatedAt
-                // Intentionally exclude guests to prevent 413 errors
-              };
-              
-              const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(eventDetailsOnly)
-              });
-              
-              if (syncResponse.ok) {
-                syncedCount++;
-                console.log(`✅ Synced event "${event.coupleName}" (${event.id}) to API`);
-              } else {
-                failedCount++;
-                const errorText = await syncResponse.text();
-                console.error(`❌ Failed to sync event "${event.coupleName}":`, errorText);
-                
-                // If 413 error, try with minimal payload
-                if (syncResponse.status === 413) {
-                  console.log(`🔄 413 error - trying minimal payload for event "${event.coupleName}"...`);
-                  const minimalPayload = {
-                    id: event.id,
-                    userId: event.userId,
-                    coupleName: event.coupleName,
-                    eventDate: event.eventDate,
-                    eventTime: event.eventTime,
-                    venue: event.venue
-                  };
-                  
-                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(minimalPayload)
-                  });
-                  
-                  if (retryResponse.ok) {
-                    console.log(`✅ Synced event "${event.coupleName}" with minimal payload`);
-                    syncedCount++;
-                    failedCount--; // Adjust counts
-                  }
-                }
-              }
-            } catch (error) {
+              // Use syncEventToAPI which sends the full event with all guests
+              await syncEventToAPI(event);
+              syncedCount++;
+              console.log(`✅ Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
+            } catch (error: any) {
               failedCount++;
-              console.error(`❌ Error syncing event "${event.coupleName}":`, error);
+              console.error(`❌ Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
+              // syncEventToAPI already handles 413 errors internally, so we just log the failure
             }
           }
 
