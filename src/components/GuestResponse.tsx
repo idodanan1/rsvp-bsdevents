@@ -529,6 +529,9 @@ const GuestResponse = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // CRITICAL: Store the response status that was submitted, to ensure correct message display
+  const [submittedResponse, setSubmittedResponse] = useState<'attending' | 'maybe' | 'not_attending' | null>(null);
+  const [submittedGuestCount, setSubmittedGuestCount] = useState<number>(1);
   
   // State to store event found directly from localStorage (for public access)
   const [directEvent, setDirectEvent] = React.useState<any>(null);
@@ -854,6 +857,10 @@ const GuestResponse = () => {
       // Reset confirm button state
       setShowConfirmButton(false);
       
+      // CRITICAL: Store the response status BEFORE showing success message
+      setSubmittedResponse(formData.response);
+      setSubmittedGuestCount(formData.guestCount);
+      
       // Refresh events in background (non-blocking)
       fetchEvents().catch(() => {}); // Don't wait for it
       
@@ -1028,20 +1035,33 @@ const GuestResponse = () => {
           </h2>
           <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 mb-6">
             <p className="text-green-800 font-bold text-lg mb-3">
-              {formData.response === 'attending' 
-                ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!` 
-                : formData.response === 'maybe'
-                ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} מתלבטים - נשמח לעדכון!`
-                : 'אנו מצטערים שלא תוכלו להגיע'
-              }
+              {(() => {
+                const response = submittedResponse || formData.response;
+                const guestCount = submittedGuestCount || formData.guestCount;
+                if (response === 'attending') {
+                  return `אתם ${guestCount} ${guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!`;
+                } else if (response === 'maybe') {
+                  return `אתם ${guestCount} ${guestCount === 1 ? 'אורח' : 'אורחים'} מתלבטים - נשמח לעדכון!`;
+                } else {
+                  return 'אנו מצטערים שלא תוכלו להגיע';
+                }
+              })()}
             </p>
-            {(formData.response === 'maybe' || formData.response === 'not_attending') && (
-              <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
-                נשמח לעדכון אם יש שינוי בתכניות
-              </p>
-            )}
+            {(() => {
+              const response = submittedResponse || formData.response;
+              return (response === 'maybe' || response === 'not_attending') && (
+                <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
+                  נשמח לעדכון אם יש שינוי בתכניות
+                </p>
+              );
+            })()}
             <p className="text-green-700 text-xs mt-2">
-              סטטוס: {formData.response === 'attending' ? 'מגיע' : formData.response === 'maybe' ? 'מתלבט' : 'לא מגיע'} | מספר אורחים: {formData.guestCount}
+              {(() => {
+                const response = submittedResponse || formData.response;
+                const guestCount = submittedGuestCount || formData.guestCount;
+                const statusText = response === 'attending' ? 'מגיע' : response === 'maybe' ? 'מתלבט' : 'לא מגיע';
+                return `סטטוס: ${statusText} | מספר אורחים: ${guestCount}`;
+              })()}
             </p>
             {formData.notes && (
               <p className="text-green-700 text-sm mt-2">
@@ -1052,6 +1072,8 @@ const GuestResponse = () => {
           <button
             onClick={() => {
               setSubmitStatus('idle');
+              setSubmittedResponse(null);
+              setSubmittedGuestCount(1);
               setShowStatusButtons(true);
               setShowGuestCount(false);
               setShowConfirmButton(false);
@@ -1231,7 +1253,9 @@ const GuestResponse = () => {
                       }
                       
                       if (guestToUpdate) {
-                        // CRITICAL: Update formData.response BEFORE showing success message
+                        // CRITICAL: Store the response status BEFORE showing success message
+                        setSubmittedResponse('maybe');
+                        setSubmittedGuestCount(1);
                         setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
                         
                         const updatedGuest = {
@@ -1283,7 +1307,9 @@ const GuestResponse = () => {
                       }
                       
                       if (guestToUpdate) {
-                        // CRITICAL: Update formData.response BEFORE showing success message
+                        // CRITICAL: Store the response status BEFORE showing success message
+                        setSubmittedResponse('not_attending');
+                        setSubmittedGuestCount(1);
                         setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
                         
                         const updatedGuest = {
@@ -1373,6 +1399,10 @@ const GuestResponse = () => {
                         }
                         
                         if (guestToUpdate) {
+                          // CRITICAL: Store the response status BEFORE showing success message
+                          setSubmittedResponse('maybe');
+                          setSubmittedGuestCount(1);
+                          
                           const updatedGuest = {
                             ...guestToUpdate,
                             guestCount: 1,
@@ -1423,6 +1453,10 @@ const GuestResponse = () => {
                         }
                         
                         if (guestToUpdate) {
+                          // CRITICAL: Store the response status BEFORE showing success message
+                          setSubmittedResponse('not_attending');
+                          setSubmittedGuestCount(1);
+                          
                           const updatedGuest = {
                             ...guestToUpdate,
                             guestCount: 1,
