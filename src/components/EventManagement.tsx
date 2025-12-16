@@ -697,109 +697,8 @@ const EventManagement: React.FC = () => {
     }
   }, [id, events, setCurrentEvent]);
 
-  // Early return after ALL hooks (no hooks after this point!)
-  if (!currentEvent) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  const stats = calculateEventStats(currentEvent);
-  
-  // CRITICAL: Calculate filteredGuests directly without useMemo to avoid React #310 errors
-  // Calculate on every render - guestsToDisplay is already memoized, so this is efficient
-  // This avoids circular dependencies that cause React #310 errors
-  const filteredGuests = (() => {
-    const guests = guestsToDisplay || [];
-    console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
-    
-    const filtered = guests.filter(guest => {
-    const matchesSearch = 
-      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      guest.phoneNumber.includes(searchTerm);
-    
-    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
-    
-    // Filter by message status
-    let matchesMessageFilter = true;
-    const currentMessageStatus = guest.messageStatus || 'not_sent'; // Treat undefined as 'not_sent'
-    
-    if (messageFilterStatus === 'sent_not_delivered') {
-      // Show only guests who were sent a message but didn't receive it
-      // This includes 'sent' and 'sms_sent' but excludes 'delivered'
-      matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
-    } else if (messageFilterStatus !== 'all') {
-      if (messageFilterStatus === 'not_sent') {
-        // Include both 'not_sent' and undefined (which we treat as 'not_sent')
-        matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
-      } else {
-        matchesMessageFilter = currentMessageStatus === messageFilterStatus;
-      }
-    }
-    
-    return matchesSearch && matchesFilter && matchesMessageFilter;
-  });
-    
-    console.log('📊 Filtered guests result:', filtered.length, 'guests');
-    if (filtered.length > 0) {
-      console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
-    }
-    
-    return filtered;
-  })();
-
-  // Filter guests for modal search
-  const modalFilteredGuests = (currentEvent?.guests || []).filter(guest => 
-      guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
-      (guest.lastName && guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase())) ||
-    guest.phoneNumber.includes(modalSearchTerm)
-  );
-  
-
-  const handleAddGuest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('🔍 handleAddGuest called with:', newGuest);
-    console.log('🔍 currentEvent.id:', currentEvent?.id);
-    
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    if (!newGuest.firstName || !newGuest.phoneNumber) {
-      console.log('❌ Missing required fields');
-      return;
-    }
-
-    try {
-      console.log('📤 Calling addGuest...');
-      await addGuest(currentEvent.id, {
-        ...newGuest,
-        firstName: cleanName(newGuest.firstName),
-        lastName: cleanName(newGuest.lastName || ''), // שם משפחה לא נדרש יותר
-        rsvpStatus: 'pending',
-        channel: 'whatsapp', // ברירת מחדל - WhatsApp
-        actualAttendance: 'not_marked'
-      });
-      
-      console.log('✅ addGuest completed successfully');
-      
-      setNewGuest({
-        firstName: '',
-        lastName: '',
-        phoneNumber: '',
-        guestCount: 1,
-        notes: ''
-      });
-      setShowAddGuest(false);
-    } catch (error) {
-      console.error('❌ Error adding guest:', error);
-    }
-  };
-
+  // CRITICAL: All useCallback hooks MUST be before early return
+  // React hooks must be called before any conditional returns
   const handleEditGuest = useCallback((guest: any) => {
     setEditingGuest(guest);
     setNewGuest({
@@ -810,62 +709,6 @@ const EventManagement: React.FC = () => {
       notes: guest.notes || ''
     });
   }, []);
-
-  const handleUpdateGuest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    if (!editingGuest || !newGuest.firstName || !newGuest.phoneNumber) {
-      return;
-    }
-
-    try {
-      console.log('🎯 handleUpdateGuest called:', { 
-        guestId: editingGuest.id, 
-        updates: {
-          firstName: newGuest.firstName,
-          lastName: newGuest.lastName,
-          phoneNumber: newGuest.phoneNumber,
-          guestCount: newGuest.guestCount,
-          notes: newGuest.notes
-        },
-        eventId: currentEvent.id 
-      });
-      
-      // Update in store first - clean names before updating
-      await updateGuest(currentEvent.id, editingGuest.id, {
-        firstName: cleanName(newGuest.firstName),
-        lastName: cleanName(newGuest.lastName),
-        phoneNumber: newGuest.phoneNumber,
-        guestCount: newGuest.guestCount,
-        notes: newGuest.notes
-      });
-      
-      // CRITICAL: Get updated currentEvent from store immediately after update
-      // This ensures the UI updates instantly with the latest data from store
-      const storeState = useEventStore.getState();
-      const updatedEvent = storeState.currentEvent;
-      if (updatedEvent && updatedEvent.id === currentEvent.id) {
-        setCurrentEvent(updatedEvent);
-        console.log('✅ handleUpdateGuest - currentEvent updated immediately from store (name/phone/notes)');
-      }
-      
-      setEditingGuest(null);
-      setNewGuest({
-        firstName: '',
-        lastName: '',
-        phoneNumber: '',
-        guestCount: 1,
-        notes: ''
-      });
-    } catch (error) {
-      console.error('Error updating guest:', error);
-    }
-  };
 
   const handleUpdateGuestStatus = useCallback(async (guestId: string, status: string) => {
     const event = useEventStore.getState().currentEvent;
@@ -1015,6 +858,228 @@ const EventManagement: React.FC = () => {
       console.error('Error updating guest:', error);
     }
   }, [updateGuest, setCurrentEvent, moveGuestToTable, removeGuestFromTable]);
+
+  const handleDeleteGuest = useCallback(async (guestId: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
+      try {
+        await deleteGuest(event.id, guestId);
+      } catch (error) {
+        console.error('Error deleting guest:', error);
+        alert('אירעה שגיאה במחיקת המוזמן');
+      }
+    }
+  }, [deleteGuest]);
+
+  const handleSelectGuest = useCallback((guestId: string) => {
+    setSelectedGuests(prev => 
+      prev.includes(guestId) 
+        ? prev.filter(id => id !== guestId)
+        : [...prev, guestId]
+    );
+  }, []);
+
+  const handleSelectAllGuests = useCallback(() => {
+    // Calculate filteredGuests inside the callback to avoid dependency issues
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.guests) return;
+    
+    const guests = event.guests || [];
+    const filtered = guests.filter(guest => {
+      const matchesSearch = 
+        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        guest.phoneNumber.includes(searchTerm);
+      
+      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+      
+      let matchesMessageFilter = true;
+      const currentMessageStatus = guest.messageStatus || 'not_sent';
+      
+      if (messageFilterStatus === 'sent_not_delivered') {
+        matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+      } else if (messageFilterStatus !== 'all') {
+        if (messageFilterStatus === 'not_sent') {
+          matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
+        } else {
+          matchesMessageFilter = currentMessageStatus === messageFilterStatus;
+        }
+      }
+      
+      return matchesSearch && matchesFilter && matchesMessageFilter;
+    });
+    
+    const allGuestIds = filtered.map(guest => guest.id);
+    setSelectedGuests(allGuestIds);
+  }, [searchTerm, filterStatus, messageFilterStatus]);
+
+  const handleDeselectAllGuests = useCallback(() => {
+    setSelectedGuests([]);
+  }, []);
+
+  // Early return after ALL hooks (no hooks after this point!)
+  if (!currentEvent) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12  border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  const stats = calculateEventStats(currentEvent);
+  
+  // CRITICAL: Calculate filteredGuests directly without useMemo to avoid React #310 errors
+  // Calculate on every render - guestsToDisplay is already memoized, so this is efficient
+  // This avoids circular dependencies that cause React #310 errors
+  const filteredGuests = (() => {
+    const guests = guestsToDisplay || [];
+    console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
+    
+    const filtered = guests.filter(guest => {
+    const matchesSearch = 
+      guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      guest.phoneNumber.includes(searchTerm);
+    
+    const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+    
+    // Filter by message status
+    let matchesMessageFilter = true;
+    const currentMessageStatus = guest.messageStatus || 'not_sent'; // Treat undefined as 'not_sent'
+    
+    if (messageFilterStatus === 'sent_not_delivered') {
+      // Show only guests who were sent a message but didn't receive it
+      // This includes 'sent' and 'sms_sent' but excludes 'delivered'
+      matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+    } else if (messageFilterStatus !== 'all') {
+      if (messageFilterStatus === 'not_sent') {
+        // Include both 'not_sent' and undefined (which we treat as 'not_sent')
+        matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
+      } else {
+        matchesMessageFilter = currentMessageStatus === messageFilterStatus;
+      }
+    }
+    
+    return matchesSearch && matchesFilter && matchesMessageFilter;
+  });
+    
+    console.log('📊 Filtered guests result:', filtered.length, 'guests');
+    if (filtered.length > 0) {
+      console.log('📊 Filtered guest statuses:', filtered.map(g => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
+    }
+    
+    return filtered;
+  })();
+
+  // Filter guests for modal search
+  const modalFilteredGuests = (currentEvent?.guests || []).filter(guest => 
+      guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+      (guest.lastName && guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase())) ||
+    guest.phoneNumber.includes(modalSearchTerm)
+  );
+  
+
+  const handleAddGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('🔍 handleAddGuest called with:', newGuest);
+    console.log('🔍 currentEvent.id:', currentEvent?.id);
+    
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    if (!newGuest.firstName || !newGuest.phoneNumber) {
+      console.log('❌ Missing required fields');
+      return;
+    }
+
+    try {
+      console.log('📤 Calling addGuest...');
+      await addGuest(currentEvent.id, {
+        ...newGuest,
+        firstName: cleanName(newGuest.firstName),
+        lastName: cleanName(newGuest.lastName || ''), // שם משפחה לא נדרש יותר
+        rsvpStatus: 'pending',
+        channel: 'whatsapp', // ברירת מחדל - WhatsApp
+        actualAttendance: 'not_marked'
+      });
+      
+      console.log('✅ addGuest completed successfully');
+      
+      setNewGuest({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        guestCount: 1,
+        notes: ''
+      });
+      setShowAddGuest(false);
+    } catch (error) {
+      console.error('❌ Error adding guest:', error);
+    }
+  };
+
+  const handleUpdateGuest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!currentEvent || !currentEvent.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    if (!editingGuest || !newGuest.firstName || !newGuest.phoneNumber) {
+      return;
+    }
+
+    try {
+      console.log('🎯 handleUpdateGuest called:', { 
+        guestId: editingGuest.id, 
+        updates: {
+          firstName: newGuest.firstName,
+          lastName: newGuest.lastName,
+          phoneNumber: newGuest.phoneNumber,
+          guestCount: newGuest.guestCount,
+          notes: newGuest.notes
+        },
+        eventId: currentEvent.id 
+      });
+      
+      // Update in store first - clean names before updating
+      await updateGuest(currentEvent.id, editingGuest.id, {
+        firstName: cleanName(newGuest.firstName),
+        lastName: cleanName(newGuest.lastName),
+        phoneNumber: newGuest.phoneNumber,
+        guestCount: newGuest.guestCount,
+        notes: newGuest.notes
+      });
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      const storeState = useEventStore.getState();
+      const updatedEvent = storeState.currentEvent;
+      if (updatedEvent && updatedEvent.id === currentEvent.id) {
+        setCurrentEvent(updatedEvent);
+        console.log('✅ handleUpdateGuest - currentEvent updated immediately from store (name/phone/notes)');
+      }
+      
+      setEditingGuest(null);
+      setNewGuest({
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        guestCount: 1,
+        notes: ''
+      });
+    } catch (error) {
+      console.error('Error updating guest:', error);
+    }
+  };
 
   const getMessageStatusColor = (status: string) => {
     switch (status) {
@@ -1410,23 +1475,6 @@ const EventManagement: React.FC = () => {
       }
     }
   };
-
-  const handleDeleteGuest = useCallback(async (guestId: string) => {
-    const event = useEventStore.getState().currentEvent;
-    if (!event || !event.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
-      try {
-        await deleteGuest(event.id, guestId);
-      } catch (error) {
-        console.error('Error deleting guest:', error);
-        alert('אירעה שגיאה במחיקת המוזמן');
-      }
-    }
-  }, [deleteGuest]);
 
   const handleDeleteSelectedGuests = async () => {
     if (!currentEvent || !currentEvent.id) {
@@ -2101,24 +2149,6 @@ const EventManagement: React.FC = () => {
       notes: ''
     });
   };
-
-  // Send message functions
-  const handleSelectGuest = useCallback((guestId: string) => {
-    setSelectedGuests(prev => 
-      prev.includes(guestId) 
-        ? prev.filter(id => id !== guestId)
-        : [...prev, guestId]
-    );
-  }, []);
-
-  const handleSelectAllGuests = useCallback(() => {
-    const allGuestIds = filteredGuests.map(guest => guest.id);
-    setSelectedGuests(allGuestIds);
-  }, [filteredGuests]);
-
-  const handleDeselectAllGuests = useCallback(() => {
-    setSelectedGuests([]);
-  }, []);
 
   const handleSendMessage = async () => {
     if (selectedGuests.length === 0) {
