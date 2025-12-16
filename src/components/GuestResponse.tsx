@@ -1209,21 +1209,6 @@ const GuestResponse = () => {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-8">
-        {/* Main RSVP Section */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2" style={{ fontFamily: 'serif' }}>
-            {coupleName}
-          </h1>
-          <p className="text-3xl font-light text-gray-600 mb-4 italic">
-            {eventDateShort}
-          </p>
-          {currentEvent.venue && (
-            <p className="text-lg text-gray-700 mb-6">
-              "{currentEvent.venue}"
-            </p>
-          )}
-        </div>
-
         {/* RSVP Buttons */}
         {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
           <div className="text-center mb-8">
@@ -1685,31 +1670,36 @@ const GuestResponse = () => {
             </div>
           </div>
 
-          {/* Event Timings */}
-          {currentEvent.eventTime && (
-            <div className="grid grid-cols-2 gap-4 mb-6 pb-6 border-b border-gray-200">
-              <div className="text-center">
-                <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
-                <div className="text-lg text-gray-600">20:30</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
-                <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Parents Names */}
-          {(currentEvent.groomParentsName || currentEvent.brideParentsName) && (
-            <div className="grid grid-cols-2 gap-4 text-sm mb-6">
-              <div className="text-center">
-                <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
-                <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
-              </div>
-              <div className="text-center">
-                <div className="font-semibold text-gray-700 mb-1">הורי הכלה</div>
-                <div className="text-gray-600">{currentEvent.brideParentsName || '-'}</div>
-              </div>
+          {/* Event Timings and Parents Names */}
+          {(currentEvent.eventTime || currentEvent.groomParentsName || currentEvent.brideParentsName) && (
+            <div className="mb-6 pb-6 border-b border-gray-200">
+              {/* Event Timings */}
+              {currentEvent.eventTime && (
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
+                    <div className="text-lg text-gray-600">20:30</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
+                    <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Parents Names */}
+              {(currentEvent.groomParentsName || currentEvent.brideParentsName) && (
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
+                    <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-700 mb-1">הורי הכלה</div>
+                    <div className="text-gray-600">{currentEvent.brideParentsName || '-'}</div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
