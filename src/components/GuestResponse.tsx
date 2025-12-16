@@ -1643,9 +1643,9 @@ const GuestResponse = () => {
         </div>
 
         {/* Event Details and Actions */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-4">
           {/* Navigation and Calendar Actions */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-3">
             <a
               href={generateNavigationLink()}
               target="_blank"
@@ -1671,10 +1671,10 @@ const GuestResponse = () => {
           </div>
 
           {/* Event Timings and Parents Names */}
-          <div className="mb-6 pb-6 border-b border-gray-200">
+          <div className="mb-3 pb-3 border-b border-gray-200">
             {/* Event Timings */}
             {currentEvent.eventTime && (
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-2">
                 <div className="text-center">
                   <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
                   <div className="text-lg text-gray-600">20:30</div>
@@ -1687,7 +1687,7 @@ const GuestResponse = () => {
             )}
             
             {/* Parents Names - Always show, even if empty */}
-            <div className="grid grid-cols-2 gap-4 text-sm mt-4">
+            <div className="grid grid-cols-2 gap-4 text-sm mt-2">
               <div className="text-center">
                 <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
                 <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
