@@ -2391,11 +2391,49 @@ const EventManagement: React.FC = () => {
         console.log('✅ Using template "aa" for first message (no campaign template found)');
       }
       
+      // CRITICAL: Create templateParams BEFORE calling sendBulkMessages
+      // This ensures template parameters are available for template "aa"
+      const templateParamsForAA = (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
+        const params = {
+          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                       'event_date', 'event_time', 'venue', 'couple_name'],
+          guest_name: guest.firstName,
+          event_type: event.eventTypeHebrew || 'חתונה',
+          groom_name: groomName || '', // Use the variable we defined above, ensure not undefined
+          bride_name: brideName || '', // Use the variable we defined above, ensure not undefined
+          event_date: formatDate(event.eventDate) || '',
+          event_time: event.eventTime || '',
+          venue: event.venue || '',
+          couple_name: coupleName || 'הזוג', // Use the variable we defined above, ensure not undefined
+          guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+          language: 'he'
+        };
+        
+        // DEBUG: Log template parameters
+        console.log('🔍 DEBUG Template Parameters for "aa":', {
+          groom_name: params.groom_name,
+          bride_name: params.bride_name,
+          couple_name: params.couple_name,
+          event_date: params.event_date,
+          event_time: params.event_time,
+          venue: params.venue,
+          eventTypeHebrew: event.eventTypeHebrew,
+          eventGroomName: event.groomName,
+          eventBrideName: event.brideName,
+          eventVenue: event.venue,
+          allParams: params
+        });
+        
+        return params as any;
+      })() : undefined;
+      
       const result = await messageService.sendBulkMessages({
         message,
         imageUrl: finalImageUrl,
         // Use template from campaign if it's the first campaign, otherwise use 'aa' for first messages
         templateName: templateNameToUse || undefined,
+        // CRITICAL: Pass templateParams to messageData so it's available in sendWhatsAppMessage
+        templateParams: templateParamsForAA,
         recipients: [{
           id: guest.id,
           firstName: guest.firstName,
@@ -2405,48 +2443,18 @@ const EventManagement: React.FC = () => {
           message: message,
           firstMessageSent: guest.firstMessageSent || false, // Pass first message status
           eventData: {
-            coupleName: event.coupleName,
-            groomName: event.groomName,
-            brideName: event.brideName,
+            coupleName: event.coupleName || coupleName,
+            groomName: event.groomName || groomName,
+            brideName: event.brideName || brideName,
             eventType: event.eventType,
-            eventTypeHebrew: event.eventTypeHebrew,
+            eventTypeHebrew: event.eventTypeHebrew || 'חתונה',
             eventDate: formatDate(event.eventDate),
-            eventTime: event.eventTime,
-            venue: event.venue,
+            eventTime: event.eventTime || '',
+            venue: event.venue || '',
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
-              // Add template params if using template "aa"
-              // Template "aa" requires 8 parameters in order (matching the template body):
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
-              // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
-              // CRITICAL: Use template params if templateName is 'aa' (either from campaign or forced)
-              templateParams: (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
-                const params = {
-                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                               'event_date', 'event_time', 'venue', 'couple_name'],
-                guest_name: guest.firstName,
-                  event_type: event.eventTypeHebrew || 'חתונה',
-                  groom_name: groomName, // Use the variable we defined above
-                  bride_name: brideName, // Use the variable we defined above
-                event_date: formatDate(event.eventDate),
-                  event_time: event.eventTime || '',
-                  venue: event.venue || '',
-                  couple_name: coupleName, // Use the variable we defined above
-                  guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-                  language: 'he'
-                };
-                
-                // DEBUG: Log template parameters
-                console.log('🔍 DEBUG Template Parameters for "aa":', {
-                  groom_name: params.groom_name,
-                  bride_name: params.bride_name,
-                  couple_name: params.couple_name,
-                  allParams: params
-                });
-                
-                return params as any;
-              })() : undefined
+          // CRITICAL: Also pass templateParams to recipient for fallback
+          templateParams: templateParamsForAA
         }]
       });
 

@@ -5281,13 +5281,36 @@ app.post('/api/events', async (req, res) => {
         ? mergedGuests  // Preserve existing guests if incoming is empty array
         : mergedGuests; // Use merged guests (which already preserves existing if incoming has no guests)
       
+      // CRITICAL: Preserve all existing event fields that might not be in incoming event
+      // This ensures groomName, brideName, eventDate, venue, etc. are not lost
       const mergedEvent = {
         ...existingEvent,
         ...event,
+        // CRITICAL: Preserve important fields from existing event if not in incoming event
+        groomName: event.groomName !== undefined ? event.groomName : existingEvent.groomName,
+        brideName: event.brideName !== undefined ? event.brideName : existingEvent.brideName,
+        coupleName: event.coupleName !== undefined ? event.coupleName : existingEvent.coupleName,
+        eventDate: event.eventDate !== undefined ? event.eventDate : existingEvent.eventDate,
+        eventTime: event.eventTime !== undefined ? event.eventTime : existingEvent.eventTime,
+        venue: event.venue !== undefined ? event.venue : existingEvent.venue,
+        eventType: event.eventType !== undefined ? event.eventType : existingEvent.eventType,
+        eventTypeHebrew: event.eventTypeHebrew !== undefined ? event.eventTypeHebrew : existingEvent.eventTypeHebrew,
+        invitationImageUrl: event.invitationImageUrl !== undefined ? event.invitationImageUrl : existingEvent.invitationImageUrl,
         // CRITICAL: Use final guests array that preserves all guests
         guests: finalGuests,
         updatedAt: new Date().toISOString()
       };
+      
+      // Log warning if important fields are missing
+      if (!mergedEvent.groomName && !mergedEvent.brideName && !mergedEvent.coupleName) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no couple names (groomName, brideName, or coupleName)`);
+      }
+      if (!mergedEvent.eventDate) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no eventDate`);
+      }
+      if (!mergedEvent.venue) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no venue`);
+      }
       
       // Log warning if we're preserving guests when incoming event had empty array
       if (event.guests && Array.isArray(event.guests) && event.guests.length === 0 && mergedGuests.length > 0) {
