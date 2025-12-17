@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, VenueLayout, Campaign } from '../types';
-import { generateId, formatDate, cleanName } from '../utils/helpers';
+import { generateId, formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
@@ -282,6 +282,9 @@ export const useEventStore = create<EventStore>()(
                   const data = await response.json();
                   apiEvents = data.events || [];
                   
+                  // CRITICAL: Ensure all API events have unique IDs (fixes existing events with duplicate IDs)
+                  apiEvents = ensureUniqueEventIds(apiEvents);
+                  
                   // Cache the API response (5 seconds TTL for fast updates)
                   cacheService.set(cacheKey, apiEvents, 5000);
                 
@@ -295,6 +298,9 @@ export const useEventStore = create<EventStore>()(
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
                     deletedEvents = parsed.state?.deletedEvents || [];
+                    
+                    // CRITICAL: Ensure all events have unique IDs (fixes existing events with duplicate IDs)
+                    localEvents = ensureUniqueEventIds(localEvents);
                     
                     // CRITICAL: Clean all guest names in local events to fix existing data
                     localEvents = localEvents.map((event: Event) => ({
@@ -327,6 +333,9 @@ export const useEventStore = create<EventStore>()(
                     }
                   });
                 }
+                
+                // CRITICAL: Final check - ensure all events have unique IDs after merging
+                localEvents = ensureUniqueEventIds(localEvents);
                 
                 // CRITICAL: Get deletedEvents to check if event was deleted
                 const deletedEventIds = new Set(deletedEvents.map((e: any) => e.id));
@@ -1580,18 +1589,30 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Check for duplicate events before creating
           const currentState = get();
-          const duplicateEvent = currentState.events.find(e => 
-            e.id === newEvent.id || 
-            (e.coupleName === newEvent.coupleName && 
-             e.eventDate && newEvent.eventDate && 
-             Math.abs(new Date(e.eventDate).getTime() - newEvent.eventDate.getTime()) < 1000) // Same couple and same date (within 1 second)
+          
+          // Check for duplicate ID (should never happen with improved generateId, but safety check)
+          let finalEvent = newEvent;
+          const duplicateIdEvent = currentState.events.find(e => e.id === newEvent.id);
+          if (duplicateIdEvent) {
+            console.error(`❌ CRITICAL: Duplicate event ID detected! This should never happen.`);
+            console.error(`❌ Existing event ID: ${duplicateIdEvent.id}, New event ID: ${newEvent.id}`);
+            // Generate a new ID and retry (safety mechanism)
+            finalEvent = { ...newEvent, id: generateId() };
+            console.log(`🔄 Generated new ID for event: ${finalEvent.id}`);
+          }
+          
+          // Check for duplicate event by content (same couple and same date)
+          const duplicateContentEvent = currentState.events.find(e => 
+            e.coupleName === finalEvent.coupleName && 
+            e.eventDate && finalEvent.eventDate && 
+            Math.abs(new Date(e.eventDate).getTime() - finalEvent.eventDate.getTime()) < 1000 // Same couple and same date (within 1 second)
           );
           
-          if (duplicateEvent) {
-            console.warn(`⚠️ Duplicate event detected! Event ID: ${duplicateEvent.id}, New ID: ${newEvent.id}`);
+          if (duplicateContentEvent) {
+            console.warn(`⚠️ Duplicate event content detected! Event ID: ${duplicateContentEvent.id}, New ID: ${finalEvent.id}`);
             console.warn(`⚠️ Duplicate event details:`, {
-              existing: { id: duplicateEvent.id, coupleName: duplicateEvent.coupleName, eventDate: duplicateEvent.eventDate },
-              new: { id: newEvent.id, coupleName: newEvent.coupleName, eventDate: newEvent.eventDate }
+              existing: { id: duplicateContentEvent.id, coupleName: duplicateContentEvent.coupleName, eventDate: duplicateContentEvent.eventDate },
+              new: { id: finalEvent.id, coupleName: finalEvent.coupleName, eventDate: finalEvent.eventDate }
             });
             // Don't create duplicate - return existing event
             set({ isLoading: false, error: 'אירוע זהה כבר קיים' });
@@ -1601,21 +1622,28 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Save to state first
           set(state => {
             console.log('🔍 Before createEvent - events count:', state.events.length);
-            // CRITICAL: Double-check for duplicates before adding
-            const existingEvent = state.events.find(e => e.id === newEvent.id);
+            console.log('🔍 Creating event with unique ID:', finalEvent.id);
+            // CRITICAL: Final double-check for duplicates before adding (safety net)
+            const existingEvent = state.events.find(e => e.id === finalEvent.id);
             if (existingEvent) {
-              console.warn(`⚠️ Event with ID ${newEvent.id} already exists! Not creating duplicate.`);
-              return { isLoading: false };
+              console.error(`❌ CRITICAL: Event with ID ${finalEvent.id} already exists in state! This should never happen.`);
+              // Generate a new ID as last resort
+              const retryEvent = { ...finalEvent, id: generateId() };
+              console.log(`🔄 Generated final new ID for event: ${retryEvent.id}`);
+              const updatedEvents = [...state.events, retryEvent];
+              return {
+                events: updatedEvents,
+                isLoading: false
+              };
             }
-            const updatedEvents = [...state.events, newEvent];
+            const updatedEvents = [...state.events, finalEvent];
             console.log('🔍 After createEvent - events count:', updatedEvents.length);
-            console.log('🔍 New event created with 5 default campaigns:', newEvent);
+            console.log('🔍 New event created with 5 default campaigns:', finalEvent);
             return {
               events: updatedEvents,
               isLoading: false
             };
           });
-          
           // CRITICAL: Immediately save to localStorage to prevent data loss
           // This ensures the event is saved even if fetchEvents is called right after
           try {
@@ -1628,15 +1656,18 @@ export const useEventStore = create<EventStore>()(
                 const parsed = JSON.parse(stored);
                 allEvents = parsed.state?.events || [];
                 deletedEvents = parsed.state?.deletedEvents || [];
+                
+                // CRITICAL: Ensure all events have unique IDs before saving
+                allEvents = ensureUniqueEventIds(allEvents);
               } catch (e) {
                 console.warn('⚠️ Error parsing stored events:', e);
               }
             }
             
             // Add new event if not already present
-            if (!allEvents.find(e => e.id === newEvent.id)) {
-              allEvents.push(newEvent);
-              console.log('💾 Saved new event directly to localStorage:', newEvent.id);
+            if (!allEvents.find(e => e.id === finalEvent.id)) {
+              allEvents.push(finalEvent);
+              console.log('💾 Saved new event directly to localStorage:', finalEvent.id);
               
               // Get current state to preserve currentEvent
               const currentState = get();
@@ -1711,7 +1742,7 @@ export const useEventStore = create<EventStore>()(
           // Sync to API (for multi-computer access) - CRITICAL for data sync
           // CRITICAL: Use syncEventToAPI to ensure guests are included
           try {
-            await syncEventToAPI(newEvent);
+            await syncEventToAPI(finalEvent);
             console.log('✅ Event synced to API successfully with all guests');
           } catch (error) {
             console.error('❌ Failed to sync event to API:', error);

@@ -1,8 +1,55 @@
 import { Event, EventStats, GlobalStats } from '../types';
 
-// Generate unique ID
+// Generate unique ID with guaranteed uniqueness
+// Uses: random string + timestamp + counter + random suffix
+let idCounter = 0;
 export const generateId = (): string => {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substr(2, 9);
+  const timestamp = Date.now().toString(36);
+  const counter = (++idCounter).toString(36);
+  const randomSuffix = Math.random().toString(36).substr(2, 5);
+  // Format: random-timestamp-counter-suffix (e.g., "k3j2h1-abc123-1-x7y9z")
+  return `${randomPart}-${timestamp}-${counter}-${randomSuffix}`;
+};
+
+// Validate and fix duplicate event IDs in existing events
+// This ensures all events have unique IDs, even if they were created with the old system
+export const ensureUniqueEventIds = (events: Event[]): Event[] => {
+  const seenIds = new Set<string>();
+  const fixedEvents: Event[] = [];
+  let fixedCount = 0;
+
+  for (const event of events) {
+    // If event has no ID, generate one
+    if (!event.id || event.id.trim() === '') {
+      console.warn(`⚠️ Event "${event.coupleName}" has no ID, generating new one`);
+      const newEvent = { ...event, id: generateId() };
+      fixedEvents.push(newEvent);
+      seenIds.add(newEvent.id);
+      fixedCount++;
+      continue;
+    }
+
+    // If ID already exists, generate a new one
+    if (seenIds.has(event.id)) {
+      console.warn(`⚠️ Duplicate event ID detected: "${event.id}" for event "${event.coupleName}", generating new ID`);
+      const newEvent = { ...event, id: generateId() };
+      fixedEvents.push(newEvent);
+      seenIds.add(newEvent.id);
+      fixedCount++;
+      continue;
+    }
+
+    // ID is unique, keep the event as is
+    seenIds.add(event.id);
+    fixedEvents.push(event);
+  }
+
+  if (fixedCount > 0) {
+    console.log(`✅ Fixed ${fixedCount} event(s) with duplicate or missing IDs`);
+  }
+
+  return fixedEvents;
 };
 
 // Clean name by removing extra spaces

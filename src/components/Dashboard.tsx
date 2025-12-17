@@ -397,6 +397,9 @@ const Dashboard: React.FC = () => {
                             : event.groomName || event.brideName}
                         </p>
                       )}
+                      <p className="text-xs text-gray-400 mb-1 font-mono">
+                        מזהה: {event.id}
+                      </p>
                       <p className="text-gray-600 flex items-center font-medium">
                         <Calendar className="w-4 h-4 mr-1" />
                         {formatDate(event.eventDate)} - {event.eventTime}
