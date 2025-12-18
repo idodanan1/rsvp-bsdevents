@@ -3,7 +3,6 @@ import { persist } from 'zustand/middleware';
 import { Campaign, CampaignStore, MessageTemplate } from '../types';
 import { generateId } from '../utils/helpers';
 import { whatsappService } from '../services/whatsappService';
-import { smsService } from '../services/smsService';
 import { schedulerService } from '../services/schedulerService';
 
 // Mock data for development

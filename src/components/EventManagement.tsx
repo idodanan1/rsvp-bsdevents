@@ -27,7 +27,8 @@ import {
   FileSpreadsheet,
   Camera,
   Activity,
-  BarChart3
+  BarChart3,
+  Clock
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -127,7 +128,7 @@ const EventManagement: React.FC = () => {
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [showSyncMonitoringModal, setShowSyncMonitoringModal] = useState(false);
   const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
-  const [messageChannel, setMessageChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [messageChannel] = useState<'whatsapp'>('whatsapp');
   const [customMessage, setCustomMessage] = useState('');
   const [newGuest, setNewGuest] = useState({
     firstName: '',
@@ -991,7 +992,7 @@ const EventManagement: React.FC = () => {
       const currentMessageStatus = guest.messageStatus || 'not_sent';
       
       if (messageFilterStatus === 'sent_not_delivered') {
-        matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+        matchesMessageFilter = currentMessageStatus === 'sent';
       } else if (messageFilterStatus !== 'all') {
         if (messageFilterStatus === 'not_sent') {
           matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
@@ -1043,8 +1044,8 @@ const EventManagement: React.FC = () => {
     
     if (messageFilterStatus === 'sent_not_delivered') {
       // Show only guests who were sent a message but didn't receive it
-      // This includes 'sent' and 'sms_sent' but excludes 'delivered'
-      matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+      // This includes 'sent' but excludes 'delivered'
+      matchesMessageFilter = currentMessageStatus === 'sent';
     } else if (messageFilterStatus !== 'all') {
       if (messageFilterStatus === 'not_sent') {
         // Include both 'not_sent' and undefined (which we treat as 'not_sent')
@@ -1172,11 +1173,23 @@ const EventManagement: React.FC = () => {
 
   const getMessageStatusColor = (status: string) => {
     switch (status) {
-      case 'sent': return 'text-blue-600';
-      case 'delivered': return 'text-green-600';
-      case 'failed': return 'text-red-600';
-      case 'sms_sent': return 'text-purple-600';
-      default: return 'text-gray-600';
+      case 'sent': return 'text-blue-600 bg-blue-50';
+      case 'delivered': return 'text-green-600 bg-green-50';
+      case 'failed': return 'text-red-600 bg-red-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getMessageStatusIcon = (status: string) => {
+    switch (status) {
+      case 'sent':
+        return <Send className="w-4 h-4 text-blue-600" />;
+      case 'delivered':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'failed':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      default:
+        return <MessageSquare className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -1184,11 +1197,24 @@ const EventManagement: React.FC = () => {
     switch (status) {
       case 'not_sent': return 'לא נשלחה';
       case 'sent': return 'נשלח';
-      case 'delivered': return 'קיבל';
+      case 'delivered': return 'נמסר';
       case 'failed': return 'נכשל';
-      case 'sms_sent': return 'נשלח SMS';
       default: return 'לא נשלח';
     }
+  };
+
+  const getMessageStatusTooltip = (guest: any) => {
+    const parts: string[] = [];
+    if (guest.messageSentDate) {
+      parts.push(`נשלח: ${formatDate(guest.messageSentDate)}`);
+    }
+    if (guest.messageDeliveredDate) {
+      parts.push(`נמסר: ${formatDate(guest.messageDeliveredDate)}`);
+    }
+    if (guest.messageFailedDate) {
+      parts.push(`נכשל: ${formatDate(guest.messageFailedDate)}`);
+    }
+    return parts.length > 0 ? parts.join('\n') : 'אין פרטים נוספים';
   };
 
   const getRsvpStatusText = (status: string): string => {
@@ -2313,14 +2339,9 @@ const EventManagement: React.FC = () => {
         const guest = guestsToSend.find(g => g.id === messageResult.recipientId);
         if (guest && messageResult.success) {
           let messageStatus = 'sent';
-          if (messageResult.channel === 'sms') {
-            messageStatus = 'sms_sent';
-          } else if (messageResult.fallbackUsed) {
-            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-          }
           
           const updateData: any = { 
-            channel: messageResult.channel,
+            channel: 'whatsapp',
             messageStatus: messageStatus as any,
             messageSentDate: new Date()
           };
@@ -2550,14 +2571,9 @@ const EventManagement: React.FC = () => {
         const messageResult = result.results[0];
         if (messageResult.success) {
           let messageStatus = 'sent';
-          if (messageResult.channel === 'sms') {
-            messageStatus = 'sms_sent';
-          } else if (messageResult.fallbackUsed) {
-            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-          }
           
           updateGuest(event.id, guest.id, { 
-            channel: messageResult.channel,
+            channel: 'whatsapp',
             messageStatus: messageStatus as any,
             messageSentDate: new Date()
           });
@@ -2842,6 +2858,54 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
 
+        {/* Message Status Statistics */}
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נשלחו</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                מתוך {currentEvent.guests?.length || 0} אורחים
+              </p>
+            </div>
+            <Send className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נמסרו</p>
+              <p className="text-3xl font-bold text-green-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0}
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
+                  ? `${Math.round((currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
+                  : '0%'} מסירה
+              </p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נכשלו</p>
+              <p className="text-3xl font-bold text-red-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0}
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
+              </p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-600" />
+          </div>
+        </div>
+
         <div className="stat-card-purple">
           <div className="flex items-center justify-between">
             <div>
@@ -2895,7 +2959,7 @@ const EventManagement: React.FC = () => {
                     const status = g.messageStatus || 'not_sent';
                     // Count guests who received individual messages (not through campaigns)
                     // We check if they have messageSentDate but weren't counted in campaigns
-                    return (status === 'sent' || status === 'delivered' || status === 'sms_sent') && g.messageSentDate;
+                    return (status === 'sent' || status === 'delivered') && g.messageSentDate;
                   }).length || 0;
                   
                   // Total = campaign messages + individual messages
@@ -2917,7 +2981,7 @@ const EventManagement: React.FC = () => {
                   
                   const individualMessages = currentEvent.guests?.filter(g => {
                     const status = g.messageStatus || 'not_sent';
-                    return (status === 'sent' || status === 'delivered' || status === 'sms_sent') && g.messageSentDate;
+                    return (status === 'sent' || status === 'delivered') && g.messageSentDate;
                   }).length || 0;
                   
                   return `קמפיינים: ${campaignMessages} | אישיות: ${individualMessages}`;
@@ -2980,7 +3044,6 @@ const EventManagement: React.FC = () => {
           <option value="sent">נשלחה</option>
           <option value="delivered">נשלחה והתקבלה</option>
           <option value="failed">נשלחה ונכשלה</option>
-          <option value="sms_sent">נשלח SMS</option>
         </select>
         
         <button
@@ -3304,21 +3367,58 @@ const EventManagement: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                  <td className="px-3 py-4 text-sm text-gray-500 w-40 min-w-[160px]">
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <div className={`flex items-center space-x-1 space-x-reverse px-2 py-1 rounded-lg ${getMessageStatusColor(guest.messageStatus || 'not_sent')}`}>
+                        {getMessageStatusIcon(guest.messageStatus || 'not_sent')}
+                        <span className="font-semibold text-xs">
+                          {getMessageStatusText(guest.messageStatus || 'not_sent')}
+                        </span>
+                      </div>
+                      {(guest.messageSentDate || guest.messageDeliveredDate || guest.messageFailedDate) && (
+                        <div 
+                          className="relative group cursor-help"
+                          title={getMessageStatusTooltip(guest)}
+                        >
+                          <Activity className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                          <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-pre-line">
+                            {getMessageStatusTooltip(guest)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={guest.messageStatus || 'not_sent'}
                       onChange={(e) => handleUpdateGuestField(guest.id, { messageStatus: e.target.value })}
-                      className={`text-sm font-semibold ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500`}
+                      className={`text-xs mt-1 ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-500`}
                     >
                       <option value="not_sent">לא נשלחה</option>
                       <option value="sent">נשלחה</option>
-                      <option value="delivered">נשלחה והתקבלה</option>
-                      <option value="failed">נשלחה ונכשלה</option>
-                      <option value="sms_sent">נשלח SMS</option>
+                      <option value="delivered">נמסרה</option>
+                      <option value="failed">נכשלה</option>
                     </select>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                    {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
+                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                    <div className="flex flex-col">
+                      {guest.messageSentDate && (
+                        <div className="text-xs">
+                          <span className="text-gray-400">נשלח:</span> {formatDate(guest.messageSentDate)}
+                        </div>
+                      )}
+                      {guest.messageDeliveredDate && (
+                        <div className="text-xs text-green-600">
+                          <span className="text-gray-400">נמסר:</span> {formatDate(guest.messageDeliveredDate)}
+                        </div>
+                      )}
+                      {guest.messageFailedDate && (
+                        <div className="text-xs text-red-600">
+                          <span className="text-gray-400">נכשל:</span> {formatDate(guest.messageFailedDate)}
+                        </div>
+                      )}
+                      {!guest.messageSentDate && !guest.messageDeliveredDate && !guest.messageFailedDate && (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
                     <div className="flex items-center space-x-1">
@@ -3426,29 +3526,9 @@ const EventManagement: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ערוץ שליחה
                 </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="whatsapp"
-                      checked={messageChannel === 'whatsapp'}
-                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
-                      className="ml-2"
-                    />
-                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                    <span className="text-sm">וואטסאפ</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="sms"
-                      checked={messageChannel === 'sms'}
-                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
-                      className="ml-2"
-                    />
-                    <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                    <span className="text-sm">SMS</span>
-                  </label>
+                <div className="flex items-center text-sm text-gray-600">
+                  <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                  <span>וואטסאפ</span>
                 </div>
               </div>
 

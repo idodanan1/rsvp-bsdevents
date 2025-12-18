@@ -47,7 +47,7 @@ const ClientDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false); // Start with false - show page immediately
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'declined' | 'maybe' | 'pending'>('all');
-  const [messageFilterStatus, setMessageFilterStatus] = useState<'all' | 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sms_sent' | 'sent_not_delivered'>('all');
+  const [messageFilterStatus, setMessageFilterStatus] = useState<'all' | 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sent_not_delivered'>('all');
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
 
@@ -1469,7 +1469,6 @@ const ClientDashboard: React.FC = () => {
                     <option value="sent">נשלח</option>
                     <option value="delivered">נמסר</option>
                     <option value="failed">נכשל</option>
-                    <option value="sms_sent">נשלח SMS</option>
                     <option value="sent_not_delivered">נשלח ולא נמסר</option>
                   </select>
                 </div>
@@ -1544,8 +1543,8 @@ const ClientDashboard: React.FC = () => {
                       
                       if (messageFilterStatus === 'sent_not_delivered') {
                         // Show only guests who were sent a message but didn't receive it
-                        // This includes 'sent' and 'sms_sent' but excludes 'delivered'
-                        matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+                        // This includes 'sent' but excludes 'delivered'
+                        matchesMessageFilter = currentMessageStatus === 'sent';
                       } else if (messageFilterStatus !== 'all') {
                         if (messageFilterStatus === 'not_sent') {
                           // Include both 'not_sent' and undefined (which we treat as 'not_sent')
@@ -1615,7 +1614,6 @@ const ClientDashboard: React.FC = () => {
                           case 'sent': return 'text-blue-600';
                           case 'delivered': return 'text-green-600';
                           case 'failed': return 'text-red-600';
-                          case 'sms_sent': return 'text-purple-600';
                           default: return 'text-gray-600';
                         }
                       };
@@ -1626,7 +1624,6 @@ const ClientDashboard: React.FC = () => {
                           case 'sent': return 'נשלחה';
                           case 'delivered': return 'נשלחה והתקבלה';
                           case 'failed': return 'נשלחה ונכשלה';
-                          case 'sms_sent': return 'נשלח SMS';
                           default: return 'לא נשלחה';
                         }
                       };

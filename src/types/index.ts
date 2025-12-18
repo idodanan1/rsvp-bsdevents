@@ -27,8 +27,8 @@ export interface Guest {
 
 export type RSVPStatus = 'pending' | 'confirmed' | 'declined' | 'maybe';
 export type AttendanceStatus = 'attended' | 'not_attended' | 'not_marked';
-export type MessageChannel = 'whatsapp' | 'sms' | 'manual';
-export type MessageStatus = 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sms_sent';
+export type MessageChannel = 'whatsapp' | 'manual';
+export type MessageStatus = 'not_sent' | 'sent' | 'delivered' | 'failed';
 
 export interface Table {
   id: string;
@@ -114,8 +114,6 @@ export interface Campaign {
   updatedAt: Date;
   // WhatsApp buttons
   whatsappButtons?: WhatsAppButton[];
-  // SMS fallback message
-  smsMessage?: string;
   // WhatsApp template name (for first messages)
   templateName?: string;
 }
@@ -189,11 +187,6 @@ export interface WhatsAppMessage {
   templateId?: string;
 }
 
-export interface SMSMessage {
-  to: string;
-  message: string;
-  senderId?: string;
-}
 
 export interface APIResponse<T> {
   success: boolean;
@@ -232,7 +225,7 @@ export interface EventStore {
   createCampaign: (campaign: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   scheduleCampaign: (eventId: string, campaignId: string, scheduledDate: Date) => Promise<void>;
   sendCampaign: (eventId: string, campaignId: string) => Promise<any>;
-  sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms') => Promise<boolean>;
+  sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp') => Promise<boolean>;
   updateExistingEventsCampaigns: () => void;
   recreateCampaigns: (eventId: string) => Promise<void>;
   

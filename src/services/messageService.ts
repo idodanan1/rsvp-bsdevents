@@ -1,13 +1,12 @@
-// Unified Message Service - Handles both WhatsApp and SMS
+// Unified Message Service - Handles WhatsApp only
 import { whatsappService, WhatsAppMessage } from './whatsappService';
-import { smsService, SMSMessage } from './smsService';
 
 export interface MessageRecipient {
   id: string;
   firstName: string;
   lastName: string;
   phoneNumber: string;
-  channel: 'whatsapp' | 'sms';
+  channel: 'whatsapp';
   message?: string;
   templateParams?: Record<string, string>;
   firstMessageSent?: boolean; // האם נשלחה הודעה ראשונה למספר הזה
@@ -42,12 +41,11 @@ export interface MessageResult {
   recipientId: string;
   recipientName: string;
   phoneNumber: string;
-  channel: 'whatsapp' | 'sms';
+  channel: 'whatsapp';
   success: boolean;
   messageId?: string;
   error?: string;
   warning?: string;
-  fallbackUsed?: boolean;
   isFirstMessage?: boolean; // האם זו הודעה ראשונה שנשלחה עם טמפלט
 }
 
@@ -87,30 +85,11 @@ class MessageService {
 
     for (const recipient of messageData.recipients) {
       try {
-        let result: MessageResult;
-
-        if (recipient.channel === 'whatsapp') {
-          // Try WhatsApp with multiple APIs
-          console.log(`📱 Trying WhatsApp for ${recipient.firstName} ${recipient.lastName}...`);
-          const whatsappResult = await this.sendWhatsAppMessage(recipient, messageData);
-          
-          if (whatsappResult.success) {
-            result = whatsappResult;
-          } else {
-            // Fallback to SMS
-            console.log(`📞 WhatsApp failed for ${recipient.firstName} ${recipient.lastName}, trying SMS...`);
-            const smsResult = await this.sendSMSMessage(recipient, messageData);
-            result = {
-              ...smsResult,
-              fallbackUsed: true
-            };
-          }
-        } else {
-          // Send SMS directly
-          result = await this.sendSMSMessage(recipient, messageData);
-        }
-
-        results.push(result);
+        // Only WhatsApp is supported
+        console.log(`📱 Sending WhatsApp message to ${recipient.firstName} ${recipient.lastName}...`);
+        const whatsappResult = await this.sendWhatsAppMessage(recipient, messageData);
+        
+        results.push(whatsappResult);
 
         if (result.success) {
           successful++;
@@ -128,7 +107,7 @@ class MessageService {
           recipientId: recipient.id,
           recipientName: `${recipient.firstName} ${recipient.lastName}`,
           phoneNumber: recipient.phoneNumber,
-          channel: recipient.channel,
+          channel: 'whatsapp',
           success: false,
           error: 'Unexpected error occurred'
         });
@@ -290,79 +269,18 @@ class MessageService {
     };
   }
 
-  private async sendSMSMessage(
-    recipient: MessageRecipient, 
-    messageData: MessageData
-  ): Promise<MessageResult> {
-    // Process template variables in the message
-    const processedMessage = this.processTemplateVariables(
-      recipient.message || messageData.message, 
-      recipient
-    );
-    
-    // Format message for SMS (remove emojis, limit length)
-    const smsMessage = this.formatMessageForSMS(processedMessage);
-    
-    const smsData: SMSMessage = {
-      to: smsService.formatPhoneNumber(recipient.phoneNumber),
-      message: smsMessage
-    };
-
-    const response = await smsService.sendMessage(smsData);
-
-    return {
-      recipientId: recipient.id,
-      recipientName: `${recipient.firstName} ${recipient.lastName}`,
-      phoneNumber: recipient.phoneNumber,
-      channel: 'sms',
-      success: response.success,
-      messageId: response.messageId,
-      error: response.error
-    };
-  }
-
-  private formatMessageForSMS(message: string): string {
-    // Keep important emojis but remove complex ones
-    let formatted = message
-      .replace(/[📅🕐📍✅❌❓➕🎉🎊]/g, '') // Remove complex emojis
-      .replace(/[🔗]/g, 'LINK:') // Replace link emoji with text
-      .replace(/\n\n+/g, '\n') // Replace multiple newlines with single
-      .trim();
-
-    // Keep the message as is - SMS can handle longer messages
-    return formatted;
-  }
-
   // Check WhatsApp availability for multiple recipients
   async checkWhatsAppAvailability(recipients: MessageRecipient[]): Promise<MessageRecipient[]> {
-    const updatedRecipients: MessageRecipient[] = [];
-
-    for (const recipient of recipients) {
-      try {
-        const hasWhatsApp = await whatsappService.checkWhatsAppAvailability(recipient.phoneNumber);
-        
-        updatedRecipients.push({
-          ...recipient,
-          channel: hasWhatsApp ? 'whatsapp' : 'sms'
-        });
-      } catch (error) {
-        console.error(`Error checking WhatsApp for ${recipient.phoneNumber}:`, error);
-        // Default to SMS if check fails
-        updatedRecipients.push({
-          ...recipient,
-          channel: 'sms'
-        });
-      }
-    }
-
-    return updatedRecipients;
+    // All recipients use WhatsApp only
+    return recipients.map(recipient => ({
+      ...recipient,
+      channel: 'whatsapp' as const
+    }));
   }
 
   // Get message statistics
   getMessageStats(results: MessageResult[]) {
     const whatsappResults = results.filter(r => r.channel === 'whatsapp');
-    const smsResults = results.filter(r => r.channel === 'sms');
-    const fallbackResults = results.filter(r => r.fallbackUsed);
 
     return {
       total: results.length,
@@ -372,13 +290,7 @@ class MessageService {
         total: whatsappResults.length,
         successful: whatsappResults.filter(r => r.success).length,
         failed: whatsappResults.filter(r => !r.success).length
-      },
-      sms: {
-        total: smsResults.length,
-        successful: smsResults.filter(r => r.success).length,
-        failed: smsResults.filter(r => !r.success).length
-      },
-      fallbacks: fallbackResults.length
+      }
     };
   }
 }

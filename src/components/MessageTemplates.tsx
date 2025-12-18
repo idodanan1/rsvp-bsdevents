@@ -28,7 +28,7 @@ const MessageTemplates: React.FC = () => {
     name: '',
     content: '',
     imageUrl: '',
-    channel: 'whatsapp' as 'whatsapp' | 'sms',
+    channel: 'whatsapp' as 'whatsapp',
     isDefault: false
   });
 
@@ -38,7 +38,7 @@ const MessageTemplates: React.FC = () => {
         name: editingTemplate.name,
         content: editingTemplate.content,
         imageUrl: editingTemplate.imageUrl || '',
-        channel: editingTemplate.channel === 'manual' ? 'whatsapp' : editingTemplate.channel as 'whatsapp' | 'sms',
+        channel: 'whatsapp',
         isDefault: editingTemplate.isDefault
       });
     }
@@ -257,14 +257,10 @@ const MessageTemplates: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ערוץ
                   </label>
-                  <select
-                    value={templateForm.channel}
-                    onChange={(e) => setTemplateForm({...templateForm, channel: e.target.value as 'whatsapp' | 'sms'})}
-                    className="input-field"
-                  >
-                    <option value="whatsapp">וואטסאפ</option>
-                    <option value="sms">SMS</option>
-                  </select>
+                  <div className="flex items-center text-sm text-gray-600 py-2">
+                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                    <span>וואטסאפ</span>
+                  </div>
                 </div>
               </div>
 

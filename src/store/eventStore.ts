@@ -3223,8 +3223,8 @@ export const useEventStore = create<EventStore>()(
               firstName: guest.firstName,
               lastName: guest.lastName,
               phoneNumber: guest.phoneNumber,
-              channel: guest.channel as 'whatsapp' | 'sms',
-              message: guest.channel === 'whatsapp' ? message : smsMessage,
+              channel: 'whatsapp',
+              message: message,
               firstMessageSent: guest.firstMessageSent || false, // Pass first message status
               eventData: {
                 coupleName: event.coupleName,
@@ -3239,8 +3239,8 @@ export const useEventStore = create<EventStore>()(
                 // Priority: event.invitationImageUrl > qrCodeImageUrl > campaign.imageUrl
                 invitationImageUrl: eventInvitationImageUrl
               },
-              templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
-              buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined
+              templateParams: templateParams,
+              buttons: personalizedButtons
             };
             
             console.log('🔘 DEBUG: Recipient created with buttons:', guest.channel === 'whatsapp' ? personalizedButtons : undefined);
@@ -3296,19 +3296,14 @@ export const useEventStore = create<EventStore>()(
             const updatedGuests = event.guests?.map(guest => {
               const messageResult = result.results.find(r => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
-                // Update messageStatus based on channel
-                let messageStatus: 'sent' | 'delivered' | 'failed' | 'sms_sent' = 'sent';
-                if (messageResult.channel === 'sms') {
-                  messageStatus = 'sms_sent';
-                } else if (messageResult.fallbackUsed) {
-                  messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-                }
+                // Update messageStatus
+                let messageStatus: 'sent' | 'delivered' | 'failed' = 'sent';
                 
                 return {
                   ...guest,
                   messageStatus,
                   messageSentDate: new Date(),
-                  channel: messageResult.channel || guest.channel
+                  channel: 'whatsapp'
                 };
               } else if (messageResult && !messageResult.success) {
                 // Mark as failed if send failed
@@ -3359,7 +3354,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      sendTestMessage: async (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms'): Promise<boolean> => {
+      sendTestMessage: async (phoneNumber: string, message: string, channel: 'whatsapp'): Promise<boolean> => {
         set({ isLoading: true, error: null });
         try {
           const recipients: MessageRecipient[] = [{
@@ -3367,7 +3362,7 @@ export const useEventStore = create<EventStore>()(
             firstName: 'Test',
             lastName: 'User',
             phoneNumber,
-            channel
+            channel: 'whatsapp'
           }];
 
           const messageData: MessageData = {

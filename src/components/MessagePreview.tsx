@@ -75,29 +75,11 @@ const MessagePreview: React.FC<MessagePreviewProps> = ({ campaign, eventId }) =>
         </div>
       )}
 
-      {/* SMS Preview */}
-      {campaign.smsMessage && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2 mb-3">
-            {getChannelIcon('sms')}
-            <span className="font-medium text-blue-800">SMS</span>
-          </div>
-          
-          <div className="bg-white rounded-lg p-4 shadow-sm">
-            <div className="text-sm text-gray-800 whitespace-pre-line">
-              {campaign.smsMessage?.replace(
-                `${window.location.origin}/guest-response/${eventId}`,
-                `${window.location.origin}/#/guest-response/${eventId}?guest=GUEST_ID`
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Channel Badge */}
       <div className={`inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium border ${getChannelColor(campaign.channel)}`}>
         {getChannelIcon(campaign.channel)}
-        <span>{campaign.channel === 'whatsapp' ? 'WhatsApp' : campaign.channel === 'sms' ? 'SMS' : 'Manual'}</span>
+        <span>{campaign.channel === 'whatsapp' ? 'WhatsApp' : 'Manual'}</span>
       </div>
     </div>
   );

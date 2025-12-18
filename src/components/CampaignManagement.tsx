@@ -42,7 +42,7 @@ const CampaignManagement: React.FC = () => {
     name: '',
     message: '',
     imageUrl: '',
-    channel: 'whatsapp' as 'whatsapp' | 'sms',
+    channel: 'whatsapp' as 'whatsapp',
     scheduledDate: '',
     scheduledTime: '',
     repeatType: 'none' as 'none' | 'daily' | 'weekly' | 'custom',
@@ -267,7 +267,7 @@ const CampaignManagement: React.FC = () => {
     if (!phoneNumber) return;
 
     try {
-      const success = await sendTestMessage(phoneNumber, campaign.message, campaign.channel);
+      const success = await sendTestMessage(phoneNumber, campaign.message, 'whatsapp');
       
       if (success) {
         alert('הודעת בדיקה נשלחה בהצלחה!');
@@ -520,14 +520,10 @@ const CampaignManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ערוץ שליחה
                   </label>
-                  <select
-                    value={newCampaign.channel}
-                    onChange={(e) => setNewCampaign({...newCampaign, channel: e.target.value as 'whatsapp' | 'sms'})}
-                    className="input-field"
-                  >
-                    <option value="whatsapp">וואטסאפ</option>
-                    <option value="sms">SMS</option>
-                  </select>
+                  <div className="flex items-center text-sm text-gray-600 py-2">
+                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                    <span>וואטסאפ</span>
+                  </div>
                 </div>
               </div>
 
@@ -939,7 +935,7 @@ const CampaignManagement: React.FC = () => {
               <div className="flex items-center space-x-4 text-sm">
                 <div className="flex items-center space-x-1">
                   {getChannelIcon(selectedCampaign.channel)}
-                  <span>{selectedCampaign.channel === 'whatsapp' ? 'וואטסאפ' : 'SMS'}</span>
+                  <span>וואטסאפ</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Clock className="w-4 h-4 text-gray-500" />
