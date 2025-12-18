@@ -2730,34 +2730,34 @@ export const useEventStore = create<EventStore>()(
               // Use batch processor for better performance (queues and batches updates)
               guestUpdateBatchProcessor.addUpdate(pendingUpdatePayload);
               console.log('✅ Guest update added to batch queue (will be sent shortly)');
-              console.log('✅ Update will be processed by webhook service and synced to all devices');
-              
-              // CRITICAL: Also update the event in API with minimal data (only the updated guest)
-              // This ensures the update is persisted even if webhook service fails
-              // We send only the updated guest, not the entire event, to avoid 413 errors
-              try {
-                console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
-                const minimalEventUpdate = {
-                  id: updatedEvent.id,
-                  userId: updatedEvent.userId,
-                  guests: [updatedGuest], // Only send the updated guest
-                  updatedAt: new Date().toISOString()
-                };
+                console.log('✅ Update will be processed by webhook service and synced to all devices');
                 
-                const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(minimalEventUpdate)
-                });
-                
-                if (apiUpdateResponse.ok) {
-                  console.log('✅ Event updated in API with minimal data (only updated guest)');
-                } else {
-                  const apiErrorText = await apiUpdateResponse.text();
+                // CRITICAL: Also update the event in API with minimal data (only the updated guest)
+                // This ensures the update is persisted even if webhook service fails
+                // We send only the updated guest, not the entire event, to avoid 413 errors
+                try {
+                  console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
+                  const minimalEventUpdate = {
+                    id: updatedEvent.id,
+                    userId: updatedEvent.userId,
+                    guests: [updatedGuest], // Only send the updated guest
+                    updatedAt: new Date().toISOString()
+                  };
+                  
+                  const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(minimalEventUpdate)
+                  });
+                  
+                  if (apiUpdateResponse.ok) {
+                    console.log('✅ Event updated in API with minimal data (only updated guest)');
+                  } else {
+                    const apiErrorText = await apiUpdateResponse.text();
                   console.warn('⚠️ Failed to update event in API (but batch processor will handle pendingUpdates):', apiUpdateResponse.status, apiErrorText);
                   // Don't fail - batch processor will handle pendingUpdates
-                }
-              } catch (apiError) {
+                  }
+                } catch (apiError) {
                 console.warn('⚠️ Error updating event in API (but batch processor will handle pendingUpdates):', apiError);
                 // Don't fail - batch processor will handle pendingUpdates
               }
