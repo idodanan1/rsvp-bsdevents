@@ -682,16 +682,32 @@ class WebhookService {
           
           console.log('✅ WEBHOOK: updateGuestResponse completed');
           
-          // Verify immediately after update
+          // CRITICAL: Immediately update currentEvent if it's the event being viewed
+          // This ensures the table in EventManagement updates instantly without waiting for fetchEvents
           const immediateState = useEventStore.getState();
           const immediateEvent = immediateState.events.find(e => e.id === foundEventId);
-          const immediateGuest = immediateEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log('🔍 WEBHOOK: Immediate verification - Guest status:', immediateGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
+          if (immediateEvent) {
+            // CRITICAL: Update currentEvent immediately to force table refresh
+            const { setCurrentEvent } = immediateState;
+            const currentEvent = immediateState.currentEvent;
+            
+            // Only update if this is the event currently being viewed
+            if (currentEvent && currentEvent.id === foundEventId) {
+              // Create new object reference with updated guest to force React re-render
+              const updatedCurrentEvent = {
+                ...immediateEvent,
+                guests: immediateEvent.guests ? immediateEvent.guests.map(g => ({ ...g })) : []
+              };
+              setCurrentEvent(updatedCurrentEvent);
+              console.log('✅ WEBHOOK: Updated currentEvent immediately - table should refresh now');
+            }
+          }
           
-          // Verify the update was applied BEFORE removing from backend
+          // Verify immediately after update
           const verifyState = useEventStore.getState();
           const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
           const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
+          console.log('🔍 WEBHOOK: Immediate verification - Guest status:', verifyGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
           console.log(`🔍 Verification - Guest status after update: ${verifyGuest?.rsvpStatus} (expected: ${newStatus})`);
           
           // Only remove from backend if update was successful
@@ -753,20 +769,13 @@ class WebhookService {
           
           // CRITICAL: Force refresh events from store to ensure UI updates immediately
           // This ensures the table in EventManagement updates immediately after WhatsApp button click
-          const refreshedState = useEventStore.getState();
-          const refreshedEvent = refreshedState.events.find(e => e.id === foundEventId);
-          const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log(`🔄 Refreshed guest status: ${refreshedGuest?.rsvpStatus}`);
-          
-          // CRITICAL: Single refresh call - the store update already triggers React re-renders
-          // Multiple calls cause excessive API requests and performance issues
-          // The events array update from updateGuestResponse already triggers EventManagement to re-render
-          // Use immediate refresh (no delay) to ensure table updates instantly
+          // Use immediate refresh (minimal delay) to ensure table updates instantly
           setTimeout(() => {
+            const refreshedState = useEventStore.getState();
             refreshedState.fetchEvents(false, true).catch(err => {
               console.warn(`⚠️ Failed to refresh events after WhatsApp update:`, err);
             });
-          }, 50); // Minimal delay (reduced from 100ms) to ensure API is in sync and table updates immediately
+          }, 50); // Minimal delay to ensure API is in sync and table updates immediately
           
           console.log('🔄 Triggered single fetchEvents call to sync with API');
           
