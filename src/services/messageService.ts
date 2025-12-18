@@ -91,7 +91,7 @@ class MessageService {
         
         results.push(whatsappResult);
 
-        if (result.success) {
+        if (whatsappResult.success) {
           successful++;
         } else {
           failed++;
