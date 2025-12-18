@@ -706,14 +706,13 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include id, eventsVersion, events array, and currentEvent to ensure immediate updates
+    // CRITICAL: Dependencies include id, eventsVersion, events array, eventsHash, and currentEvent to ensure immediate updates
     // eventsVersion is updated when events array changes, triggering re-calculation
     // Including events directly ensures we catch updates immediately, even if eventsVersion hasn't updated yet
-    // Including currentEvent ensures we catch updates when currentEvent changes directly (from guest link or WhatsApp)
-    // We don't include eventsHash directly to avoid circular dependencies
-    // eventsVersion already captures changes from eventsHash via the useEffect that updates it
+    // Including eventsHash ensures we catch updates when guestCount or other guest fields change
+    // Including currentEvent?.updatedAt ensures we catch updates when currentEvent changes (from guest link or WhatsApp)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events, currentEvent?.id, currentEvent?.guests?.length]);
+  }, [id, eventsVersion, events, eventsHash, currentEvent?.id, currentEvent?.updatedAt, currentEvent?.guests?.length]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
