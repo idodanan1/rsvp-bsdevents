@@ -3240,6 +3240,27 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   
   const initialLength = pendingUpdates.length;
   
+  // Log all pending updates before deletion for debugging
+  if (phoneNumber) {
+    const matchingUpdates = pendingUpdates.filter(u => {
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const requestPhoneNormalized = phoneNumber.replace(/[^0-9]/g, '');
+      return uPhoneNormalized === requestPhoneNormalized || 
+             uOriginalPhoneNormalized === requestPhoneNormalized ||
+             uPhoneNormalized.replace(/^972/, '0') === requestPhoneNormalized.replace(/^972/, '0') ||
+             uOriginalPhoneNormalized.replace(/^972/, '0') === requestPhoneNormalized.replace(/^972/, '0');
+    });
+    console.log(`🔍 Found ${matchingUpdates.length} pending update(s) matching phone ${phoneNumber}:`, matchingUpdates.map(u => ({
+      phoneNumber: u.phoneNumber,
+      originalPhoneNumber: u.originalPhoneNumber,
+      status: u.status,
+      guestCount: u.guestCount,
+      responseDate: u.responseDate,
+      timestamp: u.timestamp
+    })));
+  }
+  
   let filtered;
   
   // If removeAllForPhone is true, remove ALL updates for this phone number (regardless of status)
@@ -3256,11 +3277,53 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   } else {
     // Filter out the specific update that was processed
     // Match by phone number, status, and responseDate (and guestCount if provided)
+    // CRITICAL: Normalize phone numbers for matching (handle different formats)
+    const normalizedRequestPhone = phoneNumber ? phoneNumber.replace(/[^0-9]/g, '') : '';
+    const normalizedRequestPhoneWith0 = normalizedRequestPhone.replace(/^972/, '0');
+    const normalizedRequestPhoneWith972 = normalizedRequestPhone.startsWith('0') ? '972' + normalizedRequestPhone.substring(1) : normalizedRequestPhone;
+    
     filtered = pendingUpdates.filter(u => {
-      const phoneMatch = (u.phoneNumber === phoneNumber || u.originalPhoneNumber === phoneNumber);
+      // Normalize both phone numbers for comparison
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const uPhoneWith0 = uPhoneNormalized.replace(/^972/, '0');
+      const uOriginalPhoneWith0 = uOriginalPhoneNormalized.replace(/^972/, '0');
+      const uPhoneWith972 = uPhoneNormalized.startsWith('0') ? '972' + uPhoneNormalized.substring(1) : uPhoneNormalized;
+      const uOriginalPhoneWith972 = uOriginalPhoneNormalized.startsWith('0') ? '972' + uOriginalPhoneNormalized.substring(1) : uOriginalPhoneNormalized;
+      
+      const phoneMatch = normalizedRequestPhone && (
+        uPhoneNormalized === normalizedRequestPhone ||
+        uPhoneNormalized === normalizedRequestPhoneWith0 ||
+        uPhoneNormalized === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneNormalized === normalizedRequestPhone ||
+        uOriginalPhoneNormalized === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneNormalized === normalizedRequestPhoneWith972 ||
+        uPhoneWith0 === normalizedRequestPhone ||
+        uPhoneWith0 === normalizedRequestPhoneWith0 ||
+        uPhoneWith0 === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneWith0 === normalizedRequestPhone ||
+        uOriginalPhoneWith0 === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneWith0 === normalizedRequestPhoneWith972 ||
+        uPhoneWith972 === normalizedRequestPhone ||
+        uPhoneWith972 === normalizedRequestPhoneWith0 ||
+        uPhoneWith972 === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneWith972 === normalizedRequestPhone ||
+        uOriginalPhoneWith972 === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneWith972 === normalizedRequestPhoneWith972
+      );
+      
+      // CRITICAL: If status is undefined, match updates with or without status
+      // If status is provided, only match updates with that exact status
       const statusMatch = !status || u.status === status;
+      
+      // CRITICAL: If responseDate is undefined, match any responseDate
+      // If responseDate is provided, match by exact date or timestamp
       const dateMatch = !responseDate || u.responseDate === responseDate || 
-                        new Date(u.responseDate || u.timestamp).toISOString() === responseDate;
+                        (u.responseDate && new Date(u.responseDate).toISOString() === responseDate) ||
+                        (u.timestamp && new Date(u.timestamp).toISOString() === responseDate);
+      
+      // CRITICAL: If guestCount is undefined, match updates with or without guestCount
+      // If guestCount is provided, only match updates with that exact guestCount
       const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
       
       // Keep if it doesn't match all criteria
