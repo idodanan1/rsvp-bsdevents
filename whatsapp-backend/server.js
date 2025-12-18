@@ -1986,14 +1986,11 @@ async function handleIncomingMessage(message) {
     console.log(`   hasThanks: ${hasThanks}`);
     
     // CRITICAL: When guest provides count, they are confirming attendance
-    // Update status to "confirmed" first (this creates a separate update with status only)
-    // Use source 'guest_count' for guest count updates
-    console.log(`✅ Guest provided count - updating status to "confirmed"`);
-    await updateGuestStatusByPhone(message.from, 'confirmed', 'guest_count');
-    
-    // Then update guest count (this creates a separate update with guestCount only, NO status)
-    // Frontend processes status and guestCount updates separately
-    await updateGuestCountByPhone(message.from, guestCountMatch);
+    // Update status to "confirmed" WITH guestCount included in the same update
+    // This ensures both status and guestCount are updated together, preventing conflicts
+    // Use source 'guest_count' for the update
+    console.log(`✅ Guest provided count - updating status to "confirmed" with guestCount: ${guestCountMatch}`);
+    await updateGuestStatusByPhone(message.from, 'confirmed', 'guest_count', guestCountMatch);
     
     // CRITICAL: Send update status message after guest provides count
     try {
@@ -2642,7 +2639,7 @@ async function sendGuestCountQuestion(phoneNumber) {
 }
 
 // Update guest status by phone number
-async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp') {
+async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp', guestCount = undefined) {
   try {
     // Format phone number (remove country code prefix if needed)
     // Keep original format too for better matching
@@ -2654,6 +2651,7 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     console.log(`🔄 Formatted phone: ${formattedPhone}`);
     console.log(`🔄 Status: ${status}`);
     console.log(`🔄 Source: ${source}`);
+    console.log(`🔄 GuestCount: ${guestCount !== undefined ? guestCount : 'not provided'}`);
     console.log(`🔄 Timestamp: ${new Date().toISOString()}`);
     
     // CRITICAL: Find guest by phone number to get guestId and eventId
@@ -2750,6 +2748,15 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
       source: source // Use provided source or default to 'whatsapp'
     };
     
+    // CRITICAL: Include guestCount if provided, or use existing guestCount from found guest
+    if (guestCount !== undefined) {
+      updateData.guestCount = guestCount;
+      console.log(`✅ Including guestCount in status update: ${guestCount}`);
+    } else if (foundGuest?.guestCount !== undefined) {
+      updateData.guestCount = foundGuest.guestCount;
+      console.log(`✅ Including existing guestCount from guest: ${foundGuest.guestCount}`);
+    }
+    
     // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
     // Keep only the latest update - delete all previous updates for this guest
     const updatesToRemove = [];
@@ -2782,6 +2789,7 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     console.log('✅ Guest ID:', foundGuest?.id || 'not found');
     console.log('✅ Event ID:', foundEvent?.id || 'not found');
       console.log('✅ Status:', status);
+      console.log('✅ GuestCount:', updateData.guestCount !== undefined ? updateData.guestCount : 'not included');
       console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
       console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
       console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
