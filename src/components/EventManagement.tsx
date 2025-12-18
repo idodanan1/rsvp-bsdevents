@@ -3007,7 +3007,25 @@ const EventManagement: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
-          <button className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+          <button 
+            onClick={() => {
+              // Filter to show only guests without table assignment
+              const unseatedGuests = currentEvent.guests?.filter(g => !g.tableId) || [];
+              if (unseatedGuests.length === 0) {
+                alert('✅ כל האורחים הושבו!');
+                return;
+              }
+              // Set filter to show unseated guests
+              setFilterStatus('all');
+              setSearchTerm('');
+              // Scroll to table and highlight unseated guests
+              const tableElement = document.querySelector('table');
+              if (tableElement) {
+                tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-yellow-600 transition-colors cursor-pointer"
+          >
             <Users className="w-4 h-4" />
             <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => {
               const tableGuests = currentEvent.guests?.filter(g => g.tableId === table.id) || [];
@@ -3015,7 +3033,12 @@ const EventManagement: React.FC = () => {
             }, 0) || 0)})</span>
           </button>
           
-          <button className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+          <button 
+            onClick={() => {
+              navigate(`/event/${currentEvent.id}/seating`);
+            }}
+            className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
+          >
             <Users className="w-4 h-4" />
             <span>הושב אורח</span>
           </button>

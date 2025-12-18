@@ -4823,8 +4823,9 @@ export const useEventStore = create<EventStore>()(
     {
       name: 'rsvp-events-storage',
       partialize: (state) => {
-        // CRITICAL FIX: Only save events that belong to current user!
-        // Get current user ID to filter events
+        // CRITICAL FIX: Preserve ALL events in localStorage, even if user is not logged in
+        // This prevents data loss after deployment when user is not authenticated
+        // Get current user ID to filter events (but don't delete if no userId)
         let currentUserId = '';
         try {
           const userStorage = localStorage.getItem('rsvp-user-storage');
@@ -4842,11 +4843,13 @@ export const useEventStore = create<EventStore>()(
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state?.events && parsed.state.events.length > 0) {
-              // CRITICAL FIX: Only save current user's events!
-              // Filter events from storage - keep only current user's events
-              // IMPORTANT: Exclude admin events (admin-fixed-id) for regular users
+              // CRITICAL FIX: Preserve ALL events from storage, even if user is not logged in
+              // This prevents data loss after deployment
               const allEventsFromStorage = parsed.state.events;
-              const currentUserEventsFromStorage = currentUserId 
+              
+              // Only filter by userId if we have a currentUserId (user is logged in)
+              // If no userId, preserve ALL events to prevent data loss
+              const eventsToPreserve = currentUserId 
                 ? allEventsFromStorage.filter((e: Event) => {
                     // If event belongs to admin, exclude it for regular users
                     if (e.userId === 'admin-fixed-id' && currentUserId !== 'admin-fixed-id') {
@@ -4855,16 +4858,16 @@ export const useEventStore = create<EventStore>()(
                     // Keep events that belong to current user or have no userId/anonymous
                     return e.userId === currentUserId || !e.userId || e.userId === 'anonymous';
                   })
-                : allEventsFromStorage;
+                : allEventsFromStorage; // CRITICAL: Preserve ALL events if no userId (after deployment)
               
               const currentEventsFromState = state.events || [];
               
               // Create a map of events from state (these might have updates)
               const stateEventsMap = new Map(currentEventsFromState.map((e: Event) => [e.id, e]));
               
-              // Merge: use updated events from state, keep others from storage (only current user's events)
+              // Merge: use updated events from state, keep others from storage
               // CRITICAL: Clean guest names before saving
-              const mergedEvents = currentUserEventsFromStorage.map((storedEvent: Event) => {
+              const mergedEvents = eventsToPreserve.map((storedEvent: Event) => {
                 const updatedEvent = stateEventsMap.get(storedEvent.id);
                 return updatedEvent || storedEvent;
               });
@@ -4888,8 +4891,10 @@ export const useEventStore = create<EventStore>()(
                 })) || []
               }));
               
+              console.log(`💾 Saving ${cleanedMergedEvents.length} events to localStorage (userId: ${currentUserId || 'none'})`);
+              
               return {
-                events: cleanedMergedEvents, // ONLY current user's events
+                events: cleanedMergedEvents, // Preserve all events (filtered by userId only if logged in)
                 deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
                 deletedGuests: state.deletedGuests || parsed.state.deletedGuests || {},
                 currentEvent: state.currentEvent || parsed.state.currentEvent || null

@@ -124,47 +124,82 @@ const GuestResponse = () => {
     const hash = window.location.hash;
     if (hash) {
       // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
-      // Use a more comprehensive regex that captures guestIds even with URLs after them
-      const allGuestMatches = hash.match(/[?&]guest=([a-z0-9]{10,})/gi);
-      if (allGuestMatches && allGuestMatches.length > 0) {
+      // Use a more comprehensive regex that captures guestIds but stops before URLs or other non-alphanumeric chars
+      // CRITICAL FIX: Extract guestId by finding the pattern and manually cleaning it
+      // This handles cases where guestId is followed immediately by https:// or http://
+      const guestPattern = /[?&]guest=([a-z0-9]{10,})/gi;
+      const allGuestMatches: string[] = [];
+      let match;
+      while ((match = guestPattern.exec(hash)) !== null) {
+        allGuestMatches.push(match[0]); // Store the full match including 'guest='
+      }
+      
+      if (allGuestMatches.length > 0) {
         console.log(`🔍 Found ${allGuestMatches.length} guestId matches in hash:`, allGuestMatches);
         // Extract all guestIds from matches - get the ID part before any URL or other characters
         const guestIds = allGuestMatches.map(m => {
-          // Extract the full match including guest= and ID
-          const fullMatch = m;
-          // Try to extract just the ID part (10+ alphanumeric chars)
-          const idMatch = fullMatch.match(/guest=([a-z0-9]{10,})/i);
+          // Extract the ID part after 'guest='
+          const idMatch = m.match(/guest=([a-z0-9]+)/i);
           if (idMatch && idMatch[1]) {
-            // Check if the ID is followed by non-alphanumeric characters (like https://)
-            // If so, extract just the ID part
-            const cleanId = idMatch[1].match(/^([a-z0-9]{10,})/i);
-            return cleanId ? cleanId[1] : idMatch[1];
+            let cleanId = idMatch[1];
+            // CRITICAL: Check if the ID ends with characters that are part of 'https' or 'http'
+            // Find where 'https://' or 'http://' starts after this match in the hash
+            const matchIndex = hash.indexOf(m);
+            const afterMatch = hash.substring(matchIndex + m.length);
+            
+            // If 'https://' or 'http://' appears right after the match, trim the ID
+            // CRITICAL FIX: Check if cleanId ends with 'https' or 'http' and remove it
+            if (afterMatch.startsWith('https://') || afterMatch.startsWith('http://')) {
+              // The ID might include 'h', 'ht', 'htt', 'http', or 'https' at the end
+              // Remove these characters from the end
+              if (cleanId.endsWith('https')) {
+                cleanId = cleanId.slice(0, -5);
+              } else if (cleanId.endsWith('http')) {
+                cleanId = cleanId.slice(0, -4);
+              } else if (cleanId.endsWith('htt')) {
+                cleanId = cleanId.slice(0, -3);
+              } else if (cleanId.endsWith('ht')) {
+                cleanId = cleanId.slice(0, -2);
+              } else if (cleanId.endsWith('h')) {
+                // Check if 'h' is part of 'https://' or 'http://'
+                if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+                  cleanId = cleanId.slice(0, -1);
+                }
+              }
+            }
+            
+            // CRITICAL: Also check if cleanId itself contains 'https' or 'http' at the end
+            // This handles cases where the regex captured too much
+            if (cleanId.endsWith('https')) {
+              cleanId = cleanId.slice(0, -5);
+            } else if (cleanId.endsWith('http')) {
+              cleanId = cleanId.slice(0, -4);
+            } else if (cleanId.endsWith('htt')) {
+              cleanId = cleanId.slice(0, -3);
+            } else if (cleanId.endsWith('ht')) {
+              cleanId = cleanId.slice(0, -2);
+            } else if (cleanId.endsWith('h')) {
+              // Check if this 'h' is followed by 'ttps' or 'ttp' in the hash
+              const idEndIndex = hash.indexOf(cleanId) + cleanId.length;
+              const afterId = hash.substring(idEndIndex);
+              if (afterId.startsWith('ttps://') || afterId.startsWith('ttp://')) {
+                cleanId = cleanId.slice(0, -1);
+              }
+            }
+            
+            // Final validation: only alphanumeric, at least 10 chars
+            if (cleanId.length >= 10 && /^[a-z0-9]+$/i.test(cleanId)) {
+              return cleanId;
+            }
           }
           return null;
-        }).filter(id => id !== null);
+        }).filter(id => id !== null && id !== undefined && id.length >= 10);
         
         if (guestIds.length > 0) {
           // Get the last guestId found (most likely the correct one)
           const lastGuestId = guestIds[guestIds.length - 1];
           console.log(`✅ Found last guestId in hash (from ${guestIds.length} matches): ${lastGuestId}`);
           console.log(`🔍 All guestIds found:`, guestIds);
-          return lastGuestId;
-        }
-      }
-      
-      // Alternative: Try to find guestIds by looking for the pattern more carefully
-      // This handles cases where guest= is followed by URL immediately
-      const alternativeMatches = hash.match(/[?&]guest=([a-z0-9]{10,})(?=[^a-z0-9]|$)/gi);
-      if (alternativeMatches && alternativeMatches.length > 0) {
-        console.log(`🔍 Found ${alternativeMatches.length} guestId matches (alternative method):`, alternativeMatches);
-        const guestIds = alternativeMatches.map(m => {
-          const idMatch = m.match(/guest=([a-z0-9]{10,})/i);
-          return idMatch ? idMatch[1] : null;
-        }).filter(id => id !== null);
-        
-        if (guestIds.length > 0) {
-          const lastGuestId = guestIds[guestIds.length - 1];
-          console.log(`✅ Found last guestId in hash (alternative, from ${guestIds.length} matches): ${lastGuestId}`);
           return lastGuestId;
         }
       }
@@ -1182,13 +1217,13 @@ const GuestResponse = () => {
               )}
               {currentEvent.eventTime && (
                 <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="border-l border-gray-300 pl-4">
+                    <div className="font-semibold">קבלת פנים</div>
+                    <div>{currentEvent.eventTime}</div>
+                  </div>
                   <div>
                     <div className="font-semibold">חופה וקידושין</div>
                     <div>20:30</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold">קבלת פנים</div>
-                    <div>{currentEvent.eventTime}</div>
                   </div>
                 </div>
               )}
@@ -1234,10 +1269,20 @@ const GuestResponse = () => {
                     try {
                       let guestToUpdate = currentGuest;
                       if (!guestToUpdate && currentEvent.guests) {
+                        // Try exact match first
                         guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        // If not found, try partial match (in case guestId has extra characters like 'https')
+                        if (!guestToUpdate && guestIdToUse) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => 
+                            g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                          );
+                        }
+                        console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                        console.log('🔍 Available guest IDs:', currentEvent.guests.map((g: any) => g.id).slice(0, 5));
                       }
                       
                       if (guestToUpdate) {
+                        console.log('✅ Updating guest with "maybe" status:', guestToUpdate.id);
                         // CRITICAL: Store the response status BEFORE showing success message
                         setSubmittedResponse('maybe');
                         setSubmittedGuestCount(1);
@@ -1260,15 +1305,17 @@ const GuestResponse = () => {
                         setSubmitStatus('success');
                       }
                     } catch (error) {
-                      console.error('Error:', error);
+                      console.error('❌ Error updating guest:', error);
                       setSubmitStatus('error');
+                      setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
                     } finally {
                       setIsSubmitting(false);
                     }
                   } else {
-                    setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
-                    setShowStatusButtons(false);
-                    setShowConfirmButton(true);
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
                   }
                 }}
                 disabled={isSubmitting}
@@ -1279,19 +1326,37 @@ const GuestResponse = () => {
               </button>
               <button
                 onClick={async () => {
+                  console.log('🔴 "לא נוכל להגיע" button clicked');
                   const currentEvent = event || directEvent;
                   const currentGuest = guest || directGuest || finalGuest;
                   const guestIdToUse = currentGuest?.id || guestId;
+                  
+                  console.log('🔍 Button click debug:', {
+                    currentEvent: currentEvent?.id,
+                    currentGuest: currentGuest?.id,
+                    guestIdFromUrl: guestId,
+                    guestIdToUse
+                  });
                   
                   if (currentEvent && guestIdToUse) {
                     setIsSubmitting(true);
                     try {
                       let guestToUpdate = currentGuest;
                       if (!guestToUpdate && currentEvent.guests) {
+                        // Try exact match first
                         guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        // If not found, try partial match (in case guestId has extra characters)
+                        if (!guestToUpdate && guestIdToUse) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => 
+                            g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                          );
+                        }
+                        console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                        console.log('🔍 Available guest IDs:', currentEvent.guests.map((g: any) => g.id).slice(0, 5));
                       }
                       
                       if (guestToUpdate) {
+                        console.log('✅ Updating guest with "declined" status:', guestToUpdate.id);
                         // CRITICAL: Store the response status BEFORE showing success message
                         setSubmittedResponse('not_attending');
                         setSubmittedGuestCount(1);
@@ -1314,15 +1379,17 @@ const GuestResponse = () => {
                         setSubmitStatus('success');
                       }
                     } catch (error) {
-                      console.error('Error:', error);
+                      console.error('❌ Error updating guest:', error);
                       setSubmitStatus('error');
+                      setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
                     } finally {
                       setIsSubmitting(false);
                     }
                   } else {
-                    setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
-                    setShowStatusButtons(false);
-                    setShowConfirmButton(true);
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
                   }
                 }}
                 disabled={isSubmitting}
@@ -1380,10 +1447,19 @@ const GuestResponse = () => {
                       try {
                         let guestToUpdate = currentGuest;
                         if (!guestToUpdate && currentEvent.guests) {
+                          // Try exact match first
                           guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                          // If not found, try partial match (in case guestId has extra characters like 'https')
+                          if (!guestToUpdate && guestIdToUse) {
+                            guestToUpdate = currentEvent.guests.find((g: any) => 
+                              g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                            );
+                          }
+                          console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
                         }
                         
                         if (guestToUpdate) {
+                          console.log('✅ Updating guest with "maybe" status:', guestToUpdate.id);
                           // CRITICAL: Store the response status BEFORE showing success message
                           setSubmittedResponse('maybe');
                           setSubmittedGuestCount(1);
@@ -1397,7 +1473,8 @@ const GuestResponse = () => {
                           actualAttendance: 'not_marked' as const,
                             source: 'guest_link'
                         };
-                          await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                          // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
+                          await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
                         setTimeout(() => {
                             const storeState = useEventStore.getState();
                             storeState.fetchEvents(false, true).catch(() => {});
@@ -1410,18 +1487,19 @@ const GuestResponse = () => {
                       } finally {
                         setIsSubmitting(false);
                       }
-                    } else {
-                      setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
-                      setShowStatusButtons(false);
-                      setShowConfirmButton(true);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
-                  style={{ borderRadius: '9999px' }}
-                >
-                  {isSubmitting ? 'שולח...' : 'אולי'}
-                </button>
+                  } else {
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
+                  }
+                }}
+                disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                style={{ borderRadius: '9999px' }}
+              >
+                {isSubmitting ? 'שולח...' : 'אולי'}
+              </button>
                 
                 <button
                   onClick={async () => {
@@ -1432,15 +1510,24 @@ const GuestResponse = () => {
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
-                        let guestToUpdate = currentGuest;
-                        if (!guestToUpdate && currentEvent.guests) {
-                          guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
-                        }
-                        
-                        if (guestToUpdate) {
-                          // CRITICAL: Store the response status BEFORE showing success message
-                          setSubmittedResponse('not_attending');
-                          setSubmittedGuestCount(1);
+                          let guestToUpdate = currentGuest;
+                          if (!guestToUpdate && currentEvent.guests) {
+                            // Try exact match first
+                            guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                            // If not found, try partial match (in case guestId has extra characters like 'https')
+                            if (!guestToUpdate && guestIdToUse) {
+                              guestToUpdate = currentEvent.guests.find((g: any) => 
+                                g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                              );
+                            }
+                            console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                          }
+                          
+                          if (guestToUpdate) {
+                            console.log('✅ Updating guest with "declined" status:', guestToUpdate.id);
+                            // CRITICAL: Store the response status BEFORE showing success message
+                            setSubmittedResponse('not_attending');
+                            setSubmittedGuestCount(1);
                         
                         const updatedGuest = {
                           ...guestToUpdate,
@@ -1675,13 +1762,13 @@ const GuestResponse = () => {
             {/* Event Timings */}
             {currentEvent.eventTime && (
               <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="text-center border-l border-gray-300">
+                  <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
+                  <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+                </div>
                 <div className="text-center">
                   <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
                   <div className="text-lg text-gray-600">20:30</div>
-                </div>
-                <div className="text-center">
-                  <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
-                  <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
                 </div>
               </div>
             )}
