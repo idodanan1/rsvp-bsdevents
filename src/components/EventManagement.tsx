@@ -601,12 +601,12 @@ const EventManagement: React.FC = () => {
           eventId: id,
           guestsCount: guests.length,
           sampleGuests: guests.slice(0, 3).map(g => ({
-            id: g.id,
-            name: `${g.firstName} ${g.lastName}`,
-            status: g.rsvpStatus,
-            count: g.guestCount,
+          id: g.id,
+          name: `${g.firstName} ${g.lastName}`,
+          status: g.rsvpStatus,
+          count: g.guestCount,
             actualAttendance: g.actualAttendance,
-            responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
+          responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
           }))
         });
         eventGuestsKeyRef.current = newKey;
@@ -1916,10 +1916,21 @@ const EventManagement: React.FC = () => {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        // Read Excel file with proper encoding options for Hebrew text
+        const workbook = XLSX.read(data, { 
+          type: 'binary',
+          codepage: 65001, // UTF-8 encoding for proper Hebrew character support
+          cellText: false,
+          cellDates: true
+        });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        // Convert to JSON with proper handling of Hebrew text
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          defval: '', // Default value for empty cells
+          raw: false // Convert all values to strings to preserve Hebrew characters
+        });
 
         // Helper function to parse RSVP status from text
         const parseRsvpStatus = (text: string): 'pending' | 'confirmed' | 'declined' | 'maybe' => {
@@ -1989,8 +2000,10 @@ const EventManagement: React.FC = () => {
             let firstName = '';
             let lastName = '';
             if (fullName) {
-              // Split name by common separators (space, comma, "ו")
-              const nameParts = fullName.split(/[\s,ו]+/).filter((part: string) => part.trim());
+              // Split name by common separators (space, comma)
+              // Note: We don't split by "ו" because it's part of Hebrew names (e.g., "יובל", "ליאור", "נווה")
+              // If names are connected with "ו" (e.g., "דוד ורותי"), they should be separated by spaces in Excel
+              const nameParts = fullName.split(/[\s,]+/).filter((part: string) => part.trim());
               firstName = nameParts[0] || '';
               lastName = nameParts.slice(1).join(' ') || '';
             }
@@ -2468,10 +2481,10 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Create templateParams BEFORE calling sendBulkMessages
       // This ensures template parameters are available for template "aa"
       const templateParamsForAA = (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
-        const params = {
-          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                       'event_date', 'event_time', 'venue', 'couple_name'],
-          guest_name: guest.firstName,
+                const params = {
+                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                               'event_date', 'event_time', 'venue', 'couple_name'],
+                guest_name: guest.firstName,
           event_type: event.eventTypeHebrew || 'חתונה',
           groom_name: groomName || '', // Use the variable we defined above, ensure not undefined
           bride_name: brideName || '', // Use the variable we defined above, ensure not undefined
@@ -2479,15 +2492,15 @@ const EventManagement: React.FC = () => {
           event_time: event.eventTime || '',
           venue: event.venue || '',
           couple_name: coupleName || 'הזוג', // Use the variable we defined above, ensure not undefined
-          guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-          language: 'he'
-        };
-        
-        // DEBUG: Log template parameters
-        console.log('🔍 DEBUG Template Parameters for "aa":', {
-          groom_name: params.groom_name,
-          bride_name: params.bride_name,
-          couple_name: params.couple_name,
+                  guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+                  language: 'he'
+                };
+                
+                // DEBUG: Log template parameters
+                console.log('🔍 DEBUG Template Parameters for "aa":', {
+                  groom_name: params.groom_name,
+                  bride_name: params.bride_name,
+                  couple_name: params.couple_name,
           event_date: params.event_date,
           event_time: params.event_time,
           venue: params.venue,
@@ -2495,10 +2508,10 @@ const EventManagement: React.FC = () => {
           eventGroomName: event.groomName,
           eventBrideName: event.brideName,
           eventVenue: event.venue,
-          allParams: params
-        });
-        
-        return params as any;
+                  allParams: params
+                });
+                
+                return params as any;
       })() : undefined;
       
       const result = await messageService.sendBulkMessages({

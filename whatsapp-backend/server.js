@@ -4738,7 +4738,7 @@ app.get('/api/events/all', async (req, res) => {
         });
       } else {
         console.warn(`⚠️ [EVENTS_ALL] Events file does not exist, using memory fallback`);
-        loadEvents();
+    loadEvents();
         events = eventsData.events || [];
       }
     } catch (error) {
@@ -4891,7 +4891,7 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
       } else {
         console.warn(`⚠️ [GUESTS_ENDPOINT] Events file does not exist: ${eventsFilePath}`);
         // Fallback: try loadEvents() and use eventsData
-        loadEvents();
+    loadEvents();
         events = eventsData.events || [];
         console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback: ${events.length} events`);
       }
@@ -5041,7 +5041,7 @@ app.get('/api/events/:eventId', async (req, res) => {
           console.log(`📋 [USER_ID_BRANCH] Read ${events.length} events directly from file for userId filter`);
         } else {
           // Fallback: try loadEvents() and use eventsData
-          loadEvents();
+    loadEvents();
           events = eventsData.events || [];
           deletedEvents = eventsData.deletedEvents || [];
           console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback: ${events.length} events`);

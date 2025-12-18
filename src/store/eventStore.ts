@@ -2937,8 +2937,8 @@ export const useEventStore = create<EventStore>()(
           } else if (campaignsForAll.includes(campaign.name)) {
             // Send to ALL guests regardless of their status
             filteredGuests = guests;
-            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
-            console.log(`✅ Sending to all guests regardless of their RSVP status`);
+          console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
+          console.log(`✅ Sending to all guests regardless of their RSVP status`);
           } else {
             // Default: send to all guests (for custom campaigns)
             filteredGuests = guests;
@@ -4799,10 +4799,10 @@ export const useEventStore = create<EventStore>()(
             try {
               // Use syncEventToAPI which sends the full event with all guests
               await syncEventToAPI(event);
-              syncedCount++;
+                syncedCount++;
               console.log(`✅ Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
             } catch (error: any) {
-              failedCount++;
+                failedCount++;
               console.error(`❌ Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
               // syncEventToAPI already handles 413 errors internally, so we just log the failure
             }

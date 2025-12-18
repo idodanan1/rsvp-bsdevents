@@ -61,8 +61,8 @@ const GuestResponse = () => {
             return idMatch[1];
           }
         } else {
-          console.log(`✅ Found eventId in hash: ${parsedId}`);
-          return parsedId;
+        console.log(`✅ Found eventId in hash: ${parsedId}`);
+        return parsedId;
         }
       }
       
@@ -77,8 +77,8 @@ const GuestResponse = () => {
             return idMatch[1];
           }
         } else {
-          console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
-          return parsedId;
+        console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
+        return parsedId;
         }
       }
       
@@ -654,7 +654,7 @@ const GuestResponse = () => {
     if (guestId && currentEvent) {
       // If currentGuest doesn't match guestId or doesn't belong to currentEvent, find it
                       if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find((g: any) => g.id === guestId)) {
-                        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
+        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
                         const guestFromEvent = currentEvent.guests?.find((g: any) => g.id === guestId);
         if (guestFromEvent) {
           console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
@@ -1044,15 +1044,15 @@ const GuestResponse = () => {
                   return `אתם ${guestCount} ${guestCount === 1 ? 'אורח' : 'אורחים'} מתלבטים - נשמח לעדכון!`;
                 } else {
                   return 'אנו מצטערים שלא תוכלו להגיע';
-                }
+              }
               })()}
             </p>
             {(() => {
               const response = submittedResponse || formData.response;
               return (response === 'maybe' || response === 'not_attending') && (
-                <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
-                  נשמח לעדכון אם יש שינוי בתכניות
-                </p>
+              <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
+                נשמח לעדכון אם יש שינוי בתכניות
+              </p>
               );
             })()}
             <p className="text-green-700 text-xs mt-2">
@@ -1152,7 +1152,7 @@ const GuestResponse = () => {
   } catch (error) {
     console.warn('⚠️ Error formatting event date:', error);
   }
-
+  
   return (
     <div className="min-h-screen" style={{ 
       background: 'linear-gradient(to bottom, #faf8f5 0%, #faf8f5 50%, #f5f3f0 50%, #f5f3f0 100%)',
@@ -1194,7 +1194,7 @@ const GuestResponse = () => {
               )}
             </div>
           </div>
-
+          
           {/* Event Image */}
           {currentEvent.invitationImageUrl && (
             <div className="mb-2 flex justify-center">
@@ -1205,8 +1205,8 @@ const GuestResponse = () => {
               />
             </div>
           )}
-        </div>
-      </div>
+            </div>
+              </div>
 
       <div className="max-w-2xl mx-auto px-4 py-2">
         {/* RSVP Buttons */}
@@ -1331,7 +1331,7 @@ const GuestResponse = () => {
               >
                 {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
               </button>
-            </div>
+              </div>
           </div>
         ) : null}
 
@@ -1344,7 +1344,7 @@ const GuestResponse = () => {
                 className="bg-green-600 text-white rounded-lg px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105 mb-4"
               >
                 לחצו כאן לבחירת כמות
-              </button>
+                </button>
             </div>
           ) : !showGuestCount && !showConfirmButton ? (
             <div className="space-y-4">
@@ -1387,22 +1387,22 @@ const GuestResponse = () => {
                           // CRITICAL: Store the response status BEFORE showing success message
                           setSubmittedResponse('maybe');
                           setSubmittedGuestCount(1);
-                          
-                          const updatedGuest = {
+                        
+                        const updatedGuest = {
                             ...guestToUpdate,
-                            guestCount: 1,
+                          guestCount: 1,
                             notes: formData.notes || '',
-                            rsvpStatus: 'maybe' as const,
-                            responseDate: new Date(),
-                            actualAttendance: 'not_marked' as const,
+                          rsvpStatus: 'maybe' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
                             source: 'guest_link'
-                          };
+                        };
                           await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
-                          setTimeout(() => {
+                        setTimeout(() => {
                             const storeState = useEventStore.getState();
                             storeState.fetchEvents(false, true).catch(() => {});
-                          }, 100);
-                          setSubmitStatus('success');
+                        }, 100);
+                        setSubmitStatus('success');
                         }
                       } catch (error) {
                         console.error('Error:', error);
@@ -1441,22 +1441,22 @@ const GuestResponse = () => {
                           // CRITICAL: Store the response status BEFORE showing success message
                           setSubmittedResponse('not_attending');
                           setSubmittedGuestCount(1);
-                          
-                          const updatedGuest = {
-                            ...guestToUpdate,
-                            guestCount: 1,
+                        
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
                             notes: formData.notes || '',
-                            rsvpStatus: 'declined' as const,
-                            responseDate: new Date(),
-                            actualAttendance: 'not_marked' as const,
+                          rsvpStatus: 'declined' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
                             source: 'guest_link'
-                          };
-                          await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
-                          setTimeout(() => {
+                        };
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        setTimeout(() => {
                             const storeState = useEventStore.getState();
                             storeState.fetchEvents(false, true).catch(() => {});
-                          }, 100);
-                          setSubmitStatus('success');
+                        }, 100);
+                        setSubmitStatus('success');
                         }
                       } catch (error) {
                         console.error('Error:', error);

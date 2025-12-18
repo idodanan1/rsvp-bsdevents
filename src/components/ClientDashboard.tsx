@@ -229,38 +229,38 @@ const ClientDashboard: React.FC = () => {
           const MAX_RETRIES = 3;
           const RETRY_DELAY = 1000;
           
-          try {
+        try {
             console.log(`🔄 Attempting to load ALL guests from /api/events/${eventId}/guests (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
-            const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
-              method: 'GET',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              mode: 'cors',
-              credentials: 'omit'
+          const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (guestsResponse.ok) {
+            const guestsData = await guestsResponse.json();
+            console.log(`🔍 Guests endpoint response:`, {
+              success: guestsData.success,
+              guestsCount: guestsData.guests?.length || 0,
+              total: guestsData.total
             });
             
-            if (guestsResponse.ok) {
-              const guestsData = await guestsResponse.json();
-              console.log(`🔍 Guests endpoint response:`, {
-                success: guestsData.success,
-                guestsCount: guestsData.guests?.length || 0,
-                total: guestsData.total
-              });
-              
-              if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+            if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
                 console.log(`✅ Loaded ${guestsData.guests.length} guests from /api/events/${eventId}/guests`);
                 return guestsData.guests;
-              }
+            }
             } else if (guestsResponse.status === 404 && retryCount < MAX_RETRIES) {
               console.log(`⚠️ Guests endpoint returned 404, retrying in ${RETRY_DELAY}ms...`);
               await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
               return loadGuestsFromEndpoint(retryCount + 1);
-            } else {
-              console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
-            }
-          } catch (error) {
+          } else {
+            console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
+          }
+        } catch (error) {
             console.log(`⚠️ Guests endpoint error (attempt ${retryCount + 1}):`, error);
             if (retryCount < MAX_RETRIES) {
               console.log(`🔄 Retrying guests endpoint in ${RETRY_DELAY}ms...`);
@@ -775,19 +775,19 @@ const ClientDashboard: React.FC = () => {
           
           // Fallback to /api/events/all if single event endpoint didn't work
           if (!foundEvent) {
-            const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-              method: 'GET',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              mode: 'cors',
-              credentials: 'omit'
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              const allEvents = data.events || [];
+          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const allEvents = data.events || [];
               foundEvent = allEvents.find((e: any) => e.id === eventId);
             }
           }
@@ -801,7 +801,7 @@ const ClientDashboard: React.FC = () => {
               console.warn(`⚠️ Polling: Event has only ${foundEvent.guests.length} guests - may be incomplete`);
             }
             
-            if (foundEvent) {
+          if (foundEvent) {
               // CRITICAL: Only update if new data is more recent or has actual changes
               // This prevents overwriting correct data with stale data
               setCurrentEvent((prev: any) => {
@@ -1647,44 +1647,44 @@ const ClientDashboard: React.FC = () => {
                             {index + 1}
                           </td>
                           <td className="px-4 py-4 w-40 whitespace-normal">
-                            <div>
+                      <div>
                               <div className="text-sm font-semibold text-gray-900 break-words">
                                 {formatFullName(guest.firstName, guest.lastName)}
-                              </div>
+                        </div>
                               {renderGuestNotes(guest.notes)}
-                            </div>
-                          </td>
+                      </div>
+                    </td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
                             {guest.phoneNumber}
-                          </td>
+                    </td>
                           <td className="px-3 py-4 text-sm text-gray-900 w-24 min-w-[100px] text-center">
                             {guest.guestCount || 1}
                           </td>
                           <td className="px-3 py-4 w-32 min-w-[120px]">
                             <span className={`text-sm font-semibold ${getStatusColor(guest.rsvpStatus)}`}>
-                              {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
-                               guest.rsvpStatus === 'confirmed' ? 'מגיע' :
-                               guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
-                            </span>
-                          </td>
+                          {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
+                           guest.rsvpStatus === 'confirmed' ? 'מגיע' :
+                           guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
+                        </span>
+                    </td>
                           <td className="px-3 py-4 w-32 min-w-[120px]">
                             <span className="text-sm font-semibold">
                               {getStatusIcon(guest.actualAttendance || 'not_marked')} {getActualAttendanceText(guest.actualAttendance || 'not_marked')}
                             </span>
                           </td>
                           <td className="px-3 py-4 text-sm text-gray-500 w-32 min-w-[120px]">
-                            <div className="flex items-center">
-                              {guest.channel === 'whatsapp' ? (
-                                <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                              ) : guest.channel === 'sms' ? (
-                                <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                              ) : (
-                                <Users className="w-4 h-4 text-gray-600 ml-1" />
-                              )}
+                      <div className="flex items-center">
+                        {guest.channel === 'whatsapp' ? (
+                          <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                        ) : guest.channel === 'sms' ? (
+                          <Phone className="w-4 h-4 text-blue-600 ml-1" />
+                        ) : (
+                          <Users className="w-4 h-4 text-gray-600 ml-1" />
+                        )}
                               <span>{guest.channel === 'whatsapp' ? 'וואטסאפ' : 
                                      guest.channel === 'sms' ? 'SMS' : 'ידני'}</span>
-                            </div>
-                          </td>
+                      </div>
+                    </td>
                           <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
                             {table ? (
                               <span className="font-semibold">שולחן {table.number}</span>
@@ -1699,8 +1699,8 @@ const ClientDashboard: React.FC = () => {
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
                             {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
-                          </td>
-                        </tr>
+                    </td>
+                  </tr>
                       );
                     })
                     .filter((row: any) => row !== null)
