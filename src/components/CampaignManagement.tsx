@@ -31,7 +31,7 @@ import MessagePreview from './MessagePreview';
 const CampaignManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, sendCampaign, sendTestMessage, scheduleCampaign: scheduleEventCampaign } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, sendCampaign, resendFailedMessages, sendTestMessage, scheduleCampaign: scheduleEventCampaign } = useEventStore();
   const { createCampaign, updateCampaign, deleteCampaign, scheduleCampaign, isLoading } = useCampaignStore();
   
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
@@ -259,6 +259,44 @@ const CampaignManagement: React.FC = () => {
       console.error('Error sending campaign:', error);
       const errorMessage = error?.message || error?.toString() || 'שגיאה לא ידועה';
       alert(`❌ שגיאה בשליחת ההודעות\n\n🔍 שגיאה: ${errorMessage}`);
+    }
+  };
+
+  const handleResendFailed = async (campaignId: string) => {
+    try {
+      if (!currentEvent) return;
+      
+      // Count failed guests before resending
+      const failedGuestsCount = currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0;
+      
+      if (failedGuestsCount === 0) {
+        alert('ℹ️ אין אורחים עם הודעות שנכשלו לשליחה חוזרת');
+        return;
+      }
+      
+      const confirmMessage = `האם אתה בטוח שברצונך לשלוח שוב את ההודעה ל-${failedGuestsCount} אורחים שההודעה נכשלה להם?`;
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+      
+      const result = await resendFailedMessages(currentEvent.id, campaignId);
+      
+      // Show result message
+      let message = '';
+      if (result.successful > 0 && result.failed === 0) {
+        message = `✅ הודעות נשלחו בהצלחה!\n\n${result.successful} הודעות נשלחו בהצלחה מחדש`;
+      } else if (result.successful > 0 && result.failed > 0) {
+        message = `⚠️ הודעות נשלחו חלקית\n\n✅ ${result.successful} הודעות נשלחו בהצלחה מחדש\n❌ ${result.failed} הודעות עדיין נכשלו`;
+      } else {
+        message = `❌ כל ההודעות עדיין נכשלו\n\n${result.failed} הודעות נכשלו`;
+      }
+      
+      console.log('📊 Resend failed messages result:', result);
+      alert(message);
+    } catch (error: any) {
+      console.error('Error resending failed messages:', error);
+      const errorMessage = error?.message || error?.toString() || 'שגיאה לא ידועה';
+      alert(`❌ שגיאה בשליחה חוזרת\n\n🔍 שגיאה: ${errorMessage}`);
     }
   };
 
@@ -878,6 +916,20 @@ const CampaignManagement: React.FC = () => {
                     >
                       <Play className="w-4 h-4" />
                       <span>שלח עכשיו</span>
+                    </button>
+                  )}
+
+                  {/* Show resend failed button only if there are failed messages and campaign was sent */}
+                  {currentEvent && (campaign.status === 'sent' || campaign.status === 'scheduled') && 
+                   (currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0) > 0 && (
+                    <button
+                      onClick={() => handleResendFailed(campaign.id)}
+                      className="btn-secondary text-sm flex items-center space-x-1 bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={isLoading}
+                      title={`שלח שוב ל-${currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0} אורחים שההודעה נכשלה להם`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>שליחה חוזרת לכשלונות</span>
                     </button>
                   )}
 

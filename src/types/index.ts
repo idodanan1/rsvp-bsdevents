@@ -225,6 +225,7 @@ export interface EventStore {
   createCampaign: (campaign: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   scheduleCampaign: (eventId: string, campaignId: string, scheduledDate: Date) => Promise<void>;
   sendCampaign: (eventId: string, campaignId: string) => Promise<any>;
+  resendFailedMessages: (eventId: string, campaignId: string) => Promise<any>;
   sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp') => Promise<boolean>;
   updateExistingEventsCampaigns: () => void;
   recreateCampaigns: (eventId: string) => Promise<void>;

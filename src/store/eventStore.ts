@@ -2764,7 +2764,7 @@ export const useEventStore = create<EventStore>()(
               
               // CRITICAL: After successful backend sync, trigger immediate refresh to ensure EventManagement sees the update
               // This ensures the table updates immediately after guest status change, without waiting for webhook service
-              // Use a small delay to ensure backend has finished processing
+              // Use minimal delay to ensure backend has finished processing
               setTimeout(async () => {
                 try {
                   console.log('🔄 Triggering immediate events refresh after guest status update...');
@@ -2774,7 +2774,7 @@ export const useEventStore = create<EventStore>()(
                 } catch (refreshError) {
                   console.warn('⚠️ Failed to refresh events after guest status update:', refreshError);
                 }
-              }, 500); // Small delay to ensure backend has processed the update
+              }, 100); // Minimal delay (reduced from 500ms) to ensure backend has processed the update
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events
@@ -3455,6 +3455,246 @@ export const useEventStore = create<EventStore>()(
           return result;
         } catch (error) {
           set({ error: 'שגיאה בשליחת הקמפיין', isLoading: false });
+          throw error;
+        }
+      },
+
+      resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
+        // CRITICAL: Ensure webhookService is running to receive updates after sending messages
+        const { webhookService } = await import('../services/webhookService');
+        if (!webhookService.pollingActive) {
+          webhookService.startPolling(8000);
+        } else {
+          webhookService.stopPolling();
+          webhookService.startPolling(8000);
+        }
+        console.log('📡 Resending failed messages - System is now actively waiting for guest responses...');
+        set({ isLoading: true, error: null });
+        try {
+          const event = get().events.find(e => e.id === eventId);
+          if (!event) {
+            throw new Error('Event not found');
+          }
+
+          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          if (!campaign) {
+            throw new Error('Campaign not found');
+          }
+
+          const guests = event.guests || [];
+          
+          // CRITICAL: Filter only guests with failed message status
+          const failedGuests = guests.filter(guest => guest.messageStatus === 'failed');
+          
+          if (failedGuests.length === 0) {
+            console.log('ℹ️ No guests with failed messages found for this campaign');
+            set({ isLoading: false });
+            return {
+              totalSent: 0,
+              successful: 0,
+              failed: 0,
+              results: []
+            };
+          }
+
+          console.log(`📊 Resending campaign "${campaign.name}" to ${failedGuests.length} guests with failed messages`);
+
+          // Determine template name based on campaign (same logic as sendCampaign)
+          let templateNameForCampaign = campaign.templateName;
+          
+          if (campaign.name === 'הזמנה ראשונית') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת שנייה') {
+            templateNameForCampaign = 'a';
+          } else if (campaign.name === 'תזכורת שבועית') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת אחרונה') {
+            templateNameForCampaign = 'today';
+          } else if (campaign.name === 'תזכורת יום האירוע') {
+            templateNameForCampaign = undefined;
+          } else if (!templateNameForCampaign) {
+            templateNameForCampaign = undefined;
+          }
+
+          // Import helper function
+          const { generateGuestResponseLink, formatDate } = await import('../utils/helpers');
+          
+          // Create personalized messages for each failed guest
+          const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
+            let personalizedMessage = campaign.message;
+            const guestLink = generateGuestResponseLink(eventId, guest.id);
+            
+            // Replace template variables
+            personalizedMessage = personalizedMessage
+              .replace(/\{\{guest_name\}\}/g, guest.firstName || '')
+              .replace(/\{\{firstName\}\}/g, guest.firstName || '')
+              .replace(/\{\{first_name\}\}/g, guest.firstName || '')
+              .replace(/\{\{coupleName\}\}/g, event.coupleName || '')
+              .replace(/\{\{groomName\}\}/g, event.groomName || '')
+              .replace(/\{\{brideName\}\}/g, event.brideName || '')
+              .replace(/\{\{eventType\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate) || '')
+              .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+              .replace(/\{\{venue\}\}/g, event.venue || '')
+              .replace(/\{\{guest_response_link\}\}/g, guestLink);
+
+            // Create buttons (same as sendCampaign)
+            const personalizedButtons = campaign.whatsappButtons?.map(button => {
+              if (button.type === 'url' && button.url) {
+                return {
+                  ...button,
+                  url: {
+                    ...button.url,
+                    url: button.url.url.replace(/\{\{guest_response_link\}\}/g, guestLink)
+                  }
+                };
+              }
+              return button;
+            });
+
+            // Build template params (same logic as sendCampaign)
+            const templateCoupleName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'הזוג');
+            const templateGroomName = event.groomName || '';
+            const templateBrideName = event.brideName || '';
+            
+            let templateParams: any = undefined;
+            
+            if (templateNameForCampaign === 'aa') {
+              templateParams = {
+                paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                groom_name: templateGroomName,
+                bride_name: templateBrideName,
+                event_date: formatDate(event.eventDate) || '',
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                couple_name: templateCoupleName,
+                guest_response_link: guestLink,
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'a') {
+              templateParams = {
+                paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                guest_response_link: guestLink,
+                couple_name: templateCoupleName,
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
+              const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+              const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
+              
+              templateParams = {
+                paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
+                             'event_time', 'venue', 'table_number'],
+                first_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                couple_name: templateCoupleName,
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                table_number: tableNumber,
+                language: 'he'
+              };
+            }
+
+            // Use event invitation image if available
+            const eventInvitationImageUrl = event.invitationImageUrl || campaign.imageUrl;
+
+            return {
+              id: guest.id,
+              firstName: guest.firstName,
+              lastName: guest.lastName,
+              phoneNumber: guest.phoneNumber,
+              channel: 'whatsapp',
+              message: personalizedMessage,
+              firstMessageSent: guest.firstMessageSent || false,
+              eventData: {
+                coupleName: event.coupleName,
+                groomName: event.groomName,
+                brideName: event.brideName,
+                eventType: event.eventType,
+                eventTypeHebrew: event.eventTypeHebrew,
+                eventDate: formatDate(event.eventDate),
+                eventTime: event.eventTime,
+                venue: event.venue,
+                invitationImageUrl: eventInvitationImageUrl
+              },
+              templateParams: templateParams,
+              buttons: personalizedButtons
+            };
+          }));
+
+          // Send messages using messageService
+          const messageData: MessageData = {
+            message: campaign.message,
+            imageUrl: event.invitationImageUrl || campaign.imageUrl,
+            recipients: personalizedMessages,
+            templateName: templateNameForCampaign
+          };
+
+          const result = await messageService.sendBulkMessages(messageData);
+          
+          // Update messageStatus for each guest based on send results
+          const updatedEvents = get().events.map(event => {
+            if (event.id !== eventId) return event;
+            
+            const updatedGuests = event.guests?.map(guest => {
+              // Only update guests that were in the failed list
+              if (!failedGuests.find(fg => fg.id === guest.id)) {
+                return guest;
+              }
+              
+              const messageResult = result.results.find(r => r.recipientId === guest.id);
+              if (messageResult && messageResult.success) {
+                return {
+                  ...guest,
+                  messageStatus: 'sent' as const,
+                  messageSentDate: new Date(),
+                  channel: 'whatsapp'
+                };
+              } else if (messageResult && !messageResult.success) {
+                return {
+                  ...guest,
+                  messageStatus: 'failed' as const,
+                  messageFailedDate: new Date()
+                };
+              }
+              return guest;
+            });
+            
+            return {
+              ...event,
+              guests: updatedGuests,
+              updatedAt: new Date()
+            };
+          });
+          
+          console.log(`📤 Resend completed! ${result.successful} messages sent successfully, ${result.failed} failed`);
+          console.log(`✅ Updated messageStatus for ${result.successful} guests from "failed" to "sent"`);
+
+          set({
+            events: updatedEvents,
+            isLoading: false
+          });
+          
+          // Sync updated events to backend
+          const updatedEvent = updatedEvents.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.warn('⚠️ Failed to sync updated event to API:', err);
+            });
+          }
+
+          return result;
+        } catch (error) {
+          set({ error: 'שגיאה בשליחה חוזרת לכשלונות', isLoading: false });
           throw error;
         }
       },

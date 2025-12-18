@@ -761,11 +761,12 @@ class WebhookService {
           // CRITICAL: Single refresh call - the store update already triggers React re-renders
           // Multiple calls cause excessive API requests and performance issues
           // The events array update from updateGuestResponse already triggers EventManagement to re-render
+          // Use immediate refresh (no delay) to ensure table updates instantly
           setTimeout(() => {
             refreshedState.fetchEvents(false, true).catch(err => {
               console.warn(`⚠️ Failed to refresh events after WhatsApp update:`, err);
             });
-          }, 100); // Single delayed refresh to ensure API is in sync
+          }, 50); // Minimal delay (reduced from 100ms) to ensure API is in sync and table updates immediately
           
           console.log('🔄 Triggered single fetchEvents call to sync with API');
           

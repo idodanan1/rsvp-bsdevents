@@ -297,6 +297,25 @@ const EventManagement: React.FC = () => {
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
       lastEventUpdatedAtRef.current = eventUpdatedAt;
+      
+      // Log message statistics for verification
+      if (newCurrentEvent.guests && newCurrentEvent.guests.length > 0) {
+        const messageStats = {
+          total: newCurrentEvent.guests.length,
+          not_sent: newCurrentEvent.guests.filter(g => !g.messageStatus || g.messageStatus === 'not_sent').length,
+          sent: newCurrentEvent.guests.filter(g => g.messageStatus === 'sent').length,
+          delivered: newCurrentEvent.guests.filter(g => g.messageStatus === 'delivered').length,
+          failed: newCurrentEvent.guests.filter(g => g.messageStatus === 'failed').length,
+          sent_or_delivered: newCurrentEvent.guests.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+        };
+        console.log('📊 Message Statistics:', messageStats);
+        console.log('✅ Verified: Delivered messages count =', messageStats.delivered);
+        if (messageStats.delivered === 53) {
+          console.log('✅ Confirmed: Exactly 53 messages were successfully delivered');
+        } else {
+          console.log(`ℹ️ Note: Delivered count is ${messageStats.delivered}, not 53`);
+        }
+      }
     }
     // CRITICAL: Do NOT include currentEvent in dependencies to prevent infinite loop
     // The useEffect should only run when events array changes, not when currentEvent changes
@@ -331,6 +350,67 @@ const EventManagement: React.FC = () => {
       syncedEventsRef.current.delete(currentEvent.id);
     });
   }, [id, currentEvent, syncCurrentEventToAPI]);
+
+  // CRITICAL: Force immediate table update when currentEvent changes
+  // This ensures the table updates immediately when guest status changes via link or WhatsApp
+  const currentEventGuestsKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!currentEvent || !currentEvent.guests || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Create a key from guests to detect changes
+    const guestsKey = currentEvent.guests.map(g => {
+      try {
+        let responseDateValue = '';
+        if (g.responseDate) {
+          const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+          responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+        }
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:${responseDateValue}`;
+      } catch (error) {
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:`;
+      }
+    }).join('|');
+    
+    // Only update if guests actually changed
+    if (guestsKey !== currentEventGuestsKeyRef.current) {
+      currentEventGuestsKeyRef.current = guestsKey;
+      
+      // Force guestsToDisplay to recalculate by incrementing eventsVersion
+      // This ensures the table updates immediately when currentEvent changes
+      setEventsVersion(prev => {
+        const newVersion = prev + 1;
+        console.log('🔄 currentEvent guests changed, forcing table update - eventsVersion:', newVersion);
+        return newVersion;
+      });
+      
+      // Log message statistics for verification
+      const messageStats = {
+        total: currentEvent.guests.length,
+        not_sent: currentEvent.guests.filter(g => !g.messageStatus || g.messageStatus === 'not_sent').length,
+        sent: currentEvent.guests.filter(g => g.messageStatus === 'sent').length,
+        delivered: currentEvent.guests.filter(g => g.messageStatus === 'delivered').length,
+        failed: currentEvent.guests.filter(g => g.messageStatus === 'failed').length,
+        sent_or_delivered: currentEvent.guests.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+      };
+      
+      console.log('📊 Message Statistics Breakdown:', {
+        eventId: currentEvent.id,
+        eventName: currentEvent.coupleName || currentEvent.eventTypeHebrew,
+        ...messageStats,
+        deliveryRate: messageStats.sent_or_delivered > 0 
+          ? `${Math.round((messageStats.delivered / messageStats.sent_or_delivered) * 100)}%` 
+          : '0%'
+      });
+      
+      if (messageStats.delivered === 53) {
+        console.log('✅ VERIFIED: Exactly 53 messages were successfully delivered');
+      } else {
+        console.log(`ℹ️ Current delivered count: ${messageStats.delivered} ${messageStats.delivered === 53 ? '(matches expected)' : `(expected: 53)`}`);
+      }
+    }
+  }, [currentEvent, id]);
 
   // CRITICAL: Auto-create campaigns if they don't exist
   // This ensures events always have campaigns available
@@ -626,13 +706,14 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include id, eventsVersion, and events array to ensure immediate updates
+    // CRITICAL: Dependencies include id, eventsVersion, events array, and currentEvent to ensure immediate updates
     // eventsVersion is updated when events array changes, triggering re-calculation
     // Including events directly ensures we catch updates immediately, even if eventsVersion hasn't updated yet
+    // Including currentEvent ensures we catch updates when currentEvent changes directly (from guest link or WhatsApp)
     // We don't include eventsHash directly to avoid circular dependencies
     // eventsVersion already captures changes from eventsHash via the useEffect that updates it
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events]);
+  }, [id, eventsVersion, events, currentEvent?.id, currentEvent?.guests?.length]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
