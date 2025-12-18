@@ -2914,36 +2914,33 @@ export const useEventStore = create<EventStore>()(
           const isEventDayReminder = campaign.name === 'תזכורת יום האירוע';
           
           // CRITICAL: Filter guests based on campaign type
-          // 1. Some campaigns (הזמנה ראשונית, תזכורת שנייה, תזכורת שבועית) should only be sent to guests who haven't responded yet
-          // 2. Other campaigns (תזכורת אחרונה, הודעת תודה) should only be sent to guests who confirmed (מגיע)
-          // 3. Some campaigns (תזכורת יום האירוע) should be sent to all guests
+          // 1. Some campaigns (הזמנה ראשונית, תזכורת שנייה, תזכורת שבועית) should only be sent to guests with status 'pending' (לא ענה) or 'maybe' (אולי מגיע)
+          // 2. Other campaigns (תזכורת אחרונה, הודעת תודה למגיעים, תזכורת יום האירוע) should only be sent to guests who confirmed (מגיע)
+          // 3. Custom campaigns (default) should only be sent to guests with status 'pending' or 'maybe' (לא ענה ומתלבט)
           const campaignsForNonResponded = ['הזמנה ראשונית', 'תזכורת שנייה', 'תזכורת שבועית'];
-          const campaignsForConfirmed = ['תזכורת אחרונה', 'הודעת תודה למגיעים'];
-          const campaignsForAll = ['תזכורת יום האירוע'];
+          const campaignsForConfirmed = ['תזכורת אחרונה', 'הודעת תודה למגיעים', 'תזכורת יום האירוע'];
           
           let filteredGuests;
           if (campaignsForNonResponded.includes(campaign.name)) {
-            // Only send to guests who haven't responded (not confirmed and not declined)
+            // Only send to guests with status 'pending' (לא ענה) or 'maybe' (אולי מגיע)
             filteredGuests = guests.filter(guest => 
-              guest.rsvpStatus !== 'confirmed' && guest.rsvpStatus !== 'declined'
+              guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
             );
-            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests who haven't responded)`);
-            console.log(`✅ Filtering: Only sending to guests with status !== 'confirmed' && !== 'declined'`);
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'pending' (לא ענה) or 'maybe' (אולי מגיע)`);
           } else if (campaignsForConfirmed.includes(campaign.name)) {
             // Only send to guests who confirmed (מגיע)
             filteredGuests = guests.filter(guest => guest.rsvpStatus === 'confirmed');
             console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
             console.log(`✅ Filtering: Only sending to guests with status === 'confirmed' (מגיע)`);
-          } else if (campaignsForAll.includes(campaign.name)) {
-            // Send to ALL guests regardless of their status
-            filteredGuests = guests;
-          console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
-          console.log(`✅ Sending to all guests regardless of their RSVP status`);
           } else {
-            // Default: send to all guests (for custom campaigns)
-            filteredGuests = guests;
-            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (default: all guests)`);
-            console.log(`✅ Sending to all guests (default behavior for custom campaigns)`);
+            // Default: send only to guests with status 'pending' or 'maybe' (לא ענה ומתלבט)
+            // This ensures custom campaigns only target guests who haven't confirmed or declined
+            filteredGuests = guests.filter(guest => 
+              guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
+            );
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'pending' (לא ענה) or 'maybe' (מתלבט)`);
           }
           
           // Determine template name based on campaign FIRST (before building templateParams)

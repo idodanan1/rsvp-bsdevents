@@ -3127,12 +3127,12 @@ const EventManagement: React.FC = () => {
         <div className="overflow-x-auto">
           <div className="min-w-full">
           <table className="w-full divide-y divide-gray-200 table-fixed" style={{ minWidth: '1200px' }}>
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 pointer-events-none">
               <tr>
-                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12">
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12 pointer-events-auto">
                   #
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider pointer-events-auto">
                   <input
                     type="checkbox"
                     checked={selectedGuests.length === filteredGuests.length && filteredGuests.length > 0}
@@ -3140,39 +3140,39 @@ const EventManagement: React.FC = () => {
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   מוזמן
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   טלפון
                 </th>
-                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px]">
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px] pointer-events-auto">
                   מספר מוזמנים
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   סטטוס אישור
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   הגעה בפועל
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   ערוץ
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px] pointer-events-auto">
                   שולחן
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px] pointer-events-auto">
                   סטטוס הודעה
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   תאריך שליחה
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   פעולות
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 relative z-0">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
@@ -3200,7 +3200,7 @@ const EventManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredGuests.map((guest, index) => (
-                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 relative z-0 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
                     {index + 1}
                   </td>
