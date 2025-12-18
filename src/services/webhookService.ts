@@ -27,7 +27,7 @@ class WebhookService {
   }
 
   // Start polling for webhook updates
-  startPolling(intervalMs: number = 10000) {
+  startPolling(intervalMs: number = 8000) { // Optimized: 8 seconds for faster updates
     // If already polling, restart with new interval
     if (this.isPolling) {
       this.stopPolling();

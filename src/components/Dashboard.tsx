@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
         console.error('❌ Error auto-refreshing events:', error);
       });
       });
-    }, 15000); // 15 seconds - balanced sync without excessive load
+    }, 20000); // 20 seconds (optimized: balanced between freshness and performance)
 
     return () => clearInterval(dataInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

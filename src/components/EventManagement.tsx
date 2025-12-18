@@ -171,7 +171,7 @@ const EventManagement: React.FC = () => {
     // This ensures EventManagement receives real-time updates from backend
     // Only start if not already active to avoid duplicate polling
     if (!webhookService.pollingActive) {
-      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
     }
     
     // Auto-refresh events every 15 seconds for real-time sync between devices
@@ -184,7 +184,7 @@ const EventManagement: React.FC = () => {
         console.error('❌ Error auto-refreshing events:', error);
       });
       });
-    }, 15000); // Refresh every 15 seconds to reduce server load
+    }, 20000); // Refresh every 20 seconds (optimized: balanced between freshness and performance)
 
     return () => {
       clearInterval(intervalId);

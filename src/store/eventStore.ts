@@ -202,7 +202,147 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
 // Track if fetchEvents is in progress to prevent duplicate calls
 let fetchInProgress = false;
 let lastFetchTime = 0;
-const FETCH_DEBOUNCE_MS = 5000; // Minimum 5 seconds between fetches to reduce server load
+const FETCH_DEBOUNCE_MS = 5000; // Minimum 5 seconds between fetches (optimized to reduce API calls while maintaining responsiveness)
+
+// Batch processing for guest updates - queues updates and sends them together
+interface PendingGuestUpdate {
+  phoneNumber: string;
+  guestId: string;
+  eventId: string;
+  status?: string;
+  guestCount?: number;
+  actualAttendance?: string;
+  notes?: string;
+  responseDate: string;
+  source: string;
+  timestamp: number;
+}
+
+class GuestUpdateBatchProcessor {
+  private updateQueue: PendingGuestUpdate[] = [];
+  private batchTimeout: number | null = null;
+  private readonly BATCH_DELAY_MS = 1000; // Wait 1 second before sending batch
+  private readonly MAX_BATCH_SIZE = 10; // Maximum updates per batch
+  private readonly CACHE_TTL_MS = 5000; // Cache updates for 5 seconds to prevent duplicates
+  private updateCache = new Map<string, number>(); // key -> timestamp
+
+  /**
+   * Add an update to the queue
+   */
+  addUpdate(update: PendingGuestUpdate): void {
+    // Check cache to prevent duplicate updates
+    const cacheKey = `${update.eventId}-${update.guestId}-${update.status || ''}-${update.guestCount || ''}`;
+    const cachedTime = this.updateCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cachedTime && (now - cachedTime) < this.CACHE_TTL_MS) {
+      console.log('🚫 Skipping duplicate update (cached):', cacheKey);
+      return;
+    }
+    
+    // Remove any existing update for the same guest from queue
+    this.updateQueue = this.updateQueue.filter(
+      u => !(u.eventId === update.eventId && u.guestId === update.guestId)
+    );
+    
+    // Add new update to queue
+    this.updateQueue.push(update);
+    this.updateCache.set(cacheKey, now);
+    
+    console.log(`📦 Added update to batch queue (${this.updateQueue.length} pending)`);
+    
+    // If queue is full, send immediately
+    if (this.updateQueue.length >= this.MAX_BATCH_SIZE) {
+      this.flushBatch();
+      return;
+    }
+    
+    // Otherwise, schedule batch send after delay
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+    }
+    
+    this.batchTimeout = window.setTimeout(() => {
+      this.flushBatch();
+    }, this.BATCH_DELAY_MS);
+  }
+
+  /**
+   * Send all pending updates in batch
+   */
+  private async flushBatch(): Promise<void> {
+    if (this.updateQueue.length === 0) {
+      return;
+    }
+    
+    const updatesToSend = [...this.updateQueue];
+    this.updateQueue = [];
+    
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+    
+    console.log(`📤 Sending batch of ${updatesToSend.length} guest updates...`);
+    
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    
+    // Send updates in parallel (but limit concurrency)
+    const BATCH_CONCURRENCY = 5;
+    for (let i = 0; i < updatesToSend.length; i += BATCH_CONCURRENCY) {
+      const batch = updatesToSend.slice(i, i + BATCH_CONCURRENCY);
+      
+      await Promise.all(
+        batch.map(async (update) => {
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(update)
+            });
+            
+            if (response.ok) {
+              console.log(`✅ Batch update sent successfully for guest ${update.guestId}`);
+            } else {
+              const errorText = await response.text();
+              console.warn(`⚠️ Batch update failed for guest ${update.guestId}:`, response.status, errorText);
+            }
+          } catch (error) {
+            console.warn(`⚠️ Batch update error for guest ${update.guestId}:`, error);
+          }
+        })
+      );
+      
+      // Small delay between batches to avoid overwhelming server
+      if (i + BATCH_CONCURRENCY < updatesToSend.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`✅ Batch of ${updatesToSend.length} updates completed`);
+  }
+
+  /**
+   * Force flush any pending updates (useful on page unload)
+   */
+  forceFlush(): void {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+    this.flushBatch();
+  }
+}
+
+// Singleton instance
+const guestUpdateBatchProcessor = new GuestUpdateBatchProcessor();
+
+// Flush on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    guestUpdateBatchProcessor.forceFlush();
+  });
+}
 
 export const useEventStore = create<EventStore>()(
   persist(
@@ -285,8 +425,8 @@ export const useEventStore = create<EventStore>()(
                   // CRITICAL: Ensure all API events have unique IDs (fixes existing events with duplicate IDs)
                   apiEvents = ensureUniqueEventIds(apiEvents);
                   
-                  // Cache the API response (5 seconds TTL for fast updates)
-                  cacheService.set(cacheKey, apiEvents, 5000);
+                  // Cache the API response (30 seconds TTL for better performance - reduces API calls)
+                  cacheService.set(cacheKey, apiEvents, 30000);
                 
                 // Get local events to merge
                 // CRITICAL: Always read from localStorage to get the latest events (including newly created ones)
@@ -2569,7 +2709,7 @@ export const useEventStore = create<EventStore>()(
               // This avoids 413 errors for large events (e.g., 417 guests) and ensures the update is synced
               // CRITICAL: Only include status if it was actually updated (not undefined)
               // If only guestCount was updated, don't send status to avoid overwriting it
-              const pendingUpdatePayload: any = {
+              const pendingUpdatePayload: PendingGuestUpdate = {
                 phoneNumber: updatedGuest.phoneNumber,
                 guestId: updatedGuest.id,
                 eventId: eventId,
@@ -2577,7 +2717,8 @@ export const useEventStore = create<EventStore>()(
                 actualAttendance: updatedGuest.actualAttendance,
                 notes: updatedGuest.notes,
                 responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
-                source: updatedGuest.source || 'guest_link'
+                source: updatedGuest.source || 'guest_link',
+                timestamp: Date.now()
               };
               
               // Only include status if it was explicitly updated (not undefined)
@@ -2586,75 +2727,39 @@ export const useEventStore = create<EventStore>()(
                 pendingUpdatePayload.status = updatedGuest.rsvpStatus;
               }
               
-              const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(pendingUpdatePayload)
-              });
+              // Use batch processor for better performance (queues and batches updates)
+              guestUpdateBatchProcessor.addUpdate(pendingUpdatePayload);
+              console.log('✅ Guest update added to batch queue (will be sent shortly)');
+              console.log('✅ Update will be processed by webhook service and synced to all devices');
               
-              if (addPendingResponse.ok) {
-                console.log('✅ Guest update successfully added to backend pendingUpdates.');
-                console.log('✅ Update will be processed by webhook service and synced to all devices');
+              // CRITICAL: Also update the event in API with minimal data (only the updated guest)
+              // This ensures the update is persisted even if webhook service fails
+              // We send only the updated guest, not the entire event, to avoid 413 errors
+              try {
+                console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
+                const minimalEventUpdate = {
+                  id: updatedEvent.id,
+                  userId: updatedEvent.userId,
+                  guests: [updatedGuest], // Only send the updated guest
+                  updatedAt: new Date().toISOString()
+                };
                 
-                // CRITICAL: Also update the event in API with minimal data (only the updated guest)
-                // This ensures the update is persisted even if webhook service fails
-                // We send only the updated guest, not the entire event, to avoid 413 errors
-                try {
-                  console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
-                  const minimalEventUpdate = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
-                    guests: [updatedGuest], // Only send the updated guest
-                    updatedAt: new Date().toISOString()
-                  };
-                  
-                  const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(minimalEventUpdate)
-                  });
-                  
-                  if (apiUpdateResponse.ok) {
-                    console.log('✅ Event updated in API with minimal data (only updated guest)');
-                  } else {
-                    const apiErrorText = await apiUpdateResponse.text();
-                    console.warn('⚠️ Failed to update event in API (but pendingUpdates was successful):', apiUpdateResponse.status, apiErrorText);
-                    // Don't fail - pendingUpdates was successful, webhook service will handle it
-                  }
-                } catch (apiError) {
-                  console.warn('⚠️ Error updating event in API (but pendingUpdates was successful):', apiError);
-                  // Don't fail - pendingUpdates was successful, webhook service will handle it
-                }
-              } else {
-                const errorText = await addPendingResponse.text();
-                console.warn('⚠️ Failed to add guest update to backend pendingUpdates:', addPendingResponse.status, errorText);
+                const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(minimalEventUpdate)
+                });
                 
-                // Fallback: Try to send minimal event update (only the changed guest)
-                // This is a last resort if pendingUpdates endpoint fails
-                try {
-                  console.log('🔄 Fallback: Attempting to send minimal event update...');
-                  const minimalEventUpdate = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
-                    guests: [updatedGuest], // Only send the updated guest
-                    updatedAt: new Date().toISOString()
-                  };
-                  
-                  const fallbackResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(minimalEventUpdate)
-                  });
-                  
-                  if (fallbackResponse.ok) {
-                    console.log('✅ Minimal event update synced to API (fallback successful)');
-                  } else {
-                    const fallbackErrorText = await fallbackResponse.text();
-                    console.warn('⚠️ Fallback sync failed:', fallbackResponse.status, fallbackErrorText);
-                  }
-                } catch (fallbackError) {
-                  console.warn('⚠️ Fallback sync error:', fallbackError);
+                if (apiUpdateResponse.ok) {
+                  console.log('✅ Event updated in API with minimal data (only updated guest)');
+                } else {
+                  const apiErrorText = await apiUpdateResponse.text();
+                  console.warn('⚠️ Failed to update event in API (but batch processor will handle pendingUpdates):', apiUpdateResponse.status, apiErrorText);
+                  // Don't fail - batch processor will handle pendingUpdates
                 }
+              } catch (apiError) {
+                console.warn('⚠️ Error updating event in API (but batch processor will handle pendingUpdates):', apiError);
+                // Don't fail - batch processor will handle pendingUpdates
               }
               
               // CRITICAL: After successful backend sync, trigger immediate refresh to ensure EventManagement sees the update
@@ -2890,10 +2995,10 @@ export const useEventStore = create<EventStore>()(
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');
         if (!webhookService.pollingActive) {
-          webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+          webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
         } else {
           webhookService.stopPolling();
-          webhookService.startPolling(10000); // Restart with reduced interval to reduce server load
+          webhookService.startPolling(8000); // Restart with optimized interval
         }
         console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });

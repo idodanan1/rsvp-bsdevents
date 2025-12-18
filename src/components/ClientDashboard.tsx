@@ -979,7 +979,7 @@ const ClientDashboard: React.FC = () => {
     } catch (error) {
           console.warn('⚠️ Polling error (will retry):', error);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 10000); // Poll every 10 seconds (optimized: balanced between freshness and performance)
     };
     
     // Start polling
@@ -987,7 +987,7 @@ const ClientDashboard: React.FC = () => {
     
     // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
     if (!webhookService.pollingActive) {
-      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
     }
     
     // Cleanup on unmount

@@ -1545,19 +1545,19 @@ const GuestResponse = () => {
                       } finally {
                         setIsSubmitting(false);
                       }
-                  } else {
+                    } else {
                     console.warn('⚠️ Cannot update - missing event or guestId');
                     console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
                     setSubmitStatus('error');
                     setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
-                  }
-                }}
-                disabled={isSubmitting}
+                    }
+                  }}
+                  disabled={isSubmitting}
                 className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 cursor-pointer"
                 style={{ borderRadius: '9999px', pointerEvents: isSubmitting ? 'none' : 'auto' }}
-              >
+                >
                 {isSubmitting ? 'שולח...' : 'אולי'}
-              </button>
+                </button>
                 
                 <button
                   onClick={async (e) => {
@@ -1580,10 +1580,10 @@ const GuestResponse = () => {
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
-                          let guestToUpdate = currentGuest;
-                          if (!guestToUpdate && currentEvent.guests) {
+                        let guestToUpdate = currentGuest;
+                        if (!guestToUpdate && currentEvent.guests) {
                             // Try exact match first
-                            guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                          guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
                             // If not found, try partial match (in case guestId has extra characters like 'https')
                             if (!guestToUpdate && guestIdToUse) {
                               guestToUpdate = currentEvent.guests.find((g: any) => 
