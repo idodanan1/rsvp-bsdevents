@@ -119,15 +119,56 @@ const GuestResponse = () => {
   
   // Parse guestId from hash or search params
   const parseGuestId = () => {
+    // CRITICAL: First, get the eventId that was parsed (the last one)
+    const finalEventId = parseEventIdFromHash();
+    
     // CRITICAL: Always check hash first for concatenated URLs, even if searchParams has guest
     // The hash contains the full URL including concatenated links
     const hash = window.location.hash;
-    if (hash) {
-      // CRITICAL: Find ALL guest= parameters in the hash (in case of concatenated URLs)
+    if (hash && finalEventId) {
+      // CRITICAL FIX: Find the guestId that corresponds to the finalEventId
+      // Look for the pattern: /guest-response/{eventId}?guest={guestId} or /guest-response/{eventId}&guest={guestId}
+      // Escape special regex characters in eventId
+      const escapedEventId = finalEventId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const eventGuestPattern = new RegExp(`/guest-response/${escapedEventId}[?&]guest=([a-z0-9-]{10,})`, 'gi');
+      const eventGuestMatch = eventGuestPattern.exec(hash);
+      
+      if (eventGuestMatch && eventGuestMatch[1]) {
+        let cleanGuestId = eventGuestMatch[1];
+        // Check what comes after the guestId
+        const matchIndex = hash.indexOf(eventGuestMatch[0]);
+        const afterMatch = hash.substring(matchIndex + eventGuestMatch[0].length);
+        
+        // If 'https://' or 'http://' appears right after, trim the ID
+        if (afterMatch.startsWith('https://') || afterMatch.startsWith('http://')) {
+          // Remove 'h', 'ht', 'htt', 'http', or 'https' from the end
+          if (cleanGuestId.endsWith('https')) {
+            cleanGuestId = cleanGuestId.slice(0, -5);
+          } else if (cleanGuestId.endsWith('http')) {
+            cleanGuestId = cleanGuestId.slice(0, -4);
+          } else if (cleanGuestId.endsWith('htt')) {
+            cleanGuestId = cleanGuestId.slice(0, -3);
+          } else if (cleanGuestId.endsWith('ht')) {
+            cleanGuestId = cleanGuestId.slice(0, -2);
+          } else if (cleanGuestId.endsWith('h')) {
+            if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+              cleanGuestId = cleanGuestId.slice(0, -1);
+            }
+          }
+        }
+        
+        // Final validation: alphanumeric and hyphens, at least 10 chars
+        if (cleanGuestId.length >= 10 && /^[a-z0-9-]+$/i.test(cleanGuestId)) {
+          console.log(`✅ Found guestId matching eventId ${finalEventId}: ${cleanGuestId}`);
+          return cleanGuestId;
+        }
+      }
+      
+      // Fallback: Find ALL guest= parameters in the hash (in case of concatenated URLs)
       // Use a more comprehensive regex that captures guestIds but stops before URLs or other non-alphanumeric chars
       // CRITICAL FIX: Extract guestId by finding the pattern and manually cleaning it
       // This handles cases where guestId is followed immediately by https:// or http://
-      const guestPattern = /[?&]guest=([a-z0-9]{10,})/gi;
+      const guestPattern = /[?&]guest=([a-z0-9-]{10,})/gi;
       const allGuestMatches: string[] = [];
       let match;
       while ((match = guestPattern.exec(hash)) !== null) {
@@ -139,7 +180,7 @@ const GuestResponse = () => {
         // Extract all guestIds from matches - get the ID part before any URL or other characters
         const guestIds = allGuestMatches.map(m => {
           // Extract the ID part after 'guest='
-          const idMatch = m.match(/guest=([a-z0-9]+)/i);
+          const idMatch = m.match(/guest=([a-z0-9-]+)/i);
           if (idMatch && idMatch[1]) {
             let cleanId = idMatch[1];
             // CRITICAL: Check if the ID ends with characters that are part of 'https' or 'http'
@@ -187,8 +228,8 @@ const GuestResponse = () => {
               }
             }
             
-            // Final validation: only alphanumeric, at least 10 chars
-            if (cleanId.length >= 10 && /^[a-z0-9]+$/i.test(cleanId)) {
+            // Final validation: alphanumeric and hyphens, at least 10 chars
+            if (cleanId.length >= 10 && /^[a-z0-9-]+$/i.test(cleanId)) {
               return cleanId;
             }
           }
@@ -1437,10 +1478,22 @@ const GuestResponse = () => {
                 </button>
                 
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🟡 "אולי" button clicked!');
                     const currentEvent = event || directEvent;
                     const currentGuest = guest || directGuest || finalGuest;
                     const guestIdToUse = currentGuest?.id || guestId;
+                    
+                    console.log('🔍 Button click debug:', {
+                      currentEvent: currentEvent?.id,
+                      currentGuest: currentGuest?.id,
+                      guestIdToUse,
+                      guestId,
+                      hasEvent: !!currentEvent,
+                      hasGuest: !!currentGuest
+                    });
                     
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
@@ -1480,10 +1533,15 @@ const GuestResponse = () => {
                             storeState.fetchEvents(false, true).catch(() => {});
                         }, 100);
                         setSubmitStatus('success');
+                        } else {
+                          console.error('❌ Guest not found for maybe status');
+                          setSubmitStatus('error');
+                          setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
                         }
                       } catch (error) {
                         console.error('Error:', error);
                         setSubmitStatus('error');
+                        setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
                       } finally {
                         setIsSubmitting(false);
                       }
@@ -1495,17 +1553,29 @@ const GuestResponse = () => {
                   }
                 }}
                 disabled={isSubmitting}
-                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
-                style={{ borderRadius: '9999px' }}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 cursor-pointer"
+                style={{ borderRadius: '9999px', pointerEvents: isSubmitting ? 'none' : 'auto' }}
               >
                 {isSubmitting ? 'שולח...' : 'אולי'}
               </button>
                 
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔴 "לא נוכל להגיע" button clicked!');
                     const currentEvent = event || directEvent;
                     const currentGuest = guest || directGuest || finalGuest;
                     const guestIdToUse = currentGuest?.id || guestId;
+                    
+                    console.log('🔍 Button click debug:', {
+                      currentEvent: currentEvent?.id,
+                      currentGuest: currentGuest?.id,
+                      guestIdToUse,
+                      guestId,
+                      hasEvent: !!currentEvent,
+                      hasGuest: !!currentGuest
+                    });
                     
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
@@ -1538,28 +1608,35 @@ const GuestResponse = () => {
                           actualAttendance: 'not_marked' as const,
                             source: 'guest_link'
                         };
-                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
+                        await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
                         setTimeout(() => {
                             const storeState = useEventStore.getState();
                             storeState.fetchEvents(false, true).catch(() => {});
                         }, 100);
                         setSubmitStatus('success');
+                        } else {
+                          console.error('❌ Guest not found for declined status');
+                          setSubmitStatus('error');
+                          setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
                         }
                       } catch (error) {
                         console.error('Error:', error);
                         setSubmitStatus('error');
+                        setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
                       } finally {
                         setIsSubmitting(false);
                       }
                     } else {
+                      console.warn('⚠️ Cannot update - missing event or guestId, falling back to form');
                       setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
                       setShowStatusButtons(false);
                       setShowConfirmButton(true);
                     }
                   }}
                   disabled={isSubmitting}
-                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
-                  style={{ borderRadius: '9999px' }}
+                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 cursor-pointer"
+                  style={{ borderRadius: '9999px', pointerEvents: isSubmitting ? 'none' : 'auto' }}
                 >
                   {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
                 </button>
