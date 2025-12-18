@@ -919,9 +919,8 @@ const CampaignManagement: React.FC = () => {
                     </button>
                   )}
 
-                  {/* Show resend failed button only if there are failed messages and campaign was sent */}
-                  {currentEvent && (campaign.status === 'sent' || campaign.status === 'scheduled') && 
-                   (currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0) > 0 && (
+                  {/* Show resend failed button if campaign was sent/scheduled - always show it, even if no failures currently */}
+                  {currentEvent && (campaign.status === 'sent' || campaign.status === 'scheduled') && (
                     <button
                       onClick={() => handleResendFailed(campaign.id)}
                       className="btn-secondary text-sm flex items-center space-x-1 bg-orange-600 hover:bg-orange-700 text-white"
@@ -930,6 +929,11 @@ const CampaignManagement: React.FC = () => {
                     >
                       <XCircle className="w-4 h-4" />
                       <span>שליחה חוזרת לכשלונות</span>
+                      {(currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0) > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 mr-1">
+                          {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0}
+                        </span>
+                      )}
                     </button>
                   )}
 
