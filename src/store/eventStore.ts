@@ -2713,7 +2713,7 @@ export const useEventStore = create<EventStore>()(
                 phoneNumber: updatedGuest.phoneNumber,
                 guestId: updatedGuest.id,
                 eventId: eventId,
-                guestCount: updatedGuest.guestCount,
+                guestCount: updatedGuest.guestCount, // CRITICAL: Always include guestCount if present
                 actualAttendance: updatedGuest.actualAttendance,
                 notes: updatedGuest.notes,
                 responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
@@ -2721,10 +2721,23 @@ export const useEventStore = create<EventStore>()(
                 timestamp: Date.now()
               };
               
+              console.log(`📤 Syncing guest update to backend:`, {
+                guestId: pendingUpdatePayload.guestId,
+                eventId: pendingUpdatePayload.eventId,
+                guestCount: pendingUpdatePayload.guestCount,
+                rsvpStatus: updatedGuest.rsvpStatus,
+                source: pendingUpdatePayload.source
+              });
+              
               // Only include status if it was explicitly updated (not undefined)
               // This ensures guestCount-only updates don't overwrite status
               if (updatedGuest.rsvpStatus !== undefined && updatedGuest.rsvpStatus !== null) {
                 pendingUpdatePayload.status = updatedGuest.rsvpStatus;
+              }
+              
+              // CRITICAL: Verify guestCount is included in payload
+              if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== null) {
+                console.log(`✅ Guest count included in sync payload: ${updatedGuest.guestCount}`);
               }
               
               // Use batch processor for better performance (queues and batches updates)

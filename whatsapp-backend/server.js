@@ -5642,6 +5642,8 @@ app.post('/api/events', async (req, res) => {
           if (existingGuestIndex >= 0) {
             // Update existing guest - merge all fields, but prioritize incoming data for updated fields
             const existingGuest = mergedGuests[existingGuestIndex];
+            const oldGuestCount = existingGuest.guestCount;
+            const newGuestCount = incomingGuest.guestCount;
             mergedGuests[existingGuestIndex] = {
               ...existingGuest,
               ...incomingGuest,
@@ -5659,7 +5661,13 @@ app.post('/api/events', async (req, res) => {
                 ? { responseDate: new Date(incomingGuest.responseDate) } 
                 : {})
             };
+            const finalGuestCount = mergedGuests[existingGuestIndex].guestCount;
             console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+            if (oldGuestCount !== finalGuestCount) {
+              console.log(`📊 GUEST COUNT UPDATED: ${oldGuestCount} → ${finalGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+            } else if (newGuestCount !== undefined) {
+              console.log(`📊 Guest count preserved: ${finalGuestCount} (was ${oldGuestCount}, incoming was ${newGuestCount})`);
+            }
           } else {
             // Add new guest
             mergedGuests.push(incomingGuest);

@@ -235,10 +235,23 @@ class WebhookService {
               // Only update guestCount, keep existing rsvpStatus
               rsvpStatus: foundGuest.rsvpStatus,
               // CRITICAL: Preserve notes if provided in update, otherwise keep existing notes
-              notes: update.notes !== undefined ? update.notes : foundGuest.notes
+              notes: update.notes !== undefined ? update.notes : foundGuest.notes,
+              // CRITICAL: Include source to ensure update is tracked correctly
+              source: update.source || 'guest_count'
             };
 
             await updateGuestResponse(foundEventId, foundGuest.id, updatedGuestForCount);
+            
+            // CRITICAL: Verify the update was successful
+            const verifyState = useEventStore.getState();
+            const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
+            const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
+            console.log(`🔍 Verification - Guest count after update: ${verifyGuest?.guestCount} (expected: ${update.guestCount})`);
+            if (verifyGuest?.guestCount !== update.guestCount) {
+              console.error(`❌ GUEST COUNT UPDATE FAILED! Expected: ${update.guestCount}, Got: ${verifyGuest?.guestCount}`);
+            } else {
+              console.log(`✅ Guest count updated successfully: ${verifyGuest?.guestCount}`);
+            }
             
             // CRITICAL: Wait a bit to ensure the update is processed before continuing
             // This ensures the store has the latest guestCount when we process the status update below
