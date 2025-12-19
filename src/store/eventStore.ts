@@ -2329,20 +2329,22 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Mark manual change for ALL manual updates (not just guest_link) to prevent webhook from overwriting them
           // This ensures updates from guest response page, status update buttons, and other manual sources are protected
           // CRITICAL: NEVER mark WhatsApp updates as manual changes - they come from external source and should always be processed
-          // Only mark manual changes for: guest_link, manual_update, or undefined source (which is treated as manual)
+          // CRITICAL: NEVER mark manual_update updates coming from webhook as manual changes - they're echoes of manual changes
+          // Only mark manual changes for: guest_link (direct user action), or undefined source (which is treated as manual)
+          // Do NOT mark manual_update if it's coming from webhook (it's an echo of a manual change we already marked)
           const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+          const isFromWebhook = updatedGuest.source === 'manual_update'; // This is an echo from webhook, don't mark again
           const isManualUpdate = updatedGuest.source === 'guest_link' || 
-                                 updatedGuest.source === 'manual_update' || 
-                                 (!updatedGuest.source && !isWhatsAppUpdate);
+                                 (!updatedGuest.source && !isWhatsAppUpdate && !isFromWebhook);
           
-          if (isManualUpdate && !isWhatsAppUpdate) {
+          if (isManualUpdate && !isWhatsAppUpdate && !isFromWebhook) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);
               newManualChanges.set(guestKey, Date.now());
               return { manualChanges: newManualChanges };
             });
-            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s (except WhatsApp)`);
+            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s (except WhatsApp and manual_update)`);
             
             // Also mark in webhookService to ensure protection
             try {
@@ -2353,6 +2355,8 @@ export const useEventStore = create<EventStore>()(
             }
           } else if (isWhatsAppUpdate) {
             console.log(`✅ WhatsApp update detected (source: ${updatedGuest.source}) - NOT marking as manual change, will always be processed`);
+          } else if (isFromWebhook) {
+            console.log(`✅ manual_update echo from webhook detected - NOT marking as manual change again, this is the sync back from backend`);
           }
           
           // CRITICAL: Ensure responseDate is always current for guest_link updates
