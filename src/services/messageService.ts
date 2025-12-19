@@ -210,11 +210,11 @@ class MessageService {
       console.log('📋 Template parameters:', templateParams);
       // Keep templateName and templateParams as provided - Meta will use template content
       // The campaign.message content will be ignored when using templates
-    } else if (explicitlyNoTemplate) {
+    } else if (explicitlyNoTemplate && !isFirstMessage) {
       // CRITICAL: User explicitly wants free-form message (templateName === undefined with message content)
-      // Send as regular message even if it's a first message
+      // Send as regular message ONLY if it's NOT a first message
+      // WhatsApp REQUIRES template for first messages, so we can't send free-form text
       console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
-      console.log('⚠️ Note: This may fail for first messages if WhatsApp requires template');
       templateName = undefined;
       templateParams = undefined;
     } else if (isFirstMessage) {
