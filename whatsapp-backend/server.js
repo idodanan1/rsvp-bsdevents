@@ -1465,12 +1465,20 @@ async function handleIncomingMessage(message) {
     
     // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
     // This ensures "מגיע" is always recognized as confirmed, not declined
-    if (buttonId === 'confirm_attendance' || 
+    // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
+    const isConfirmButton = buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
-        buttonIdLower.includes('confirm') ||
         buttonTitle === 'מגיע' ||
-        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא')) ||
-        (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא'))) {
+        buttonTitle === 'אגיע' ||
+        (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
+        // CRITICAL: Only match "מגיע" if it does NOT start with "לא" or contain "לא" before "מגיע"
+        (buttonTitleLower.includes('מגיע') && 
+         !buttonTitleLower.includes('לא') && 
+         !buttonTitleLower.startsWith('לא') &&
+         buttonTitleLower.indexOf('מגיע') < (buttonTitleLower.indexOf('לא') === -1 ? Infinity : buttonTitleLower.indexOf('לא'))) ||
+        (buttonTitleLower.includes('אגיע') && !buttonTitleLower.includes('לא'));
+    
+    if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
       console.log(`📞 Phone number received: ${phoneNumber}`);
       
@@ -1508,20 +1516,24 @@ async function handleIncomingMessage(message) {
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
-               buttonIdLower.includes('decline') ||
+               (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
                buttonIdLower.includes('לא אוכל') ||
-               buttonIdLower.includes('לא מגיע') ||
                buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
                buttonTitle?.includes('לא אוכל') ||
-               buttonTitle?.includes('לא מגיע') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
-               buttonTitleLower.includes('לא מגיע') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
-               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+               // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
+               (buttonTitleLower.includes('לא') && 
+                buttonTitleLower.includes('מגיע') && 
+                buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "מגיע" without "לא" prefix)
+               (buttonTitleLower.includes('לא') && 
+                (buttonTitleLower.includes('אוכל') || 
+                 (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -1709,20 +1721,24 @@ async function handleIncomingMessage(message) {
     } else if (buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
-               buttonIdLower.includes('decline') ||
+               (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
                buttonIdLower.includes('לא אוכל') ||
-               buttonIdLower.includes('לא מגיע') ||
                buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
                buttonTitle?.includes('לא אוכל') ||
-               buttonTitle?.includes('לא מגיע') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
-               buttonTitleLower.includes('לא מגיע') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
-               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+               // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
+               (buttonTitleLower.includes('לא') && 
+                buttonTitleLower.includes('מגיע') && 
+                buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "מגיע" without "לא" prefix)
+               (buttonTitleLower.includes('לא') && 
+                (buttonTitleLower.includes('אוכל') || 
+                 (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
