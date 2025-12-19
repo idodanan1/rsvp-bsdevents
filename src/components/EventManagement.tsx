@@ -2721,12 +2721,13 @@ const EventManagement: React.FC = () => {
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
       // Prepare template parameters for template "bb" (6 parameters only)
+      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       const templateParamsForBB = {
-        paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+        paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                      'event_date', 'event_time', 'venue'],
         guest_name: guest.firstName,
-        groom_name: groomName || '',
-        bride_name: brideName || '',
+        event_type: event.eventTypeHebrew || 'חתונה',
+        couple_name: coupleName || '',
         event_date: formatDate(event.eventDate) || '',
         event_time: event.eventTime || '',
         venue: event.venue || '',

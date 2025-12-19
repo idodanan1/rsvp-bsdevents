@@ -102,14 +102,14 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "bb" requires 6 parameters in order: guest_name, groom_name, bride_name, event_date, event_time, venue
+            // Template "bb" requires 6 parameters in order: guest_name, event_type, couple_name, event_date, event_time, venue
             // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
             // NOTE: For template "bb" and "aa", guest_response_link is NOT in body parameters - it's only used for the button
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
               : templateName === 'bb' || templateName === 'BB'
-                ? ['guest_name', 'groom_name', 'bride_name', 
+                ? ['guest_name', 'event_type', 'couple_name', 
                    'event_date', 'event_time', 'venue']
                 : templateName === 'aa' || templateName === 'AA'
                   ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 

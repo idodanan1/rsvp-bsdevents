@@ -3097,14 +3097,14 @@ export const useEventStore = create<EventStore>()(
             
             if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
               // Template "bb" requires 6 parameters in order (matching the template body):
-              // IMPORTANT: Order must match Meta template exactly: guest_name, groom_name, bride_name, event_date, event_time, venue
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, couple_name, event_date, event_time, venue
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams = {
-                paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                              'event_date', 'event_time', 'venue'],
                 guest_name: guest.firstName,
-                groom_name: templateGroomName, // Parameter 2 - groom_name comes BEFORE bride_name in Meta template
-                bride_name: templateBrideName, // Parameter 3 - bride_name comes AFTER groom_name in Meta template
+                event_type: event.eventTypeHebrew || 'חתונה', // Parameter 2 - event_type
+                couple_name: templateCoupleName, // Parameter 3 - couple_name
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3450,12 +3450,13 @@ export const useEventStore = create<EventStore>()(
             let templateParams: any = undefined;
             
             if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
+              // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
               templateParams = {
-                paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                              'event_date', 'event_time', 'venue'],
                 guest_name: guest.firstName,
-                groom_name: templateGroomName,
-                bride_name: templateBrideName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                couple_name: templateCoupleName,
                 event_date: formatDate(event.eventDate) || '',
                 event_time: event.eventTime || '',
                 venue: event.venue || '',

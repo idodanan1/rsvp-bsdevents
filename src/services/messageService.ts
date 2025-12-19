@@ -229,11 +229,11 @@ class MessageService {
         // If template is "bb" and no params, create default params
         if (templateName.toLowerCase() === 'bb' && recipient.eventData) {
           templateParams = {
-            paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+            paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                          'event_date', 'event_time', 'venue'],
             guest_name: recipient.firstName,
-            groom_name: recipient.eventData.groomName || '',
-            bride_name: recipient.eventData.brideName || '',
+            event_type: recipient.eventData.eventTypeHebrew || 'חתונה',
+            couple_name: recipient.eventData.coupleName || '',
             event_date: recipient.eventData.eventDate || '',
             event_time: recipient.eventData.eventTime || '',
             venue: recipient.eventData.venue || '',
@@ -261,14 +261,15 @@ class MessageService {
       // CRITICAL: Always set templateName to 'bb' for first messages (Meta requirement)
       templateName = 'bb';
       // Prepare template parameters for template "bb" (6 parameters only)
+      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       const eventData = recipient.eventData;
       if (eventData) {
         templateParams = {
-          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+          paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                        'event_date', 'event_time', 'venue'],
           guest_name: recipient.firstName,
-          groom_name: eventData.groomName || '',
-          bride_name: eventData.brideName || '',
+          event_type: eventData.eventTypeHebrew || 'חתונה',
+          couple_name: eventData.coupleName || '',
           event_date: eventData.eventDate || '',
           event_time: eventData.eventTime || '',
           venue: eventData.venue || '',
@@ -308,14 +309,15 @@ class MessageService {
       console.error('❌ Forcing templateName to "bb" for first message');
       templateName = 'bb';
       // Ensure templateParams are set for "bb" template
+      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       const eventData = recipient.eventData;
       if (eventData && !templateParams) {
         templateParams = {
-          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+          paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                        'event_date', 'event_time', 'venue'],
           guest_name: recipient.firstName,
-          groom_name: eventData.groomName || '',
-          bride_name: eventData.brideName || '',
+          event_type: eventData.eventTypeHebrew || 'חתונה',
+          couple_name: eventData.coupleName || '',
           event_date: eventData.eventDate || '',
           event_time: eventData.eventTime || '',
           venue: eventData.venue || '',
@@ -353,14 +355,15 @@ class MessageService {
       console.error('❌ CRITICAL: templateName is invalid for first message, forcing to "bb"');
       templateName = 'bb';
       // Ensure templateParams are set
+      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       if (!templateParams) {
         const eventData = recipient.eventData;
         templateParams = eventData ? {
-          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+          paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                        'event_date', 'event_time', 'venue'],
           guest_name: recipient.firstName,
-          groom_name: eventData.groomName || '',
-          bride_name: eventData.brideName || '',
+          event_type: eventData.eventTypeHebrew || 'חתונה',
+          couple_name: eventData.coupleName || '',
           event_date: eventData.eventDate || '',
           event_time: eventData.eventTime || '',
           venue: eventData.venue || '',
