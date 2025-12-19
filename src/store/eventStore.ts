@@ -2328,16 +2328,21 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Mark manual change for ALL manual updates (not just guest_link) to prevent webhook from overwriting them
           // This ensures updates from guest response page, status update buttons, and other manual sources are protected
-          // Only skip marking if the source is 'whatsapp' (which comes from webhook) or undefined (which might be from webhook)
-          const isManualUpdate = updatedGuest.source && updatedGuest.source !== 'whatsapp';
-          if (isManualUpdate || updatedGuest.source === 'guest_link' || updatedGuest.source === 'manual_update' || !updatedGuest.source) {
+          // CRITICAL: NEVER mark WhatsApp updates as manual changes - they come from external source and should always be processed
+          // Only mark manual changes for: guest_link, manual_update, or undefined source (which is treated as manual)
+          const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+          const isManualUpdate = updatedGuest.source === 'guest_link' || 
+                                 updatedGuest.source === 'manual_update' || 
+                                 (!updatedGuest.source && !isWhatsAppUpdate);
+          
+          if (isManualUpdate && !isWhatsAppUpdate) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);
               newManualChanges.set(guestKey, Date.now());
               return { manualChanges: newManualChanges };
             });
-            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s`);
+            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s (except WhatsApp)`);
             
             // Also mark in webhookService to ensure protection
             try {
@@ -2346,6 +2351,8 @@ export const useEventStore = create<EventStore>()(
             } catch (error) {
               console.warn('⚠️ Could not mark manual change in webhookService:', error);
             }
+          } else if (isWhatsAppUpdate) {
+            console.log(`✅ WhatsApp update detected (source: ${updatedGuest.source}) - NOT marking as manual change, will always be processed`);
           }
           
           // CRITICAL: Ensure responseDate is always current for guest_link updates

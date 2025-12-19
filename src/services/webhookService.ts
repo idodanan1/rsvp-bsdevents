@@ -229,14 +229,18 @@ class WebhookService {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
             // CRITICAL: Check if there was a manual change recently
-            // BUT: Don't block updates from guest_link or manual_update if they're the same source as the manual change
+            // BUT: Don't block updates from guest_link, manual_update, or whatsapp if they're the same source as the manual change
             // This allows the manual change to sync back from backend without being blocked
+            // CRITICAL: WhatsApp updates should NEVER be blocked - they come from external source
             const lastManualChange = this.manualChanges.get(guestKey);
             const now = Date.now();
+            const isFromWhatsApp = update.source === 'whatsapp';
             const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
+            // CRITICAL: Never block WhatsApp updates - they come from external source and should always be processed
             const shouldBlock = lastManualChange && 
                               (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                              !isFromManualSource; // Don't block manual updates - they're the manual change itself
+                              !isFromManualSource && 
+                              !isFromWhatsApp; // NEVER block WhatsApp updates - they're external and should always be processed
             
             if (shouldBlock) {
               const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
@@ -262,8 +266,8 @@ class WebhookService {
               continue; // Skip this update
             }
             
-            // If update is from manual source and there was a manual change, allow it (it's the manual change syncing back)
-            if (isFromManualSource && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+            // If update is from manual source or WhatsApp and there was a manual change, allow it (it's the manual change syncing back)
+            if ((isFromManualSource || isFromWhatsApp) && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
               console.log(`✅ Allowing ${update.source || 'manual'} guestCount update to sync back from backend (manual change protection bypassed)`);
             }
 
@@ -604,14 +608,19 @@ class WebhookService {
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
           // CRITICAL: Check if there was a manual change recently (within protection time)
-          // BUT: Don't block updates from guest_link or manual_update if they're the same source as the manual change
+          // BUT: Don't block updates from guest_link, manual_update, or whatsapp if they're the same source as the manual change
           // This allows the manual change to sync back from backend without being blocked
+          // CRITICAL: WhatsApp updates should NEVER be blocked - they come from external source
           const lastManualChange = this.manualChanges.get(guestKey);
           const now = Date.now();
+          const isFromWhatsApp = update.source === 'whatsapp';
           const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
+          // CRITICAL: Never block WhatsApp updates - they come from external source and should always be processed
+          // Only block webhook updates if they're NOT from WhatsApp and there was a recent manual change
           const shouldBlock = lastManualChange && 
                             (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                            !isFromManualSource; // Don't block manual updates - they're the manual change itself
+                            !isFromManualSource && 
+                            !isFromWhatsApp; // NEVER block WhatsApp updates - they're external and should always be processed
           
           if (shouldBlock) {
             const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
@@ -666,11 +675,10 @@ class WebhookService {
           // Even if status matches, we should still sync if:
           // 1. Update is from guest_link (new update from phone)
           // 2. Update is from manual_update (new update from status update buttons)
-          // 3. Update is from whatsapp button (new update from WhatsApp)
+          // 3. Update is from whatsapp button (new update from WhatsApp) - CRITICAL: Always sync WhatsApp updates
           // 4. Other fields changed (guestCount, actualAttendance, responseDate)
           // 5. Status changed
-          // Note: isFromManualSource is already defined above
-          const isFromWhatsApp = update.source === 'whatsapp';
+          // Note: isFromManualSource and isFromWhatsApp are already defined above
           const shouldSyncEvenIfStatusMatches = isFromManualSource || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
           // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link or whatsapp
@@ -739,6 +747,7 @@ class WebhookService {
           // Otherwise, use update.guestCount if provided
           // CRITICAL: Also preserve notes from updates (especially from guest_link)
           // CRITICAL: Clean names when updating from webhook
+          // CRITICAL: Preserve source from update - if it's 'whatsapp', keep it; otherwise default to 'whatsapp' for webhook updates
           const updatedGuest = {
             ...latestGuest,
             firstName: cleanName(latestGuest.firstName),
@@ -749,7 +758,9 @@ class WebhookService {
             // This ensures we preserve the guestCount that was already updated
             guestCount: latestGuest.guestCount !== undefined ? latestGuest.guestCount : (update.guestCount !== undefined ? update.guestCount : 1),
             notes: update.notes !== undefined ? update.notes : latestGuest.notes,
-            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance
+            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance,
+            // CRITICAL: Preserve source - if update has source, use it; otherwise default to 'whatsapp' for webhook updates
+            source: update.source || 'whatsapp'
           };
           
           console.log(`📊 Updated guest data:`, {
@@ -772,15 +783,22 @@ class WebhookService {
           });
 
           // Update the guest status
+          // CRITICAL: Ensure source is preserved for WhatsApp updates
+          const guestWithSource = {
+            ...updatedGuest,
+            source: update.source || 'whatsapp' // Preserve source, default to 'whatsapp' for webhook updates
+          };
+          
           console.log('🔄 WEBHOOK: About to call updateGuestResponse with:', {
             eventId: foundEventId,
             guestId: foundGuest.id,
             oldStatus: foundGuest.rsvpStatus,
             newStatus: updatedGuest.rsvpStatus,
+            source: guestWithSource.source,
             guestName: `${foundGuest.firstName} ${foundGuest.lastName}`
           });
           
-          await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
+          await updateGuestResponse(foundEventId, foundGuest.id, guestWithSource);
           
           console.log('✅ WEBHOOK: updateGuestResponse completed');
           
