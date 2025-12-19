@@ -77,6 +77,9 @@ class WhatsAppService {
           }
         };
         
+        // CRITICAL: Declare templateName at outer scope so it's accessible throughout all blocks
+        const templateName = (messageData.templateName || '').toLowerCase();
+        
         // Add template parameters if provided AND template is not hello_world
         // hello_world template doesn't support parameters
         if (messageData.templateName !== 'hello_world' && 
@@ -103,7 +106,6 @@ class WhatsAppService {
             // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
             // NOTE: For template "bb" and "aa", guest_response_link is NOT in body parameters - it's only used for the button
-            const templateName = (messageData.templateName || '').toLowerCase();
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
               : templateName === 'bb' || templateName === 'BB'
@@ -230,7 +232,6 @@ class WhatsAppService {
             // No valid image URL - check if we should add placeholder
             // For templates that might require header image, add placeholder proactively
             // This prevents error 132012 from occurring
-            const templateName = (messageData.templateName || '').toLowerCase();
             // CRITICAL: Templates that require header image
             // Template "bb" DOES require header image (as shown in Meta Business Manager)
             const templatesRequiringHeader = ['bb', 'aa', 'a', 'reminer', 'reminder'];
@@ -259,7 +260,6 @@ class WhatsAppService {
               }
             } else {
               // Template might not require header - but "bb" DOES require it
-              const templateName = (messageData.templateName || '').toLowerCase();
               if (templateName === 'bb') {
                 console.warn('⚠️ Template "bb" requires header image but none provided!');
                 console.warn('⚠️ Adding placeholder image to prevent API error');
