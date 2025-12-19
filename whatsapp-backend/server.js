@@ -3361,8 +3361,8 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  const { phoneNumber, status, responseDate, guestCount, removeAllForPhone } = req.body;
-  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone });
+  const { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId } = req.body;
+  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId });
   
   const initialLength = pendingUpdates.length;
   
@@ -3479,12 +3479,35 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   } else {
     // Filter out the specific update that was processed
     // Match by phone number, status, and responseDate (and guestCount if provided)
+    // CRITICAL: Also support matching by guestId and eventId for more precise matching
     // CRITICAL: Normalize phone numbers for matching (handle different formats)
     const normalizedRequestPhone = phoneNumber ? phoneNumber.replace(/[^0-9]/g, '') : '';
     const normalizedRequestPhoneWith0 = normalizedRequestPhone.replace(/^972/, '0');
     const normalizedRequestPhoneWith972 = normalizedRequestPhone.startsWith('0') ? '972' + normalizedRequestPhone.substring(1) : normalizedRequestPhone;
     
+    // CRITICAL: If guestId and eventId are provided, prioritize matching by these (most precise)
+    const matchByGuestIdAndEventId = guestId && eventId;
+    
     filtered = pendingUpdates.filter(u => {
+      // CRITICAL: If matching by guestId and eventId, use that first (most precise)
+      if (matchByGuestIdAndEventId) {
+        // If update has both guestId and eventId, match by these
+        if (u.guestId && u.eventId) {
+          const guestIdMatch = u.guestId === guestId;
+          const eventIdMatch = u.eventId === eventId;
+          if (guestIdMatch && eventIdMatch) {
+            // Both match - this is the update we want to remove
+            console.log(`   ✅ Matched update by guestId + eventId: ${u.guestId}/${u.eventId}`);
+            return false; // Remove this update
+          } else {
+            // Don't match - keep this update
+            return true; // Keep
+          }
+        }
+        // If update doesn't have guestId/eventId, fall through to phone matching
+        // This ensures old updates without these fields can still be matched
+      }
+      
       // Normalize both phone numbers for comparison
       const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
       const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
@@ -3528,8 +3551,42 @@ app.delete('/api/guests/pending-updates', (req, res) => {
       // If guestCount is provided, only match updates with that exact guestCount
       const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
       
-      // Keep if it doesn't match all criteria
-      return !(phoneMatch && statusMatch && dateMatch && guestCountMatch);
+      // CRITICAL: Also check guestId and eventId if provided (for additional precision)
+      // If guestId/eventId are provided but update doesn't have them, still allow matching by phone/status/guestCount
+      // This ensures old updates without guestId/eventId can still be matched
+      const guestIdMatch = !guestId || !u.guestId || u.guestId === guestId;
+      const eventIdMatch = !eventId || !u.eventId || u.eventId === eventId;
+      
+      // CRITICAL: Match by phone number (required) AND other criteria
+      // If guestId and eventId are provided, they must match (if update has them)
+      // Otherwise, match by status and/or guestCount
+      if (!phoneMatch) {
+        return true; // Keep - phone doesn't match
+      }
+      
+      // Phone matches - now check other criteria
+      // CRITICAL: If guestId and eventId are provided, prioritize matching by these
+      if (guestId && eventId && u.guestId && u.eventId) {
+        // Both request and update have guestId/eventId - must match exactly
+        if (u.guestId === guestId && u.eventId === eventId) {
+          // Also check status/guestCount if provided (for additional precision)
+          const otherFieldsMatch = (!status || statusMatch) && (guestCount === undefined || guestCountMatch);
+          return !otherFieldsMatch; // Remove if matches, keep if doesn't
+        } else {
+          return true; // Keep - guestId/eventId don't match
+        }
+      }
+      
+      // No guestId/eventId matching required - match by status and/or guestCount
+      // CRITICAL: Match if status matches OR guestCount matches (flexible matching)
+      // This allows matching updates even if only one field matches
+      const matches = (statusMatch || guestCount === undefined) && 
+                     (guestCountMatch || status === undefined) &&
+                     dateMatch &&
+                     guestIdMatch &&
+                     eventIdMatch;
+      
+      return !matches; // Keep if doesn't match, remove if matches
     });
   }
   

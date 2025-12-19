@@ -704,10 +704,14 @@ class WebhookService {
           // Use current guest data if available, otherwise fall back to foundGuest
           const latestGuest = currentGuest || foundGuest;
           
+          // CRITICAL: Store OLD values BEFORE updating - these will be used to match and remove the update from backend
+          const oldStatus = latestGuest.rsvpStatus;
+          const oldGuestCount = latestGuest.guestCount;
+          
           console.log(`✅ Updating guest ${latestGuest.firstName} ${latestGuest.lastName} status to ${update.status}`);
-          console.log(`   Current status: ${latestGuest.rsvpStatus}`);
+          console.log(`   Current status: ${oldStatus}`);
           console.log(`   New status: ${update.status}`);
-          console.log(`   Current guestCount: ${latestGuest.guestCount}`);
+          console.log(`   Current guestCount: ${oldGuestCount}`);
           console.log(`   Update guestCount: ${update.guestCount}`);
           console.log(`   Guest ID: ${latestGuest.id}`);
           console.log(`   Event ID: ${foundEventId}`);
@@ -848,36 +852,138 @@ class WebhookService {
             // CRITICAL: Remove this update from backend AFTER successful update
             // Note: All previous updates for this guest were already removed BEFORE processing (see above)
             // CRITICAL: Use a longer delay to ensure the update has been fully processed and UI has updated
+            // CRITICAL: Match using OLD values (oldStatus, oldGuestCount) to find the update that was just processed
+            // The backend stores updates with NEW values, but we need to match them using the OLD values that triggered the update
             setTimeout(async () => {
           try {
-                // CRITICAL: Remove this specific update by matching phoneNumber, status, responseDate, guestId, and eventId
-                // This ensures we only remove the exact update we just processed, not other updates
-            const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-              method: 'DELETE',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                phoneNumber: update.phoneNumber,
-                status: update.status,
-                responseDate: update.responseDate,
-                    guestCount: update.guestCount, // Include guestCount for matching
-                    guestId: update.guestId, // Include guestId for precise matching
-                    eventId: update.eventId // Include eventId for precise matching
-              })
-            });
-            if (removeResponse.ok) {
-              const removeData = await removeResponse.json();
-              console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
-              
-              // CRITICAL: Verify that the update was actually removed
-              if (removeData.removed === 0) {
-                console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
-              }
-            } else {
-              const errorText = await removeResponse.text();
-              console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
-            }
+                // CRITICAL: Try multiple matching strategies to ensure we find and remove the correct update
+                // Strategy 1: Match by phoneNumber + guestId + eventId (most precise)
+                // Strategy 2: Match by phoneNumber + status + guestCount (if guestId/eventId not available)
+                // Strategy 3: Match by phoneNumber + responseDate (fallback)
+                
+                let removeResponse: Response | null = null;
+                let removeData: any = null;
+                
+                // First, try matching with guestId and eventId (most precise)
+                if (update.guestId && update.eventId) {
+                  console.log(`🔍 Attempting to remove update using guestId + eventId matching...`);
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+                      // Don't include status/guestCount - match by guestId/eventId only
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using guestId + eventId: ${removeData.removed} update(s) removed`);
+                    }
+                  }
+                }
+                
+                // If that didn't work, try matching with OLD status and OLD guestCount
+                // This matches the update that was stored BEFORE we processed it
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove update using OLD status + OLD guestCount matching...`);
+                  console.log(`   Matching with: status=${oldStatus}, guestCount=${oldGuestCount}`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      status: oldStatus, // Use OLD status to match the update
+                      guestCount: oldGuestCount !== undefined ? oldGuestCount : update.guestCount, // Use OLD guestCount if available
+                      responseDate: update.responseDate,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using OLD values: ${removeData.removed} update(s) removed`);
+                    }
+                  }
+                }
+                
+                // If that still didn't work, try matching with NEW status and NEW guestCount
+                // Sometimes the backend stores updates with the NEW values
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove update using NEW status + NEW guestCount matching...`);
+                  console.log(`   Matching with: status=${update.status}, guestCount=${update.guestCount}`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      status: update.status, // Use NEW status
+                      guestCount: update.guestCount, // Use NEW guestCount
+                      responseDate: update.responseDate,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using NEW values: ${removeData.removed} update(s) removed`);
+                    }
+                  }
+                }
+                
+                // Final fallback: Remove all updates for this phone/guest
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove ALL updates for this phone/guest (fallback)...`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      guestId: update.guestId,
+                      eventId: update.eventId,
+                      removeAllForPhone: true
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    console.log(`✅ Removed all updates for phone/guest (fallback): ${removeData.removed || 0} update(s) removed`);
+                  }
+                }
+                
+                // Log final result
+                if (removeResponse && removeResponse.ok && removeData) {
+                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 0} update(s) removed`);
+                  
+                  // CRITICAL: Verify that the update was actually removed
+                  if (removeData.removed === 0) {
+                    console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
+                    console.warn(`   Tried matching with: phoneNumber=${update.phoneNumber}, guestId=${update.guestId}, eventId=${update.eventId}`);
+                    console.warn(`   OLD values: status=${oldStatus}, guestCount=${oldGuestCount}`);
+                    console.warn(`   NEW values: status=${update.status}, guestCount=${update.guestCount}`);
+                  }
+                } else {
+                  const errorText = removeResponse ? await removeResponse.text() : 'No response';
+                  console.warn('⚠️ Failed to remove update from backend:', removeResponse?.status || 'unknown', errorText);
+                }
           } catch (error) {
             console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
           }
