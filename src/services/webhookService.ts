@@ -668,7 +668,7 @@ class WebhookService {
           // 2. Update is from whatsapp button (new update from WhatsApp)
           // 3. Other fields changed (guestCount, actualAttendance, responseDate)
           // 4. Status changed
-          const isFromGuestLink = update.source === 'guest_link';
+          // Note: isFromGuestLink is already defined above
           const isFromWhatsApp = update.source === 'whatsapp';
           const shouldSyncEvenIfStatusMatches = isFromGuestLink || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
