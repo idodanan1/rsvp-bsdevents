@@ -1108,7 +1108,30 @@ const EventManagement: React.FC = () => {
     );
   }
 
-  const stats = calculateEventStats(currentEvent);
+  // CRITICAL: Use useMemo to recalculate stats when currentEvent or eventsHash changes
+  // This ensures stats update immediately when guestCount changes
+  const stats = useMemo(() => {
+    if (!currentEvent) {
+      return {
+        totalGuests: 0,
+        confirmed: 0,
+        declined: 0,
+        maybe: 0,
+        pending: 0,
+        responseRate: 0,
+        attendanceRate: 0
+      };
+    }
+    const calculatedStats = calculateEventStats(currentEvent);
+    console.log('📊 Stats recalculated:', {
+      totalGuests: calculatedStats.totalGuests,
+      confirmed: calculatedStats.confirmed,
+      eventId: currentEvent.id,
+      guestsCount: currentEvent.guests?.length || 0,
+      eventsHash: eventsHash.substring(0, 50) + '...'
+    });
+    return calculatedStats;
+  }, [currentEvent, eventsHash]); // CRITICAL: Include eventsHash to detect guestCount changes
   
   // CRITICAL: Calculate filteredGuests directly without useMemo to avoid React #310 errors
   // Calculate on every render - guestsToDisplay is already memoized, so this is efficient
@@ -1379,10 +1402,17 @@ const EventManagement: React.FC = () => {
     });
 
     // Add totals row
-    const totalAttended = currentEvent.guests.filter(g => g.actualAttendance === 'attended').length;
-    const totalNotAttended = currentEvent.guests.filter(g => g.actualAttendance === 'not_attended').length;
-    const totalNotMarked = currentEvent.guests.filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked').length;
-    const totalGuests = currentEvent.guests.length;
+    // CRITICAL: Use guestCount for accurate totals (not just guest count)
+    const totalAttended = currentEvent.guests
+      .filter(g => g.actualAttendance === 'attended')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalNotAttended = currentEvent.guests
+      .filter(g => g.actualAttendance === 'not_attended')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalNotMarked = currentEvent.guests
+      .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalGuests = currentEvent.guests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
     const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
 
     dataRows.push([
