@@ -169,10 +169,21 @@ class MessageService {
     //    - If explicit templateName from campaign → use it
     //    - If no templateName → use hello_world template
     // 2. If not first message → send regular message (can use template if provided, but not required)
+    // CRITICAL: If no buttons are provided, don't use template (templates require buttons)
+    // Send as regular text message instead
     
     const hasMessageContent = processedMessage && processedMessage.trim().length > 0;
+    const hasButtons = recipient.buttons && recipient.buttons.length > 0;
     
-    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template
+    // CRITICAL: If no buttons are provided, don't use template - send as regular message
+    // Templates like "aa" and "a" require buttons, so if we don't have buttons, use regular message
+    if (!hasButtons && templateName) {
+      console.log('📝 No buttons provided - sending as regular message instead of template');
+      templateName = undefined;
+      templateParams = undefined;
+    }
+    
+    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template (only if buttons exist)
     // This ensures campaigns that specify a template (like "הזמנה ראשונית" with template 'aa') 
     // will use the Meta template, not the campaign message content
     // Check for both truthy value and non-empty string

@@ -2662,7 +2662,6 @@ const EventManagement: React.FC = () => {
       let campaignImageUrl: string | undefined;
       
       // Get couple name - use groomName & brideName if coupleName is not available
-      // Define this before the if/else so it's available for templateParams
         const coupleName = event.coupleName || 
           (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
            event.groomName || event.brideName || 'הזוג');
@@ -2678,10 +2677,6 @@ const EventManagement: React.FC = () => {
           eventGroomName: event.groomName,
           eventBrideName: event.brideName
         });
-      
-      // CRITICAL: If no campaign found, use template "aa" directly for first messages
-      // This ensures we always use the correct template even if campaigns are missing
-      const shouldUseTemplateAA = !firstCampaign || firstCampaign?.templateName === 'aa' || firstCampaign?.name === 'הזמנה ראשונית';
       
       if (firstCampaign) {
         console.log('📧 Using first campaign message:', firstCampaign.name);
@@ -2724,65 +2719,17 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // Debug: Log template name before sending
-      console.log('🔍 DEBUG: Campaign templateName:', firstCampaign?.templateName);
-      console.log('🔍 DEBUG: First campaign:', firstCampaign?.name);
-      console.log('🔍 DEBUG: First campaign exists:', !!firstCampaign);
-      console.log('🔍 DEBUG: Should use template AA:', shouldUseTemplateAA);
-      console.log('🔍 DEBUG: Guest firstMessageSent:', guest.firstMessageSent);
-      
-      // CRITICAL: For first messages, always use template "aa" if no campaign found or campaign doesn't specify template
-      // This ensures we use the correct Meta template instead of hello_world
-      let templateNameToUse = firstCampaign?.templateName;
-      if (!templateNameToUse && (!guest.firstMessageSent || shouldUseTemplateAA)) {
-        // No template from campaign, but this is a first message or should use template AA
-        templateNameToUse = 'aa';
-        console.log('✅ Using template "aa" for first message (no campaign template found)');
-      }
-      
-      // CRITICAL: Create templateParams BEFORE calling sendBulkMessages
-      // This ensures template parameters are available for template "aa"
-      const templateParamsForAA = (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
-                const params = {
-                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                               'event_date', 'event_time', 'venue', 'couple_name'],
-                guest_name: guest.firstName,
-          event_type: event.eventTypeHebrew || 'חתונה',
-          groom_name: groomName || '', // Use the variable we defined above, ensure not undefined
-          bride_name: brideName || '', // Use the variable we defined above, ensure not undefined
-          event_date: formatDate(event.eventDate) || '',
-          event_time: event.eventTime || '',
-          venue: event.venue || '',
-          couple_name: coupleName || 'הזוג', // Use the variable we defined above, ensure not undefined
-                  guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-                  language: 'he'
-                };
-                
-                // DEBUG: Log template parameters
-                console.log('🔍 DEBUG Template Parameters for "aa":', {
-                  groom_name: params.groom_name,
-                  bride_name: params.bride_name,
-                  couple_name: params.couple_name,
-          event_date: params.event_date,
-          event_time: params.event_time,
-          venue: params.venue,
-          eventTypeHebrew: event.eventTypeHebrew,
-          eventGroomName: event.groomName,
-          eventBrideName: event.brideName,
-          eventVenue: event.venue,
-                  allParams: params
-                });
-                
-                return params as any;
-      })() : undefined;
+      // CRITICAL: For manual messages from table, send as regular text message (NO template)
+      // User wants to send free-form messages without templates
+      console.log('📝 Sending manual message as regular text (no template)');
+      console.log('📝 Message:', message.substring(0, 100) + '...');
       
       const result = await messageService.sendBulkMessages({
         message,
         imageUrl: finalImageUrl,
-        // Use template from campaign if it's the first campaign, otherwise use 'aa' for first messages
-        templateName: templateNameToUse || undefined,
-        // CRITICAL: Pass templateParams to messageData so it's available in sendWhatsAppMessage
-        templateParams: templateParamsForAA,
+        // CRITICAL: No template - send as regular message
+        templateName: undefined,
+        templateParams: undefined,
         recipients: [{
           id: guest.id,
           firstName: guest.firstName,
@@ -2802,8 +2749,8 @@ const EventManagement: React.FC = () => {
             venue: event.venue || '',
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
-          // CRITICAL: Also pass templateParams to recipient for fallback
-          templateParams: templateParamsForAA
+          // CRITICAL: No template params - sending as regular message
+          templateParams: undefined
         }]
       });
 

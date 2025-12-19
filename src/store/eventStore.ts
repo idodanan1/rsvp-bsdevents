@@ -3045,13 +3045,14 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
+          // Use template "bb" for the first three campaigns
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
+            templateNameForCampaign = 'bb'; // Template name in Meta Business Manager
           } else if (campaign.name === 'תזכורת שנייה') {
-            // Use template 'a' for "תזכורת שנייה"
-            templateNameForCampaign = 'a';
+            // Use template 'bb' for "תזכורת שנייה"
+            templateNameForCampaign = 'bb';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'aa';
+            templateNameForCampaign = 'bb';
           } else if (campaign.name === 'תזכורת אחרונה') {
             // CRITICAL: Always use template 'today' for "תזכורת אחרונה" campaign
             templateNameForCampaign = 'today';
@@ -3169,8 +3170,8 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = {};
             
-            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
-              // Template "aa" requires 8 parameters in order (matching the template body):
+            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB' || templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "bb" requires 8 parameters in order (same as "aa" - matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams = {
@@ -3189,7 +3190,7 @@ export const useEventStore = create<EventStore>()(
               };
               
               // DEBUG: Log template parameters
-              console.log('🔍 DEBUG Template Parameters for "aa" (sendCampaign):', {
+              console.log(`🔍 DEBUG Template Parameters for "${templateNameForCampaign}" (sendCampaign):`, {
                 groom_name: templateParams.groom_name,
                 bride_name: templateParams.bride_name,
                 couple_name: templateParams.couple_name,
@@ -3257,54 +3258,21 @@ export const useEventStore = create<EventStore>()(
               };
             }
             
-            // Create personalized buttons with guest-specific link
-            console.log('🔘 DEBUG: ========== CREATING BUTTONS ==========');
-            console.log('🔘 DEBUG: Campaign ID:', campaign.id);
-            console.log('🔘 DEBUG: Campaign name:', campaign.name);
-            console.log('🔘 DEBUG: Campaign whatsappButtons:', campaign.whatsappButtons);
-            console.log('🔘 DEBUG: Campaign whatsappButtons length:', campaign.whatsappButtons?.length || 0);
-            console.log('🔘 DEBUG: Guest link:', guestLink);
-            console.log('🔘 DEBUG: Guest channel:', guest.channel);
+            // CRITICAL: No buttons - send text-only message instead
+            // Add response options as text in the message instead of buttons
+            // This avoids WhatsApp button issues and works with the guest response page
+            console.log('📝 DEBUG: Creating text-only message (no buttons)');
+            console.log('📝 DEBUG: Guest link:', guestLink);
             
-            const personalizedButtons = campaign.whatsappButtons?.map(button => {
-              if (button.type === 'url' && button.url) {
-                // Replace {{guest_response_link}} placeholder with actual guest link
-                const buttonUrl = button.url.url.replace(/\{\{guest_response_link\}\}/g, guestLink);
-                return {
-                  type: 'url' as const,
-                  url: buttonUrl,
-                  title: button.url.title || 'אישור הגעה'
-                };
-              } else if (button.type === 'reply' && button.reply) {
-                // Reply button - keep as is (no personalization needed)
-                return {
-                  type: 'reply' as const,
-                  id: button.reply.id,
-                  title: button.reply.title
-                };
-              }
-              return button;
-            }) || [
-              // Default buttons
-              {
-                type: 'reply' as const,
-                id: 'מגיע',
-                title: 'מגיע'
-              },
-              {
-                type: 'url' as const,
-                url: guestLink,
-                title: 'אישור הגעה'
-              },
-              {
-                type: 'reply' as const,
-                id: 'decline_attendance',
-                title: 'לא אוכל להגיע'
-              }
-            ];
+            // Add response text to message if not already present
+            // Add at the end of the message
+            const responseText = `\n\nלהשיב:\n• מגיע - ${guestLink}\n• לא אוכל להגיע - ${guestLink}?status=declined`;
             
-            console.log('🔘 DEBUG: Personalized buttons created:', personalizedButtons);
-            console.log('🔘 DEBUG: Personalized buttons length:', personalizedButtons.length);
+            // Check if message already contains response instructions
+            const hasResponseText = message.includes('להשיב') || message.includes('מגיע') || message.includes('לא אוכל להגיע');
+            const finalMessage = hasResponseText ? message : message + responseText;
+            
+            console.log('📝 DEBUG: Final message (with response text):', finalMessage.substring(0, 200) + '...');
             
             const eventInvitationImageUrl = event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl;
             console.log('🖼️ sendCampaign - Image URL priority:', {
@@ -3320,7 +3288,7 @@ export const useEventStore = create<EventStore>()(
               lastName: guest.lastName,
               phoneNumber: guest.phoneNumber,
               channel: 'whatsapp',
-              message: message,
+              message: finalMessage, // Use finalMessage with response text instead of buttons
               firstMessageSent: guest.firstMessageSent || false, // Pass first message status
               eventData: {
                 coupleName: event.coupleName,
@@ -3336,17 +3304,15 @@ export const useEventStore = create<EventStore>()(
                 invitationImageUrl: eventInvitationImageUrl
               },
               templateParams: templateParams,
-              buttons: personalizedButtons
+              buttons: undefined // CRITICAL: No buttons - send text-only message
             };
             
-            console.log('🔘 DEBUG: Recipient created with buttons:', guest.channel === 'whatsapp' ? personalizedButtons : undefined);
-            console.log('🔘 DEBUG: Recipient channel:', guest.channel);
-            console.log('🔘 DEBUG: Recipient buttons length:', guest.channel === 'whatsapp' ? personalizedButtons.length : 0);
+            console.log('📝 DEBUG: Recipient created WITHOUT buttons (text-only)');
+            console.log('📝 DEBUG: Recipient channel:', guest.channel);
           });
           
-          console.log('🔘 DEBUG: Total recipients created:', recipients.length);
-          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
-          console.log('🔘 DEBUG: Sample recipient buttons:', recipients.find(r => r.buttons && r.buttons.length > 0)?.buttons);
+          console.log('📝 DEBUG: Total recipients created:', recipients.length);
+          console.log('📝 DEBUG: All recipients are text-only (no buttons)');
 
           // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
           // Priority: event.invitationImageUrl > campaign.imageUrl
@@ -3494,11 +3460,11 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'aa';
+            templateNameForCampaign = 'bb';
           } else if (campaign.name === 'תזכורת שנייה') {
-            templateNameForCampaign = 'a';
+            templateNameForCampaign = 'bb';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'aa';
+            templateNameForCampaign = 'bb';
           } else if (campaign.name === 'תזכורת אחרונה') {
             templateNameForCampaign = 'today';
           } else if (campaign.name === 'תזכורת יום האירוע') {
@@ -3529,19 +3495,11 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{guest_response_link\}\}/g, guestLink);
 
-            // Create buttons (same as sendCampaign)
-            const personalizedButtons = campaign.whatsappButtons?.map(button => {
-              if (button.type === 'url' && button.url) {
-                return {
-                  ...button,
-                  url: {
-                    ...button.url,
-                    url: button.url.url.replace(/\{\{guest_response_link\}\}/g, guestLink)
-                  }
-                };
-              }
-              return button;
-            });
+            // CRITICAL: No buttons - send text-only message instead
+            // Add response options as text in the message instead of buttons
+            const responseText = `\n\nלהשיב:\n• מגיע - ${guestLink}\n• לא אוכל להגיע - ${guestLink}?status=declined`;
+            const hasResponseText = personalizedMessage.includes('להשיב') || personalizedMessage.includes('מגיע') || personalizedMessage.includes('לא אוכל להגיע');
+            const finalPersonalizedMessage = hasResponseText ? personalizedMessage : personalizedMessage + responseText;
 
             // Build template params (same logic as sendCampaign)
             const templateCoupleName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'הזוג');
@@ -3550,7 +3508,7 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = undefined;
             
-            if (templateNameForCampaign === 'aa') {
+            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB' || templateNameForCampaign === 'aa') {
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
@@ -3604,7 +3562,7 @@ export const useEventStore = create<EventStore>()(
               lastName: guest.lastName,
               phoneNumber: guest.phoneNumber,
               channel: 'whatsapp',
-              message: personalizedMessage,
+              message: finalPersonalizedMessage, // Use finalPersonalizedMessage with response text instead of buttons
               firstMessageSent: guest.firstMessageSent || false,
               eventData: {
                 coupleName: event.coupleName,
@@ -3618,7 +3576,7 @@ export const useEventStore = create<EventStore>()(
                 invitationImageUrl: eventInvitationImageUrl
               },
               templateParams: templateParams,
-              buttons: personalizedButtons
+              buttons: undefined // CRITICAL: No buttons - send text-only message
             };
           }));
 

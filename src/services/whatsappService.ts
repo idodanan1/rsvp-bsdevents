@@ -98,30 +98,30 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+            // Template "bb" and "aa" require 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
-            // NOTE: For template "aa", guest_response_link is NOT in body parameters - it's only used for the button
+            // NOTE: For template "bb" and "aa", guest_response_link is NOT in body parameters - it's only used for the button
             const templateName = (messageData.templateName || '').toLowerCase();
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
-              : templateName === 'aa' || templateName === 'AA'
+              : templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA'
                 ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                    'event_date', 'event_time', 'venue', 'couple_name']
                 : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
             
-            // CRITICAL FIX: Remove guest_response_link from body params for template "aa" if it exists
-            // Template "aa" does NOT include guest_response_link in body parameters - it's only used for the button
-            if (templateName === 'aa' || templateName === 'AA') {
+            // CRITICAL FIX: Remove guest_response_link from body params for template "bb" and "aa" if it exists
+            // Template "bb" and "aa" do NOT include guest_response_link in body parameters - it's only used for the button
+            if (templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA') {
               paramsOrder = paramsOrder.filter(key => key !== 'guest_response_link');
             }
             
             // IMPORTANT: Meta requires ALL parameters to be sent in the exact order
             // Even if a parameter is empty, we must send it (as empty string)
             // The filter only removes 'language' and 'paramsOrder' keys, but keeps all actual template parameters
-            // CRITICAL: Also filter out 'guest_response_link' for template "aa" body params (it's only for button)
+            // CRITICAL: Also filter out 'guest_response_link' for template "bb" and "aa" body params (it's only for button)
             bodyParams = paramsOrder
               .filter((key: string) => key !== 'language' && key !== 'paramsOrder' && 
-                      !(templateName === 'aa' && key === 'guest_response_link'))
+                      !((templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link'))
               .map((key: string) => {
                 const paramValue = messageData.templateParams![key];
                 let textValue = paramValue ? String(paramValue).trim() : '';
@@ -222,7 +222,7 @@ class WhatsAppService {
             // For templates that might require header image, add placeholder proactively
             // This prevents error 132012 from occurring
             const templateName = (messageData.templateName || '').toLowerCase();
-            const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder']; // Add template names that require header
+            const templatesRequiringHeader = ['bb', 'aa', 'a', 'reminer', 'reminder']; // Add template names that require header
             
             if (templatesRequiringHeader.includes(templateName)) {
               // Template requires header image - add placeholder ONLY if no image was provided
@@ -256,8 +256,8 @@ class WhatsAppService {
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
           // IMPORTANT: Even if template has predefined buttons in Meta, URL buttons still need parameters!
-          // For templates "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
-          const templatesWithPredefinedButtons = ['aa', 'a', 'reminer', 'reminder'];
+          // For templates "bb", "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
+          const templatesWithPredefinedButtons = ['bb', 'aa', 'a', 'reminer', 'reminder'];
           const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
           
           // Always add URL button parameters if provided (they are required even for predefined buttons)
@@ -270,7 +270,7 @@ class WhatsAppService {
             const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
             
             // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
-            // Template 'aa' has: URL button at index 0, Reply buttons at index 1, 2
+            // Template 'bb' and 'aa' have: URL button at index 0, Reply buttons at index 1, 2
             // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
             // We need to find the actual URL button and send its parameter to the correct template index
             
@@ -279,10 +279,10 @@ class WhatsAppService {
               
               if (btn.type === 'url' && btn.url) {
                 // URL button - ALWAYS needs parameters, even for predefined templates
-                // For template 'aa', URL button is at index 0 in the template
+                // For template 'bb' and 'aa', URL button is at index 0 in the template
                 // But in messageData.buttons it might be at a different index
-                const templateButtonIndex = shouldSkipReplyButtons && messageData.templateName?.toLowerCase() === 'aa' 
-                  ? '0' // Template 'aa' has URL button at index 0
+                const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'bb' || messageData.templateName?.toLowerCase() === 'aa')
+                  ? '0' // Template 'bb' and 'aa' have URL button at index 0
                   : index.toString(); // For other templates, use the array index
                 
                 buttonComponents.push({
@@ -310,7 +310,7 @@ class WhatsAppService {
             });
             
             // CRITICAL: If template has predefined buttons and we have URL in templateParams but not in buttons array
-            // This handles the case where template 'aa' has URL button at index 0, but messageData.buttons only has Reply buttons
+            // This handles the case where template 'bb' or 'aa' has URL button at index 0, but messageData.buttons only has Reply buttons
             if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
               console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
               console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
@@ -318,7 +318,7 @@ class WhatsAppService {
               const urlButtonComponent = {
                 type: 'button',
                 sub_type: 'url',
-                index: '0', // Template 'aa' has URL button at index 0
+                index: '0', // Template 'bb' and 'aa' have URL button at index 0
                 parameters: [{
                   type: 'text',
                   text: messageData.templateParams.guest_response_link
@@ -330,7 +330,7 @@ class WhatsAppService {
             }
             
             // CRITICAL: Always check if template has URL button that needs parameter, even if we processed buttons
-            // Template 'aa' has URL button at index 0, but messageData.buttons might only have Reply buttons
+            // Template 'bb' and 'aa' have URL button at index 0, but messageData.buttons might only have Reply buttons
             if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
               // Check if we already added a URL button component
               const hasUrlButtonComponent = buttonComponents.some(btn => btn.sub_type === 'url');
@@ -341,7 +341,7 @@ class WhatsAppService {
                 const urlButtonComponent = {
                   type: 'button',
                   sub_type: 'url',
-                  index: '0', // Template 'aa' has URL button at index 0
+                  index: '0', // Template 'bb' and 'aa' have URL button at index 0
                   parameters: [{
                     type: 'text',
                     text: messageData.templateParams.guest_response_link
@@ -365,7 +365,7 @@ class WhatsAppService {
               console.log('ℹ️ URL button parameters will be added if provided');
             }
           } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
-            // CRITICAL FIX: Template 'aa' has a URL button that requires a parameter
+            // CRITICAL FIX: Template 'bb' and 'aa' have a URL button that requires a parameter
             // Even if no buttons are provided in messageData, we need to send the URL parameter
             // The template has a URL button at index 0 that needs the guest_response_link parameter
             console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
