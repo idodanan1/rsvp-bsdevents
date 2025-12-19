@@ -192,8 +192,8 @@ class WhatsAppService {
           // CRITICAL: Use headerImageUrl from templateParams if provided, otherwise use event invitation image, then messageData imageUrl
           let headerImageUrl = headerImageFromParams || eventInvitationImage || finalImageUrl;
           
-          // CRITICAL FIX: Always add header image if available, or use placeholder if template requires it
-          // Some templates (like "aa") require header image - Meta will reject without it
+          // CRITICAL FIX: Only add header image if we have a valid URL
+          // For template "bb", try sending without header first - only add if we get an error
           const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
           // Check if we have a valid HTTPS image URL for header
@@ -203,83 +203,84 @@ class WhatsAppService {
             headerImageUrl.startsWith('http://')
           );
           
-          if (isValidImageUrl) {
-            // Always add header image component if we have a valid HTTP/HTTPS URL
-            // This ensures the image is sent with the template message
-            // CRITICAL: Convert http:// to https:// if needed (Meta requires HTTPS for images)
-            let imageUrlForMeta = headerImageUrl;
-            if (headerImageUrl.startsWith('http://')) {
-              // Try to convert to HTTPS (some services support both)
-              imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
-              console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
-            }
-            
-            components.unshift({
-              type: 'header',
-              parameters: [
-                {
-                  type: 'image',
-                  image: {
-                    link: imageUrlForMeta
-                  }
-                }
-              ]
-            });
-            console.log('🖼️ ✅ Adding header image to template:', imageUrlForMeta);
-            console.log('🖼️ ✅ Image will be displayed with the message');
-            console.log('🖼️ ✅ Original image URL:', headerImageUrl);
-          } else {
-            // No valid image URL - check if we should add placeholder
-            // For templates that might require header image, add placeholder proactively
-            // This prevents error 132012 from occurring
-            // CRITICAL: Templates that require header image
-            // Template "bb" DOES require header image (as shown in Meta Business Manager)
-            const templatesRequiringHeader = ['bb', 'aa', 'a', 'reminer', 'reminder'];
-            
-            if (templatesRequiringHeader.includes(templateName)) {
-              // Template requires header image - add placeholder ONLY if no image was provided
-              if (!headerImageUrl) {
-                // No image provided at all - use placeholder
-                components.unshift({
-                  type: 'header',
-                  parameters: [
-                    {
-                      type: 'image',
-                      image: {
-                        link: DEFAULT_PLACEHOLDER_IMAGE
-                      }
-                    }
-                  ]
-                });
-                console.log('🖼️ ⚠️ Adding placeholder header image (template requires it, no image provided):', DEFAULT_PLACEHOLDER_IMAGE);
-                console.log('🖼️ Template name:', messageData.templateName);
-              } else {
-                // Image URL provided but invalid - log warning but don't use placeholder
-                console.log('🖼️ ⚠️ Invalid image URL provided:', headerImageUrl);
-                console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
+          // CRITICAL: For template "bb", only add header image if we have a valid URL
+          // Don't force-add placeholder - let Meta API tell us if header is required
+          // This prevents (#100) Invalid parameter errors
+          if (templateName === 'bb' || templateName === 'BB') {
+            if (isValidImageUrl) {
+              // We have a valid image URL - add it as header
+              let imageUrlForMeta = headerImageUrl;
+              if (headerImageUrl.startsWith('http://')) {
+                imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+                console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
               }
-            } else {
-              // Template might not require header - but "bb" DOES require it
-              if (templateName === 'bb') {
-                console.warn('⚠️ Template "bb" requires header image but none provided!');
-                console.warn('⚠️ Adding placeholder image to prevent API error');
-                // Add placeholder for template "bb" since it requires header image
-                components.unshift({
-                  type: 'header',
-                  parameters: [
-                    {
-                      type: 'image',
-                      image: {
-                        link: DEFAULT_PLACEHOLDER_IMAGE
-                      }
+              
+              components.unshift({
+                type: 'header',
+                parameters: [
+                  {
+                    type: 'image',
+                    image: {
+                      link: imageUrlForMeta
                     }
-                  ]
-                });
-                console.log('🖼️ ⚠️ Added placeholder header image for template "bb"');
+                  }
+                ]
+              });
+              console.log('🖼️ ✅ Adding header image to template "bb":', imageUrlForMeta);
+            } else {
+              // No valid image URL for template "bb" - don't add header component
+              // If template requires header, Meta API will return error 132012 and we'll retry with placeholder
+              console.log('ℹ️ Template "bb" - no valid header image URL provided, sending without header');
+              console.log('ℹ️ If template requires header image, Meta API will return error and we will retry with placeholder');
+            }
+          } else {
+            // For other templates, use the original logic
+            if (isValidImageUrl) {
+              // Always add header image component if we have a valid HTTP/HTTPS URL
+              let imageUrlForMeta = headerImageUrl;
+              if (headerImageUrl.startsWith('http://')) {
+                imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+                console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
+              }
+              
+              components.unshift({
+                type: 'header',
+                parameters: [
+                  {
+                    type: 'image',
+                    image: {
+                      link: imageUrlForMeta
+                    }
+                  }
+                ]
+              });
+              console.log('🖼️ ✅ Adding header image to template:', imageUrlForMeta);
+            } else {
+              // No valid image URL - check if we should add placeholder
+              const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder'];
+              
+              if (templatesRequiringHeader.includes(templateName)) {
+                // Template requires header image - add placeholder ONLY if no image was provided
+                if (!headerImageUrl) {
+                  components.unshift({
+                    type: 'header',
+                    parameters: [
+                      {
+                        type: 'image',
+                        image: {
+                          link: DEFAULT_PLACEHOLDER_IMAGE
+                        }
+                      }
+                    ]
+                  });
+                  console.log('🖼️ ⚠️ Adding placeholder header image (template requires it, no image provided):', DEFAULT_PLACEHOLDER_IMAGE);
+                } else {
+                  console.log('🖼️ ⚠️ Invalid image URL provided:', headerImageUrl);
+                  console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
+                }
               } else {
                 console.log('ℹ️ No header image URL provided - will send without header');
                 console.log('ℹ️ Template name:', messageData.templateName);
-                console.log('ℹ️ If template requires header image, error will occur and we will retry with placeholder');
               }
             }
           }
