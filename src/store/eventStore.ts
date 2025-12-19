@@ -2616,35 +2616,53 @@ export const useEventStore = create<EventStore>()(
             
             if (state.currentEvent?.id === eventId) {
               // Update existing currentEvent - user is viewing this event, so update it
+              // CRITICAL: For manual_update and guest_link updates, ALWAYS update currentEvent to ensure table refresh
+              const isManualUpdateEcho = updatedGuest.source === 'manual_update' || updatedGuest.source === 'guest_link';
               updatedCurrentEvent = {
                 ...state.currentEvent,
                 guests: state.currentEvent.guests.map(guest => {
                   if (guest.id === guestId) {
                     // Use timestamp-based conflict resolution - latest update wins
+                    // CRITICAL: For manual_update and guest_link, always use new values to ensure update is applied
                     const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
                     const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
-                    const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
+                    const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime() || isManualUpdateEcho;
                     
-                    return {
+                    const updatedGuestData = {
                       ...guest,
                       ...updatedGuest,
                       // Always use new values if provided (latest update wins)
                       rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
                       guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
-                      responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
+                      responseDate: isNewerUpdate ? newResponseDate : oldResponseDate,
+                      // CRITICAL: Preserve source to ensure proper tracking
+                      source: updatedGuest.source || guest.source
                     };
+                    
+                    console.log(`🔄 Updating guest in currentEvent:`, {
+                      guestId,
+                      oldStatus: guest.rsvpStatus,
+                      newStatus: updatedGuestData.rsvpStatus,
+                      isNewerUpdate,
+                      isManualUpdateEcho,
+                      source: updatedGuest.source
+                    });
+                    
+                    return updatedGuestData;
                   }
                   return guest;
                 })
               };
               // CRITICAL: Always create a new object reference with new guests array to force React re-render
+              // CRITICAL: Always update updatedAt to ensure eventsHash changes
+              const newUpdatedAt = new Date();
               updatedCurrentEvent = {
                 ...updatedCurrentEvent,
                 guests: updatedCurrentEvent.guests.map(g => ({ ...g })), // New array AND new object references
-                updatedAt: new Date() // Force timestamp update
+                updatedAt: newUpdatedAt // Force timestamp update
               };
-              console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length);
+              console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length, 'updatedAt:', newUpdatedAt.toISOString());
             } else {
               // User is viewing a different event - don't update currentEvent
               // EventManagement useEffect will update currentEvent when events array changes
@@ -2662,13 +2680,19 @@ export const useEventStore = create<EventStore>()(
             // CRITICAL: Always create new array reference for events to force React re-render
             // This ensures React detects changes even if array contents are similar
             // CRITICAL: Also ensure updatedAt is ALWAYS updated to force eventsHash change
+            // CRITICAL: For manual_update and guest_link updates, ALWAYS update updatedAt to ensure table refresh
             const finalUpdatedEvents = updatedEvents.map(e => {
               if (e.id === eventId) {
                 // CRITICAL: Always update updatedAt timestamp to ensure eventsHash changes
                 // This forces EventManagement to detect the change and re-render the table
+                // CRITICAL: Use a new Date() object to ensure timestamp is always different
+                const newUpdatedAt = new Date();
+                console.log(`🔄 Updating event ${eventId} updatedAt to force eventsHash change:`, newUpdatedAt.toISOString());
                 return {
                   ...e,
-                  updatedAt: new Date() // Always use current timestamp to force hash change
+                  updatedAt: newUpdatedAt, // Always use current timestamp to force hash change
+                  // CRITICAL: Also ensure guests array is a new reference
+                  guests: e.guests.map(g => ({ ...g }))
                 };
               }
               return e;
