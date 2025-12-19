@@ -687,7 +687,7 @@ export const useEventStore = create<EventStore>()(
                       return true;
                     })
                     .map(apiGuest => {
-                    const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
+                    const localGuest = (localEvent.guests || []).find((g: Guest) => g.id === apiGuest.id);
                     
                     if (!localGuest) {
                       // Clean names when loading from API
@@ -816,9 +816,9 @@ export const useEventStore = create<EventStore>()(
                   
                   // Add any local guests that aren't in API (and aren't deleted)
                   // CRITICAL: Clean names for local-only guests as well
-                  const localOnlyGuests = localEvent.guests
+                  const localOnlyGuests = (localEvent.guests || [])
                     .filter((lg: Guest) => 
-                      !apiEvent.guests.find((ag: Guest) => ag.id === lg.id) &&
+                      !(apiEvent.guests || []).find((ag: Guest) => ag.id === lg.id) &&
                       !deletedGuestIds.includes(lg.id) // Don't add deleted guests
                     )
                     .map((lg: Guest) => ({

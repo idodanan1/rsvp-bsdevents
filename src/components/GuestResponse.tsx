@@ -900,11 +900,12 @@ const GuestResponse = () => {
           // The store update already triggers React re-renders, but fetchEvents ensures API sync
           // This ensures the table in EventManagement updates immediately
           // Use immediate refresh (minimal delay) to ensure table updates instantly
+          // CRITICAL: Force refresh to ensure EventManagement detects the change
           setTimeout(() => {
-            storeState.fetchEvents(false, true).catch(err => {
+            storeState.fetchEvents(true, true).catch(err => {
               console.warn('⚠️ Failed to refresh events after guest response update:', err);
             });
-          }, 50); // Minimal delay (reduced from 100ms) to ensure table updates immediately
+          }, 100); // Small delay to ensure store update completes first
         } else {
           // Create new guest (fallback for direct access)
           let finalNotes = formData.notes || '';
