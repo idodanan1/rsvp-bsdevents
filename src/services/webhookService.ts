@@ -562,7 +562,9 @@ class WebhookService {
           // CRITICAL: Remove ALL previous updates for this guest BEFORE processing the new update
           // This ensures old updates don't interfere with new ones and don't appear in the table
           // CRITICAL: Always remove old updates, not just when guestId and eventId are provided
+          // CRITICAL: Wait for removal to complete before processing new update to prevent race conditions
           try {
+            console.log(`🗑️ Removing ALL previous updates for guest BEFORE processing new update...`);
             const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
               method: 'DELETE',
               headers: {
@@ -577,10 +579,20 @@ class WebhookService {
             });
             if (removeAllResponse.ok) {
               const removeAllData = await removeAllResponse.json();
-              console.log(`🗑️ Removed all previous updates for guest BEFORE processing new update: ${removeAllData.removed || 0} update(s) removed`);
+              const removedCount = removeAllData.removed || 0;
+              console.log(`🗑️ Removed ${removedCount} previous update(s) for guest BEFORE processing new update`);
+              // CRITICAL: Wait a bit after removal to ensure backend has processed it
+              if (removedCount > 0) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                console.log(`✅ Waited for backend to process removal of ${removedCount} old update(s)`);
+              }
+            } else {
+              const errorText = await removeAllResponse.text();
+              console.warn(`⚠️ Failed to remove old updates: ${removeAllResponse.status} ${errorText}`);
             }
           } catch (error) {
             console.warn('⚠️ Could not remove all previous updates from backend:', error);
+            // Continue processing even if removal fails - the update should still be processed
           }
           
           // Create unique key for this update to avoid duplicate toasts
@@ -869,7 +881,7 @@ class WebhookService {
           } catch (error) {
             console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
           }
-            }, 1000); // CRITICAL: Increased delay to 1000ms to ensure UI has fully updated before removing
+            }, 2000); // CRITICAL: Increased delay to 2000ms to ensure UI has fully updated and server has saved before removing
           } else {
             console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
             console.error(`❌ Keeping update in backend for retry`);

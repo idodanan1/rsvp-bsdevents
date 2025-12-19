@@ -953,6 +953,7 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Wait for server to save the update, then refresh from server
       // The table will update from the server data, not from local store
       // This ensures all clients see the same data from the server
+      // CRITICAL: Increased delay to ensure server has fully processed and saved the update
       setTimeout(async () => {
         try {
           console.log('🔄 Refreshing events from server after guest status update...');
@@ -964,16 +965,46 @@ const EventManagement: React.FC = () => {
           const refreshedState = useEventStore.getState();
           const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
           if (refreshedEvent) {
+            const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestId);
             setCurrentEvent({
               ...refreshedEvent,
               guests: refreshedEvent.guests.map(g => ({ ...g }))
             });
             console.log('✅ CurrentEvent updated from server data');
+            
+            // CRITICAL: Verify the update was persisted correctly
+            if (refreshedGuest) {
+              console.log('🔍 Verification after refresh:', {
+                expectedStatus: status,
+                actualStatus: refreshedGuest.rsvpStatus,
+                match: refreshedGuest.rsvpStatus === status
+              });
+              if (refreshedGuest.rsvpStatus !== status) {
+                console.error('❌ STATUS MISMATCH AFTER REFRESH! Retrying refresh...');
+                // Retry refresh once more
+                setTimeout(async () => {
+                  try {
+                    await fetchEvents(false, true);
+                    const retryState = useEventStore.getState();
+                    const retryEvent = retryState.events.find(e => e.id === event.id);
+                    if (retryEvent) {
+                      setCurrentEvent({
+                        ...retryEvent,
+                        guests: retryEvent.guests.map(g => ({ ...g }))
+                      });
+                      console.log('✅ Retry refresh completed - CurrentEvent updated');
+                    }
+                  } catch (retryError) {
+                    console.warn('⚠️ Retry refresh failed:', retryError);
+                  }
+                }, 500);
+              }
+            }
           }
         } catch (error) {
           console.warn('⚠️ Failed to refresh events from server after guest status update:', error);
         }
-      }, 300); // Increased delay to ensure server has finished processing
+      }, 500); // CRITICAL: Increased delay to 500ms to ensure server has finished processing and saving
     } catch (error) {
       console.error('❌ Error updating guest:', error);
     }
@@ -1010,6 +1041,7 @@ const EventManagement: React.FC = () => {
       
       // CRITICAL: Wait for server to save the update, then refresh from server
       // The table will update from the server data, not from local store
+      // CRITICAL: Increased delay to ensure server has fully processed and saved the update
       setTimeout(async () => {
         try {
           console.log('🔄 Refreshing events from server after attendance update...');
@@ -1020,16 +1052,46 @@ const EventManagement: React.FC = () => {
           const refreshedState = useEventStore.getState();
           const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
           if (refreshedEvent) {
+            const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestId);
             setCurrentEvent({
               ...refreshedEvent,
               guests: refreshedEvent.guests.map(g => ({ ...g }))
             });
             console.log('✅ CurrentEvent updated from server data');
+            
+            // CRITICAL: Verify the update was persisted correctly
+            if (refreshedGuest) {
+              console.log('🔍 Verification after refresh:', {
+                expectedAttendance: attendance,
+                actualAttendance: refreshedGuest.actualAttendance,
+                match: refreshedGuest.actualAttendance === attendance
+              });
+              if (refreshedGuest.actualAttendance !== attendance) {
+                console.error('❌ ATTENDANCE MISMATCH AFTER REFRESH! Retrying refresh...');
+                // Retry refresh once more
+                setTimeout(async () => {
+                  try {
+                    await fetchEvents(false, true);
+                    const retryState = useEventStore.getState();
+                    const retryEvent = retryState.events.find(e => e.id === event.id);
+                    if (retryEvent) {
+                      setCurrentEvent({
+                        ...retryEvent,
+                        guests: retryEvent.guests.map(g => ({ ...g }))
+                      });
+                      console.log('✅ Retry refresh completed - CurrentEvent updated');
+                    }
+                  } catch (retryError) {
+                    console.warn('⚠️ Retry refresh failed:', retryError);
+                  }
+                }, 500);
+              }
+            }
           }
         } catch (error) {
           console.warn('⚠️ Failed to refresh events from server after attendance update:', error);
         }
-      }, 300); // Increased delay to ensure server has finished processing
+      }, 500); // CRITICAL: Increased delay to 500ms to ensure server has finished processing and saving
       
       console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {

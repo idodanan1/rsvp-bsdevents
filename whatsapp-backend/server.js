@@ -1463,13 +1463,32 @@ async function handleIncomingMessage(message) {
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
     
+    // CRITICAL: Check for decline patterns FIRST to exclude them from confirm patterns
+    // This ensures "לא מגיע" is never matched as "מגיע"
+    // CRITICAL FIX: Check for decline patterns BEFORE confirm patterns to prevent false positives
+    const isDeclinePattern = 
+        // Exact decline matches (highest priority - check these FIRST)
+        buttonId === 'decline_attendance' || 
+        buttonId === 'לא אוכל להגיע' ||
+        buttonId === 'לא מגיע' ||
+        buttonTitle === 'לא אוכל להגיע' ||
+        buttonTitle === 'לא מגיע' ||
+        // Check if "לא" comes BEFORE "מגיע" or "אגיע" in buttonTitle
+        (buttonTitle && 
+         buttonTitle.includes('לא') && 
+         (buttonTitle.includes('מגיע') || buttonTitle.includes('אגיע')) &&
+         buttonTitle.indexOf('לא') !== -1 && 
+         ((buttonTitle.indexOf('מגיע') !== -1 && buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+          (buttonTitle.indexOf('אגיע') !== -1 && buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))));
+    
     // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
     // This ensures "מגיע" is always recognized as confirmed, not declined
     // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
     // CRITICAL: Use precise matching to avoid false positives
     // CRITICAL: Check buttonId and buttonTitle separately and prioritize exact matches
     // CRITICAL: Use case-sensitive checks for Hebrew text (Hebrew doesn't have case, but we want exact matches)
-    const isConfirmButton = 
+    // CRITICAL: Only check for confirm patterns if it's NOT a decline pattern
+    const isConfirmButton = !isDeclinePattern && ( 
         // Exact buttonId matches (highest priority)
         buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
@@ -1503,8 +1522,10 @@ async function handleIncomingMessage(message) {
       buttonTitle,
       buttonIdLower,
       buttonTitleLower,
+      isDeclinePattern,
       isConfirmButton,
-      willProcessAsConfirm: isConfirmButton
+      willProcessAsConfirm: isConfirmButton,
+      willProcessAsDecline: isDeclinePattern
     });
     
     if (isConfirmButton) {
