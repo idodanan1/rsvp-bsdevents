@@ -2689,49 +2689,56 @@ export const useEventStore = create<EventStore>()(
               console.log('✅ Guest update added to batch queue (will be sent shortly)');
                 console.log('✅ Update will be processed by webhook service and synced to all devices');
                 
-                // CRITICAL: Also update the event in API with minimal data (only the updated guest)
-                // This ensures the update is persisted even if webhook service fails
-                // We send only the updated guest, not the entire event, to avoid 413 errors
-                try {
-                  console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
-                  const minimalEventUpdate = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
+              // CRITICAL: Update the event directly in the server via /api/events/:eventId/guests endpoint
+              // This ensures the update is persisted immediately in the server
+              // The table will then refresh from the server to get the latest data
+              try {
+                console.log('🔄 Updating event directly in server via /api/events/:eventId/guests...');
+                console.log('📤 Sending updated guest to server:', {
+                  eventId: updatedEvent.id,
+                  guestId: updatedGuest.id,
+                  rsvpStatus: updatedGuest.rsvpStatus,
+                  guestCount: updatedGuest.guestCount
+                });
+                
+                // Send only the updated guest with append=true to merge with existing guests
+                const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
                     guests: [updatedGuest], // Only send the updated guest
-                    updatedAt: new Date().toISOString()
-                  };
+                    append: true // Merge with existing guests (update by ID)
+                  })
+                });
+                
+                if (apiUpdateResponse.ok) {
+                  const apiResponseData = await apiUpdateResponse.json();
+                  console.log('✅ Event updated directly in server:', apiResponseData);
                   
-                  const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(minimalEventUpdate)
-                  });
-                  
-                  if (apiUpdateResponse.ok) {
-                    console.log('✅ Event updated in API with minimal data (only updated guest)');
-                  } else {
-                    const apiErrorText = await apiUpdateResponse.text();
-                  console.warn('⚠️ Failed to update event in API (but batch processor will handle pendingUpdates):', apiUpdateResponse.status, apiErrorText);
-                  // Don't fail - batch processor will handle pendingUpdates
-                  }
-                } catch (apiError) {
-                console.warn('⚠️ Error updating event in API (but batch processor will handle pendingUpdates):', apiError);
-                // Don't fail - batch processor will handle pendingUpdates
-              }
-              
-              // CRITICAL: After successful backend sync, trigger immediate refresh to ensure EventManagement sees the update
-              // This ensures the table updates immediately after guest status change, without waiting for webhook service
-              // Use minimal delay to ensure backend has finished processing
-              setTimeout(async () => {
-                try {
-                  console.log('🔄 Triggering immediate events refresh after guest status update...');
-                  const { fetchEvents } = get();
-                  await fetchEvents(false, true); // Force refresh from API
-                  console.log('✅ Events refreshed after guest status update');
-                } catch (refreshError) {
-                  console.warn('⚠️ Failed to refresh events after guest status update:', refreshError);
+                  // CRITICAL: After successful server update, refresh events from server
+                  // This ensures the table shows the latest data from the server
+                  // The table will update from the server, not from local store
+                  setTimeout(async () => {
+                    try {
+                      console.log('🔄 Refreshing events from server after direct update...');
+                      const { fetchEvents } = get();
+                      await fetchEvents(false, true); // Force refresh from API
+                      console.log('✅ Events refreshed from server after direct update');
+                    } catch (refreshError) {
+                      console.warn('⚠️ Failed to refresh events from server after direct update:', refreshError);
+                    }
+                  }, 200); // Small delay to ensure server has finished processing
+                } else {
+                  const apiErrorText = await apiUpdateResponse.text();
+                  console.warn('⚠️ Failed to update event directly in server:', apiUpdateResponse.status, apiErrorText);
+                  // Fallback: Still add to pendingUpdates for webhook service to process
+                  console.log('⚠️ Falling back to pendingUpdates mechanism');
                 }
-              }, 100); // Minimal delay (reduced from 500ms) to ensure backend has processed the update
+              } catch (apiError) {
+                console.warn('⚠️ Error updating event directly in server:', apiError);
+                // Fallback: Still add to pendingUpdates for webhook service to process
+                console.log('⚠️ Falling back to pendingUpdates mechanism');
+              }
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events

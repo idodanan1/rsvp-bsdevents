@@ -950,26 +950,30 @@ const EventManagement: React.FC = () => {
       console.log('🔄 Updating guest via updateGuestResponse:', { guestId, status });
       await updateGuestResponse(event.id, guestId, updatedGuest);
       
-      // CRITICAL: Force immediate UI update by updating currentEvent directly
-      const storeState = useEventStore.getState();
-      const updatedEvent = storeState.events.find(e => e.id === event.id);
-      if (updatedEvent) {
-        // Create completely new object reference to force React re-render
-        const newCurrentEvent = {
-          ...updatedEvent,
-          guests: updatedEvent.guests.map(g => ({ ...g })),
-          updatedAt: new Date()
-        };
-        setCurrentEvent(newCurrentEvent);
-        console.log('✅ handleUpdateGuestStatus - currentEvent updated immediately');
-      }
-      
-      // Also trigger events refresh to sync with backend
-      setTimeout(() => {
-        fetchEvents(false, true).catch(error => {
-          console.warn('⚠️ Failed to refresh events after guest status update:', error);
-        });
-      }, 100);
+      // CRITICAL: Wait for server to save the update, then refresh from server
+      // The table will update from the server data, not from local store
+      // This ensures all clients see the same data from the server
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Refreshing events from server after guest status update...');
+          await fetchEvents(false, true); // Force refresh from API
+          console.log('✅ Events refreshed from server - table will update automatically');
+          
+          // CRITICAL: Update currentEvent from the refreshed events array
+          // This ensures the table shows the latest data from the server
+          const refreshedState = useEventStore.getState();
+          const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
+          if (refreshedEvent) {
+            setCurrentEvent({
+              ...refreshedEvent,
+              guests: refreshedEvent.guests.map(g => ({ ...g }))
+            });
+            console.log('✅ CurrentEvent updated from server data');
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to refresh events from server after guest status update:', error);
+        }
+      }, 300); // Increased delay to ensure server has finished processing
     } catch (error) {
       console.error('❌ Error updating guest:', error);
     }
@@ -1004,26 +1008,28 @@ const EventManagement: React.FC = () => {
       console.log('🔄 Updating attendance via updateGuestResponse:', { guestId, attendance });
       await updateGuestResponse(event.id, guestId, updatedGuest);
       
-      // CRITICAL: Force immediate UI update by updating currentEvent directly
-      const storeState = useEventStore.getState();
-      const updatedEvent = storeState.events.find(e => e.id === event.id);
-      if (updatedEvent) {
-        // Create completely new object reference to force React re-render
-        const newCurrentEvent = {
-          ...updatedEvent,
-          guests: updatedEvent.guests.map(g => ({ ...g })),
-          updatedAt: new Date()
-        };
-        setCurrentEvent(newCurrentEvent);
-        console.log('✅ handleUpdateAttendance - currentEvent updated immediately');
-      }
-      
-      // Also trigger events refresh to sync with backend
-      setTimeout(() => {
-        fetchEvents(false, true).catch(error => {
-          console.warn('⚠️ Failed to refresh events after attendance update:', error);
-        });
-      }, 100);
+      // CRITICAL: Wait for server to save the update, then refresh from server
+      // The table will update from the server data, not from local store
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Refreshing events from server after attendance update...');
+          await fetchEvents(false, true); // Force refresh from API
+          console.log('✅ Events refreshed from server - table will update automatically');
+          
+          // CRITICAL: Update currentEvent from the refreshed events array
+          const refreshedState = useEventStore.getState();
+          const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
+          if (refreshedEvent) {
+            setCurrentEvent({
+              ...refreshedEvent,
+              guests: refreshedEvent.guests.map(g => ({ ...g }))
+            });
+            console.log('✅ CurrentEvent updated from server data');
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to refresh events from server after attendance update:', error);
+        }
+      }, 300); // Increased delay to ensure server has finished processing
       
       console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {
