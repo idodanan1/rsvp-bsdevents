@@ -98,16 +98,20 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "bb" and "aa" require 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+            // Template "bb" requires 6 parameters in order: guest_name, groom_name, bride_name, event_date, event_time, venue
+            // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
             // NOTE: For template "bb" and "aa", guest_response_link is NOT in body parameters - it's only used for the button
             const templateName = (messageData.templateName || '').toLowerCase();
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
-              : templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA'
-                ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                   'event_date', 'event_time', 'venue', 'couple_name']
-                : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
+              : templateName === 'bb' || templateName === 'BB'
+                ? ['guest_name', 'groom_name', 'bride_name', 
+                   'event_date', 'event_time', 'venue']
+                : templateName === 'aa' || templateName === 'AA'
+                  ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name']
+                  : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
             
             // CRITICAL FIX: Remove guest_response_link from body params for template "bb" and "aa" if it exists
             // Template "bb" and "aa" do NOT include guest_response_link in body parameters - it's only used for the button
@@ -151,26 +155,30 @@ class WhatsAppService {
                 }
                 
                 // Return parameter in exact format Meta requires
-                // For named parameters ({{param_name}}), MUST include parameter_name field
-                // For positional parameters ({{1}}, {{2}}), don't include parameter_name
-                // Since the template uses named parameters ({{guest_name}}, {{event_type}}, etc.),
-                // we MUST include parameter_name
+                // CRITICAL: Body parameters do NOT include parameter_name - only header/button parameters do
+                // Body parameters are sent in order, and Meta matches them by position
+                // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
                 return {
                   type: 'text',
-                  parameter_name: key, // REQUIRED for named parameter templates!
                   text: finalValue
                 };
               });
           }
           
-          // Add body component with parameters - Meta requires this exact structure
-          // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
-          if (bodyParams.length > 0) {
-            components.push({
-              type: 'body',
-              parameters: bodyParams
-            });
-          }
+            // Add body component with parameters - Meta requires this exact structure
+            // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
+            if (bodyParams.length > 0) {
+              // CRITICAL: Log parameters being sent for debugging
+              console.log(`📋 Template "${templateName}" - Sending ${bodyParams.length} body parameters:`);
+              bodyParams.forEach((param, index) => {
+                console.log(`  ${index + 1}. "${param.text}"`);
+              });
+              
+              components.push({
+                type: 'body',
+                parameters: bodyParams
+              });
+            }
           
           // Always send image as header component if we have a valid HTTPS image URL
           // This ensures the image is displayed with the message

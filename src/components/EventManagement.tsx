@@ -2725,18 +2725,16 @@ const EventManagement: React.FC = () => {
       console.log('📝 Sending manual message with template "bb"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Prepare template parameters for template "bb" (same params as "aa")
+      // Prepare template parameters for template "bb" (6 parameters only)
       const templateParamsForBB = {
-        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                     'event_date', 'event_time', 'venue', 'couple_name'],
+        paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue'],
         guest_name: guest.firstName,
-        event_type: event.eventTypeHebrew || 'חתונה',
         groom_name: groomName || '',
         bride_name: brideName || '',
         event_date: formatDate(event.eventDate) || '',
         event_time: event.eventTime || '',
         venue: event.venue || '',
-        couple_name: coupleName || 'הזוג',
         guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
         language: 'he'
       };

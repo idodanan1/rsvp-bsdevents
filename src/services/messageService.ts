@@ -224,23 +224,18 @@ class MessageService {
       console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
       console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
       templateName = 'bb';
-      // Prepare template parameters for template "bb" (same params as "aa")
+      // Prepare template parameters for template "bb" (6 parameters only)
       const eventData = recipient.eventData;
       if (eventData) {
-        const templateCoupleName = eventData.coupleName || 
-          (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 
-           eventData.groomName || eventData.brideName || 'הזוג');
         templateParams = {
-          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                       'event_date', 'event_time', 'venue', 'couple_name'],
+          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                       'event_date', 'event_time', 'venue'],
           guest_name: recipient.firstName,
-          event_type: eventData.eventTypeHebrew || 'חתונה',
           groom_name: eventData.groomName || '',
           bride_name: eventData.brideName || '',
           event_date: eventData.eventDate || '',
           event_time: eventData.eventTime || '',
           venue: eventData.venue || '',
-          couple_name: templateCoupleName,
           language: 'he'
         };
       } else {

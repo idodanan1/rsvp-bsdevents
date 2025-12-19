@@ -3170,8 +3170,24 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = {};
             
-            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB' || templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
-              // Template "bb" requires 8 parameters in order (same as "aa" - matching the template body):
+            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
+              // Template "bb" requires 6 parameters in order (matching the template body):
+              // IMPORTANT: Order must match Meta template exactly: guest_name, groom_name, bride_name, event_date, event_time, venue
+              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
+              templateParams = {
+                paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue'],
+                guest_name: guest.firstName,
+                groom_name: templateGroomName, // Parameter 2 - groom_name comes BEFORE bride_name in Meta template
+                bride_name: templateBrideName, // Parameter 3 - bride_name comes AFTER groom_name in Meta template
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "aa" requires 8 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams = {
@@ -3508,7 +3524,20 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = undefined;
             
-            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB' || templateNameForCampaign === 'aa') {
+            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
+              templateParams = {
+                paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue'],
+                guest_name: guest.firstName,
+                groom_name: templateGroomName,
+                bride_name: templateBrideName,
+                event_date: formatDate(event.eventDate) || '',
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                guest_response_link: guestLink,
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
