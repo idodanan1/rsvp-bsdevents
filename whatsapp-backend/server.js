@@ -1466,17 +1466,19 @@ async function handleIncomingMessage(message) {
     // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
     // This ensures "מגיע" is always recognized as confirmed, not declined
     // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
+    // CRITICAL: Use precise matching to avoid false positives
     const isConfirmButton = buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
         buttonTitle === 'מגיע' ||
         buttonTitle === 'אגיע' ||
         (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
-        // CRITICAL: Only match "מגיע" if it does NOT start with "לא" or contain "לא" before "מגיע"
+        // CRITICAL: Only match "מגיע" if "לא" does NOT come BEFORE "מגיע"
+        // Check if "מגיע" exists AND either "לא" doesn't exist OR "מגיע" comes before "לא"
         (buttonTitleLower.includes('מגיע') && 
-         !buttonTitleLower.includes('לא') && 
-         !buttonTitleLower.startsWith('לא') &&
-         buttonTitleLower.indexOf('מגיע') < (buttonTitleLower.indexOf('לא') === -1 ? Infinity : buttonTitleLower.indexOf('לא'))) ||
-        (buttonTitleLower.includes('אגיע') && !buttonTitleLower.includes('לא'));
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) ||
+        // Match "אגיע" only if "לא" doesn't come before it
+        (buttonTitleLower.includes('אגיע') && 
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')));
     
     if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
@@ -1595,7 +1597,10 @@ async function handleIncomingMessage(message) {
       const isWaiting = isWaitingForResponse(normalizedPhone);
       const hasThanks = hasReceivedThanks(normalizedPhone);
       
-      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
+      // CRITICAL: Use precise matching - only match "מגיע" if "לא" doesn't come before it
+      if (buttonTitleLower.includes('כן') || 
+          (buttonTitleLower.includes('מגיע') && (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) || 
+          (buttonTitleLower.includes('אגיע') && (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')))) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
         
@@ -1623,7 +1628,11 @@ async function handleIncomingMessage(message) {
           console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
       } else if (buttonTitleLower.includes('דחה') ||
-                 (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+                 // CRITICAL: Only match decline if "לא" comes BEFORE "מגיע", "אגיע", or "אוכל"
+                 (buttonTitleLower.includes('לא') && 
+                  ((buttonTitleLower.includes('אוכל') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אוכל')) ||
+                   (buttonTitleLower.includes('מגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
+                   (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
         console.log(`   Button Title: "${buttonTitle}"`);
@@ -1679,11 +1688,21 @@ async function handleIncomingMessage(message) {
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
     
-    if (buttonId === 'confirm_attendance' || 
+    // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+    // Use precise matching to avoid false positives - only match "מגיע" if "לא" doesn't come before it
+    const isConfirmButton = buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
-        buttonIdLower.includes('confirm') ||
         buttonTitle === 'מגיע' ||
-        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
+        buttonTitle === 'אגיע' ||
+        (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
+        // CRITICAL: Only match "מגיע" if "לא" does NOT come BEFORE "מגיע"
+        (buttonTitleLower.includes('מגיע') && 
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) ||
+        // Match "אגיע" only if "לא" doesn't come before it
+        (buttonTitleLower.includes('אגיע') && 
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')));
+    
+    if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
       console.log(`📞 Phone number received: ${phoneNumber}`);
       

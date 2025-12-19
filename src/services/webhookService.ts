@@ -226,6 +226,29 @@ class WebhookService {
           if (foundGuest && foundEventId) {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
+            // CRITICAL: Remove ALL previous updates for this guest BEFORE processing the new update
+            // This ensures old updates don't interfere with new ones and don't appear in the table
+            try {
+              const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  guestId: update.guestId, // Include guestId if available for precise matching
+                  eventId: update.eventId, // Include eventId if available for precise matching
+                  removeAllForPhone: true // Remove all updates for this phone/guest
+                })
+              });
+              if (removeAllResponse.ok) {
+                const removeAllData = await removeAllResponse.json();
+                console.log(`🗑️ Removed all previous updates for guest BEFORE processing guestCount update: ${removeAllData.removed || 0} update(s) removed`);
+              }
+            } catch (error) {
+              console.warn('⚠️ Could not remove all previous updates from backend:', error);
+            }
+            
             // NEW APPROACH: Don't block ANY updates - always process them
             // The store will handle conflict resolution based on timestamps
             console.log(`✅ Processing guestCount update from ${update.source || 'unknown'} source - always allowed`);
