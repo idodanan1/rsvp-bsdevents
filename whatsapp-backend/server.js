@@ -1468,23 +1468,44 @@ async function handleIncomingMessage(message) {
     // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
     // CRITICAL: Use precise matching to avoid false positives
     // CRITICAL: Check buttonId and buttonTitle separately and prioritize exact matches
+    // CRITICAL: Use case-sensitive checks for Hebrew text (Hebrew doesn't have case, but we want exact matches)
     const isConfirmButton = 
         // Exact buttonId matches (highest priority)
         buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
         buttonId === 'confirmed' ||
-        // Exact buttonTitle matches (high priority)
+        // Exact buttonTitle matches (high priority) - MUST be exact match, not includes
         buttonTitle === 'מגיע' ||
         buttonTitle === 'אגיע' ||
         // ButtonId contains 'confirm' but NOT 'decline'
         (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
-        // CRITICAL: Only match "מגיע" in buttonTitle if "לא" does NOT come BEFORE "מגיע"
-        // Check if "מגיע" exists AND either "לא" doesn't exist OR "מגיע" comes before "לא"
-        (buttonTitle && buttonTitle.includes('מגיע') && 
-         (!buttonTitle.includes('לא') || buttonTitle.indexOf('מגיע') < buttonTitle.indexOf('לא'))) ||
+        // CRITICAL: Only match "מגיע" in buttonTitle if:
+        // 1. "מגיע" exists in buttonTitle
+        // 2. "לא" does NOT exist in buttonTitle OR "מגיע" comes BEFORE "לא"
+        // 3. Use exact position check to ensure "לא" doesn't come before "מגיע"
+        (buttonTitle && 
+         buttonTitle.includes('מגיע') && 
+         (!buttonTitle.includes('לא') || 
+          (buttonTitle.indexOf('מגיע') !== -1 && 
+           buttonTitle.indexOf('לא') !== -1 && 
+           buttonTitle.indexOf('מגיע') < buttonTitle.indexOf('לא')))) ||
         // Match "אגיע" only if "לא" doesn't come before it
-        (buttonTitle && buttonTitle.includes('אגיע') && 
-         (!buttonTitle.includes('לא') || buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא')));
+        (buttonTitle && 
+         buttonTitle.includes('אגיע') && 
+         (!buttonTitle.includes('לא') || 
+          (buttonTitle.indexOf('אגיע') !== -1 && 
+           buttonTitle.indexOf('לא') !== -1 && 
+           buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא'))));
+    
+    // CRITICAL: Log button detection for debugging
+    console.log('🔍 Button detection:', {
+      buttonId,
+      buttonTitle,
+      buttonIdLower,
+      buttonTitleLower,
+      isConfirmButton,
+      willProcessAsConfirm: isConfirmButton
+    });
     
     if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
@@ -1521,27 +1542,39 @@ async function handleIncomingMessage(message) {
         // Guest confirmed - no automatic message sent
         console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
-    } else if (buttonId === 'decline_attendance' || 
+    } else if (
+               // CRITICAL: Check exact matches first (highest priority)
+               buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
+               buttonTitle === 'לא אוכל להגיע' ||
+               buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonId for decline keywords (but NOT confirm)
                (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
                buttonIdLower.includes('לא אוכל') ||
                buttonIdLower.includes('לא אוכל להגיע') ||
-               buttonTitle === 'לא אוכל להגיע' ||
-               buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonTitle for decline keywords
                buttonTitle?.includes('לא אוכל') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
                // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
-               (buttonTitleLower.includes('לא') && 
-                buttonTitleLower.includes('מגיע') && 
-                buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
-               // Match "לא אוכל" or "לא אגיע" (but NOT "מגיע" without "לא" prefix)
-               (buttonTitleLower.includes('לא') && 
-                (buttonTitleLower.includes('אוכל') || 
-                 (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
+               // This ensures "מגיע" alone is NOT matched as decline
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                buttonTitle.includes('מגיע') && 
+                buttonTitle.indexOf('לא') !== -1 && 
+                buttonTitle.indexOf('מגיע') !== -1 && 
+                buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "אגיע" without "לא" prefix)
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                (buttonTitle.includes('אוכל') || 
+                 (buttonTitle.includes('אגיע') && 
+                  buttonTitle.indexOf('לא') !== -1 && 
+                  buttonTitle.indexOf('אגיע') !== -1 && 
+                  buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -1743,27 +1776,39 @@ async function handleIncomingMessage(message) {
         // Guest confirmed - no automatic message sent
         console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
-    } else if (buttonId === 'decline_attendance' || 
+    } else if (
+               // CRITICAL: Check exact matches first (highest priority)
+               buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
+               buttonTitle === 'לא אוכל להגיע' ||
+               buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonId for decline keywords (but NOT confirm)
                (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
                buttonIdLower.includes('לא אוכל') ||
                buttonIdLower.includes('לא אוכל להגיע') ||
-               buttonTitle === 'לא אוכל להגיע' ||
-               buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonTitle for decline keywords
                buttonTitle?.includes('לא אוכל') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
                // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
-               (buttonTitleLower.includes('לא') && 
-                buttonTitleLower.includes('מגיע') && 
-                buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
-               // Match "לא אוכל" or "לא אגיע" (but NOT "מגיע" without "לא" prefix)
-               (buttonTitleLower.includes('לא') && 
-                (buttonTitleLower.includes('אוכל') || 
-                 (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
+               // This ensures "מגיע" alone is NOT matched as decline
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                buttonTitle.includes('מגיע') && 
+                buttonTitle.indexOf('לא') !== -1 && 
+                buttonTitle.indexOf('מגיע') !== -1 && 
+                buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "אגיע" without "לא" prefix)
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                (buttonTitle.includes('אוכל') || 
+                 (buttonTitle.includes('אגיע') && 
+                  buttonTitle.indexOf('לא') !== -1 && 
+                  buttonTitle.indexOf('אגיע') !== -1 && 
+                  buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -3355,34 +3400,58 @@ app.delete('/api/guests/pending-updates', (req, res) => {
       }
       
       // Phone matches - now check guestId and eventId if provided
-      // If guestId is provided, only remove if guestId matches (more precise)
-      if (guestId && u.guestId) {
-        const shouldRemove = u.guestId === guestId;
-        if (!shouldRemove) {
-          console.log(`   Keeping update (phone matches but guestId differs: ${u.guestId} !== ${guestId})`);
+      // CRITICAL: Remove updates that match by phone AND:
+      // 1. Don't have guestId/eventId (old updates without these fields) OR
+      // 2. Match guestId/eventId if provided
+      // This ensures old updates without guestId/eventId are still removed
+      
+      // If both guestId and eventId are provided, check if update matches
+      if (guestId && eventId) {
+        // If update has both guestId and eventId, only remove if both match
+        if (u.guestId && u.eventId) {
+          const shouldRemove = u.guestId === guestId && u.eventId === eventId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but guestId/eventId differ: ${u.guestId}/${u.eventId} !== ${guestId}/${eventId})`);
+          }
+          return !shouldRemove;
         }
-        return !shouldRemove; // Remove if guestId matches, keep if it doesn't
+        // If update doesn't have guestId or eventId, remove it (old update)
+        // This ensures old updates without these fields are removed
+        console.log(`   Removing old update (phone matches but update doesn't have guestId/eventId)`);
+        return false; // Remove
       }
       
-      // If eventId is provided, only remove if eventId matches (more precise)
-      if (eventId && u.eventId) {
-        const shouldRemove = u.eventId === eventId;
-        if (!shouldRemove) {
-          console.log(`   Keeping update (phone matches but eventId differs: ${u.eventId} !== ${eventId})`);
+      // If only guestId is provided, check if update matches
+      if (guestId) {
+        // If update has guestId, only remove if it matches
+        if (u.guestId) {
+          const shouldRemove = u.guestId === guestId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but guestId differs: ${u.guestId} !== ${guestId})`);
+          }
+          return !shouldRemove;
         }
-        return !shouldRemove; // Remove if eventId matches, keep if it doesn't
+        // If update doesn't have guestId, remove it (old update)
+        console.log(`   Removing old update (phone matches but update doesn't have guestId)`);
+        return false; // Remove
       }
       
-      // If both guestId and eventId are provided, match by all three
-      if (guestId && eventId && u.guestId && u.eventId) {
-        const shouldRemove = u.guestId === guestId && u.eventId === eventId;
-        if (!shouldRemove) {
-          console.log(`   Keeping update (phone matches but guestId/eventId differ)`);
+      // If only eventId is provided, check if update matches
+      if (eventId) {
+        // If update has eventId, only remove if it matches
+        if (u.eventId) {
+          const shouldRemove = u.eventId === eventId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but eventId differs: ${u.eventId} !== ${eventId})`);
+          }
+          return !shouldRemove;
         }
-        return !shouldRemove; // Remove if both match, keep otherwise
+        // If update doesn't have eventId, remove it (old update)
+        console.log(`   Removing old update (phone matches but update doesn't have eventId)`);
+        return false; // Remove
       }
       
-      // No guestId/eventId provided or update doesn't have them - match by phone only
+      // No guestId/eventId provided - match by phone only
       return false; // Remove all updates matching phone number
     });
     console.log(`🗑️ Removing ALL updates for phone ${phoneNumber}${guestId ? ` (guestId: ${guestId})` : ''}${eventId ? ` (eventId: ${eventId})` : ''} (${initialLength - filtered.length} updates removed, ${filtered.length} remaining)`);
