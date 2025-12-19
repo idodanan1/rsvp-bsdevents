@@ -604,7 +604,7 @@ class WebhookService {
             currentStatus: foundGuest.rsvpStatus,
             newStatus: newStatus,
             isNewUpdate: isNewUpdate,
-            lastManualChange: lastManualChange ? `${Math.round((now - lastManualChange) / 1000)}s ago` : 'none'
+            lastManualChange: lastManualChange ? 'cleared' : 'none'
           });
           
           // CRITICAL: Check if there are other fields that need updating (guestCount, actualAttendance, notes, responseDate)

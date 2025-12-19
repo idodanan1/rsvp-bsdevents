@@ -2645,14 +2645,14 @@ export const useEventStore = create<EventStore>()(
             
             if (state.currentEvent?.id === eventId) {
               // Update existing currentEvent - user is viewing this event, so update it
-              // CRITICAL: For manual_update and guest_link updates, ALWAYS update currentEvent to ensure table refresh
-              const isManualUpdateEcho = updatedGuest.source === 'manual_update' || updatedGuest.source === 'guest_link';
+              // CRITICAL: For manual_update, guest_link, and whatsapp updates, ALWAYS update currentEvent to ensure table refresh
+              const isManualUpdateEcho = updatedGuest.source === 'manual_update' || updatedGuest.source === 'guest_link' || updatedGuest.source === 'whatsapp';
               updatedCurrentEvent = {
                 ...state.currentEvent,
                 guests: state.currentEvent.guests.map(guest => {
                   if (guest.id === guestId) {
                     // Use timestamp-based conflict resolution - latest update wins
-                    // CRITICAL: For manual_update and guest_link, always use new values to ensure update is applied
+                    // CRITICAL: For manual_update, guest_link, and whatsapp, always use new values to ensure update is applied
                     const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
                     const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
                     const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime() || isManualUpdateEcho;
