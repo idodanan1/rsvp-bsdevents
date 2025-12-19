@@ -206,7 +206,6 @@ export interface EventStore {
   currentEvent: Event | null;
   isLoading: boolean;
   error: string | null;
-  manualChanges: Map<string, number>; // Track manual changes: "eventId-guestId" -> timestamp
   
   // Actions
   fetchEvents: (forceRefresh?: boolean, silent?: boolean) => Promise<void>;

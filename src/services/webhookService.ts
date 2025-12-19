@@ -18,8 +18,6 @@ class WebhookService {
   private pollingInterval: number | null = null;
   private isPolling = false;
   private processedUpdates = new Set<string>(); // Track processed updates to show toast only once
-  private manualChanges = new Map<string, number>(); // Track manual changes: "eventId-guestId" -> timestamp
-  private readonly MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds protection after manual change - reduced for faster sync
 
   // Getter to check if polling is active
   get pollingActive(): boolean {
@@ -231,13 +229,6 @@ class WebhookService {
             // NEW APPROACH: Don't block ANY updates - always process them
             // The store will handle conflict resolution based on timestamps
             console.log(`✅ Processing guestCount update from ${update.source || 'unknown'} source - always allowed`);
-            
-            // Clear manual change protection if it exists (no longer needed with new approach)
-            const lastManualChange = this.manualChanges.get(guestKey);
-            if (lastManualChange) {
-              this.manualChanges.delete(guestKey);
-              console.log(`🔄 Cleared manual change protection for ${guestKey} - new approach always processes updates`);
-            }
 
             // Check if guestCount is different from current value
             if (foundGuest.guestCount === update.guestCount) {
@@ -590,21 +581,13 @@ class WebhookService {
             console.log(`✅ Processing update from ${update.source || 'unknown'} source - always allowed`);
           }
           
-          // Clear manual change protection if it exists (no longer needed with new approach)
-          const lastManualChange = this.manualChanges.get(guestKey);
-          if (lastManualChange) {
-            this.manualChanges.delete(guestKey);
-            console.log(`🔄 Cleared manual change protection for ${guestKey} - new approach always processes updates`);
-          }
-          
           // Ensure status is correctly set
           const newStatus = update.status as 'confirmed' | 'declined' | 'pending' | 'maybe';
           
           console.log(`🔍 Checking if update needed for ${foundGuest.firstName} ${foundGuest.lastName}:`, {
             currentStatus: foundGuest.rsvpStatus,
             newStatus: newStatus,
-            isNewUpdate: isNewUpdate,
-            lastManualChange: lastManualChange ? 'cleared' : 'none'
+            isNewUpdate: isNewUpdate
           });
           
           // CRITICAL: Check if there are other fields that need updating (guestCount, actualAttendance, notes, responseDate)
@@ -947,20 +930,7 @@ class WebhookService {
     }
   }
 
-  // Mark a manual change to prevent webhook from overwriting it
-  markManualChange(eventId: string, guestId: string) {
-    const guestKey = `${eventId}-${guestId}`;
-    this.manualChanges.set(guestKey, Date.now());
-    console.log(`🛡️ Marked manual change for ${guestKey} - webhook updates will be blocked for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s`);
-    
-    // Clean up old manual change entries (older than protection time)
-    const now = Date.now();
-    for (const [key, timestamp] of this.manualChanges.entries()) {
-      if (now - timestamp > this.MANUAL_CHANGE_PROTECTION_TIME) {
-        this.manualChanges.delete(key);
-      }
-    }
-  }
+  // Manual change protection removed - rely on timestamp-based conflict resolution
 }
 
 export const webhookService = new WebhookService();

@@ -353,7 +353,6 @@ export const useEventStore = create<EventStore>()(
       currentEvent: null,
       isLoading: false,
       error: null,
-      manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
         // CRITICAL: Debounce to prevent excessive API calls
@@ -614,23 +613,11 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                // CRITICAL: Merge API events with local events, but preserve manual changes
+                // CRITICAL: Merge API events with local events
+                // Use timestamp-based conflict resolution - newer update wins
                 const state = get();
-                const now = Date.now();
-                const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
                 
-                // Clean up old manual changes
-                const cleanedManualChanges = new Map<string, number>();
-                for (const [key, timestamp] of state.manualChanges.entries()) {
-                  if (now - timestamp < MANUAL_CHANGE_PROTECTION_TIME) {
-                    cleanedManualChanges.set(key, timestamp);
-                  }
-                }
-                if (cleanedManualChanges.size !== state.manualChanges.size) {
-                  set({ manualChanges: cleanedManualChanges });
-                }
-                
-                // Merge API events with local events, preserving manual changes
+                // Merge API events with local events
                 const allEvents = apiEvents.map(apiEvent => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
@@ -698,67 +685,6 @@ export const useEventStore = create<EventStore>()(
                       };
                     }
                     
-                    // Check if there was a manual change for this guest
-                    const guestKey = `${apiEvent.id}-${apiGuest.id}`;
-                    const lastManualChange = cleanedManualChanges.get(guestKey);
-                    const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
-                    
-                    // Log comparison for debugging - only log mismatches in development
-                    if (process.env.NODE_ENV === 'development' && 
-                        (apiGuest.actualAttendance !== localGuest.actualAttendance ||
-                         apiGuest.guestCount !== localGuest.guestCount ||
-                         apiGuest.rsvpStatus !== localGuest.rsvpStatus)) {
-                      console.log(`🔍 Guest mismatch ${apiGuest.firstName} ${apiGuest.lastName}:`, {
-                        api_actualAttendance: apiGuest.actualAttendance,
-                        local_actualAttendance: localGuest.actualAttendance,
-                        api_guestCount: apiGuest.guestCount,
-                        local_guestCount: localGuest.guestCount,
-                        api_rsvpStatus: apiGuest.rsvpStatus,
-                        local_rsvpStatus: localGuest.rsvpStatus
-                      });
-                    }
-                    
-                    if (hasRecentManualChange) {
-                      // Preserve local guest data (manual change is recent)
-                      // CRITICAL: Clean names even when preserving local data
-                      return {
-                        ...localGuest,
-                        firstName: cleanName(localGuest.firstName),
-                        lastName: cleanName(localGuest.lastName)
-                      };
-                    }
-                    
-                    // CRITICAL: For tableId, actualAttendance, and rsvpStatus, preserve local values if they differ from API
-                    // This handles the case where we just updated locally but API hasn't synced yet
-                    // Check if local value exists and differs from API, and change was made recently (within 2x protection window)
-                    const shouldPreserveLocalField = (field: 'tableId' | 'actualAttendance' | 'rsvpStatus') => {
-                      const localValue = localGuest[field];
-                      const apiValue = apiGuest[field];
-                      
-                      if (localValue !== undefined && localValue !== apiValue) {
-                        // If there was a manual change (even if outside strict window), preserve local if values differ
-                        if (lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME * 2) {
-                          return true;
-                        }
-                      }
-                      return false;
-                    };
-                    
-                    const preserveTableId = shouldPreserveLocalField('tableId');
-                    const preserveActualAttendance = shouldPreserveLocalField('actualAttendance');
-                    const preserveRsvpStatus = shouldPreserveLocalField('rsvpStatus');
-                    
-                    if (preserveTableId || preserveActualAttendance || preserveRsvpStatus) {
-                      return {
-                        ...apiGuest,
-                        firstName: cleanName(apiGuest.firstName),
-                        lastName: cleanName(apiGuest.lastName),
-                        tableId: preserveTableId ? localGuest.tableId : apiGuest.tableId,
-                        actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance,
-                        rsvpStatus: preserveRsvpStatus ? localGuest.rsvpStatus : apiGuest.rsvpStatus
-                      };
-                    }
-                    
                     // CRITICAL: Compare responseDate to determine which update is newer
                     // Use the newer update, not just API data blindly
                     // This ensures that recent manual updates are not overwritten by stale API data
@@ -773,8 +699,7 @@ export const useEventStore = create<EventStore>()(
                           : new Date(apiGuest.responseDate).getTime())
                       : 0;
                     
-                    // CRITICAL: If local has a newer responseDate OR if there was a recent manual change,
-                    // preserve local data completely to prevent overwriting manual updates
+                    // CRITICAL: If local has a newer responseDate, preserve local data
                     // Also check if critical fields differ - if they do and local is newer or equal, preserve local
                     const localIsNewer = localResponseDate > apiResponseDate && localResponseDate > 0;
                     const datesAreEqual = localResponseDate === apiResponseDate && localResponseDate > 0;
@@ -784,18 +709,14 @@ export const useEventStore = create<EventStore>()(
                       localGuest.actualAttendance !== apiGuest.actualAttendance
                     );
                     
-                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync),
-                    // or if there was a recent manual change, preserve local data
-                    if (localIsNewer || (datesAreEqual && criticalFieldsDiffer) || hasRecentManualChange) {
-                      const reason = localIsNewer ? 'newer responseDate' : 
-                                    (datesAreEqual && criticalFieldsDiffer) ? 'equal date but critical fields differ' :
-                                    'recent manual change';
+                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync), preserve local data
+                    if (localIsNewer || (datesAreEqual && criticalFieldsDiffer)) {
+                      const reason = localIsNewer ? 'newer responseDate' : 'equal date but critical fields differ';
                       console.log(`🔄 Using local guest data (${reason}): ${localGuest.firstName} ${localGuest.lastName}`, {
                         localResponseDate: localResponseDate > 0 ? new Date(localResponseDate).toISOString() : 'none',
                         apiResponseDate: apiResponseDate > 0 ? new Date(apiResponseDate).toISOString() : 'none',
                         localRsvpStatus: localGuest.rsvpStatus,
-                        apiRsvpStatus: apiGuest.rsvpStatus,
-                        hasRecentManualChange
+                        apiRsvpStatus: apiGuest.rsvpStatus
                       });
                       return {
                         ...localGuest,
@@ -2085,28 +2006,7 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: If updating guestCount, rsvpStatus, actualAttendance, tableId, firstName, lastName, or phoneNumber, mark as manual change
-          const criticalFields = ['guestCount', 'rsvpStatus', 'actualAttendance', 'tableId', 'firstName', 'lastName', 'phoneNumber'];
-          const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
-          
-          if (hasCriticalField) {
-            const guestKey = `${eventId}-${guestId}`;
-            set(state => {
-              const newManualChanges = new Map(state.manualChanges);
-              newManualChanges.set(guestKey, Date.now());
-              return { manualChanges: newManualChanges };
-            });
-            console.log(`🛡️ Marked manual change for ${guestKey} (fields: ${Object.keys(updates).join(', ')})`);
-            
-            // Also mark in webhookService to ensure protection from webhook updates
-            try {
-              const webhookModule = await import('../services/webhookService');
-              webhookModule.webhookService.markManualChange(eventId, guestId);
-              console.log(`🛡️ Marked manual change in webhookService for ${guestKey}`);
-            } catch (error) {
-              console.warn('⚠️ Could not mark manual change in webhookService:', error);
-            }
-          }
+          // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
           
           let updatedEvent: Event | null = null;
           
@@ -2326,38 +2226,8 @@ export const useEventStore = create<EventStore>()(
             newStatus: updatedGuest.rsvpStatus
           });
           
-          // CRITICAL: Mark manual change for ALL manual updates (not just guest_link) to prevent webhook from overwriting them
-          // This ensures updates from guest response page, status update buttons, and other manual sources are protected
-          // CRITICAL: NEVER mark WhatsApp updates as manual changes - they come from external source and should always be processed
-          // CRITICAL: NEVER mark manual_update updates coming from webhook as manual changes - they're echoes of manual changes
-          // Only mark manual changes for: guest_link (direct user action), or undefined source (which is treated as manual)
-          // Do NOT mark manual_update if it's coming from webhook (it's an echo of a manual change we already marked)
-          const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
-          const isFromWebhook = updatedGuest.source === 'manual_update'; // This is an echo from webhook, don't mark again
-          const isManualUpdate = updatedGuest.source === 'guest_link' || 
-                                 (!updatedGuest.source && !isWhatsAppUpdate && !isFromWebhook);
-          
-          if (isManualUpdate && !isWhatsAppUpdate && !isFromWebhook) {
-            const guestKey = `${eventId}-${guestId}`;
-            set(state => {
-              const newManualChanges = new Map(state.manualChanges);
-              newManualChanges.set(guestKey, Date.now());
-              return { manualChanges: newManualChanges };
-            });
-            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s (except WhatsApp and manual_update)`);
-            
-            // Also mark in webhookService to ensure protection
-            try {
-              const webhookModule = await import('../services/webhookService');
-              webhookModule.webhookService.markManualChange(eventId, guestId);
-            } catch (error) {
-              console.warn('⚠️ Could not mark manual change in webhookService:', error);
-            }
-          } else if (isWhatsAppUpdate) {
-            console.log(`✅ WhatsApp update detected (source: ${updatedGuest.source}) - NOT marking as manual change, will always be processed`);
-          } else if (isFromWebhook) {
-            console.log(`✅ manual_update echo from webhook detected - NOT marking as manual change again, this is the sync back from backend`);
-          }
+          // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
+          // All updates are processed based on timestamps and source
           
           // CRITICAL: Ensure responseDate is always current for guest_link updates
           // This ensures the update is always considered "newer" than previous updates
@@ -2586,11 +2456,6 @@ export const useEventStore = create<EventStore>()(
                           responseDate: oldResponseDate
                         };
                       
-                        // Remove manual change protection if this update is newer
-                        const manualChangeKey = `${eventId}-${guestId}`;
-                        state.manualChanges.delete(manualChangeKey);
-                        console.log(`🔄 Removed manual change protection for ${manualChangeKey} - new update is newer`);
-                        
                         // CRITICAL: Always return a new object reference for the guest
                         return { ...mergedGuest };
                       }
@@ -5274,7 +5139,6 @@ export const useEventStore = create<EventStore>()(
           console.warn('⚠️ Could not get userId in partialize:', e);
         }
 
-        // Note: manualChanges is NOT saved to localStorage (Map cannot be serialized)
         try {
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
