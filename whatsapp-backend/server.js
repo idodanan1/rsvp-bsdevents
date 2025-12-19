@@ -1463,11 +1463,14 @@ async function handleIncomingMessage(message) {
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
     
+    // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+    // This ensures "מגיע" is always recognized as confirmed, not declined
     if (buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
         buttonIdLower.includes('confirm') ||
         buttonTitle === 'מגיע' ||
-        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
+        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא')) ||
+        (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא'))) {
       console.log('✅ Guest confirmed attendance via button!');
       console.log(`📞 Phone number received: ${phoneNumber}`);
       
@@ -1607,7 +1610,7 @@ async function handleIncomingMessage(message) {
           // Guest confirmed - no automatic message sent
           console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
+      } else if (buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
@@ -1889,7 +1892,10 @@ async function handleIncomingMessage(message) {
       const isWaiting = isWaitingForResponse(normalizedPhone);
       const hasThanks = hasReceivedThanks(normalizedPhone);
       
-      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
+      // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+      if (buttonTitleLower.includes('כן') || 
+          (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || 
+          buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
         
@@ -1916,7 +1922,7 @@ async function handleIncomingMessage(message) {
           // Guest confirmed - no automatic message sent
           console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
+      } else if (buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
