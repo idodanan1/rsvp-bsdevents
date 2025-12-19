@@ -228,57 +228,15 @@ class WebhookService {
           if (foundGuest && foundEventId) {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
-            // CRITICAL: Check if there was a manual change recently
-            // BUT: Don't block updates from guest_link, manual_update, or whatsapp if they're the same source as the manual change
-            // This allows the manual change to sync back from backend without being blocked
-            // CRITICAL: WhatsApp updates should NEVER be blocked - they come from external source
-            // CRITICAL: manual_update updates should NEVER be blocked - they're echoes of manual changes from status update page
+            // NEW APPROACH: Don't block ANY updates - always process them
+            // The store will handle conflict resolution based on timestamps
+            console.log(`✅ Processing guestCount update from ${update.source || 'unknown'} source - always allowed`);
+            
+            // Clear manual change protection if it exists (no longer needed with new approach)
             const lastManualChange = this.manualChanges.get(guestKey);
-            const now = Date.now();
-            const isFromWhatsApp = update.source === 'whatsapp';
-            const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
-            // CRITICAL: Never block WhatsApp updates - they come from external source and should always be processed
-            // CRITICAL: Never block manual_update updates - they're echoes of manual changes from status update page/event management
-            const shouldBlock = lastManualChange && 
-                              (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                              !isFromManualSource && 
-                              !isFromWhatsApp; // NEVER block WhatsApp or manual_update updates
-            
-            if (shouldBlock) {
-              const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
-              console.log(`🛡️ BLOCKING guest count update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
-              console.log(`🛡️ Update source: ${update.source || 'undefined'} - blocking because it's not from manual source or WhatsApp`);
-              // Remove from backend to prevent it from being processed again
-              try {
-                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                  method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber,
-                    guestCount: update.guestCount
-                  })
-                });
-                if (removeResponse.ok) {
-                  console.log(`✅ Removed blocked guest count update from backend`);
-                }
-              } catch (error) {
-                console.warn('⚠️ Could not remove blocked guest count update from backend:', error);
-              }
-              continue; // Skip this update
-            }
-            
-            // If update is from manual source or WhatsApp and there was a manual change, allow it (it's the manual change syncing back)
-            if ((isFromManualSource || isFromWhatsApp) && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-              console.log(`✅ Allowing ${update.source || 'manual'} guestCount update to sync back from backend (manual change protection bypassed)`);
-            }
-            
-            // CRITICAL: If update is from manual_update, clear the manual change protection immediately
-            // This ensures subsequent updates (like from WhatsApp) are not blocked
-            if (update.source === 'manual_update' && lastManualChange) {
+            if (lastManualChange) {
               this.manualChanges.delete(guestKey);
-              console.log(`🔄 Cleared manual change protection for ${guestKey} - manual_update sync completed`);
+              console.log(`🔄 Cleared manual change protection for ${guestKey} - new approach always processes updates`);
             }
 
             // Check if guestCount is different from current value
@@ -617,61 +575,26 @@ class WebhookService {
           // Check if we already processed this exact update
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
-          // CRITICAL: Check if there was a manual change recently (within protection time)
-          // BUT: Don't block updates from guest_link, manual_update, or whatsapp if they're the same source as the manual change
-          // This allows the manual change to sync back from backend without being blocked
-          // CRITICAL: WhatsApp updates should NEVER be blocked - they come from external source
-          // CRITICAL: manual_update updates should NEVER be blocked - they're echoes of manual changes from status update page
-          const lastManualChange = this.manualChanges.get(guestKey);
-          const now = Date.now();
+          // NEW APPROACH: Don't block ANY updates - always process them
+          // The store will handle conflict resolution based on timestamps
+          // This ensures all updates are processed and reflected in the UI
           const isFromWhatsApp = update.source === 'whatsapp';
-          const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
-          // CRITICAL: Never block WhatsApp updates - they come from external source and should always be processed
-          // CRITICAL: Never block manual_update updates - they're echoes of manual changes from status update page/event management
-          // Only block webhook updates if they're NOT from WhatsApp, NOT from manual_update, and there was a recent manual change
-          const shouldBlock = lastManualChange && 
-                            (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                            !isFromManualSource && 
-                            !isFromWhatsApp; // NEVER block WhatsApp or manual_update updates
+          const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update';
           
-          if (shouldBlock) {
-            const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
-            console.log(`🛡️ BLOCKING webhook update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
-            console.log(`🛡️ Update source: ${update.source || 'undefined'} - blocking because it's not from manual source or WhatsApp`);
-            // Still remove from backend to prevent it from being processed again
-            // But only remove this specific status update, not all updates (preserve guestCount updates)
-            try {
-              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phoneNumber: update.phoneNumber,
-                  status: update.status,
-                  responseDate: update.responseDate
-                  // Don't use removeAllForPhone - only remove this specific status update
-                })
-              });
-              if (removeResponse.ok) {
-                console.log(`✅ Removed blocked status update from backend`);
-              }
-            } catch (error) {
-              console.warn('⚠️ Could not remove blocked update from backend:', error);
-            }
-            continue; // Skip to next update
+          // Log the update source for debugging
+          if (isFromManualSource) {
+            console.log(`✅ Processing ${update.source} update - always allowed`);
+          } else if (isFromWhatsApp) {
+            console.log(`✅ Processing WhatsApp update - always allowed`);
+          } else {
+            console.log(`✅ Processing update from ${update.source || 'unknown'} source - always allowed`);
           }
           
-          // If update is from manual source and there was a manual change, allow it (it's the manual change syncing back)
-          if (isFromManualSource && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-            console.log(`✅ Allowing ${update.source || 'manual'} update to sync back from backend (manual change protection bypassed)`);
-          }
-          
-          // CRITICAL: If update is from manual_update, clear the manual change protection immediately
-          // This ensures subsequent updates (like from WhatsApp) are not blocked
-          if (update.source === 'manual_update' && lastManualChange) {
+          // Clear manual change protection if it exists (no longer needed with new approach)
+          const lastManualChange = this.manualChanges.get(guestKey);
+          if (lastManualChange) {
             this.manualChanges.delete(guestKey);
-            console.log(`🔄 Cleared manual change protection for ${guestKey} - manual_update sync completed`);
+            console.log(`🔄 Cleared manual change protection for ${guestKey} - new approach always processes updates`);
           }
           
           // Ensure status is correctly set
