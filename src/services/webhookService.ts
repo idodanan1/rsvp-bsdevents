@@ -318,35 +318,34 @@ class WebhookService {
             // This ensures the store has the latest guestCount when we process the status update below
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Remove from backend - remove only the guestCount part if there's also a status
-            // If there's a status, we'll process it separately below
-            try {
-              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phoneNumber: update.phoneNumber,
-                  guestCount: update.guestCount
-                  // Don't include status here - if there's a status, it will be processed separately
-                })
-              });
-              if (removeResponse.ok) {
-                console.log(`✅ Removed processed guest count update from backend`);
-              }
-            } catch (error) {
-              console.warn('⚠️ Could not remove guest count update from backend:', error);
-            }
-            
-            // If there's also a status in this update, continue to process it below
-            // Otherwise, skip to next update
+            // CRITICAL: If there's also a status in this update, DON'T remove guestCount from backend yet
+            // We'll remove the entire update (status + guestCount) together after processing status
+            // This ensures the status update includes the guestCount
             if (!update.status) {
+              // Only guestCount, no status - safe to remove now
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    guestCount: update.guestCount
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed processed guest count update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove guest count update from backend:', error);
+              }
               continue; // Move to next update (only guestCount, no status)
             }
             // If there's a status, fall through to process it below
             // CRITICAL: The guestCount has been updated, so when we process status below,
             // we'll get the latest guestCount from the store
+            // CRITICAL: Don't remove guestCount from backend yet - we'll remove the entire update together
           } else {
             console.log(`⏭️ Guest not found for guest count update, removing from backend`);
             // Remove from backend if guest not found
@@ -709,8 +708,10 @@ class WebhookService {
           console.log(`   Event ID: ${foundEventId}`);
           console.log(`   Is new update: ${isNewUpdate}`);
           
-          // CRITICAL: Always use update.guestCount if provided, otherwise use latest guestCount from store
-          // This ensures guestCount updates from WhatsApp are preserved
+          // CRITICAL: Always use latest guestCount from store (which may have been updated earlier in this function)
+          // This ensures guestCount updates from WhatsApp are preserved even when processing status separately
+          // CRITICAL: If guestCount was already updated earlier in this function, use latestGuest.guestCount (most up-to-date)
+          // Otherwise, use update.guestCount if provided
           // CRITICAL: Also preserve notes from updates (especially from guest_link)
           // CRITICAL: Clean names when updating from webhook
           const updatedGuest = {
@@ -719,7 +720,9 @@ class WebhookService {
             lastName: cleanName(latestGuest.lastName),
             rsvpStatus: newStatus,
             responseDate: new Date(update.responseDate || Date.now()),
-            guestCount: update.guestCount !== undefined ? update.guestCount : latestGuest.guestCount,
+            // CRITICAL: Always use latestGuest.guestCount (already updated earlier if update had guestCount)
+            // This ensures we preserve the guestCount that was already updated
+            guestCount: latestGuest.guestCount !== undefined ? latestGuest.guestCount : (update.guestCount !== undefined ? update.guestCount : 1),
             notes: update.notes !== undefined ? update.notes : latestGuest.notes,
             actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance
           };
