@@ -164,7 +164,18 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Perform initial sync of all WhatsApp updates when component mounts
     // This ensures all pending updates from WhatsApp are processed immediately
-    webhookService.syncAllUpdates().catch(err => {
+    // Process ALL updates (not just today's) to catch any missed updates
+    webhookService.syncAllUpdates(false).then(result => {
+      if (result.processed > 0) {
+        console.log(`✅ Initial sync completed: ${result.processed} updates processed, ${result.failed} failed, ${result.remaining} remaining`);
+        // Refresh events to show updated data
+        fetchEvents(false, true).catch(err => {
+          console.warn('⚠️ Failed to refresh events after initial sync:', err);
+        });
+      } else if (result.remaining > 0) {
+        console.log(`ℹ️ No updates processed, but ${result.remaining} updates remain (may need manual processing)`);
+      }
+    }).catch(err => {
       console.warn('⚠️ Initial sync failed (non-critical):', err);
     });
     
@@ -2770,7 +2781,8 @@ const EventManagement: React.FC = () => {
             <button
               onClick={async () => {
                 try {
-                  const result = await webhookService.syncAllUpdates();
+                  // Process all updates (not just today's) to catch any missed updates
+                  const result = await webhookService.syncAllUpdates(false);
                   alert(`✅ סריקה הושלמה!\nעובדו: ${result.processed} עדכונים\nנכשלו: ${result.failed} עדכונים\nנותרו: ${result.remaining} עדכונים`);
                   // Refresh events to show updated data
                   await fetchEvents(false, true);
@@ -2780,7 +2792,7 @@ const EventManagement: React.FC = () => {
                 }
               }}
               className="flex items-center text-green-600 hover:text-green-800 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
-              title="סרוק ועדכן את כל העדכונים מ-WhatsApp"
+              title="סרוק ועדכן את כל העדכונים מ-WhatsApp (כולל ישנים)"
             >
               <RefreshCw className="w-5 h-5 ml-2" />
               סנכרן עדכוני WhatsApp

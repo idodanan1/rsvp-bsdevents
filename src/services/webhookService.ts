@@ -100,12 +100,16 @@ class WebhookService {
   }
 
   // Manual sync: Process all pending updates (including old ones)
-  async syncAllUpdates(): Promise<{ processed: number; failed: number; remaining: number }> {
-    console.log('🔄 Starting manual sync of all pending updates...');
+  async syncAllUpdates(processTodayOnly: boolean = false): Promise<{ processed: number; failed: number; remaining: number }> {
+    console.log(`🔄 Starting manual sync of all pending updates (today only: ${processTodayOnly})...`);
     
     try {
       // First, call backend endpoint to process all updates server-side
-      const processResponse = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
+      const url = processTodayOnly 
+        ? `${BACKEND_URL}/api/guests/process-all-updates?today=true`
+        : `${BACKEND_URL}/api/guests/process-all-updates`;
+      
+      const processResponse = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

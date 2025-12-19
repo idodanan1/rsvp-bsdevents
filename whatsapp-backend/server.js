@@ -3194,11 +3194,16 @@ app.get('/api/guests/pending-updates', (req, res) => {
     source: u.source // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses, undefined if not set (will NOT send yes message)
   }));
   
-  // Clear old updates (older than 1 hour) but keep recent ones
-  const oneHourAgo = Date.now() - (60 * 60 * 1000);
-  const filteredUpdates = pendingUpdates.filter(u => u.timestamp > oneHourAgo);
-  pendingUpdates.length = 0;
-  pendingUpdates.push(...filteredUpdates);
+  // CRITICAL: Don't clear old updates automatically - let process-all-updates handle them
+  // Only clear very old updates (older than 24 hours) to prevent memory leaks
+  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+  const filteredUpdates = pendingUpdates.filter(u => u.timestamp > oneDayAgo);
+  if (filteredUpdates.length < pendingUpdates.length) {
+    const removedCount = pendingUpdates.length - filteredUpdates.length;
+    console.log(`🧹 Removed ${removedCount} very old update(s) (older than 24 hours)`);
+    pendingUpdates.length = 0;
+    pendingUpdates.push(...filteredUpdates);
+  }
   
   // IMPORTANT: Don't remove updates here - let the DELETE endpoint handle it
   // This ensures updates are available for webhookService to process
@@ -3360,8 +3365,22 @@ app.post('/api/guests/process-all-updates', async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
   try {
-    console.log('🔄 POST /api/guests/process-all-updates - Processing all pending updates...');
+    // Check if we should process only today's updates or all updates
+    const processTodayOnly = req.query.today === 'true' || req.query.today === '1';
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTimestamp = todayStart.getTime();
+    
+    console.log('🔄 POST /api/guests/process-all-updates - Processing pending updates...');
     console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+    console.log(`📅 Process today only: ${processTodayOnly}`);
+    
+    // Filter updates based on date if needed
+    let updatesToProcess = [...pendingUpdates];
+    if (processTodayOnly) {
+      updatesToProcess = pendingUpdates.filter(u => u.timestamp >= todayStartTimestamp);
+      console.log(`📅 Filtered to ${updatesToProcess.length} updates from today (out of ${pendingUpdates.length} total)`);
+    }
     
     // Reload events to get latest data
     loadEvents();
@@ -3371,7 +3390,7 @@ app.post('/api/guests/process-all-updates', async (req, res) => {
     const processedUpdates = [];
     
     // Process each update
-    for (const update of [...pendingUpdates]) {
+    for (const update of updatesToProcess) {
       try {
         // Find the event and guest
         let foundEvent = null;
@@ -3481,23 +3500,75 @@ app.post('/api/guests/process-all-updates', async (req, res) => {
     }
     
     // Clear processed updates from pendingUpdates
-    // Keep only updates that weren't processed (failed to find guest)
+    // CRITICAL: Remove updates that were successfully processed
+    // Match by phone number, status, guestCount, and timestamp to avoid removing wrong updates
+    const processedPhoneNumbers = new Set(processedUpdates.map(p => {
+      const phone = (p.phoneNumber || '').replace(/[^0-9]/g, '');
+      return phone.replace(/^972/, '0');
+    }));
+    
     const remainingUpdates = pendingUpdates.filter(u => {
-      const wasProcessed = processedUpdates.some(p => p.phoneNumber === u.phoneNumber);
-      return !wasProcessed;
+      const uPhone = (u.phoneNumber || u.originalPhoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
+      const wasProcessed = processedPhoneNumbers.has(uPhone);
+      
+      // Also check if this exact update was processed (by matching phone + status + guestCount)
+      if (wasProcessed) {
+        const matchingProcessed = processedUpdates.find(p => {
+          const pPhone = (p.phoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
+          return pPhone === uPhone;
+        });
+        
+        if (matchingProcessed) {
+          // Check if status and guestCount match
+          const statusMatch = !u.status || !matchingProcessed.updates.status || u.status === matchingProcessed.updates.status;
+          const guestCountMatch = u.guestCount === undefined || matchingProcessed.updates.guestCount === undefined || u.guestCount === matchingProcessed.updates.guestCount;
+          
+          // If both match, this update was processed
+          if (statusMatch && guestCountMatch) {
+            return false; // Remove this update
+          }
+        }
+      }
+      
+      return true; // Keep this update
     });
     
+    const removedCount = pendingUpdates.length - remainingUpdates.length;
     pendingUpdates.length = 0;
     pendingUpdates.push(...remainingUpdates);
     
+    console.log(`🗑️ Removed ${removedCount} processed update(s) from pendingUpdates (${remainingUpdates.length} remaining)`);
+    
     console.log(`✅ Processed ${processedCount} updates, ${failedCount} failed, ${remainingUpdates.length} remaining`);
+    
+    // Log summary of processed updates
+    console.log('\n📊 ========== PROCESSING SUMMARY ==========');
+    console.log(`✅ Successfully processed: ${processedCount} updates`);
+    console.log(`❌ Failed to process: ${failedCount} updates`);
+    console.log(`📋 Remaining in queue: ${remainingUpdates.length} updates`);
+    if (processedUpdates.length > 0) {
+      console.log('\n📝 Processed updates details:');
+      processedUpdates.slice(0, 10).forEach((update, index) => {
+        console.log(`  ${index + 1}. ${update.guestName} (${update.phoneNumber})`);
+        console.log(`     Status: ${update.updates.status || 'N/A'}, Guest Count: ${update.updates.guestCount || 'N/A'}`);
+      });
+      if (processedUpdates.length > 10) {
+        console.log(`  ... and ${processedUpdates.length - 10} more updates`);
+      }
+    }
+    console.log('==========================================\n');
     
     res.json({
       success: true,
       processed: processedCount,
       failed: failedCount,
       remaining: remainingUpdates.length,
-      processedUpdates: processedUpdates
+      processedUpdates: processedUpdates,
+      summary: {
+        totalProcessed: processedCount,
+        totalFailed: failedCount,
+        totalRemaining: remainingUpdates.length
+      }
     });
   } catch (error) {
     console.error('❌ Error processing all updates:', error);
