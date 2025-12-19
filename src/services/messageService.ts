@@ -167,13 +167,17 @@ class MessageService {
     // CRITICAL: Meta requires ALL first messages to use approved templates
     // 1. If it's a first message → MUST use template (Meta requirement)
     //    - If explicit templateName from campaign → use it
-    //    - If no templateName → use hello_world template
+    //    - If no templateName → use "bb" template
     // 2. If not first message → send regular message (can use template if provided, but not required)
-    // CRITICAL: If no buttons are provided, don't use template (templates require buttons)
-    // Send as regular text message instead
+    // CRITICAL: If explicit templateName is undefined AND there's message content, send as regular message
+    // This allows manual messages to be sent as free-form text even for first messages
     
     const hasMessageContent = processedMessage && processedMessage.trim().length > 0;
     const hasButtons = recipient.buttons && recipient.buttons.length > 0;
+    
+    // CRITICAL: Check if templateName was explicitly set to undefined (user wants free-form message)
+    // If messageData.templateName is explicitly undefined AND there's message content, send as regular message
+    const explicitlyNoTemplate = messageData.templateName === undefined && hasMessageContent;
     
     // CRITICAL: If no buttons are provided, don't use template - send as regular message
     // Templates like "aa" and "a" require buttons, so if we don't have buttons, use regular message
@@ -195,7 +199,9 @@ class MessageService {
       templateNameLength: templateName ? templateName.length : 0,
       templateNameTrimmed: templateName ? templateName.trim() : '',
       hasValidTemplate,
-      isFirstMessage
+      isFirstMessage,
+      explicitlyNoTemplate,
+      hasMessageContent
     });
     
     if (hasValidTemplate) {
@@ -204,16 +210,44 @@ class MessageService {
       console.log('📋 Template parameters:', templateParams);
       // Keep templateName and templateParams as provided - Meta will use template content
       // The campaign.message content will be ignored when using templates
+    } else if (explicitlyNoTemplate) {
+      // CRITICAL: User explicitly wants free-form message (templateName === undefined with message content)
+      // Send as regular message even if it's a first message
+      console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
+      console.log('⚠️ Note: This may fail for first messages if WhatsApp requires template');
+      templateName = undefined;
+      templateParams = undefined;
     } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
-      // No explicit template from campaign → use hello_world as fallback
-      console.log('⚠️ First message - no valid template from campaign, using "hello_world" template as fallback');
+      // No explicit template from campaign → use "bb" template as fallback (instead of hello_world)
+      console.log('⚠️ First message - no valid template from campaign, using "bb" template as fallback');
       console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
       console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
-      templateName = 'hello_world';
-      templateParams = {
-        language: 'en_US'
-      };
+      templateName = 'bb';
+      // Prepare template parameters for template "bb" (same params as "aa")
+      const eventData = recipient.eventData;
+      if (eventData) {
+        const templateCoupleName = eventData.coupleName || 
+          (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 
+           eventData.groomName || eventData.brideName || 'הזוג');
+        templateParams = {
+          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                       'event_date', 'event_time', 'venue', 'couple_name'],
+          guest_name: recipient.firstName,
+          event_type: eventData.eventTypeHebrew || 'חתונה',
+          groom_name: eventData.groomName || '',
+          bride_name: eventData.brideName || '',
+          event_date: eventData.eventDate || '',
+          event_time: eventData.eventTime || '',
+          venue: eventData.venue || '',
+          couple_name: templateCoupleName,
+          language: 'he'
+        };
+      } else {
+        templateParams = {
+          language: 'he'
+        };
+      }
     } else if (hasMessageContent) {
       // NOT FIRST MESSAGE and no template → send regular message with campaign content
       console.log('📋 Not first message - sending regular text message with campaign content');

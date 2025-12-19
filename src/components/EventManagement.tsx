@@ -2572,6 +2572,8 @@ const EventManagement: React.FC = () => {
 
       const result = await messageService.sendBulkMessages({
         message: '', // Will be overridden by individual messages
+        templateName: undefined, // CRITICAL: No template - send as regular text message
+        templateParams: undefined, // CRITICAL: No template params
         recipients
       });
 
@@ -2719,17 +2721,32 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, send as regular text message (NO template)
-      // User wants to send free-form messages without templates
-      console.log('📝 Sending manual message as regular text (no template)');
+      // CRITICAL: For manual messages from table, use template "bb"
+      console.log('📝 Sending manual message with template "bb"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
+      
+      // Prepare template parameters for template "bb" (same params as "aa")
+      const templateParamsForBB = {
+        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name'],
+        guest_name: guest.firstName,
+        event_type: event.eventTypeHebrew || 'חתונה',
+        groom_name: groomName || '',
+        bride_name: brideName || '',
+        event_date: formatDate(event.eventDate) || '',
+        event_time: event.eventTime || '',
+        venue: event.venue || '',
+        couple_name: coupleName || 'הזוג',
+        guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+        language: 'he'
+      };
       
       const result = await messageService.sendBulkMessages({
         message,
         imageUrl: finalImageUrl,
-        // CRITICAL: No template - send as regular message
-        templateName: undefined,
-        templateParams: undefined,
+        // CRITICAL: Use template "bb" for manual messages from table
+        templateName: 'bb',
+        templateParams: templateParamsForBB,
         recipients: [{
           id: guest.id,
           firstName: guest.firstName,
@@ -2749,8 +2766,8 @@ const EventManagement: React.FC = () => {
             venue: event.venue || '',
             invitationImageUrl: finalImageUrl // Use event image first, then campaign image
           },
-          // CRITICAL: No template params - sending as regular message
-          templateParams: undefined
+          // CRITICAL: Pass template params for template "bb"
+          templateParams: templateParamsForBB
         }]
       });
 
