@@ -112,23 +112,6 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Combine both hashes to ensure we catch updates from both sources
     return `${eventsToHash}${currentEventHash}`;
-      const guestsHash = state.currentEvent.guests?.map(g => {
-        try {
-          let responseDateValue = '';
-          if (g.responseDate) {
-            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
-            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
-          }
-          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
-        } catch (error) {
-          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
-        }
-      }).join('|') || '';
-      const eventUpdatedAt = state.currentEvent.updatedAt ? (state.currentEvent.updatedAt instanceof Date ? state.currentEvent.updatedAt.getTime() : new Date(state.currentEvent.updatedAt).getTime()) : 0;
-      return `${state.currentEvent.id}:${eventUpdatedAt}:${guestsHash}`;
-    })() : '';
-    
-    return `${eventsHash}|||${currentEventHash}`;
   });
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
