@@ -69,8 +69,12 @@ const EventManagement: React.FC = () => {
   const eventsHash = useEventStore(state => {
     // Create a hash from events that changes when any event or guest changes
     // CRITICAL: Also include currentEvent to catch immediate updates
-    const eventsHash = state.events.map(e => {
-      const guestsHash = e.guests?.map(g => {
+    // CRITICAL: Use currentEvent if it exists and matches an event in events array, otherwise use events array
+    const eventsToHash = state.events.map(e => {
+      // If this is the currentEvent, use currentEvent data (it's more up-to-date)
+      const eventToUse = (state.currentEvent && state.currentEvent.id === e.id) ? state.currentEvent : e;
+      
+      const guestsHash = eventToUse.guests?.map(g => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -83,12 +87,31 @@ const EventManagement: React.FC = () => {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
-      const eventUpdatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
+      const eventUpdatedAt = eventToUse.updatedAt ? (eventToUse.updatedAt instanceof Date ? eventToUse.updatedAt.getTime() : new Date(eventToUse.updatedAt).getTime()) : 0;
       return `${e.id}:${eventUpdatedAt}:${guestsHash}`;
     }).join('||');
     
     // CRITICAL: Also include currentEvent hash to catch immediate updates
+    // CRITICAL: Always include currentEvent hash even if it's in events array to ensure we catch updates
     const currentEventHash = state.currentEvent ? (() => {
+      const guestsHash = state.currentEvent.guests?.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
+        }
+      }).join('|') || '';
+      const eventUpdatedAt = state.currentEvent.updatedAt ? (state.currentEvent.updatedAt instanceof Date ? state.currentEvent.updatedAt.getTime() : new Date(state.currentEvent.updatedAt).getTime()) : 0;
+      return `||current:${state.currentEvent.id}:${eventUpdatedAt}:${guestsHash}`;
+    })() : '';
+    
+    // CRITICAL: Combine both hashes to ensure we catch updates from both sources
+    return `${eventsToHash}${currentEventHash}`;
       const guestsHash = state.currentEvent.guests?.map(g => {
         try {
           let responseDateValue = '';
