@@ -203,36 +203,14 @@ class WhatsAppService {
             headerImageUrl.startsWith('http://')
           );
           
-          // CRITICAL: For template "bb", only add header image if we have a valid URL
-          // Don't force-add placeholder - let Meta API tell us if header is required
-          // This prevents (#100) Invalid parameter errors
+          // CRITICAL: Template "bb" does NOT require header image component
+          // Based on the error (#100) Invalid parameter, it seems template "bb" doesn't support header images
+          // We'll send without header first, and only add if Meta API returns error 132012 (header required)
           if (templateName === 'bb' || templateName === 'BB') {
-            if (isValidImageUrl) {
-              // We have a valid image URL - add it as header
-              let imageUrlForMeta = headerImageUrl;
-              if (headerImageUrl.startsWith('http://')) {
-                imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
-                console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
-              }
-              
-              components.unshift({
-                type: 'header',
-                parameters: [
-                  {
-                    type: 'image',
-                    image: {
-                      link: imageUrlForMeta
-                    }
-                  }
-                ]
-              });
-              console.log('🖼️ ✅ Adding header image to template "bb":', imageUrlForMeta);
-            } else {
-              // No valid image URL for template "bb" - don't add header component
-              // If template requires header, Meta API will return error 132012 and we'll retry with placeholder
-              console.log('ℹ️ Template "bb" - no valid header image URL provided, sending without header');
-              console.log('ℹ️ If template requires header image, Meta API will return error and we will retry with placeholder');
-            }
+            // Template "bb" - don't add header image component
+            // If template requires header, Meta API will return error 132012 and we'll retry with header
+            console.log('ℹ️ Template "bb" - skipping header image component (template may not support header images)');
+            console.log('ℹ️ If template requires header image, Meta API will return error 132012 and we will retry');
           } else {
             // For other templates, use the original logic
             if (isValidImageUrl) {
