@@ -1467,18 +1467,24 @@ async function handleIncomingMessage(message) {
     // This ensures "מגיע" is always recognized as confirmed, not declined
     // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
     // CRITICAL: Use precise matching to avoid false positives
-    const isConfirmButton = buttonId === 'confirm_attendance' || 
+    // CRITICAL: Check buttonId and buttonTitle separately and prioritize exact matches
+    const isConfirmButton = 
+        // Exact buttonId matches (highest priority)
+        buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
+        buttonId === 'confirmed' ||
+        // Exact buttonTitle matches (high priority)
         buttonTitle === 'מגיע' ||
         buttonTitle === 'אגיע' ||
+        // ButtonId contains 'confirm' but NOT 'decline'
         (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
-        // CRITICAL: Only match "מגיע" if "לא" does NOT come BEFORE "מגיע"
+        // CRITICAL: Only match "מגיע" in buttonTitle if "לא" does NOT come BEFORE "מגיע"
         // Check if "מגיע" exists AND either "לא" doesn't exist OR "מגיע" comes before "לא"
-        (buttonTitleLower.includes('מגיע') && 
-         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) ||
+        (buttonTitle && buttonTitle.includes('מגיע') && 
+         (!buttonTitle.includes('לא') || buttonTitle.indexOf('מגיע') < buttonTitle.indexOf('לא'))) ||
         // Match "אגיע" only if "לא" doesn't come before it
-        (buttonTitleLower.includes('אגיע') && 
-         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')));
+        (buttonTitle && buttonTitle.includes('אגיע') && 
+         (!buttonTitle.includes('לא') || buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא')));
     
     if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
@@ -3219,7 +3225,7 @@ app.get('/api/guests/pending-updates', (req, res) => {
   let updatesToReturn = updates;
   if (!includeAll) {
     // Return new updates (not older than 5 minutes) by default
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     updatesToReturn = updates.filter(u => u.timestamp > fiveMinutesAgo);
   }
   
@@ -3242,8 +3248,8 @@ app.get('/api/guests/pending-updates', (req, res) => {
   if (filteredUpdates.length < pendingUpdates.length) {
     const removedCount = pendingUpdates.length - filteredUpdates.length;
     console.log(`🧹 Removed ${removedCount} very old update(s) (older than 24 hours)`);
-    pendingUpdates.length = 0;
-    pendingUpdates.push(...filteredUpdates);
+  pendingUpdates.length = 0;
+  pendingUpdates.push(...filteredUpdates);
   }
   
   // IMPORTANT: Don't remove updates here - let the DELETE endpoint handle it
@@ -3319,15 +3325,67 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   
   // If removeAllForPhone is true, remove ALL updates for this phone number (regardless of status)
   // This is useful when we want to clear all old updates for a phone number
+  // CRITICAL: Also check guestId and eventId if provided for more precise matching
   if (removeAllForPhone && phoneNumber) {
     const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
     const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const { guestId, eventId } = req.body; // Get guestId and eventId from request body
     
-    filtered = pendingUpdates.filter(u => 
-      !(u.phoneNumber === formattedPhone || u.phoneNumber === phoneNumber || 
-        u.originalPhoneNumber === originalPhone || u.originalPhoneNumber === phoneNumber)
-    );
-    console.log(`🗑️ Removing ALL updates for phone ${phoneNumber} (${initialLength - filtered.length} updates)`);
+    console.log(`🗑️ removeAllForPhone=true, phoneNumber=${phoneNumber}, guestId=${guestId}, eventId=${eventId}`);
+    
+    filtered = pendingUpdates.filter(u => {
+      // Check phone number match (normalize both sides)
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const requestPhoneNormalized = phoneNumber.replace(/[^0-9]/g, '');
+      
+      const uPhoneWith0 = uPhoneNormalized.replace(/^972/, '0');
+      const uOriginalPhoneWith0 = uOriginalPhoneNormalized.replace(/^972/, '0');
+      const requestPhoneWith0 = requestPhoneNormalized.replace(/^972/, '0');
+      
+      const phoneMatch = uPhoneNormalized === requestPhoneNormalized ||
+                         uPhoneNormalized === requestPhoneWith0 ||
+                         uOriginalPhoneNormalized === requestPhoneNormalized ||
+                         uOriginalPhoneNormalized === requestPhoneWith0 ||
+                         uPhoneWith0 === requestPhoneNormalized ||
+                         uPhoneWith0 === requestPhoneWith0;
+      
+      if (!phoneMatch) {
+        return true; // Keep updates that don't match phone number
+      }
+      
+      // Phone matches - now check guestId and eventId if provided
+      // If guestId is provided, only remove if guestId matches (more precise)
+      if (guestId && u.guestId) {
+        const shouldRemove = u.guestId === guestId;
+        if (!shouldRemove) {
+          console.log(`   Keeping update (phone matches but guestId differs: ${u.guestId} !== ${guestId})`);
+        }
+        return !shouldRemove; // Remove if guestId matches, keep if it doesn't
+      }
+      
+      // If eventId is provided, only remove if eventId matches (more precise)
+      if (eventId && u.eventId) {
+        const shouldRemove = u.eventId === eventId;
+        if (!shouldRemove) {
+          console.log(`   Keeping update (phone matches but eventId differs: ${u.eventId} !== ${eventId})`);
+        }
+        return !shouldRemove; // Remove if eventId matches, keep if it doesn't
+      }
+      
+      // If both guestId and eventId are provided, match by all three
+      if (guestId && eventId && u.guestId && u.eventId) {
+        const shouldRemove = u.guestId === guestId && u.eventId === eventId;
+        if (!shouldRemove) {
+          console.log(`   Keeping update (phone matches but guestId/eventId differ)`);
+        }
+        return !shouldRemove; // Remove if both match, keep otherwise
+      }
+      
+      // No guestId/eventId provided or update doesn't have them - match by phone only
+      return false; // Remove all updates matching phone number
+    });
+    console.log(`🗑️ Removing ALL updates for phone ${phoneNumber}${guestId ? ` (guestId: ${guestId})` : ''}${eventId ? ` (eventId: ${eventId})` : ''} (${initialLength - filtered.length} updates removed, ${filtered.length} remaining)`);
   } else {
     // Filter out the specific update that was processed
     // Match by phone number, status, and responseDate (and guestCount if provided)

@@ -833,11 +833,13 @@ class WebhookService {
           // Mark this update as processed
           this.processedUpdates.add(updateKey);
           
-            // IMPORTANT: Remove this update from backend AFTER successful update
+            // CRITICAL: Remove this update from backend AFTER successful update
             // Note: All previous updates for this guest were already removed BEFORE processing (see above)
+            // CRITICAL: Use a longer delay to ensure the update has been fully processed and UI has updated
             setTimeout(async () => {
           try {
-                // Remove this specific update (all previous ones were already removed)
+                // CRITICAL: Remove this specific update by matching phoneNumber, status, responseDate, guestId, and eventId
+                // This ensures we only remove the exact update we just processed, not other updates
             const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
               method: 'DELETE',
               headers: {
@@ -855,6 +857,11 @@ class WebhookService {
             if (removeResponse.ok) {
               const removeData = await removeResponse.json();
               console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
+              
+              // CRITICAL: Verify that the update was actually removed
+              if (removeData.removed === 0) {
+                console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
+              }
             } else {
               const errorText = await removeResponse.text();
               console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
@@ -862,7 +869,7 @@ class WebhookService {
           } catch (error) {
             console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
           }
-            }, 500); // Wait 500ms before removing to ensure UI has updated
+            }, 1000); // CRITICAL: Increased delay to 1000ms to ensure UI has fully updated before removing
           } else {
             console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
             console.error(`❌ Keeping update in backend for retry`);
