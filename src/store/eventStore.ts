@@ -2473,14 +2473,20 @@ export const useEventStore = create<EventStore>()(
                       // If new update is newer (or same), use it. Otherwise keep old values for that field
                       const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
                       
-                      // CRITICAL: If this is a newer update, completely replace old values with new ones
-                      // This ensures old updates don't persist in the table
-                      // CRITICAL: For manual_update updates, ALWAYS apply them even if timestamps are equal or older
-                      // This ensures manual updates from status update page are properly synced even if they come back from backend
+                      // CRITICAL: For manual_update and guest_link updates, ALWAYS apply them regardless of timestamp
+                      // This ensures manual updates from status update page and guest responses are properly synced
+                      // even if they come back from backend with same or older timestamp
                       const isManualUpdateEcho = updatedGuest.source === 'manual_update';
-                      // For manual_update echoes, always apply them to ensure cross-device sync
-                      // This is critical because manual_update updates are echoes from the backend of manual changes
-                      const shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho;
+                      const isGuestLinkUpdate = updatedGuest.source === 'guest_link';
+                      const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+                      
+                      // CRITICAL: Always apply updates from manual_update, guest_link, or whatsapp
+                      // These are user-initiated updates that should always be reflected
+                      const shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate;
+                      
+                      if (shouldApplyUpdate && !isNewerUpdate) {
+                        console.log(`🔄 Applying ${updatedGuest.source} update even though timestamp is older - user-initiated update must be applied`);
+                      }
                       
                       if (shouldApplyUpdate) {
                         // Completely replace with new update - don't merge old values
@@ -2531,8 +2537,30 @@ export const useEventStore = create<EventStore>()(
                         // CRITICAL: Always return a new object reference for the guest
                         return { ...mergedGuest };
                       } else {
-                        // Old update is newer - keep old values
-                        console.log(`⏭️ Keeping old guest values (old update is newer):`, {
+                        // Old update is newer - but CRITICAL: For manual_update, guest_link, and whatsapp, always apply the update
+                        const isManualUpdateEcho = updatedGuest.source === 'manual_update';
+                        const isGuestLinkUpdate = updatedGuest.source === 'guest_link';
+                        const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+                        
+                        if (isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate) {
+                          // CRITICAL: Even if old update is newer, apply user-initiated updates
+                          console.log(`🔄 Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
+                          const mergedGuest = { 
+                            ...guest,
+                            ...updatedGuest,
+                            // Use new values from user-initiated update
+                            rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                            guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                            notes: updatedGuest.notes !== undefined ? updatedGuest.notes : guest.notes,
+                            actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
+                            responseDate: newResponseDate, // Use new responseDate
+                            source: updatedGuest.source || guest.source
+                          };
+                          return { ...mergedGuest };
+                        }
+                        
+                        // Old update is newer and not from user-initiated source - keep old values
+                        console.log(`⏭️ Keeping old guest values (old update is newer and not user-initiated):`, {
                           old: { 
                             rsvpStatus: guest.rsvpStatus, 
                             guestCount: guest.guestCount,
@@ -2541,7 +2569,8 @@ export const useEventStore = create<EventStore>()(
                           new: { 
                             rsvpStatus: updatedGuest.rsvpStatus, 
                             guestCount: updatedGuest.guestCount,
-                            responseDate: newResponseDate.toISOString()
+                            responseDate: newResponseDate.toISOString(),
+                            source: updatedGuest.source
                           }
                         });
                         

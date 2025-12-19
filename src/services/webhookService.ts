@@ -751,9 +751,29 @@ class WebhookService {
             guestName: `${foundGuest.firstName} ${foundGuest.lastName}`
           });
           
+          // CRITICAL: Call updateGuestResponse and wait for it to complete
+          console.log('🔄 WEBHOOK: Calling updateGuestResponse...');
           await updateGuestResponse(foundEventId, foundGuest.id, guestWithSource);
-          
           console.log('✅ WEBHOOK: updateGuestResponse completed');
+          
+          // CRITICAL: Wait a bit for store to update before verifying
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Verify immediately after update
+          const verifyState = useEventStore.getState();
+          const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
+          const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
+          
+          console.log('🔍 WEBHOOK: Verification after update:', {
+            eventId: foundEventId,
+            guestId: foundGuest.id,
+            guestName: `${foundGuest.firstName} ${foundGuest.lastName}`,
+            expectedStatus: newStatus,
+            actualStatus: verifyGuest?.rsvpStatus,
+            expectedGuestCount: update.guestCount,
+            actualGuestCount: verifyGuest?.guestCount,
+            updateSuccessful: verifyGuest?.rsvpStatus === newStatus
+          });
           
           // CRITICAL: Immediately update currentEvent if it's the event being viewed
           // This ensures the table in EventManagement updates instantly without waiting for fetchEvents
@@ -784,13 +804,6 @@ class WebhookService {
               }, 100);
             }
           }
-          
-          // Verify immediately after update
-          const verifyState = useEventStore.getState();
-          const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
-          const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log('🔍 WEBHOOK: Immediate verification - Guest status:', verifyGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
-          console.log(`🔍 Verification - Guest status after update: ${verifyGuest?.rsvpStatus} (expected: ${newStatus})`);
           
           // Only remove from backend if update was successful
           const updateSuccessful = verifyGuest?.rsvpStatus === newStatus;
