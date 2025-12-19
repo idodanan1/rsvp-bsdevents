@@ -27,7 +27,7 @@ class WebhookService {
   }
 
   // Start polling for webhook updates
-  startPolling(intervalMs: number = 8000) { // Optimized: 8 seconds for faster updates
+  startPolling(intervalMs: number = 5000) { // Optimized: 5 seconds for faster updates (reduced from 8)
     // If already polling, restart with new interval
     if (this.isPolling) {
       this.stopPolling();
@@ -42,6 +42,12 @@ class WebhookService {
     this.checkForUpdates().catch(() => {
       // Silent fail - backend might not be running yet
     });
+    
+    // CRITICAL: Also check for older updates periodically (every 30 seconds)
+    // This ensures we catch any updates that might have been missed
+    setInterval(async () => {
+      await this.checkForUpdates(true); // Include all updates (including old ones)
+    }, 30000); // Check for all updates every 30 seconds
   }
 
   // Stop polling
@@ -54,13 +60,17 @@ class WebhookService {
   }
 
   // Check for updates from backend
-  private async checkForUpdates() {
+  private async checkForUpdates(includeAll: boolean = false) {
     try {
       // Use AbortController for timeout (compatible with older browsers)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), includeAll ? 10000 : 3000); // Increased timeout for all updates
       
-      const response = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+      const url = includeAll 
+        ? `${BACKEND_URL}/api/guests/pending-updates?all=true`
+        : `${BACKEND_URL}/api/guests/pending-updates`;
+      
+      const response = await fetch(url, {
         signal: controller.signal
       });
       
@@ -74,7 +84,10 @@ class WebhookService {
       const data = await response.json();
       
       if (data.success && data.updates && data.updates.length > 0) {
+        console.log(`📥 Received ${data.updates.length} update(s) from backend (includeAll: ${includeAll})`);
         await this.processUpdates(data.updates);
+      } else if (includeAll && data.totalPending > 0) {
+        console.log(`ℹ️ No updates returned but ${data.totalPending} total pending (may be filtered)`);
       }
     } catch (error: any) {
       // Only log if it's not a connection refused error (backend not running)
@@ -83,6 +96,50 @@ class WebhookService {
       }
       // Silently ignore connection refused - backend might not be running
       // This is expected in development if backend is not started
+    }
+  }
+
+  // Manual sync: Process all pending updates (including old ones)
+  async syncAllUpdates(): Promise<{ processed: number; failed: number; remaining: number }> {
+    console.log('🔄 Starting manual sync of all pending updates...');
+    
+    try {
+      // First, call backend endpoint to process all updates server-side
+      const processResponse = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (processResponse.ok) {
+        const processData = await processResponse.json();
+        console.log(`✅ Backend processed ${processData.processed} updates, ${processData.failed} failed, ${processData.remaining} remaining`);
+        
+        // Then fetch remaining updates and process them in frontend
+        if (processData.remaining > 0) {
+          await this.checkForUpdates(true); // Include all updates
+        }
+        
+        // Trigger events refresh to sync with backend
+        const store = await import('../store/eventStore');
+        const { useEventStore } = store;
+        const state = useEventStore.getState();
+        await state.fetchEvents(false, true);
+        
+        return {
+          processed: processData.processed || 0,
+          failed: processData.failed || 0,
+          remaining: processData.remaining || 0
+        };
+      } else {
+        throw new Error(`Backend processing failed: ${processResponse.status}`);
+      }
+    } catch (error: any) {
+      console.error('❌ Error syncing all updates:', error);
+      // Fallback: just fetch all updates and process them
+      await this.checkForUpdates(true);
+      return { processed: 0, failed: 0, remaining: 0 };
     }
   }
 
@@ -701,7 +758,7 @@ class WebhookService {
           const immediateEvent = immediateState.events.find(e => e.id === foundEventId);
           if (immediateEvent) {
             // CRITICAL: Update currentEvent immediately to force table refresh
-            const { setCurrentEvent } = immediateState;
+            const { setCurrentEvent, fetchEvents } = immediateState;
             const currentEvent = immediateState.currentEvent;
             
             // Only update if this is the event currently being viewed
@@ -709,10 +766,19 @@ class WebhookService {
               // Create new object reference with updated guest to force React re-render
               const updatedCurrentEvent = {
                 ...immediateEvent,
-                guests: immediateEvent.guests ? immediateEvent.guests.map(g => ({ ...g })) : []
+                guests: immediateEvent.guests ? immediateEvent.guests.map(g => ({ ...g })) : [],
+                updatedAt: new Date() // CRITICAL: Update timestamp to force re-render
               };
               setCurrentEvent(updatedCurrentEvent);
               console.log('✅ WEBHOOK: Updated currentEvent immediately - table should refresh now');
+              
+              // CRITICAL: Also trigger a silent fetchEvents to sync with backend
+              // This ensures the table gets the latest data from backend immediately
+              setTimeout(() => {
+                fetchEvents(false, true).catch(err => {
+                  console.warn('⚠️ Failed to refresh events after webhook update:', err);
+                });
+              }, 100);
             }
           }
           

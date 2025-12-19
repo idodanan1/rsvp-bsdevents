@@ -3171,14 +3171,19 @@ app.get('/api/guests/pending-updates', (req, res) => {
   // Return pending updates (but don't clear them immediately - let frontend process them first)
   const updates = [...pendingUpdates];
   
-  // Return new updates (not older than 5 minutes)
-  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+  // CRITICAL: Return ALL updates, not just recent ones (for manual sync)
+  // Check if client wants all updates or just recent ones
+  const includeAll = req.query.all === 'true' || req.query.all === '1';
   
-  // Filter recent updates first
-  const recentUpdates = updates.filter(u => u.timestamp > fiveMinutesAgo);
+  let updatesToReturn = updates;
+  if (!includeAll) {
+    // Return new updates (not older than 5 minutes) by default
+    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    updatesToReturn = updates.filter(u => u.timestamp > fiveMinutesAgo);
+  }
   
   // Format updates for frontend
-  const formattedUpdates = recentUpdates.map(u => ({
+  const formattedUpdates = updatesToReturn.map(u => ({
     phoneNumber: u.phoneNumber || u.originalPhoneNumber,
     guestId: u.guestId, // CRITICAL: Include guestId to ensure correct guest is updated
     eventId: u.eventId, // CRITICAL: Include eventId to ensure correct event is used
@@ -3199,20 +3204,23 @@ app.get('/api/guests/pending-updates', (req, res) => {
   // This ensures updates are available for webhookService to process
   // Only remove very old updates (older than 1 hour) to prevent memory leaks
   
-  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
+  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length}, includeAll: ${includeAll})`);
   if (formattedUpdates.length > 0) {
     console.log('📤 Updates being returned:', formattedUpdates.map(u => ({ 
       phone: u.phoneNumber, 
       status: u.status, 
-      responseDate: u.responseDate
+      guestCount: u.guestCount,
+      responseDate: u.responseDate,
+      age: Math.round((Date.now() - (u.timestamp || Date.now())) / 1000) + ' seconds ago'
     })));
   } else {
     // Log even when no updates to help debugging
     if (pendingUpdates.length > 0) {
-      console.log(`📭 No recent updates (${pendingUpdates.length} total, but older than 5 minutes)`);
+      console.log(`📭 No ${includeAll ? '' : 'recent '}updates (${pendingUpdates.length} total${includeAll ? '' : ', but older than 5 minutes'})`);
       console.log('📋 All pending updates:', pendingUpdates.map(u => ({
         phone: u.phoneNumber,
         status: u.status,
+        guestCount: u.guestCount,
         age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
       })));
     } else {
@@ -3342,6 +3350,162 @@ app.delete('/api/guests/pending-updates', (req, res) => {
     removed: removedCount,
     totalPending: pendingUpdates.length 
   });
+});
+
+// Endpoint to process all pending updates and sync them to events
+app.post('/api/guests/process-all-updates', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    console.log('🔄 POST /api/guests/process-all-updates - Processing all pending updates...');
+    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+    
+    // Reload events to get latest data
+    loadEvents();
+    
+    let processedCount = 0;
+    let failedCount = 0;
+    const processedUpdates = [];
+    
+    // Process each update
+    for (const update of [...pendingUpdates]) {
+      try {
+        // Find the event and guest
+        let foundEvent = null;
+        let foundGuest = null;
+        
+        // Try to find by eventId and guestId first (most accurate)
+        if (update.eventId && update.guestId) {
+          foundEvent = eventsData.events.find(e => e.id === update.eventId);
+          if (foundEvent && foundEvent.guests) {
+            foundGuest = foundEvent.guests.find(g => g.id === update.guestId);
+          }
+        }
+        
+        // If not found, try to find by phone number
+        if (!foundGuest) {
+          const updatePhone = (update.phoneNumber || update.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+          
+          for (const event of eventsData.events) {
+            if (event.guests && event.guests.length > 0) {
+              foundGuest = event.guests.find(g => {
+                if (!g.phoneNumber) return false;
+                const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
+                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+                const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+                const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+                
+                return guestPhone === updatePhone ||
+                       guestPhone === updatePhoneWith0 ||
+                       guestPhone === updatePhoneWith972 ||
+                       guestPhoneWith0 === updatePhone ||
+                       guestPhoneWith0 === updatePhoneWith0 ||
+                       guestPhoneWith0 === updatePhoneWith972 ||
+                       guestPhoneWith972 === updatePhone ||
+                       guestPhoneWith972 === updatePhoneWith0 ||
+                       guestPhoneWith972 === updatePhoneWith972;
+              });
+              
+              if (foundGuest) {
+                foundEvent = event;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (foundGuest && foundEvent) {
+          // Update guest data
+          let updated = false;
+          
+          if (update.status && update.status !== foundGuest.rsvpStatus) {
+            foundGuest.rsvpStatus = update.status;
+            updated = true;
+          }
+          
+          if (update.guestCount !== undefined && update.guestCount !== foundGuest.guestCount) {
+            foundGuest.guestCount = update.guestCount;
+            updated = true;
+          }
+          
+          if (update.actualAttendance && update.actualAttendance !== foundGuest.actualAttendance) {
+            foundGuest.actualAttendance = update.actualAttendance;
+            updated = true;
+          }
+          
+          if (update.responseDate) {
+            foundGuest.responseDate = new Date(update.responseDate);
+            updated = true;
+          }
+          
+          if (update.notes !== undefined && update.notes !== foundGuest.notes) {
+            foundGuest.notes = update.notes;
+            updated = true;
+          }
+          
+          if (updated) {
+            foundEvent.updatedAt = new Date().toISOString();
+            processedCount++;
+            processedUpdates.push({
+              phoneNumber: update.phoneNumber,
+              guestName: `${foundGuest.firstName} ${foundGuest.lastName}`,
+              eventId: foundEvent.id,
+              updates: {
+                status: update.status,
+                guestCount: update.guestCount,
+                actualAttendance: update.actualAttendance
+              }
+            });
+            console.log(`✅ Processed update for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
+          } else {
+            console.log(`⏭️ No changes needed for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
+          }
+        } else {
+          console.warn(`⚠️ Guest not found for update: ${update.phoneNumber}`);
+          failedCount++;
+        }
+      } catch (error) {
+        console.error(`❌ Error processing update for ${update.phoneNumber}:`, error);
+        failedCount++;
+      }
+    }
+    
+    // Save events to file
+    if (processedCount > 0) {
+      saveEvents();
+      console.log(`💾 Saved ${processedCount} updates to events file`);
+    }
+    
+    // Clear processed updates from pendingUpdates
+    // Keep only updates that weren't processed (failed to find guest)
+    const remainingUpdates = pendingUpdates.filter(u => {
+      const wasProcessed = processedUpdates.some(p => p.phoneNumber === u.phoneNumber);
+      return !wasProcessed;
+    });
+    
+    pendingUpdates.length = 0;
+    pendingUpdates.push(...remainingUpdates);
+    
+    console.log(`✅ Processed ${processedCount} updates, ${failedCount} failed, ${remainingUpdates.length} remaining`);
+    
+    res.json({
+      success: true,
+      processed: processedCount,
+      failed: failedCount,
+      remaining: remainingUpdates.length,
+      processedUpdates: processedUpdates
+    });
+  } catch (error) {
+    console.error('❌ Error processing all updates:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Handle OPTIONS preflight for add-pending-update endpoint

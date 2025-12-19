@@ -162,6 +162,12 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     
+    // CRITICAL: Perform initial sync of all WhatsApp updates when component mounts
+    // This ensures all pending updates from WhatsApp are processed immediately
+    webhookService.syncAllUpdates().catch(err => {
+      console.warn('⚠️ Initial sync failed (non-critical):', err);
+    });
+    
     // Initial fetch
     fetchEvents().catch(error => {
       console.error('❌ Error initial fetch:', error);
@@ -171,7 +177,8 @@ const EventManagement: React.FC = () => {
     // This ensures EventManagement receives real-time updates from backend
     // Only start if not already active to avoid duplicate polling
     if (!webhookService.pollingActive) {
-      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
+      webhookService.startPolling(5000); // Poll every 5 seconds (optimized for faster updates - reduced from 8)
+      console.log('✅ Started webhook polling - updates from WhatsApp will appear in table immediately');
     }
     
     // Auto-refresh events every 15 seconds for real-time sync between devices
@@ -2729,6 +2736,24 @@ const EventManagement: React.FC = () => {
             >
               <Activity className="w-5 h-5 ml-2" />
               ניטור סינכרון
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  const result = await webhookService.syncAllUpdates();
+                  alert(`✅ סריקה הושלמה!\nעובדו: ${result.processed} עדכונים\nנכשלו: ${result.failed} עדכונים\nנותרו: ${result.remaining} עדכונים`);
+                  // Refresh events to show updated data
+                  await fetchEvents(false, true);
+                } catch (error) {
+                  console.error('❌ Error syncing updates:', error);
+                  alert('❌ שגיאה בסריקת עדכונים. נסה שוב.');
+                }
+              }}
+              className="flex items-center text-green-600 hover:text-green-800 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
+              title="סרוק ועדכן את כל העדכונים מ-WhatsApp"
+            >
+              <RefreshCw className="w-5 h-5 ml-2" />
+              סנכרן עדכוני WhatsApp
             </button>
             <button
               onClick={() => navigate('/')}
