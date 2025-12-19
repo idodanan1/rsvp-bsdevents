@@ -1321,24 +1321,9 @@ export const useEventStore = create<EventStore>()(
               createdAt: new Date(),
               updatedAt: new Date(),
               // Use WhatsApp template for first message
-              templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply' as const,
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply' as const,
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              templateName: 'bb', // Template name in Meta Business Manager
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1373,25 +1358,10 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'aa' for this campaign
-              templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // Use WhatsApp template 'bb' for this campaign
+              templateName: 'bb', // Template name in Meta Business Manager
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1426,25 +1396,10 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'aa' for this campaign
-              templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // Use WhatsApp template 'bb' for this campaign
+              templateName: 'bb', // Template name in Meta Business Manager
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1484,23 +1439,8 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date(),
               // Use WhatsApp template 'today' for this campaign
               templateName: 'today', // Template name in Meta is "today"
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `שלום {{first_name}}! 
 
@@ -1541,23 +1481,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 מחר זה קורה! החתונה של {{couple_name}}!
@@ -4246,29 +4171,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template for first message
             templateName: 'aa', // Template name in Meta Business Manager
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{guest_name}}! 
 
 אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
@@ -4306,29 +4210,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'a' for this campaign
             templateName: 'a',
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{guest_name}}! 
 
 תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
@@ -4372,29 +4255,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'a' for this campaign
             templateName: 'a',
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `⏰ שלום {{guest_name}}!
 
 תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
@@ -4440,29 +4302,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'today' for this campaign
             templateName: 'today', // Template name in Meta is "today"
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{first_name}}! 
 
 מחר זה קורה! ה{{event_type}} של {{couple_name}}! 

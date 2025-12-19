@@ -178,30 +178,9 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'aa',
-      whatsappButtons: [
-        {
-          type: 'url',
-          url: {
-            url: '{{guest_response_link}}',
-            title: 'עדכון סטטוס הגעה'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'decline_attendance',
-            title: 'לא אוכל להגיע'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'confirm_attendance',
-            title: 'מגיע'
-          }
-        }
-      ],
+      templateName: 'bb',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
       smsMessage: `שלום {{guest_name}}! 
 
 אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
@@ -237,30 +216,9 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'aa',
-      whatsappButtons: [
-        {
-          type: 'url',
-          url: {
-            url: '{{guest_response_link}}',
-            title: 'עדכון סטטוס הגעה'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'decline_attendance',
-            title: 'לא אוכל להגיע'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'confirm_attendance',
-            title: 'מגיע'
-          }
-        }
-      ],
+      templateName: 'bb',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
       smsMessage: `שלום {{guest_name}}! 
 
 תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
@@ -302,30 +260,9 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'aa',
-      whatsappButtons: [
-        {
-          type: 'url',
-          url: {
-            url: '{{guest_response_link}}',
-            title: 'עדכון סטטוס הגעה'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'decline_attendance',
-            title: 'לא אוכל להגיע'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'confirm_attendance',
-            title: 'מגיע'
-          }
-        }
-      ],
+      templateName: 'bb',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
       smsMessage: `⏰ שלום {{guest_name}}!
 
 תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
@@ -370,29 +307,8 @@ function createDefaultCampaigns(eventId, eventDate) {
       sentCount: 0,
       responseCount: 0,
       templateName: 'today',
-      whatsappButtons: [
-        {
-          type: 'url',
-          url: {
-            url: '{{guest_response_link}}',
-            title: 'עדכון סטטוס הגעה'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'decline_attendance',
-            title: 'לא אוכל להגיע'
-          }
-        },
-        {
-          type: 'reply',
-          reply: {
-            id: 'confirm_attendance',
-            title: 'מגיע'
-          }
-        }
-      ],
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
       smsMessage: `שלום {{first_name}}! 
 
 מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
