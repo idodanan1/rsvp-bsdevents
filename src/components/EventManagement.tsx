@@ -691,32 +691,55 @@ const EventManagement: React.FC = () => {
       });
       
       // Update the ref to track changes
-      const newKey = guests.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.getTime() : new Date(g.responseDate).getTime()) : ''}`
-      ).join('|');
+      // CRITICAL: Include ALL fields that might change to ensure we catch updates
+      const newKey = guests.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          // CRITICAL: Include ALL fields that might change
+          return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:`;
+        }
+      }).join('|');
       
-      if (newKey !== eventGuestsKeyRef.current) {
+      const keyChanged = newKey !== eventGuestsKeyRef.current;
+      
+      if (keyChanged) {
         console.log('📊 Guests data changed in guestsToDisplay:', {
           eventId: id,
           guestsCount: guests.length,
+          eventsVersion,
           sampleGuests: guests.slice(0, 3).map(g => ({
-          id: g.id,
-          name: `${g.firstName} ${g.lastName}`,
-          status: g.rsvpStatus,
-          count: g.guestCount,
+            id: g.id,
+            name: `${g.firstName} ${g.lastName}`,
+            status: g.rsvpStatus,
+            count: g.guestCount,
             actualAttendance: g.actualAttendance,
-          responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
+            responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
           }))
         });
         eventGuestsKeyRef.current = newKey;
       } else {
-        console.log('ℹ️ guestsToDisplay: Guests key unchanged, no update needed');
+        // CRITICAL: Even if key unchanged, we still need to return a new array reference
+        // This ensures React detects changes when eventsVersion or eventsHash changes
+        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
       }
       
-      // CRITICAL: Always return a new array reference, even if contents are the same
-      // This ensures React detects changes when eventsVersion increments
-      // CRITICAL: Also include eventsHash in the array to force new reference
-      return [...guests];
+      // CRITICAL: Always return a new array reference with deep copy of guests
+      // This ensures React detects changes even if the key is the same
+      // CRITICAL: Include eventsHash and eventsVersion to force new reference
+      // CRITICAL: Map to create new object references for each guest
+      // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
+      const guestsCopy = guests.map(g => ({ ...g }));
+      // CRITICAL: Add eventsHash as a property to force new reference when it changes
+      // This ensures React detects changes even if guests array appears unchanged
+      (guestsCopy as any)._eventsHash = eventsHash;
+      (guestsCopy as any)._eventsVersion = eventsVersion;
+      return guestsCopy;
     }
     
     // Only log warning if we have events but not for this ID
@@ -729,8 +752,11 @@ const EventManagement: React.FC = () => {
     // Including events directly ensures we catch updates immediately, even if eventsVersion hasn't updated yet
     // Including eventsHash ensures we catch updates when guestCount or other guest fields change
     // Including currentEvent?.updatedAt ensures we catch updates when currentEvent changes (from guest link or WhatsApp)
+    // CRITICAL: Include currentEvent?.guests?.length to catch direct guest updates
+    // CRITICAL: Also include eventsHash as a string to ensure it triggers re-calculation when it changes
+    // CRITICAL: Include events array length to catch when guests are added/removed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, events, eventsHash, currentEvent?.id, currentEvent?.updatedAt, currentEvent?.guests?.length]);
+  }, [id, eventsVersion, events, events.length, eventsHash, String(eventsHash), currentEvent?.id, currentEvent?.updatedAt, currentEvent?.guests?.length, currentEvent?.guests]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
