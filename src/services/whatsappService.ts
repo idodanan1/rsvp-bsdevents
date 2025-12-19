@@ -230,7 +230,9 @@ class WhatsAppService {
             // For templates that might require header image, add placeholder proactively
             // This prevents error 132012 from occurring
             const templateName = (messageData.templateName || '').toLowerCase();
-            const templatesRequiringHeader = ['bb', 'aa', 'a', 'reminer', 'reminder']; // Add template names that require header
+            // CRITICAL: Only templates that explicitly require header image should be in this list
+            // Template "bb" does NOT require header image - only add if explicitly provided
+            const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder']; // Removed 'bb' - it doesn't require header
             
             if (templatesRequiringHeader.includes(templateName)) {
               // Template requires header image - add placeholder ONLY if no image was provided
@@ -787,6 +789,26 @@ class WhatsAppService {
             } else if (errorCode === 131026) {
               diagnosticMessage += '\n\n🔧 Phone number is not registered on WhatsApp';
               diagnosticMessage += `\n   The number ${phoneNumber} does not have WhatsApp`;
+            } else if (errorCode === 132000) {
+              diagnosticMessage += '\n\n🔧 Template Parameter Mismatch (Error Code 132000)';
+              diagnosticMessage += '\n   Number of parameters does not match the expected number of params.';
+              diagnosticMessage += '\n\n   Possible causes:';
+              diagnosticMessage += '\n   1. Wrong number of body parameters sent';
+              diagnosticMessage += '\n   2. Header component added when template doesn\'t require it';
+              diagnosticMessage += '\n   3. Button component added when template doesn\'t require it';
+              diagnosticMessage += '\n   4. Parameter order mismatch';
+              diagnosticMessage += '\n\n   🔍 CRITICAL CHECKS:';
+              diagnosticMessage += `\n   1. Template "${messageData.templateName}" expects specific number of parameters`;
+              if (messageData.templateName?.toLowerCase() === 'bb') {
+                diagnosticMessage += '\n   2. Template "bb" expects 6 body parameters: guest_name, groom_name, bride_name, event_date, event_time, venue';
+                diagnosticMessage += '\n   3. Template "bb" does NOT require header image - check if header was added incorrectly';
+                diagnosticMessage += '\n   4. Template "bb" may not have buttons - check if button parameters were added incorrectly';
+              }
+              diagnosticMessage += '\n\n   Check the console logs above for:';
+              diagnosticMessage += '\n   - Number of body parameters being sent';
+              diagnosticMessage += '\n   - Whether header component was added';
+              diagnosticMessage += '\n   - Whether button components were added';
+              diagnosticMessage += '\n   - Full payload being sent to Meta API';
             } else if (errorCode === 132012) {
               diagnosticMessage += '\n\n🔧 Template Header Image Mismatch (Error Code 132012)';
               diagnosticMessage += '\n   The template in Meta is configured with a header image, but we are not sending one.';
