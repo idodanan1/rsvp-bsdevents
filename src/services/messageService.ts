@@ -150,7 +150,16 @@ class MessageService {
     // If explicit template is provided, use it (for campaigns that need specific templates)
     // Otherwise, if this is a first message, use hello_world template
     let templateName = messageData.templateName;
+    // CRITICAL: Priority for templateParams: recipient.templateParams > messageData.templateParams
+    // This ensures that when sending from table (handleSendToSingleGuest), the params are used
     let templateParams = recipient.templateParams || messageData.templateParams;
+    
+    // Debug: Log template params sources
+    console.log('🔍 Template params sources:', {
+      recipientTemplateParams: recipient.templateParams,
+      messageDataTemplateParams: messageData.templateParams,
+      finalTemplateParams: templateParams
+    });
     
     // Debug logging
     console.log('🔍 DEBUG templateName check:', {
@@ -209,14 +218,38 @@ class MessageService {
     if (hasValidTemplate) {
       // Explicit template provided → ALWAYS use template (Meta will use template content, not campaign message)
       console.log('✅ Explicit template provided:', templateName, '- using Meta template (campaign message content will be ignored)');
-      console.log('📋 Template parameters:', templateParams);
+      console.log('📋 Template parameters from recipient:', recipient.templateParams);
+      console.log('📋 Template parameters from messageData:', messageData.templateParams);
+      console.log('📋 Final template parameters:', templateParams);
+      
+      // CRITICAL: Ensure templateParams are set correctly
+      // Priority: recipient.templateParams > messageData.templateParams
+      if (!templateParams || Object.keys(templateParams).length === 0) {
+        console.warn('⚠️ No template parameters provided - using defaults for template:', templateName);
+        // If template is "bb" and no params, create default params
+        if (templateName.toLowerCase() === 'bb' && recipient.eventData) {
+          templateParams = {
+            paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                         'event_date', 'event_time', 'venue'],
+            guest_name: recipient.firstName,
+            groom_name: recipient.eventData.groomName || '',
+            bride_name: recipient.eventData.brideName || '',
+            event_date: recipient.eventData.eventDate || '',
+            event_time: recipient.eventData.eventTime || '',
+            venue: recipient.eventData.venue || '',
+            language: 'he'
+          };
+          console.log('📋 Created default template parameters for "bb":', templateParams);
+        }
+      }
+      
       // Keep templateName and templateParams as provided - Meta will use template content
       // The campaign.message content will be ignored when using templates
-    } else if (explicitlyNoTemplate && !isFirstMessage) {
+    } else if (explicitlyNoTemplate) {
       // CRITICAL: User explicitly wants free-form message (templateName === undefined with message content)
-      // Send as regular message ONLY if it's NOT a first message
-      // WhatsApp REQUIRES template for first messages, so we can't send free-form text
+      // Respect user's choice even for first messages (WhatsApp API will reject if truly first message, but that's user's choice)
       console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
+      console.log('⚠️ Note: If this is a first message, WhatsApp API may reject it (requires template)');
       templateName = undefined;
       templateParams = undefined;
     } else if (isFirstMessage) {
@@ -268,7 +301,8 @@ class MessageService {
     console.log('🔘 DEBUG: Recipient buttons length:', recipient.buttons?.length || 0);
     
     // CRITICAL: Final safety check - ensure templateName is set for first messages
-    if (isFirstMessage && (!templateName || typeof templateName !== 'string' || templateName.trim().length === 0)) {
+    // BUT: Only if user didn't explicitly request no template (explicitlyNoTemplate)
+    if (isFirstMessage && !explicitlyNoTemplate && (!templateName || typeof templateName !== 'string' || templateName.trim().length === 0)) {
       console.error('❌ CRITICAL ERROR: First message requires template but templateName is not set!');
       console.error('❌ templateName:', templateName, 'type:', typeof templateName);
       console.error('❌ Forcing templateName to "bb" for first message');
@@ -307,13 +341,15 @@ class MessageService {
       templateNameType: typeof templateName,
       templateNameLength: templateName ? templateName.length : 0,
       isFirstMessage,
+      explicitlyNoTemplate,
       hasTemplateParams: !!templateParams,
       templateParamsKeys: templateParams ? Object.keys(templateParams) : []
     });
     
     // CRITICAL: Ensure templateName is never undefined for first messages
-    // This prevents "templateName is not defined" errors
-    if (isFirstMessage && (templateName === undefined || templateName === null || (typeof templateName === 'string' && templateName.trim().length === 0))) {
+    // BUT: Only if user didn't explicitly request no template (explicitlyNoTemplate)
+    // This prevents "templateName is not defined" errors while respecting user's choice
+    if (isFirstMessage && !explicitlyNoTemplate && (templateName === undefined || templateName === null || (typeof templateName === 'string' && templateName.trim().length === 0))) {
       console.error('❌ CRITICAL: templateName is invalid for first message, forcing to "bb"');
       templateName = 'bb';
       // Ensure templateParams are set
@@ -348,11 +384,15 @@ class MessageService {
       hasTemplate: !!whatsappMessage.templateName,
       templateName: whatsappMessage.templateName,
       isFirstMessage,
-      hasButtons: !!whatsappMessage.buttons && whatsappMessage.buttons.length > 0
+      hasButtons: !!whatsappMessage.buttons && whatsappMessage.buttons.length > 0,
+      hasTemplateParams: !!whatsappMessage.templateParams,
+      templateParamsKeys: whatsappMessage.templateParams ? Object.keys(whatsappMessage.templateParams) : [],
+      templateParamsParamsOrder: whatsappMessage.templateParams?.paramsOrder
     });
     
     console.log('🔘 DEBUG: WhatsApp message buttons:', whatsappMessage.buttons);
     console.log('🔘 DEBUG: WhatsApp message buttons length:', whatsappMessage.buttons?.length || 0);
+    console.log('📋 DEBUG: Full templateParams being sent:', JSON.stringify(whatsappMessage.templateParams, null, 2));
 
     const response = await whatsappService.sendMessage(whatsappMessage);
     
