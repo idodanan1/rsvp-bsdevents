@@ -734,11 +734,17 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Include eventsHash and eventsVersion to force new reference
       // CRITICAL: Map to create new object references for each guest
       // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
-      const guestsCopy = guests.map(g => ({ ...g }));
+      // CRITICAL: Add a timestamp to force new reference on every calculation
+      const guestsCopy = guests.map((g, index) => ({ 
+        ...g,
+        // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
+        _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
+      }));
       // CRITICAL: Add eventsHash as a property to force new reference when it changes
       // This ensures React detects changes even if guests array appears unchanged
       (guestsCopy as any)._eventsHash = eventsHash;
       (guestsCopy as any)._eventsVersion = eventsVersion;
+      (guestsCopy as any)._timestamp = Date.now();
       return guestsCopy;
     }
     

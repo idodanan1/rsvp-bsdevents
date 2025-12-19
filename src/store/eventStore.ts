@@ -653,7 +653,7 @@ export const useEventStore = create<EventStore>()(
                       cleanedInvitationImageUrl = undefined; // Remove local file paths
                     }
                     
-                    const filteredGuests = apiEvent.guests
+                    const filteredGuests = (apiEvent.guests || [])
                       .filter(guest => {
                         if (deletedGuestIds.includes(guest.id)) {
                           return false;
@@ -677,7 +677,7 @@ export const useEventStore = create<EventStore>()(
                   // Get deleted guests for this event to filter them out
                   const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
                   
-                  const mergedGuests = apiEvent.guests
+                  const mergedGuests = (apiEvent.guests || [])
                     .filter(apiGuest => {
                       // CRITICAL: Filter out deleted guests - they should not be restored from API
                       if (deletedGuestIds.includes(apiGuest.id)) {
