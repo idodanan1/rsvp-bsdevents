@@ -180,14 +180,16 @@ class MessageService {
     const explicitlyNoTemplate = messageData.templateName === undefined && hasMessageContent;
     
     // CRITICAL: If no buttons are provided, don't use template - send as regular message
+    // BUT: First messages MUST use a template (Meta requirement), so don't clear templateName for first messages
     // Templates like "aa" and "a" require buttons, so if we don't have buttons, use regular message
-    if (!hasButtons && templateName) {
-      console.log('📝 No buttons provided - sending as regular message instead of template');
+    // Exception: Template "bb" doesn't require buttons (has predefined buttons in Meta)
+    if (!hasButtons && templateName && !isFirstMessage) {
+      console.log('📝 No buttons provided and not first message - sending as regular message instead of template');
       templateName = undefined;
       templateParams = undefined;
     }
     
-    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template (only if buttons exist)
+    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template (only if buttons exist OR it's first message)
     // This ensures campaigns that specify a template (like "הזמנה ראשונית" with template 'aa') 
     // will use the Meta template, not the campaign message content
     // Check for both truthy value and non-empty string
@@ -223,6 +225,7 @@ class MessageService {
       console.log('⚠️ First message - no valid template from campaign, using "bb" template as fallback');
       console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
       console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
+      // CRITICAL: Always set templateName to 'bb' for first messages (Meta requirement)
       templateName = 'bb';
       // Prepare template parameters for template "bb" (6 parameters only)
       const eventData = recipient.eventData;
@@ -243,6 +246,12 @@ class MessageService {
           language: 'he'
         };
       }
+      // CRITICAL: Verify templateName is set correctly
+      if (!templateName || templateName !== 'bb') {
+        console.error('❌ CRITICAL ERROR: templateName not set correctly for first message!');
+        console.error('❌ templateName:', templateName, 'type:', typeof templateName);
+        templateName = 'bb'; // Force set to 'bb' as fallback
+      }
     } else if (hasMessageContent) {
       // NOT FIRST MESSAGE and no template → send regular message with campaign content
       console.log('📋 Not first message - sending regular text message with campaign content');
@@ -258,6 +267,33 @@ class MessageService {
     console.log('🔘 DEBUG: Recipient buttons:', recipient.buttons);
     console.log('🔘 DEBUG: Recipient buttons length:', recipient.buttons?.length || 0);
     
+    // CRITICAL: Final safety check - ensure templateName is set for first messages
+    if (isFirstMessage && (!templateName || typeof templateName !== 'string' || templateName.trim().length === 0)) {
+      console.error('❌ CRITICAL ERROR: First message requires template but templateName is not set!');
+      console.error('❌ templateName:', templateName, 'type:', typeof templateName);
+      console.error('❌ Forcing templateName to "bb" for first message');
+      templateName = 'bb';
+      // Ensure templateParams are set for "bb" template
+      const eventData = recipient.eventData;
+      if (eventData && !templateParams) {
+        templateParams = {
+          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                       'event_date', 'event_time', 'venue'],
+          guest_name: recipient.firstName,
+          groom_name: eventData.groomName || '',
+          bride_name: eventData.brideName || '',
+          event_date: eventData.eventDate || '',
+          event_time: eventData.eventTime || '',
+          venue: eventData.venue || '',
+          language: 'he'
+        };
+      } else if (!templateParams) {
+        templateParams = {
+          language: 'he'
+        };
+      }
+    }
+    
     // CRITICAL: Add event invitation image to templateParams so it's used as header image
     // This ensures event invitation image is always used, not campaign image
     if (recipient.eventData?.invitationImageUrl && templateParams) {
@@ -265,14 +301,55 @@ class MessageService {
       (templateParams as any).eventData = recipient.eventData; // Also pass full eventData for reference
     }
     
+    // CRITICAL: Final validation before sending
+    console.log('🔍 FINAL CHECK before sending:', {
+      templateName,
+      templateNameType: typeof templateName,
+      templateNameLength: templateName ? templateName.length : 0,
+      isFirstMessage,
+      hasTemplateParams: !!templateParams,
+      templateParamsKeys: templateParams ? Object.keys(templateParams) : []
+    });
+    
+    // CRITICAL: Ensure templateName is never undefined for first messages
+    // This prevents "templateName is not defined" errors
+    if (isFirstMessage && (templateName === undefined || templateName === null || (typeof templateName === 'string' && templateName.trim().length === 0))) {
+      console.error('❌ CRITICAL: templateName is invalid for first message, forcing to "bb"');
+      templateName = 'bb';
+      // Ensure templateParams are set
+      if (!templateParams) {
+        const eventData = recipient.eventData;
+        templateParams = eventData ? {
+          paramsOrder: ['guest_name', 'groom_name', 'bride_name', 
+                       'event_date', 'event_time', 'venue'],
+          guest_name: recipient.firstName,
+          groom_name: eventData.groomName || '',
+          bride_name: eventData.brideName || '',
+          event_date: eventData.eventDate || '',
+          event_time: eventData.eventTime || '',
+          venue: eventData.venue || '',
+          language: 'he'
+        } : { language: 'he' };
+      }
+    }
+    
     const whatsappMessage: WhatsAppMessage = {
       to: recipient.phoneNumber,
       message: processedMessage,
       imageUrl: imageUrl, // This is already set to event.invitationImageUrl || campaign.imageUrl
-      templateName: templateName,
+      templateName: templateName, // This should never be undefined for first messages
       templateParams: templateParams,
       buttons: recipient.buttons // Add buttons from recipient
     };
+    
+    // Final validation log
+    console.log('✅ WhatsApp message prepared:', {
+      to: whatsappMessage.to,
+      hasTemplate: !!whatsappMessage.templateName,
+      templateName: whatsappMessage.templateName,
+      isFirstMessage,
+      hasButtons: !!whatsappMessage.buttons && whatsappMessage.buttons.length > 0
+    });
     
     console.log('🔘 DEBUG: WhatsApp message buttons:', whatsappMessage.buttons);
     console.log('🔘 DEBUG: WhatsApp message buttons length:', whatsappMessage.buttons?.length || 0);

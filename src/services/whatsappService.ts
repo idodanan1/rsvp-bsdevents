@@ -66,7 +66,8 @@ class WhatsAppService {
       };
 
       // If template is provided, send template message (for first messages)
-      if (messageData.templateName) {
+      // CRITICAL: Validate templateName before using it
+      if (messageData.templateName && typeof messageData.templateName === 'string' && messageData.templateName.trim().length > 0) {
         console.log('📋 Sending template message:', messageData.templateName);
         messagePayload.type = 'template';
         messagePayload.template = {
