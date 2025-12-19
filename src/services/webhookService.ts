@@ -229,14 +229,14 @@ class WebhookService {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
             // CRITICAL: Check if there was a manual change recently
-            // BUT: Don't block updates from guest_link if they're the same source as the manual change
+            // BUT: Don't block updates from guest_link or manual_update if they're the same source as the manual change
             // This allows the manual change to sync back from backend without being blocked
             const lastManualChange = this.manualChanges.get(guestKey);
             const now = Date.now();
-            const isFromGuestLink = update.source === 'guest_link';
+            const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
             const shouldBlock = lastManualChange && 
                               (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                              !isFromGuestLink; // Don't block guest_link updates - they're the manual change itself
+                              !isFromManualSource; // Don't block manual updates - they're the manual change itself
             
             if (shouldBlock) {
               const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
@@ -262,9 +262,9 @@ class WebhookService {
               continue; // Skip this update
             }
             
-            // If update is from guest_link and there was a manual change, allow it (it's the manual change syncing back)
-            if (isFromGuestLink && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-              console.log(`✅ Allowing guest_link guestCount update to sync back from backend (manual change protection bypassed)`);
+            // If update is from manual source and there was a manual change, allow it (it's the manual change syncing back)
+            if (isFromManualSource && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+              console.log(`✅ Allowing ${update.source || 'manual'} guestCount update to sync back from backend (manual change protection bypassed)`);
             }
 
             // Check if guestCount is different from current value
@@ -604,14 +604,14 @@ class WebhookService {
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
           // CRITICAL: Check if there was a manual change recently (within protection time)
-          // BUT: Don't block updates from guest_link if they're the same source as the manual change
+          // BUT: Don't block updates from guest_link or manual_update if they're the same source as the manual change
           // This allows the manual change to sync back from backend without being blocked
           const lastManualChange = this.manualChanges.get(guestKey);
           const now = Date.now();
-          const isFromGuestLink = update.source === 'guest_link';
+          const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update' || !update.source;
           const shouldBlock = lastManualChange && 
                             (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
-                            !isFromGuestLink; // Don't block guest_link updates - they're the manual change itself
+                            !isFromManualSource; // Don't block manual updates - they're the manual change itself
           
           if (shouldBlock) {
             const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
@@ -640,9 +640,9 @@ class WebhookService {
             continue; // Skip to next update
           }
           
-          // If update is from guest_link and there was a manual change, allow it (it's the manual change syncing back)
-          if (isFromGuestLink && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-            console.log(`✅ Allowing guest_link update to sync back from backend (manual change protection bypassed)`);
+          // If update is from manual source and there was a manual change, allow it (it's the manual change syncing back)
+          if (isFromManualSource && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+            console.log(`✅ Allowing ${update.source || 'manual'} update to sync back from backend (manual change protection bypassed)`);
           }
           
           // Ensure status is correctly set
@@ -662,15 +662,16 @@ class WebhookService {
           const hasResponseDateChange = update.responseDate && foundGuest.responseDate && 
                                        new Date(update.responseDate).getTime() !== new Date(foundGuest.responseDate).getTime();
           
-          // CRITICAL: Always sync updates from guest_link OR whatsapp button to ensure cross-device sync
+          // CRITICAL: Always sync updates from guest_link, manual_update, OR whatsapp button to ensure cross-device sync
           // Even if status matches, we should still sync if:
           // 1. Update is from guest_link (new update from phone)
-          // 2. Update is from whatsapp button (new update from WhatsApp)
-          // 3. Other fields changed (guestCount, actualAttendance, responseDate)
-          // 4. Status changed
-          // Note: isFromGuestLink is already defined above
+          // 2. Update is from manual_update (new update from status update buttons)
+          // 3. Update is from whatsapp button (new update from WhatsApp)
+          // 4. Other fields changed (guestCount, actualAttendance, responseDate)
+          // 5. Status changed
+          // Note: isFromManualSource is already defined above
           const isFromWhatsApp = update.source === 'whatsapp';
-          const shouldSyncEvenIfStatusMatches = isFromGuestLink || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
+          const shouldSyncEvenIfStatusMatches = isFromManualSource || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
           // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link or whatsapp
           // This ensures all updates from guest_link and whatsapp are synced across devices, even if status already matches
@@ -700,9 +701,9 @@ class WebhookService {
             continue; // Skip to next update
           }
           
-          // If status matches but update is from guest_link or whatsapp, log it
-          if (foundGuest.rsvpStatus === newStatus && (isFromGuestLink || isFromWhatsApp)) {
-            console.log(`🔄 Status matches but update is from ${update.source} - syncing to ensure cross-device consistency`);
+          // If status matches but update is from manual source or whatsapp, log it
+          if (foundGuest.rsvpStatus === newStatus && (isFromManualSource || isFromWhatsApp)) {
+            console.log(`🔄 Status matches but update is from ${update.source || 'manual'} - syncing to ensure cross-device consistency`);
           }
           
           // If status matches but other fields changed, log it

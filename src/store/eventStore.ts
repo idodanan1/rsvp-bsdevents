@@ -2326,16 +2326,18 @@ export const useEventStore = create<EventStore>()(
             newStatus: updatedGuest.rsvpStatus
           });
           
-          // CRITICAL: Mark manual change for guest_link updates to prevent webhook from overwriting them
-          // This ensures updates from guest response page are protected from being overwritten by webhook updates
-          if (updatedGuest.source === 'guest_link') {
+          // CRITICAL: Mark manual change for ALL manual updates (not just guest_link) to prevent webhook from overwriting them
+          // This ensures updates from guest response page, status update buttons, and other manual sources are protected
+          // Only skip marking if the source is 'whatsapp' (which comes from webhook) or undefined (which might be from webhook)
+          const isManualUpdate = updatedGuest.source && updatedGuest.source !== 'whatsapp';
+          if (isManualUpdate || updatedGuest.source === 'guest_link' || updatedGuest.source === 'manual_update' || !updatedGuest.source) {
             const guestKey = `${eventId}-${guestId}`;
             set(state => {
               const newManualChanges = new Map(state.manualChanges);
               newManualChanges.set(guestKey, Date.now());
               return { manualChanges: newManualChanges };
             });
-            console.log(`🛡️ Marked manual change for ${guestKey} (source: guest_link) - webhook updates will be blocked for 10s`);
+            console.log(`🛡️ Marked manual change for ${guestKey} (source: ${updatedGuest.source || 'unknown'}) - webhook updates will be blocked for 10s`);
             
             // Also mark in webhookService to ensure protection
             try {
@@ -2717,7 +2719,7 @@ export const useEventStore = create<EventStore>()(
                 actualAttendance: updatedGuest.actualAttendance,
                 notes: updatedGuest.notes,
                 responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
-                source: updatedGuest.source || 'guest_link',
+                source: updatedGuest.source || 'manual_update', // Default to manual_update for button clicks and other manual updates
                 timestamp: Date.now()
               };
               
