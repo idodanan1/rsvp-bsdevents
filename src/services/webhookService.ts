@@ -229,9 +229,16 @@ class WebhookService {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
             // CRITICAL: Check if there was a manual change recently
+            // BUT: Don't block updates from guest_link if they're the same source as the manual change
+            // This allows the manual change to sync back from backend without being blocked
             const lastManualChange = this.manualChanges.get(guestKey);
             const now = Date.now();
-            if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+            const isFromGuestLink = update.source === 'guest_link';
+            const shouldBlock = lastManualChange && 
+                              (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
+                              !isFromGuestLink; // Don't block guest_link updates - they're the manual change itself
+            
+            if (shouldBlock) {
               const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
               console.log(`🛡️ BLOCKING guest count update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
               // Remove from backend to prevent it from being processed again
@@ -253,6 +260,11 @@ class WebhookService {
                 console.warn('⚠️ Could not remove blocked guest count update from backend:', error);
               }
               continue; // Skip this update
+            }
+            
+            // If update is from guest_link and there was a manual change, allow it (it's the manual change syncing back)
+            if (isFromGuestLink && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+              console.log(`✅ Allowing guest_link guestCount update to sync back from backend (manual change protection bypassed)`);
             }
 
             // Check if guestCount is different from current value
@@ -592,9 +604,16 @@ class WebhookService {
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
           // CRITICAL: Check if there was a manual change recently (within protection time)
+          // BUT: Don't block updates from guest_link if they're the same source as the manual change
+          // This allows the manual change to sync back from backend without being blocked
           const lastManualChange = this.manualChanges.get(guestKey);
           const now = Date.now();
-          if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+          const isFromGuestLink = update.source === 'guest_link';
+          const shouldBlock = lastManualChange && 
+                            (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME &&
+                            !isFromGuestLink; // Don't block guest_link updates - they're the manual change itself
+          
+          if (shouldBlock) {
             const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
             console.log(`🛡️ BLOCKING webhook update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
             // Still remove from backend to prevent it from being processed again
@@ -619,6 +638,11 @@ class WebhookService {
               console.warn('⚠️ Could not remove blocked update from backend:', error);
             }
             continue; // Skip to next update
+          }
+          
+          // If update is from guest_link and there was a manual change, allow it (it's the manual change syncing back)
+          if (isFromGuestLink && lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
+            console.log(`✅ Allowing guest_link update to sync back from backend (manual change protection bypassed)`);
           }
           
           // Ensure status is correctly set
