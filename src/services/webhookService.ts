@@ -694,17 +694,21 @@ class WebhookService {
           // CRITICAL: Always sync updates from guest_link, manual_update, OR whatsapp button to ensure cross-device sync
           // Even if status matches, we should still sync if:
           // 1. Update is from guest_link (new update from phone)
-          // 2. Update is from manual_update (new update from status update buttons)
+          // 2. Update is from manual_update (new update from status update buttons) - CRITICAL: Always sync manual_update to ensure cross-device consistency
           // 3. Update is from whatsapp button (new update from WhatsApp) - CRITICAL: Always sync WhatsApp updates
           // 4. Other fields changed (guestCount, actualAttendance, responseDate)
           // 5. Status changed
           // Note: isFromManualSource and isFromWhatsApp are already defined above
+          // CRITICAL: manual_update updates MUST always be synced, even if status matches, to ensure the update is properly reflected
+          // This is because manual_update updates come from the backend echo of a manual change, and we need to ensure
+          // the update is properly applied even if it was already applied locally
           const shouldSyncEvenIfStatusMatches = isFromManualSource || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
-          // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link or whatsapp
-          // This ensures all updates from guest_link and whatsapp are synced across devices, even if status already matches
+          // CRITICAL: For manual_update updates, ALWAYS sync even if status matches - this ensures the update is properly reflected
+          // This is critical because manual_update updates are echoes from the backend, and we need to ensure they're applied
+          // even if the local state was already updated (to ensure cross-device consistency)
           if (foundGuest.rsvpStatus === newStatus && !shouldSyncEvenIfStatusMatches) {
-            console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link.`);
+            console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link/manual_update/whatsapp.`);
             // CRITICAL: Remove only THIS status update, not all updates (preserve guestCount updates)
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
@@ -727,6 +731,12 @@ class WebhookService {
               console.warn('⚠️ Could not remove duplicate status update from backend:', error);
             }
             continue; // Skip to next update
+          }
+          
+          // CRITICAL: For manual_update updates, always proceed even if status matches
+          // This ensures the update is properly applied and reflected in the UI
+          if (update.source === 'manual_update' && foundGuest.rsvpStatus === newStatus) {
+            console.log(`🔄 Processing manual_update echo even though status matches - ensuring update is properly applied`);
           }
           
           // If status matches but update is from manual source or whatsapp, log it

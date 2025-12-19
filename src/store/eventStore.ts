@@ -2475,7 +2475,14 @@ export const useEventStore = create<EventStore>()(
                       
                       // CRITICAL: If this is a newer update, completely replace old values with new ones
                       // This ensures old updates don't persist in the table
-                      if (isNewerUpdate) {
+                      // CRITICAL: For manual_update updates, ALWAYS apply them even if timestamps are equal or older
+                      // This ensures manual updates from status update page are properly synced even if they come back from backend
+                      const isManualUpdateEcho = updatedGuest.source === 'manual_update';
+                      // For manual_update echoes, always apply them to ensure cross-device sync
+                      // This is critical because manual_update updates are echoes from the backend of manual changes
+                      const shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho;
+                      
+                      if (shouldApplyUpdate) {
                         // Completely replace with new update - don't merge old values
                         // Clean names if they're being updated
                         const cleanedFirstName = updatedGuest.firstName !== undefined ? cleanName(updatedGuest.firstName) : guest.firstName;
@@ -2493,7 +2500,9 @@ export const useEventStore = create<EventStore>()(
                           actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
                           // CRITICAL: Always use new responseDate to ensure backend detects it as a new update
                           // This ensures the backend adds it to pending-updates even if status didn't change
-                          responseDate: newResponseDate
+                          responseDate: newResponseDate,
+                          // CRITICAL: Preserve source from update to ensure proper tracking
+                          source: updatedGuest.source || guest.source
                         };
                       
                         console.log(`🔧 Merging guest (latest update wins - COMPLETELY REPLACING old values):`, {
@@ -2505,13 +2514,17 @@ export const useEventStore = create<EventStore>()(
                           new: { 
                             rsvpStatus: updatedGuest.rsvpStatus, 
                             guestCount: updatedGuest.guestCount,
-                            responseDate: newResponseDate.toISOString()
+                            responseDate: newResponseDate.toISOString(),
+                            source: updatedGuest.source
                           },
                           isNewer: isNewerUpdate,
+                          isManualUpdateEcho: isManualUpdateEcho,
+                          shouldApplyUpdate: shouldApplyUpdate,
                           merged: { 
                             rsvpStatus: mergedGuest.rsvpStatus, 
                             guestCount: mergedGuest.guestCount,
-                            responseDate: mergedGuest.responseDate.toISOString()
+                            responseDate: mergedGuest.responseDate.toISOString(),
+                            source: mergedGuest.source
                           }
                         });
                         
