@@ -289,95 +289,91 @@ class WhatsAppService {
           // For templates "bb", "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
           const templatesWithPredefinedButtons = ['bb', 'aa', 'a', 'reminer', 'reminder'];
           const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
+          const templateNameLower = (messageData.templateName || '').toLowerCase();
           
-          // Always add URL button parameters if provided (they are required even for predefined buttons)
-          // Only skip Reply buttons for predefined templates (they don't need parameters)
-          if (messageData.buttons && messageData.buttons.length > 0) {
-            const buttonComponents: any[] = [];
-            
-            // Find URL button in the buttons array
-            const urlButton = messageData.buttons.find(btn => btn.type === 'url' && btn.url);
-            const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
-            
-            // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
-            // Template 'bb' and 'aa' have: URL button at index 0, Reply buttons at index 1, 2
-            // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
-            // We need to find the actual URL button and send its parameter to the correct template index
-            
-            messageData.buttons.forEach((btn, index) => {
-              if (index >= 3) return; // WhatsApp allows max 3 buttons
+          // CRITICAL: Template "bb" does NOT require any button parameters - skip all button processing
+          // The template "bb" in Meta Business Manager has static buttons that don't need dynamic parameters
+          if (templateNameLower !== 'bb') {
+            // Always add URL button parameters if provided (they are required even for predefined buttons)
+            // Only skip Reply buttons for predefined templates (they don't need parameters)
+            if (messageData.buttons && messageData.buttons.length > 0) {
+              const buttonComponents: any[] = [];
               
-              if (btn.type === 'url' && btn.url) {
-                // URL button - ALWAYS needs parameters, even for predefined templates
-                // For template 'bb' and 'aa', URL button is at index 0 in the template
-                // But in messageData.buttons it might be at a different index
-                const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'bb' || messageData.templateName?.toLowerCase() === 'aa')
-                  ? '0' // Template 'bb' and 'aa' have URL button at index 0
-                  : index.toString(); // For other templates, use the array index
+              // Find URL button in the buttons array
+              const urlButton = messageData.buttons.find(btn => btn.type === 'url' && btn.url);
+              const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
+              
+              // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
+              // Template 'aa' has: URL button at index 0, Reply buttons at index 1, 2
+              // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
+              // We need to find the actual URL button and send its parameter to the correct template index
+              
+              messageData.buttons.forEach((btn, index) => {
+                if (index >= 3) return; // WhatsApp allows max 3 buttons
                 
-                buttonComponents.push({
+                if (btn.type === 'url' && btn.url) {
+                  // URL button - ALWAYS needs parameters, even for predefined templates
+                  // For template 'aa', URL button is at index 0 in the template
+                  // But in messageData.buttons it might be at a different index
+                  const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'aa')
+                    ? '0' // Template 'aa' has URL button at index 0
+                    : index.toString(); // For other templates, use the array index
+                  
+                  buttonComponents.push({
+                    type: 'button',
+                    sub_type: 'url',
+                    index: templateButtonIndex,
+                    parameters: [{
+                      type: 'text',
+                      text: btn.url
+                    }]
+                  });
+                  console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
+                } else if (btn.type === 'reply' && !shouldSkipReplyButtons) {
+                  // Reply button - only add if template doesn't have predefined buttons
+                  // Note: Reply buttons don't need parameters, they're already defined in Meta
+                  buttonComponents.push({
+                    type: 'button',
+                    sub_type: 'quick_reply',
+                    index: index.toString()
+                  });
+                  console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
+                } else if (btn.type === 'reply' && shouldSkipReplyButtons) {
+                  console.log(`ℹ️ Skipping Reply button ${index} - template has predefined buttons`);
+                }
+              });
+              
+              // CRITICAL: Add URL button parameter if template has predefined URL button but no URL in buttons array
+              if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
+                console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
+                console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
+                
+                const urlButtonComponent = {
                   type: 'button',
                   sub_type: 'url',
-                  index: templateButtonIndex,
+                  index: '0', // Template 'aa' and 'a' have URL button at index 0
                   parameters: [{
                     type: 'text',
-                    text: btn.url
+                    text: messageData.templateParams.guest_response_link
                   }]
-                });
-                console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
-              } else if (btn.type === 'reply' && !shouldSkipReplyButtons) {
-                // Reply button - only add if template doesn't have predefined buttons
-                // Note: Reply buttons don't need parameters, they're already defined in Meta
-                buttonComponents.push({
-                  type: 'button',
-                  sub_type: 'quick_reply',
-                  index: index.toString()
-                });
-                console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
-              } else if (btn.type === 'reply' && shouldSkipReplyButtons) {
-                console.log(`ℹ️ Skipping Reply button ${index} - template has predefined buttons`);
+                };
+                
+                buttonComponents.push(urlButtonComponent);
+                console.log(`🔘 Added URL button parameter for predefined template button at index 0`);
               }
-            });
-            
-            // CRITICAL: Only add URL button parameter if template is NOT 'bb'
-            // Template 'bb' may not have a URL button, or the button doesn't require dynamic parameters
-            const templateNameLower = (messageData.templateName || '').toLowerCase();
-            if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton && templateNameLower !== 'bb') {
-              console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
-              console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
               
-              const urlButtonComponent = {
-                type: 'button',
-                sub_type: 'url',
-                index: '0', // Template 'aa' and 'a' have URL button at index 0
-                parameters: [{
-                  type: 'text',
-                  text: messageData.templateParams.guest_response_link
-                }]
-              };
+              // Add all button components
+              buttonComponents.forEach(btnComponent => {
+                components.push(btnComponent);
+              });
               
-              buttonComponents.push(urlButtonComponent);
-              console.log(`🔘 Added URL button parameter for predefined template button at index 0`);
-            } else if (templateNameLower === 'bb' && messageData.templateParams?.guest_response_link && !urlButton) {
-              console.log('ℹ️ Template "bb" - skipping URL button parameter (template may not have URL button or button is static)');
-            }
-            
-            // Add all button components
-            buttonComponents.forEach(btnComponent => {
-              components.push(btnComponent);
-            });
-            
-            if (buttonComponents.length > 0) {
-              console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
-            } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
-              console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
-              console.log('ℹ️ URL button parameters will be added if provided');
-            }
-          } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
-            // CRITICAL: Only add URL button parameter if template is NOT 'bb'
-            // Template 'bb' may not have a URL button, or the button doesn't require dynamic parameters
-            const templateNameLower = (messageData.templateName || '').toLowerCase();
-            if (templateNameLower !== 'bb') {
+              if (buttonComponents.length > 0) {
+                console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
+              } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
+                console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
+                console.log('ℹ️ URL button parameters will be added if provided');
+              }
+            } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
               // CRITICAL FIX: Template 'aa' and 'a' have a URL button that requires a parameter
               // Even if no buttons are provided in messageData, we need to send the URL parameter
               // The template has a URL button at index 0 that needs the guest_response_link parameter
@@ -397,9 +393,10 @@ class WhatsAppService {
               // Add button component to components array
               components.push(urlButtonComponent);
               console.log(`🔘 Added URL button parameter for predefined template button`);
-            } else {
-              console.log('ℹ️ Template "bb" - skipping URL button parameter (template may not have URL button or button is static)');
             }
+          } else {
+            // Template "bb" - skip all button processing
+            console.log('ℹ️ Template "bb" - skipping all button parameters (template has static buttons in Meta that don\'t require parameters)');
           }
           
           // Only add components if we have parameters (Meta requirement)
