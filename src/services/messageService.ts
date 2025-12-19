@@ -393,8 +393,34 @@ class MessageService {
     console.log('🔘 DEBUG: WhatsApp message buttons:', whatsappMessage.buttons);
     console.log('🔘 DEBUG: WhatsApp message buttons length:', whatsappMessage.buttons?.length || 0);
     console.log('📋 DEBUG: Full templateParams being sent:', JSON.stringify(whatsappMessage.templateParams, null, 2));
+    
+    // CRITICAL: Validate message before sending
+    if (!whatsappMessage.to || !whatsappMessage.to.trim()) {
+      console.error('❌ CRITICAL ERROR: Recipient phone number is missing or empty!');
+      return {
+        recipientId: recipient.id,
+        recipientName: `${recipient.firstName} ${recipient.lastName}`,
+        phoneNumber: recipient.phoneNumber,
+        channel: 'whatsapp',
+        success: false,
+        error: 'Recipient phone number is missing or empty'
+      };
+    }
+    
+    if (whatsappMessage.templateName && (!whatsappMessage.templateParams || Object.keys(whatsappMessage.templateParams).length === 0)) {
+      console.warn('⚠️ WARNING: Template specified but no template parameters provided');
+      console.warn('⚠️ Template name:', whatsappMessage.templateName);
+      console.warn('⚠️ This may cause the message to fail');
+    }
 
+    console.log('🚀 About to send WhatsApp message...');
     const response = await whatsappService.sendMessage(whatsappMessage);
+    console.log('📊 WhatsApp service response:', {
+      success: response.success,
+      messageId: response.messageId,
+      error: response.error,
+      warning: response.warning
+    });
     
     // If message was sent successfully and it was a template (first message), mark it
     if (response.success && templateName && isFirstMessage) {

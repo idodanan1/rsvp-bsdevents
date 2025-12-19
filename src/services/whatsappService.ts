@@ -258,10 +258,29 @@ class WhatsAppService {
                 console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
               }
             } else {
-              // Template might not require header - try without it first
-              console.log('ℹ️ No header image URL provided - will send without header');
-              console.log('ℹ️ Template name:', messageData.templateName);
-              console.log('ℹ️ If template requires header image, error will occur and we will retry with placeholder');
+              // Template might not require header - but "bb" DOES require it
+              const templateName = (messageData.templateName || '').toLowerCase();
+              if (templateName === 'bb') {
+                console.warn('⚠️ Template "bb" requires header image but none provided!');
+                console.warn('⚠️ Adding placeholder image to prevent API error');
+                // Add placeholder for template "bb" since it requires header image
+                components.unshift({
+                  type: 'header',
+                  parameters: [
+                    {
+                      type: 'image',
+                      image: {
+                        link: DEFAULT_PLACEHOLDER_IMAGE
+                      }
+                    }
+                  ]
+                });
+                console.log('🖼️ ⚠️ Added placeholder header image for template "bb"');
+              } else {
+                console.log('ℹ️ No header image URL provided - will send without header');
+                console.log('ℹ️ Template name:', messageData.templateName);
+                console.log('ℹ️ If template requires header image, error will occur and we will retry with placeholder');
+              }
             }
           }
           
@@ -432,6 +451,34 @@ class WhatsAppService {
       console.log('📤 FULL PAYLOAD TO META API:');
       console.log(JSON.stringify(messagePayload, null, 2));
       console.log('📤 Sending via WhatsApp Business API...');
+      console.log('📤 API URL:', `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`);
+      console.log('📤 Phone Number ID:', phoneNumberId);
+      console.log('📤 Access Token:', accessToken ? `${accessToken.substring(0, 20)}...` : 'MISSING');
+      
+      // Validate required fields before sending
+      if (!accessToken) {
+        console.error('❌ CRITICAL ERROR: Access token is missing!');
+        return {
+          success: false,
+          error: 'WhatsApp Access Token is missing. Please check your environment variables.'
+        };
+      }
+      
+      if (!phoneNumberId) {
+        console.error('❌ CRITICAL ERROR: Phone Number ID is missing!');
+        return {
+          success: false,
+          error: 'WhatsApp Phone Number ID is missing. Please check your environment variables.'
+        };
+      }
+      
+      if (!messagePayload.to) {
+        console.error('❌ CRITICAL ERROR: Recipient phone number is missing!');
+        return {
+          success: false,
+          error: 'Recipient phone number is missing.'
+        };
+      }
       
       // Try sending with current payload (may include header image)
       let response = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
