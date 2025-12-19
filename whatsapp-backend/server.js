@@ -1430,7 +1430,8 @@ async function handleIncomingMessage(message) {
          (!buttonTitle.includes('לא') || 
           (buttonTitle.indexOf('אגיע') !== -1 && 
            buttonTitle.indexOf('לא') !== -1 && 
-           buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא'))));
+           buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא'))))
+    );
     
     // CRITICAL: Log button detection for debugging
     console.log('🔍 Button detection:', {
