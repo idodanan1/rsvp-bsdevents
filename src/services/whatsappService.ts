@@ -231,9 +231,9 @@ class WhatsAppService {
             // For templates that might require header image, add placeholder proactively
             // This prevents error 132012 from occurring
             const templateName = (messageData.templateName || '').toLowerCase();
-            // CRITICAL: Only templates that explicitly require header image should be in this list
-            // Template "bb" does NOT require header image - only add if explicitly provided
-            const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder']; // Removed 'bb' - it doesn't require header
+            // CRITICAL: Templates that require header image
+            // Template "bb" DOES require header image (as shown in Meta Business Manager)
+            const templatesRequiringHeader = ['bb', 'aa', 'a', 'reminer', 'reminder'];
             
             if (templatesRequiringHeader.includes(templateName)) {
               // Template requires header image - add placeholder ONLY if no image was provided
