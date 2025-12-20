@@ -65,6 +65,9 @@ class WhatsAppService {
         to: phoneNumber
       };
 
+      // CRITICAL: Declare templateName at outer scope so it's accessible throughout all blocks (including error handling)
+      const templateName = (messageData.templateName || '').toLowerCase();
+
       // If template is provided, send template message (for first messages)
       // CRITICAL: Validate templateName before using it
       if (messageData.templateName && typeof messageData.templateName === 'string' && messageData.templateName.trim().length > 0) {
@@ -76,9 +79,6 @@ class WhatsAppService {
             code: messageData.templateParams?.language || 'he' // Default to Hebrew for template "a"
           }
         };
-        
-        // CRITICAL: Declare templateName at outer scope so it's accessible throughout all blocks
-        const templateName = (messageData.templateName || '').toLowerCase();
         
         // Add template parameters if provided AND template is not hello_world
         // hello_world template doesn't support parameters
@@ -256,61 +256,16 @@ class WhatsAppService {
             headerImageUrl.startsWith('http://')
           );
           
-          // CRITICAL: Template "bb" REQUIRES header image - always add it
-          // Based on the template image provided, template "bb" has a header image section
-          // Meta expects a header parameter, so we MUST always send one
+          // CRITICAL: Template "bb" has a STATIC header image (not a variable) in Meta Business Manager
+          // Based on the template image provided by the user, the header image is static
+          // Meta does NOT expect a dynamic header parameter for static images
+          // Therefore, we should NOT send a header component for template "bb"
           if (templateName === 'bb' || templateName === 'BB') {
-            let imageUrlForMeta: string;
-            
-            if (isValidImageUrl && headerImageUrl) {
-              // We have a valid image URL - use it
-              imageUrlForMeta = headerImageUrl.trim();
-              
-              // CRITICAL: Validate URL format more strictly
-              if (!imageUrlForMeta || imageUrlForMeta.length === 0) {
-                console.warn('⚠️ Header image URL is empty after trim, using placeholder');
-                imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
-              } else {
-                if (imageUrlForMeta.startsWith('http://')) {
-                  imageUrlForMeta = imageUrlForMeta.replace('http://', 'https://');
-                  console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
-                }
-                
-                // CRITICAL: Ensure URL is valid HTTPS URL
-                if (!imageUrlForMeta.startsWith('https://')) {
-                  console.warn('⚠️ Header image URL is not HTTPS after conversion, using placeholder');
-                  imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
-                }
-              }
-            } else {
-              // No valid image URL for template "bb" - use placeholder
-              // Template "bb" REQUIRES a header image, so we must send one
-              console.log('ℹ️ Template "bb" - no valid header image URL provided, using placeholder');
-              console.log('ℹ️ headerImageUrl value:', headerImageUrl);
-              console.log('ℹ️ isValidImageUrl:', isValidImageUrl);
-              imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
-            }
-            
-            // ALWAYS add header image for template "bb" (required by Meta)
-            components.unshift({
-              type: 'header',
-              parameters: [
-                {
-                  type: 'image',
-                  image: {
-                    link: imageUrlForMeta
-                  }
-                }
-              ]
-            });
-            console.log('🖼️ ✅ Adding header image to template "bb":', imageUrlForMeta);
-            console.log('🖼️ ✅ Header image parameter structure:', JSON.stringify({
-              type: 'header',
-              parameters: [{
-                type: 'image',
-                image: { link: imageUrlForMeta }
-              }]
-            }, null, 2));
+            // Template "bb" has a static header image - do NOT send header component
+            // The image is defined in the template itself in Meta Business Manager
+            console.log('ℹ️ Template "bb" - header image is STATIC (not a variable) in Meta Business Manager');
+            console.log('ℹ️ Skipping header component (Meta will use the static image from the template)');
+            console.log('ℹ️ headerImageUrl provided:', headerImageUrl || 'none');
           } else {
             // For other templates, use the original logic
             if (isValidImageUrl) {
@@ -506,10 +461,10 @@ class WhatsAppService {
             
             if (templateName === 'bb' || templateName === 'BB') {
               console.log('📋 Template "bb" expects:');
-              console.log('  - 1 header image component');
+              console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
               console.log('  - 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue');
               console.log('  - 0 button components (static buttons in Meta)');
-              console.log(`📊 ACTUAL: ${headerComponent ? '1' : '0'} header, ${bodyComponent?.parameters?.length || 0} body params, ${buttonComponents.length} buttons`);
+              console.log(`📊 ACTUAL: ${headerComponent ? '❌ 1 (should be 0)' : '✅ 0'} header, ${bodyComponent?.parameters?.length || 0} body params, ${buttonComponents.length} buttons`);
             }
           } else {
             // If no parameters, don't send components at all (for templates without parameters)
@@ -557,19 +512,20 @@ class WhatsAppService {
         
         if (messagePayload.template?.name?.toLowerCase() === 'bb') {
           console.log('📋 Template "bb" requirements:');
-          console.log('  - MUST have 1 header image component');
+          console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
           console.log('  - MUST have 6 body parameters');
           console.log('  - MUST have 0 button components (static buttons in Meta)');
-          console.log(`📊 ACTUAL PAYLOAD: ${headerComponent ? '✅' : '❌'} header, ${bodyParams.length === 6 ? '✅' : '❌'} ${bodyParams.length} body params, ${buttonComponents.length === 0 ? '✅' : '❌'} ${buttonComponents.length} buttons`);
+          console.log(`📊 ACTUAL PAYLOAD: ${headerComponent ? '❌' : '✅'} header (should be NO), ${bodyParams.length === 6 ? '✅' : '❌'} ${bodyParams.length} body params, ${buttonComponents.length === 0 ? '✅' : '❌'} ${buttonComponents.length} buttons`);
           
           if (bodyParams.length !== 6) {
             console.error(`❌ ERROR: Template "bb" expects 6 body parameters, but ${bodyParams.length} are being sent!`);
             console.error('❌ This will cause Meta API error 100 or 132000');
           }
           
-          if (!headerComponent) {
-            console.error(`❌ ERROR: Template "bb" requires a header image component, but none is being sent!`);
-            console.error('❌ This will cause Meta API error 100 or 132012');
+          if (headerComponent) {
+            console.error(`❌ ERROR: Template "bb" has a STATIC header image in Meta Business Manager!`);
+            console.error('❌ Header image component should NOT be sent (it will cause Meta API error 100)');
+            console.error('❌ The header image is defined in the template itself, not as a dynamic parameter');
           }
           
           if (buttonComponents.length > 0) {
@@ -1041,14 +997,14 @@ class WhatsAppService {
                 
                 if (messageData.templateName?.toLowerCase() === 'bb') {
                   diagnosticMessage += '\n\n   📋 SPECIFIC FIXES for template "bb":';
-                  diagnosticMessage += '\n      Template "bb" has a header image and 6 body parameters.';
-                  diagnosticMessage += '\n\n   🔴 MOST COMMON ISSUE: Header Image Variable Name';
-                  diagnosticMessage += '\n      1. In Meta Business Manager, edit template "bb"';
-                  diagnosticMessage += '\n      2. Go to "Header" section';
-                  diagnosticMessage += '\n      3. If header type is "Image", find "Variable Samples"';
-                  diagnosticMessage += '\n      4. Look for the image variable';
-                  diagnosticMessage += '\n      5. The "Name" field MUST have a value (e.g., "header_image")';
-                  diagnosticMessage += '\n      6. If the name is empty, enter a name and save';
+                  diagnosticMessage += '\n      Template "bb" has a STATIC header image (not a variable) and 6 body parameters.';
+                  diagnosticMessage += '\n\n   ⚠️ IMPORTANT: Template "bb" Header Image';
+                  diagnosticMessage += '\n      - The header image in template "bb" is STATIC (not a variable)';
+                  diagnosticMessage += '\n      - You do NOT need to check the Header section for variable names';
+                  diagnosticMessage += '\n      - The header image is defined in the template itself in Meta Business Manager';
+                  diagnosticMessage += '\n      - If you see this error, it\'s likely a Body parameter issue, not Header';
+                  diagnosticMessage += '\n\n   🔴 MOST COMMON ISSUE: Body Parameter Variable Names';
+                  diagnosticMessage += '\n      Template "bb" has 6 body parameters - check EACH one:';
                   diagnosticMessage += '\n\n   📋 Body Parameters (6 total - check each one):';
                   diagnosticMessage += '\n      1. guest_name - MUST have a name in Variable Samples';
                   diagnosticMessage += '\n      2. event_type - MUST have a name in Variable Samples';
@@ -1057,12 +1013,13 @@ class WhatsAppService {
                   diagnosticMessage += '\n      5. event_time - MUST have a name in Variable Samples';
                   diagnosticMessage += '\n      6. venue - MUST have a name in Variable Samples';
                   diagnosticMessage += '\n\n   ✅ HOW TO CHECK:';
-                  diagnosticMessage += '\n      - In Meta Business Manager → Edit template "bb"';
-                  diagnosticMessage += '\n      - Go to "Body" section → "Variable Samples"';
-                  diagnosticMessage += '\n      - For EACH of the 6 variables, check the "Name" column';
-                  diagnosticMessage += '\n      - If ANY name is empty, enter a name (e.g., "guest_name", "event_type", etc.)';
-                  diagnosticMessage += '\n      - Save the template and wait a few minutes';
-                  diagnosticMessage += '\n      - Try sending again';
+                  diagnosticMessage += '\n      1. In Meta Business Manager → Edit template "bb"';
+                  diagnosticMessage += '\n      2. Go to "Body" section → "Variable Samples"';
+                  diagnosticMessage += '\n      3. For EACH of the 6 variables, check the "Name" column';
+                  diagnosticMessage += '\n      4. If ANY name is empty, enter a name (e.g., "guest_name", "event_type", etc.)';
+                  diagnosticMessage += '\n      5. Save the template and wait a few minutes';
+                  diagnosticMessage += '\n      6. Try sending again';
+                  diagnosticMessage += '\n\n   ⚠️ NOTE: Do NOT check the Header section - the header image is static!';
                 }
                 
                 diagnosticMessage += '\n\n   📋 SUMMARY - What You Need To Do:';
