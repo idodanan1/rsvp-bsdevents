@@ -488,6 +488,25 @@ class WhatsAppService {
                 parameters: comp.type === 'body' ? comp.parameters?.map((p: any) => ({ text: p.text?.substring(0, 50) })) : comp.parameters
               });
             });
+            
+            // CRITICAL: Count actual body parameters being sent
+            const bodyComponent = components.find((c: any) => c.type === 'body');
+            const headerComponent = components.find((c: any) => c.type === 'header');
+            const buttonComponents = components.filter((c: any) => c.type === 'button');
+            
+            console.log('📊 COMPONENT SUMMARY:');
+            console.log(`  - Body parameters: ${bodyComponent?.parameters?.length || 0}`);
+            console.log(`  - Header components: ${headerComponent ? 1 : 0}`);
+            console.log(`  - Button components: ${buttonComponents.length}`);
+            console.log(`  - Total components: ${components.length}`);
+            
+            if (templateName === 'bb' || templateName === 'BB') {
+              console.log('📋 Template "bb" expects:');
+              console.log('  - 1 header image component');
+              console.log('  - 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue');
+              console.log('  - 0 button components (static buttons in Meta)');
+              console.log(`📊 ACTUAL: ${headerComponent ? '1' : '0'} header, ${bodyComponent?.parameters?.length || 0} body params, ${buttonComponents.length} buttons`);
+            }
           } else {
             // If no parameters, don't send components at all (for templates without parameters)
             console.log('📋 No parameters to send - template will be sent without components');
@@ -518,6 +537,44 @@ class WhatsAppService {
       // Log the FULL payload being sent to Meta API
       console.log('📤 FULL PAYLOAD TO META API:');
       console.log(JSON.stringify(messagePayload, null, 2));
+      
+      // CRITICAL: Detailed payload analysis
+      if (messagePayload.type === 'template') {
+        const bodyParams = messagePayload.template?.components?.find((c: any) => c.type === 'body')?.parameters || [];
+        const headerComponent = messagePayload.template?.components?.find((c: any) => c.type === 'header');
+        const buttonComponents = messagePayload.template?.components?.filter((c: any) => c.type === 'button') || [];
+        
+        console.log('📊 PAYLOAD ANALYSIS:');
+        console.log(`  Template name: ${messagePayload.template?.name}`);
+        console.log(`  Body parameters count: ${bodyParams.length}`);
+        console.log(`  Header component: ${headerComponent ? 'YES' : 'NO'}`);
+        console.log(`  Button components count: ${buttonComponents.length}`);
+        console.log(`  Total components: ${messagePayload.template?.components?.length || 0}`);
+        
+        if (messagePayload.template?.name?.toLowerCase() === 'bb') {
+          console.log('📋 Template "bb" requirements:');
+          console.log('  - MUST have 1 header image component');
+          console.log('  - MUST have 6 body parameters');
+          console.log('  - MUST have 0 button components (static buttons in Meta)');
+          console.log(`📊 ACTUAL PAYLOAD: ${headerComponent ? '✅' : '❌'} header, ${bodyParams.length === 6 ? '✅' : '❌'} ${bodyParams.length} body params, ${buttonComponents.length === 0 ? '✅' : '❌'} ${buttonComponents.length} buttons`);
+          
+          if (bodyParams.length !== 6) {
+            console.error(`❌ ERROR: Template "bb" expects 6 body parameters, but ${bodyParams.length} are being sent!`);
+            console.error('❌ This will cause Meta API error 100 or 132000');
+          }
+          
+          if (!headerComponent) {
+            console.error(`❌ ERROR: Template "bb" requires a header image component, but none is being sent!`);
+            console.error('❌ This will cause Meta API error 100 or 132012');
+          }
+          
+          if (buttonComponents.length > 0) {
+            console.warn(`⚠️ WARNING: Template "bb" has static buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
+            console.warn('⚠️ This may cause Meta API error 132018');
+          }
+        }
+      }
+      
       console.log('📤 Sending via WhatsApp Business API...');
       console.log('📤 API URL:', `https://graph.facebook.com/v22.0/${phoneNumberId}/messages`);
       console.log('📤 Phone Number ID:', phoneNumberId);
@@ -559,6 +616,20 @@ class WhatsAppService {
       });
 
       console.log('📊 WhatsApp Business API response status:', response.status);
+      
+      // CRITICAL: Always log response for debugging
+      if (!response.ok) {
+        const responseClone = response.clone();
+        try {
+          const errorData = await responseClone.json();
+          console.error('❌ WhatsApp API Error Response:', JSON.stringify(errorData, null, 2));
+          console.error('❌ Error Code:', errorData.error?.code);
+          console.error('❌ Error Message:', errorData.error?.message);
+          console.error('❌ Error Details:', errorData.error?.error_data?.details);
+        } catch (e) {
+          console.error('❌ Failed to parse error response:', e);
+        }
+      }
       
       // Handle template header errors
       if (!response.ok && messagePayload.type === 'template') {
