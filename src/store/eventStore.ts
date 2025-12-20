@@ -432,24 +432,39 @@ export const useEventStore = create<EventStore>()(
                 const stored = localStorage.getItem('rsvp-events-storage');
                 let localEvents: Event[] = [];
                 let deletedEvents: any[] = [];
+                let deletedGuests: any = {};
                 if (stored) {
                   try {
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
                     deletedEvents = parsed.state?.deletedEvents || [];
+                    deletedGuests = parsed.state?.deletedGuests || {};
                     
                     // CRITICAL: Ensure all events have unique IDs (fixes existing events with duplicate IDs)
                     localEvents = ensureUniqueEventIds(localEvents);
                     
-                    // CRITICAL: Clean all guest names in local events to fix existing data
-                    localEvents = localEvents.map((event: Event) => ({
-                      ...event,
-                      guests: event.guests?.map((guest: Guest) => ({
-                        ...guest,
-                        firstName: cleanName(guest.firstName),
-                        lastName: cleanName(guest.lastName)
-                      })) || []
-                    }));
+                    // CRITICAL: Clean all guest names AND filter out deleted guests in local events
+                    // This prevents deleted guests from being restored when loading from localStorage
+                    localEvents = localEvents.map((event: Event) => {
+                      const deletedGuestIds = deletedGuests[event.id] || [];
+                      return {
+                        ...event,
+                        guests: event.guests
+                          ?.filter((guest: Guest) => {
+                            // CRITICAL: Filter out deleted guests - they should not be restored from localStorage
+                            if (deletedGuestIds.includes(guest.id)) {
+                              console.log(`🚫 Filtering out deleted guest from localStorage load: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                              return false;
+                            }
+                            return true;
+                          })
+                          .map((guest: Guest) => ({
+                            ...guest,
+                            firstName: cleanName(guest.firstName),
+                            lastName: cleanName(guest.lastName)
+                          })) || []
+                      };
+                    });
                     
                     // Log recently created events (within last 5 minutes)
                     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
@@ -661,8 +676,10 @@ export const useEventStore = create<EventStore>()(
                   }
                   
                 // Merge guests, preserving manual changes
-                  // Get deleted guests for this event to filter them out
-                  const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
+                  // CRITICAL: Get deleted guests from current state (most up-to-date)
+                  // This ensures deleted guests are filtered out even if they exist in API or localStorage
+                  const currentState = get();
+                  const deletedGuestIds = currentState.deletedGuests[apiEvent.id] || [];
                   
                   const mergedGuests = (apiEvent.guests || [])
                     .filter(apiGuest => {
@@ -5045,22 +5062,38 @@ export const useEventStore = create<EventStore>()(
                 }
               });
               
-              // CRITICAL: Clean all guest names before saving to localStorage
-              const cleanedMergedEvents = mergedEvents.map((event: Event) => ({
-                ...event,
-                guests: event.guests?.map((guest: Guest) => ({
-                  ...guest,
-                  firstName: cleanName(guest.firstName),
-                  lastName: cleanName(guest.lastName)
-                })) || []
-              }));
+              // CRITICAL: Get deletedGuests from state (most up-to-date)
+              const currentDeletedGuests = state.deletedGuests || parsed.state.deletedGuests || {};
+              
+              // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+              // This prevents deleted guests from being restored when fetching from localStorage
+              const cleanedMergedEvents = mergedEvents.map((event: Event) => {
+                const deletedGuestIds = currentDeletedGuests[event.id] || [];
+                return {
+                  ...event,
+                  guests: event.guests
+                    ?.filter((guest: Guest) => {
+                      // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                      if (deletedGuestIds.includes(guest.id)) {
+                        console.log(`🚫 Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((guest: Guest) => ({
+                      ...guest,
+                      firstName: cleanName(guest.firstName),
+                      lastName: cleanName(guest.lastName)
+                    })) || []
+                };
+              });
               
               console.log(`💾 Saving ${cleanedMergedEvents.length} events to localStorage (userId: ${currentUserId || 'none'})`);
               
               return {
-                events: cleanedMergedEvents, // Preserve all events (filtered by userId only if logged in)
+                events: cleanedMergedEvents, // Preserve all events (filtered by userId only if logged in), with deleted guests removed
                 deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
-                deletedGuests: state.deletedGuests || parsed.state.deletedGuests || {},
+                deletedGuests: currentDeletedGuests, // Use currentDeletedGuests from state
                 currentEvent: state.currentEvent || parsed.state.currentEvent || null
               };
             }
@@ -5070,20 +5103,35 @@ export const useEventStore = create<EventStore>()(
           if (state.events && state.events.length > 0) {
             console.log('💾 No storage found, saving current state events:', state.events.length);
             
-            // CRITICAL: Clean all guest names before saving to localStorage
-            const cleanedEvents = state.events.map((event: Event) => ({
-              ...event,
-              guests: event.guests?.map((guest: Guest) => ({
-                ...guest,
-                firstName: cleanName(guest.firstName),
-                lastName: cleanName(guest.lastName)
-              })) || []
-            }));
+            // CRITICAL: Get deletedGuests from state
+            const currentDeletedGuests = state.deletedGuests || {};
+            
+            // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+            const cleanedEvents = state.events.map((event: Event) => {
+              const deletedGuestIds = currentDeletedGuests[event.id] || [];
+              return {
+                ...event,
+                guests: event.guests
+                  ?.filter((guest: Guest) => {
+                    // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                    if (deletedGuestIds.includes(guest.id)) {
+                      console.log(`🚫 Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map((guest: Guest) => ({
+                    ...guest,
+                    firstName: cleanName(guest.firstName),
+                    lastName: cleanName(guest.lastName)
+                  })) || []
+              };
+            });
             
             return {
               events: cleanedEvents,
               deletedEvents: state.deletedEvents || [],
-              deletedGuests: state.deletedGuests || {},
+              deletedGuests: currentDeletedGuests,
               currentEvent: state.currentEvent || null
             };
           }
@@ -5092,20 +5140,35 @@ export const useEventStore = create<EventStore>()(
         }
         
         // Fallback: if we can't merge, at least save what we have
-        // CRITICAL: Clean all guest names before saving to localStorage
-        const cleanedFallbackEvents = (state.events || []).map((event: Event) => ({
-          ...event,
-          guests: event.guests?.map((guest: Guest) => ({
-            ...guest,
-            firstName: cleanName(guest.firstName),
-            lastName: cleanName(guest.lastName)
-          })) || []
-        }));
+        // CRITICAL: Get deletedGuests from state
+        const currentDeletedGuests = state.deletedGuests || {};
+        
+        // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+        const cleanedFallbackEvents = (state.events || []).map((event: Event) => {
+          const deletedGuestIds = currentDeletedGuests[event.id] || [];
+          return {
+            ...event,
+            guests: event.guests
+              ?.filter((guest: Guest) => {
+                // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                if (deletedGuestIds.includes(guest.id)) {
+                  console.log(`🚫 Filtering out deleted guest from localStorage (fallback): ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                  return false;
+                }
+                return true;
+              })
+              .map((guest: Guest) => ({
+                ...guest,
+                firstName: cleanName(guest.firstName),
+                lastName: cleanName(guest.lastName)
+              })) || []
+          };
+        });
         
         return { 
           events: cleanedFallbackEvents,
           deletedEvents: state.deletedEvents || [],
-          deletedGuests: state.deletedGuests || {},
+          deletedGuests: currentDeletedGuests,
           currentEvent: state.currentEvent || null
         };
       },
