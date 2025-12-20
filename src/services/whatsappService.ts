@@ -659,6 +659,70 @@ class WhatsAppService {
         
         console.log('🔍 Error details:', { errorCode, errorDetails, errorMessage });
         
+        // CRITICAL: For template "bb" with error 100, try removing header image
+        // The header image might be defined as Static (not Variable) in Meta Business Manager
+        if (errorCode === 100 && 
+            templateName === 'bb' && 
+            messagePayload.template?.components?.some((c: any) => c.type === 'header') &&
+            (errorDetails.includes('Parameter name is missing or empty') || errorDetails.includes('Invalid parameter'))) {
+          console.warn('⚠️ Template "bb" - Error 100 detected with header image');
+          console.warn('💡 Header image might be Static (not Variable) in Meta Business Manager');
+          console.warn('🔄 Retrying WITHOUT header image...');
+          
+          // Remove header component and retry
+          if (messagePayload.template?.components) {
+            const componentsWithoutHeader = messagePayload.template.components.filter(
+              (comp: any) => comp.type !== 'header'
+            );
+            
+            const retryPayload = {
+              ...messagePayload,
+              template: {
+                ...messagePayload.template,
+                components: componentsWithoutHeader.length > 0 ? componentsWithoutHeader : undefined
+              }
+            };
+            
+            if (!retryPayload.template.components || retryPayload.template.components.length === 0) {
+              delete retryPayload.template.components;
+            }
+            
+            console.log('📤 RETRY PAYLOAD (without header image for template "bb"):');
+            console.log(JSON.stringify(retryPayload, null, 2));
+            
+            // Retry the request
+            const retryResponse = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(retryPayload)
+            });
+            
+            console.log('📊 Retry response status:', retryResponse.status);
+            
+            if (retryResponse.ok) {
+              console.log('✅ Message sent successfully WITHOUT header image');
+              console.warn('💡 Note: Template "bb" header image is Static (not Variable) in Meta Business Manager.');
+              console.warn('💡 The image will still appear because it\'s defined in the template itself.');
+              // Use the successful retry response
+              response = retryResponse;
+            } else {
+              // Still failed - log the error but continue with original error handling
+              const retryResponseClone = retryResponse.clone();
+              let errorData2: any = {};
+              try {
+                errorData2 = await retryResponseClone.json();
+                console.error('❌ Retry without header also failed:', errorData2);
+              } catch (e) {
+                console.error('❌ Failed to parse retry error response:', e);
+              }
+              // Continue with original error handling - response is already cloned
+            }
+          }
+        }
+        
         // Check if template requires header image (error 132012 or error message mentions header/image)
         const requiresHeaderImage = 
           errorCode === 132012 || 
