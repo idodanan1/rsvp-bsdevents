@@ -91,6 +91,8 @@ class WhatsAppService {
           // If templateParams is already an array, use it directly
           // Otherwise, convert object to array in the correct order
           let bodyParams: any[] = [];
+          // CRITICAL: Declare filteredParamsOrder at outer scope so it's accessible everywhere
+          let filteredParamsOrder: string[] = [];
           
           if (Array.isArray(messageData.templateParams)) {
             // If it's already an array, use it directly
@@ -98,6 +100,8 @@ class WhatsAppService {
               type: 'text',
               text: typeof param === 'string' ? param : param.text || param.value || String(param)
             }));
+            // For array params, filteredParamsOrder is empty (not used)
+            filteredParamsOrder = [];
           } else {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
@@ -129,7 +133,7 @@ class WhatsAppService {
             
             // CRITICAL: Validate that all required parameters exist in templateParams
             const missingParams: string[] = [];
-            const filteredParamsOrder = paramsOrder.filter((key: string) => 
+            filteredParamsOrder = paramsOrder.filter((key: string) => 
               key !== 'language' && 
               key !== 'paramsOrder' && 
               !((templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link')
