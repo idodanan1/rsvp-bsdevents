@@ -1338,7 +1338,7 @@ export const useEventStore = create<EventStore>()(
               createdAt: new Date(),
               updatedAt: new Date(),
               // Use WhatsApp template for first message
-              templateName: 'bb', // Template name in Meta Business Manager
+              templateName: 'aaa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -1375,8 +1375,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'bb' for this campaign
-              templateName: 'bb', // Template name in Meta Business Manager
+              // Use WhatsApp template 'aaa' for this campaign
+              templateName: 'aaa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -1413,8 +1413,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'bb' for this campaign
-              templateName: 'bb', // Template name in Meta Business Manager
+              // Use WhatsApp template 'aaa' for this campaign
+              templateName: 'aaa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -2987,14 +2987,14 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
-          // Use template "bb" for the first three campaigns
+          // Use template "aaa" for the first three campaigns
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'bb'; // Template name in Meta Business Manager
+            templateNameForCampaign = 'aaa'; // Template name in Meta Business Manager
           } else if (campaign.name === 'תזכורת שנייה') {
-            // Use template 'bb' for "תזכורת שנייה"
-            templateNameForCampaign = 'bb';
+            // Use template 'aaa' for "תזכורת שנייה"
+            templateNameForCampaign = 'aaa';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'bb';
+            templateNameForCampaign = 'aaa';
           } else if (campaign.name === 'תזכורת אחרונה') {
             // CRITICAL: Always use template 'today' for "תזכורת אחרונה" campaign
             templateNameForCampaign = 'today';
@@ -3112,8 +3112,8 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = {};
             
-            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
-              // Template "bb" requires 6 parameters in order (matching the template body):
+            if (templateNameForCampaign === 'aaa' || templateNameForCampaign === 'AAA') {
+              // Template "aaa" requires 6 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, couple_name, event_date, event_time, venue
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
               templateParams = {
@@ -3418,11 +3418,11 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'bb';
+            templateNameForCampaign = 'aaa';
           } else if (campaign.name === 'תזכורת שנייה') {
-            templateNameForCampaign = 'bb';
+            templateNameForCampaign = 'aaa';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'bb';
+            templateNameForCampaign = 'aaa';
           } else if (campaign.name === 'תזכורת אחרונה') {
             templateNameForCampaign = 'today';
           } else if (campaign.name === 'תזכורת יום האירוע') {
@@ -3466,8 +3466,8 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = undefined;
             
-            if (templateNameForCampaign === 'bb' || templateNameForCampaign === 'BB') {
-              // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+            if (templateNameForCampaign === 'aaa' || templateNameForCampaign === 'AAA') {
+              // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                              'event_date', 'event_time', 'venue'],

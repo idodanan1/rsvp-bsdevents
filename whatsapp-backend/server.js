@@ -178,7 +178,7 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'bb',
+      templateName: 'aaa',
       // CRITICAL: No buttons - send text-only message with links instead
       whatsappButtons: [],
       smsMessage: `שלום {{guest_name}}! 
@@ -216,7 +216,7 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'bb',
+      templateName: 'aaa',
       // CRITICAL: No buttons - send text-only message with links instead
       whatsappButtons: [],
       smsMessage: `שלום {{guest_name}}! 
@@ -260,7 +260,7 @@ function createDefaultCampaigns(eventId, eventDate) {
       status: 'draft',
       sentCount: 0,
       responseCount: 0,
-      templateName: 'bb',
+      templateName: 'aaa',
       // CRITICAL: No buttons - send text-only message with links instead
       whatsappButtons: [],
       smsMessage: `⏰ שלום {{guest_name}}!

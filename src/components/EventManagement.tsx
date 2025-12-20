@@ -2752,13 +2752,13 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, use template "bb"
-      console.log('📝 Sending manual message with template "bb"');
+      // CRITICAL: For manual messages from table, use template "aaa"
+      console.log('📝 Sending manual message with template "aaa"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Prepare template parameters for template "bb" (6 parameters only)
-      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
-      const templateParamsForBB = {
+      // Prepare template parameters for template "aaa" (6 parameters only)
+      // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+      const templateParamsForAAA = {
         paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                      'event_date', 'event_time', 'venue'],
         guest_name: guest.firstName,
@@ -2773,16 +2773,16 @@ const EventManagement: React.FC = () => {
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
-      console.log('📋 Template params:', templateParamsForBB);
+      console.log('📋 Template params:', templateParamsForAAA);
       
       let result;
       try {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "bb" for manual messages from table
-          templateName: 'bb',
-          templateParams: templateParamsForBB,
+          // CRITICAL: Use template "aaa" for manual messages from table
+          templateName: 'aaa',
+          templateParams: templateParamsForAAA,
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
@@ -2802,8 +2802,8 @@ const EventManagement: React.FC = () => {
               venue: event.venue || '',
               invitationImageUrl: finalImageUrl // Use event image first, then campaign image
             },
-            // CRITICAL: Pass template params for template "bb"
-            templateParams: templateParamsForBB
+            // CRITICAL: Pass template params for template "aaa"
+            templateParams: templateParamsForAAA
           }]
         });
         

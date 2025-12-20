@@ -184,7 +184,7 @@ class MessageService {
     // CRITICAL: Meta requires ALL first messages to use approved templates
     // 1. If it's a first message → MUST use template (Meta requirement)
     //    - If explicit templateName from campaign → use it
-    //    - If no templateName → use "bb" template
+    //    - If no templateName → use "aaa" template
     // 2. If not first message → send regular message (can use template if provided, but not required)
     // CRITICAL: If explicit templateName is undefined AND there's message content, send as regular message
     // This allows manual messages to be sent as free-form text even for first messages
@@ -199,7 +199,7 @@ class MessageService {
     // CRITICAL: If no buttons are provided, don't use template - send as regular message
     // BUT: First messages MUST use a template (Meta requirement), so don't clear templateName for first messages
     // Templates like "aa" and "a" require buttons, so if we don't have buttons, use regular message
-    // Exception: Template "bb" doesn't require buttons (has predefined buttons in Meta)
+    // Exception: Template "aaa" doesn't require buttons (has predefined buttons in Meta)
     if (!hasButtons && templateName && !isFirstMessage) {
       console.log('📝 No buttons provided and not first message - sending as regular message instead of template');
       templateName = undefined;
@@ -234,8 +234,8 @@ class MessageService {
       // Priority: recipient.templateParams > messageData.templateParams
       if (!templateParams || Object.keys(templateParams).length === 0) {
         console.warn('⚠️ No template parameters provided - using defaults for template:', templateName);
-        // If template is "bb" and no params, create default params
-        if (templateName.toLowerCase() === 'bb' && recipient.eventData) {
+        // If template is "aaa" and no params, create default params
+        if (templateName.toLowerCase() === 'aaa' && recipient.eventData) {
           templateParams = {
             paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                          'event_date', 'event_time', 'venue'],
@@ -247,7 +247,7 @@ class MessageService {
             venue: recipient.eventData.venue || '',
             language: 'he'
           };
-          console.log('📋 Created default template parameters for "bb":', templateParams);
+          console.log('📋 Created default template parameters for "aaa":', templateParams);
         }
       }
       
@@ -262,14 +262,14 @@ class MessageService {
       templateParams = undefined;
     } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
-      // No explicit template from campaign → use "bb" template as fallback (instead of hello_world)
-      console.log('⚠️ First message - no valid template from campaign, using "bb" template as fallback');
+      // No explicit template from campaign → use "aaa" template as fallback (instead of hello_world)
+      console.log('⚠️ First message - no valid template from campaign, using "aaa" template as fallback');
       console.log('⚠️ Note: Message content will be ignored - only template content will be sent');
       console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
-      // CRITICAL: Always set templateName to 'bb' for first messages (Meta requirement)
-      templateName = 'bb';
-      // Prepare template parameters for template "bb" (6 parameters only)
-      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+      // CRITICAL: Always set templateName to 'aaa' for first messages (Meta requirement)
+      templateName = 'aaa';
+      // Prepare template parameters for template "aaa" (6 parameters only)
+      // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       const eventData = recipient.eventData;
       if (eventData) {
         templateParams = {
@@ -289,10 +289,10 @@ class MessageService {
         };
       }
       // CRITICAL: Verify templateName is set correctly
-      if (!templateName || templateName !== 'bb') {
+      if (!templateName || templateName !== 'aaa') {
         console.error('❌ CRITICAL ERROR: templateName not set correctly for first message!');
         console.error('❌ templateName:', templateName, 'type:', typeof templateName);
-        templateName = 'bb'; // Force set to 'bb' as fallback
+        templateName = 'aaa'; // Force set to 'aaa' as fallback
       }
     } else if (hasMessageContent) {
       // NOT FIRST MESSAGE and no template → send regular message with campaign content
@@ -314,10 +314,10 @@ class MessageService {
     if (isFirstMessage && !explicitlyNoTemplate && (!templateName || typeof templateName !== 'string' || templateName.trim().length === 0)) {
       console.error('❌ CRITICAL ERROR: First message requires template but templateName is not set!');
       console.error('❌ templateName:', templateName, 'type:', typeof templateName);
-      console.error('❌ Forcing templateName to "bb" for first message');
-      templateName = 'bb';
-      // Ensure templateParams are set for "bb" template
-      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+      console.error('❌ Forcing templateName to "aaa" for first message');
+      templateName = 'aaa';
+      // Ensure templateParams are set for "aaa" template
+      // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       const eventData = recipient.eventData;
       if (eventData && !templateParams) {
         templateParams = {
@@ -360,10 +360,10 @@ class MessageService {
     // BUT: Only if user didn't explicitly request no template (explicitlyNoTemplate)
     // This prevents "templateName is not defined" errors while respecting user's choice
     if (isFirstMessage && !explicitlyNoTemplate && (templateName === undefined || templateName === null || (typeof templateName === 'string' && templateName.trim().length === 0))) {
-      console.error('❌ CRITICAL: templateName is invalid for first message, forcing to "bb"');
-      templateName = 'bb';
+      console.error('❌ CRITICAL: templateName is invalid for first message, forcing to "aaa"');
+      templateName = 'aaa';
       // Ensure templateParams are set
-      // Template "bb" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+      // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
       if (!templateParams) {
         const eventData = recipient.eventData;
         templateParams = eventData ? {
