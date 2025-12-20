@@ -331,8 +331,8 @@ class WhatsAppService {
           const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
           const templateNameLower = (messageData.templateName || '').toLowerCase();
           
-          // CRITICAL: Template "aa" does NOT require any button parameters - skip all button processing
-          // The template "aa" in Meta Business Manager has static buttons that don't need dynamic parameters
+          // CRITICAL: Template "aa" does NOT have buttons - skip all button processing
+          // The template "aa" in Meta Business Manager does not include buttons (user removed them)
           if (templateNameLower !== 'aa') {
             // Always add URL button parameters if provided (they are required even for predefined buttons)
             // Only skip Reply buttons for predefined templates (they don't need parameters)
@@ -435,12 +435,12 @@ class WhatsAppService {
               console.log(`🔘 Added URL button parameter for predefined template button`);
             }
           } else {
-            // Template "aa" - skip all button processing
-            console.log('ℹ️ Template "aa" - skipping all button parameters (template has static buttons in Meta that don\'t require parameters)');
+            // Template "aa" - skip all button processing (template has no buttons)
+            console.log('ℹ️ Template "aa" - skipping all button processing (template does not include buttons in Meta Business Manager)');
           }
           
           // CRITICAL: Final validation before adding components
-          // For template "aa", ensure we have exactly 8 body parameters and NO header/button components
+          // For template "aa", ensure we have exactly 8 body parameters and NO header/button components (template has no buttons)
           if (templateName === 'aa' || templateName === 'AA') {
             const bodyComponent = components.find((c: any) => c.type === 'body');
             const headerComponent = components.find((c: any) => c.type === 'header');
@@ -515,7 +515,7 @@ class WhatsAppService {
               console.log('📋 Template "aa" requirements:');
               console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
               console.log('  - 8 body parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name');
-              console.log('  - 0 button components (static buttons in Meta)');
+              console.log('  - 0 button components (template has no buttons in Meta)');
               const finalBodyParamsCount = bodyComponent?.parameters?.length || 0;
               const finalHeaderCount = headerComponent ? 1 : 0;
               const finalButtonCount = buttonComponents.length;
@@ -628,10 +628,10 @@ class WhatsAppService {
         console.log(`  Total components: ${messagePayload.template?.components?.length || 0}`);
         
         if (messagePayload.template?.name?.toLowerCase() === 'aa') {
-          console.log('📋 Template "aa" requirements:');
-          console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
-          console.log('  - MUST have 8 body parameters');
-          console.log('  - MUST have 0 button components (static buttons in Meta)');
+              console.log('📋 Template "aa" requirements:');
+              console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
+              console.log('  - MUST have 8 body parameters');
+              console.log('  - MUST have 0 button components (template has no buttons in Meta)');
           console.log('  - Language code MUST be set (default: "he")');
           const actualBodyCount = bodyParams.length;
           const actualHeaderCount = headerComponent ? 1 : 0;
@@ -655,7 +655,7 @@ class WhatsAppService {
           }
           
           if (buttonComponents.length > 0) {
-            console.warn(`⚠️ WARNING: Template "aa" has static buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
+            console.warn(`⚠️ WARNING: Template "aa" has no buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
             console.warn('⚠️ This may cause Meta API error 132018');
           }
           

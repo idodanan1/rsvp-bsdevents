@@ -198,8 +198,8 @@ class MessageService {
     
     // CRITICAL: If no buttons are provided, don't use template - send as regular message
     // BUT: First messages MUST use a template (Meta requirement), so don't clear templateName for first messages
-    // Templates like "aa" and "a" require buttons, so if we don't have buttons, use regular message
-    // Exception: Template "aa" doesn't require buttons (has predefined buttons in Meta)
+    // Templates like "a" require buttons, so if we don't have buttons, use regular message
+    // Exception: Template "aa" doesn't require buttons (has no buttons in Meta - user removed them)
     if (!hasButtons && templateName && !isFirstMessage) {
       console.log('📝 No buttons provided and not first message - sending as regular message instead of template');
       templateName = undefined;

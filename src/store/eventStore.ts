@@ -3115,7 +3115,7 @@ export const useEventStore = create<EventStore>()(
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
               // Template "aa" requires 8 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
+              // NOTE: guest_response_link is kept for reference but NOT sent (template has no buttons)
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],

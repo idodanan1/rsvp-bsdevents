@@ -2769,7 +2769,7 @@ const EventManagement: React.FC = () => {
         event_time: event.eventTime || '',
         venue: event.venue || '',
         couple_name: coupleName || '',
-        guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+        guest_response_link: guestLink, // Keep for reference but NOT sent (template has no buttons)
         language: 'he'
       };
       

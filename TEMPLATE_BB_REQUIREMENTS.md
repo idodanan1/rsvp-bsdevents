@@ -21,9 +21,9 @@
    
    **סדר חשוב מאוד!** הפרמטרים חייבים להיות בסדר הזה.
 
-### 3. **כפתורים** - סטטיים! ⚠️
-   - הכפתורים מוגדרים **סטטית** בתבנית ב-Meta Business Manager
-   - **אין לשלוח** פרמטרים של כפתורים - Meta ישתמש בכפתורים הסטטיים מהתבנית
+### 3. **כפתורים** - אין כפתורים! ⚠️
+   - התבנית **לא כוללת כפתורים** ב-Meta Business Manager (המשתמש הסיר אותם)
+   - **אין לשלוח** פרמטרים של כפתורים - התבנית לא כוללת כפתורים כלל
    - הקוד **לא** ישלח button components עבור תבנית זו
 
 ### 4. **פרמטרים טכניים:**
@@ -61,7 +61,7 @@
 // בקונסול, חפש:
 ℹ️ Template "aa" - header image is STATIC (not a variable) in Meta Business Manager
 ℹ️ Skipping header component (Meta will use the static image from the template)
-ℹ️ Template "aa" - skipping all button parameters (template has static buttons in Meta)
+ℹ️ Template "aa" - skipping all button processing (template does not include buttons in Meta Business Manager)
 ```
 
 ### בדיקה 4: האם ה-API credentials תקינים?
@@ -96,9 +96,9 @@
 - [ ] `language` מוגדר ל-'he'
 - [ ] Access Token תקין
 - [ ] Phone Number ID תקין
-- [ ] התבנית "aa" מאושרת ב-Meta Business Manager
-- [ ] התבנית "aa" כוללת תמונת כותרת סטטית (לא משתנה)
-- [ ] התבנית "aa" כוללת כפתורים סטטיים (לא דינמיים)
+   - [ ] התבנית "aa" מאושרת ב-Meta Business Manager
+   - [ ] התבנית "aa" כוללת תמונת כותרת סטטית (לא משתנה)
+   - [ ] התבנית "aa" לא כוללת כפתורים (המשתמש הסיר אותם)
 
 ## 🚀 איך לבדוק:
 
@@ -108,7 +108,7 @@
    - האם רואים "📋 Template "aa" - Sending 8 body parameters"?
    - האם רואים "ℹ️ Template "aa" - header image is STATIC"?
    - האם רואים "ℹ️ Skipping header component"?
-   - האם רואים "ℹ️ Template "aa" - skipping all button parameters"?
+   - האם רואים "ℹ️ Template "aa" - skipping all button processing"?
    - האם יש שגיאות?
 
 אם כל הלוגים מופיעים ולא רואים שגיאות, ההודעה אמורה להישלח בהצלחה!
