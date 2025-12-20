@@ -653,13 +653,8 @@ const EventManagement: React.FC = () => {
     });
     
     // CRITICAL: Always get directly from events array (most up-to-date)
-    // Don't rely on currentEventFromStore ref as it might be stale
-    // This ensures we always get the latest data, even if update was for a different event
+    // Use getState() to get the latest data - don't rely on refs or component state
     let event = currentEvents.find(e => e.id === id) || null;
-    // Fallback to currentEventFromStore ref if event not found in array
-    if (!event) {
-      event = currentEventFromStore;
-    }
     
     // Final fallback to currentEvent from state if it matches the ID
     if (!event && currentEventFromState && currentEventFromState.id === id) {
