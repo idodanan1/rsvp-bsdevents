@@ -126,17 +126,61 @@ class WhatsAppService {
             // Even if a parameter is empty, we must send it (as empty string)
             // The filter only removes 'language' and 'paramsOrder' keys, but keeps all actual template parameters
             // CRITICAL: Also filter out 'guest_response_link' for template "bb" and "aa" body params (it's only for button)
-            bodyParams = paramsOrder
-              .filter((key: string) => key !== 'language' && key !== 'paramsOrder' && 
-                      !((templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link'))
-              .map((key: string) => {
+            
+            // CRITICAL: Validate that all required parameters exist in templateParams
+            const missingParams: string[] = [];
+            const filteredParamsOrder = paramsOrder.filter((key: string) => 
+              key !== 'language' && 
+              key !== 'paramsOrder' && 
+              !((templateName === 'bb' || templateName === 'BB' || templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link')
+            );
+            
+            // CRITICAL: Check for extra parameters in templateParams that aren't in paramsOrder
+            const allowedKeys = ['language', 'paramsOrder', 'guest_response_link', 'headerImageUrl', 'eventData', ...filteredParamsOrder];
+            const extraParams: string[] = [];
+            Object.keys(messageData.templateParams || {}).forEach((key: string) => {
+              if (!allowedKeys.includes(key)) {
+                extraParams.push(key);
+                console.warn(`⚠️ Extra parameter "${key}" found in templateParams but not in paramsOrder - will be ignored`);
+              }
+            });
+            
+            if (extraParams.length > 0) {
+              console.warn(`⚠️ Extra parameters in templateParams (will be ignored):`, extraParams);
+              console.warn(`⚠️ Only parameters in paramsOrder will be sent:`, filteredParamsOrder);
+            }
+            
+            filteredParamsOrder.forEach((key: string) => {
+              if (!(key in messageData.templateParams!)) {
+                missingParams.push(key);
+                console.error(`❌ CRITICAL: Parameter "${key}" is missing from templateParams!`);
+                console.error(`❌ Available keys in templateParams:`, Object.keys(messageData.templateParams || {}));
+              }
+            });
+            
+            if (missingParams.length > 0) {
+              console.error(`❌ Missing parameters for template "${templateName}":`, missingParams);
+              console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
+              console.error(`❌ Please ensure all parameters are provided in templateParams`);
+            }
+            
+            bodyParams = filteredParamsOrder.map((key: string) => {
+                // CRITICAL: Check if parameter exists, if not use empty string (will be replaced with space)
                 const paramValue = messageData.templateParams![key];
-                let textValue = paramValue ? String(paramValue).trim() : '';
+                
+                // Handle undefined, null, or empty values
+                let textValue: string;
+                if (paramValue === undefined || paramValue === null) {
+                  console.warn(`⚠️ Parameter "${key}" is undefined or null, using default value`);
+                  textValue = '';
+                } else {
+                  textValue = String(paramValue).trim();
+                }
                 
                 // Log if parameter is empty to help debug
-                if (!textValue) {
+                if (!textValue || textValue.length === 0) {
                   console.warn(`⚠️ Empty parameter detected: ${key}`);
-                  textValue = ' '; // Use space for empty parameters
+                  textValue = ' '; // Use space for empty parameters (Meta requires non-empty)
                 }
                 
                 // Ensure parameter is not empty - Meta requires non-empty parameters
@@ -174,8 +218,13 @@ class WhatsAppService {
               // CRITICAL: Log parameters being sent for debugging
               console.log(`📋 Template "${templateName}" - Sending ${bodyParams.length} body parameters:`);
               bodyParams.forEach((param, index) => {
-                console.log(`  ${index + 1}. "${param.text}"`);
+                console.log(`  ${index + 1}. "${param.text}" (length: ${param.text.length})`);
               });
+              
+              // CRITICAL: Log the actual paramsOrder being used
+              console.log(`📋 paramsOrder used:`, filteredParamsOrder);
+              console.log(`📋 Total keys in templateParams:`, Object.keys(messageData.templateParams || {}).length);
+              console.log(`📋 Keys in templateParams:`, Object.keys(messageData.templateParams || {}));
               
               components.push({
                 type: 'body',
@@ -203,14 +252,61 @@ class WhatsAppService {
             headerImageUrl.startsWith('http://')
           );
           
-          // CRITICAL: Template "bb" does NOT require header image component
-          // Based on the error (#100) Invalid parameter, it seems template "bb" doesn't support header images
-          // We'll send without header first, and only add if Meta API returns error 132012 (header required)
+          // CRITICAL: Template "bb" REQUIRES header image - always add it
+          // Based on the template image provided, template "bb" has a header image section
+          // Meta expects a header parameter, so we MUST always send one
           if (templateName === 'bb' || templateName === 'BB') {
-            // Template "bb" - don't add header image component
-            // If template requires header, Meta API will return error 132012 and we'll retry with header
-            console.log('ℹ️ Template "bb" - skipping header image component (template may not support header images)');
-            console.log('ℹ️ If template requires header image, Meta API will return error 132012 and we will retry');
+            let imageUrlForMeta: string;
+            
+            if (isValidImageUrl && headerImageUrl) {
+              // We have a valid image URL - use it
+              imageUrlForMeta = headerImageUrl.trim();
+              
+              // CRITICAL: Validate URL format more strictly
+              if (!imageUrlForMeta || imageUrlForMeta.length === 0) {
+                console.warn('⚠️ Header image URL is empty after trim, using placeholder');
+                imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
+              } else {
+                if (imageUrlForMeta.startsWith('http://')) {
+                  imageUrlForMeta = imageUrlForMeta.replace('http://', 'https://');
+                  console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
+                }
+                
+                // CRITICAL: Ensure URL is valid HTTPS URL
+                if (!imageUrlForMeta.startsWith('https://')) {
+                  console.warn('⚠️ Header image URL is not HTTPS after conversion, using placeholder');
+                  imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
+                }
+              }
+            } else {
+              // No valid image URL for template "bb" - use placeholder
+              // Template "bb" REQUIRES a header image, so we must send one
+              console.log('ℹ️ Template "bb" - no valid header image URL provided, using placeholder');
+              console.log('ℹ️ headerImageUrl value:', headerImageUrl);
+              console.log('ℹ️ isValidImageUrl:', isValidImageUrl);
+              imageUrlForMeta = DEFAULT_PLACEHOLDER_IMAGE;
+            }
+            
+            // ALWAYS add header image for template "bb" (required by Meta)
+            components.unshift({
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: {
+                    link: imageUrlForMeta
+                  }
+                }
+              ]
+            });
+            console.log('🖼️ ✅ Adding header image to template "bb":', imageUrlForMeta);
+            console.log('🖼️ ✅ Header image parameter structure:', JSON.stringify({
+              type: 'header',
+              parameters: [{
+                type: 'image',
+                image: { link: imageUrlForMeta }
+              }]
+            }, null, 2));
           } else {
             // For other templates, use the original logic
             if (isValidImageUrl) {
@@ -382,12 +478,22 @@ class WhatsAppService {
           // Empty components array is not allowed
           if (components.length > 0) {
             messagePayload.template.components = components;
+            
+            // CRITICAL: Log the full components structure being sent
+            console.log('📋 Full components structure being sent:');
+            components.forEach((comp, index) => {
+              console.log(`  Component ${index + 1}:`, {
+                type: comp.type,
+                parametersCount: comp.parameters?.length || 0,
+                parameters: comp.type === 'body' ? comp.parameters?.map((p: any) => ({ text: p.text?.substring(0, 50) })) : comp.parameters
+              });
+            });
           } else {
             // If no parameters, don't send components at all (for templates without parameters)
             console.log('📋 No parameters to send - template will be sent without components');
           }
           
-          console.log('📋 Template parameters:', JSON.stringify(bodyParams, null, 2));
+          console.log('📋 Template body parameters:', JSON.stringify(bodyParams, null, 2));
         } else if (messageData.templateName === 'hello_world') {
           console.log('📋 hello_world template - no parameters needed');
         }
@@ -751,33 +857,85 @@ class WhatsAppService {
               
               // Check if this is a template-related error
               if (messageData.templateName && (errorDetails.includes('Parameter name is missing or empty') || errorDetails.includes('Invalid parameter'))) {
-                diagnosticMessage += '\n\n⚠️ IMPORTANT: Template Issue (Error Code 100)';
-                diagnosticMessage += `\n   Template "${messageData.templateName}" has an issue with parameters.`;
-                diagnosticMessage += '\n   According to Meta documentation (Error Code 100):';
-                diagnosticMessage += '\n   "The request included one or more unsupported or misspelled parameters."';
-                diagnosticMessage += '\n\n   Possible causes:';
-                diagnosticMessage += '\n   1. Parameter name mismatch (case-sensitive, exact spelling required)';
-                diagnosticMessage += '\n   2. Parameter not defined in template\'s Variable Samples';
-                diagnosticMessage += '\n   3. Parameter exceeds length limit';
-                diagnosticMessage += '\n   4. Template not fully approved (must be "Approved", not "Pending Quality Review")';
-                diagnosticMessage += '\n   5. Parameter order mismatch';
-                diagnosticMessage += '\n\n   🔍 CRITICAL CHECKS in Meta Business Manager → WhatsApp → Message Templates:';
-                diagnosticMessage += `\n   1. Find template "${messageData.templateName}"`;
-                diagnosticMessage += '\n   2. Status MUST be "Approved" (NOT "Pending Quality Review")';
-                diagnosticMessage += '\n   3. Click "Edit" → Go to "Body" section';
-                diagnosticMessage += '\n   4. Check "Variable Samples" section:';
-                diagnosticMessage += '\n      - EVERY parameter MUST have a NAME defined (not empty!)';
-                diagnosticMessage += '\n      - Parameter names must match EXACTLY (case-sensitive)';
-                diagnosticMessage += '\n      - No typos or extra spaces in parameter names';
-                diagnosticMessage += `\n   5. Parameters sent: ${messageData.templateParams ? Object.keys(messageData.templateParams).filter(k => k !== 'language' && k !== 'paramsOrder').length : 0}`;
-                diagnosticMessage += '\n   6. Check Error Messages section in Meta for specific parameter causing issue';
-                diagnosticMessage += '\n\n   For template "aa" (8 parameters):';
-                diagnosticMessage += '\n      guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name';
-                diagnosticMessage += '\n      (guest_response_link is only for button, not in body)';
-                diagnosticMessage += '\n\n   For template "a" (7 parameters):';
-                diagnosticMessage += '\n      guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name';
-                diagnosticMessage += '\n\n   For template "reminer" (7 parameters):';
-                diagnosticMessage += '\n      first_name, event_type, couple_name, event_date, event_time, venue, table_number';
+                diagnosticMessage += '\n\n⚠️ CRITICAL: Template Parameter Name Issue (Error Code 100)';
+                diagnosticMessage += `\n   Template "${messageData.templateName}" has a parameter with MISSING or EMPTY name.`;
+                diagnosticMessage += '\n   This error means: A variable in your template\'s Variable Samples section';
+                diagnosticMessage += '\n   does NOT have a NAME defined (the name field is empty).';
+                diagnosticMessage += '\n\n   🔴 THIS IS A TEMPLATE CONFIGURATION ISSUE IN META BUSINESS MANAGER';
+                diagnosticMessage += '\n   You MUST fix the template in Meta Business Manager, not in the code.';
+                diagnosticMessage += '\n\n   📋 STEP-BY-STEP FIX:';
+                diagnosticMessage += '\n   1. Go to: https://business.facebook.com/wa/manage/message-templates/';
+                diagnosticMessage += `\n   2. Find template "${messageData.templateName}"`;
+                diagnosticMessage += '\n   3. Click "Edit" button';
+                diagnosticMessage += '\n   4. Check EVERY section that has variables:';
+                diagnosticMessage += '\n\n   📋 HEADER Section (if template has header image):';
+                diagnosticMessage += '\n      a. Click on "Header" section';
+                diagnosticMessage += '\n      b. If header type is "Image", look for "Variable Samples"';
+                diagnosticMessage += '\n      c. Find the image variable';
+                diagnosticMessage += '\n      d. Check the "Name" field - it MUST NOT be empty!';
+                diagnosticMessage += '\n      e. If empty, enter a name (e.g., "header_image" or "event_image")';
+                diagnosticMessage += '\n      f. Save the template';
+                diagnosticMessage += '\n\n   📋 BODY Section:';
+                diagnosticMessage += '\n      a. Click on "Body" section';
+                diagnosticMessage += '\n      b. Look for "Variable Samples" section';
+                diagnosticMessage += '\n      c. Check EVERY variable in the list';
+                diagnosticMessage += '\n      d. For EACH variable, check the "Name" field';
+                diagnosticMessage += '\n      e. EVERY variable MUST have a name (not empty!)';
+                diagnosticMessage += '\n      f. Common names: guest_name, event_type, couple_name, etc.';
+                diagnosticMessage += '\n      g. If ANY variable has an empty name, enter a name';
+                diagnosticMessage += '\n      h. Save the template';
+                // CRITICAL: Count actual body parameters being sent, not all keys in templateParams
+                const actualBodyParamsCount = messagePayload.template?.components?.find((c: any) => c.type === 'body')?.parameters?.length || 0;
+                const headerComponent = messagePayload.template?.components?.find((c: any) => c.type === 'header');
+                const hasHeader = !!headerComponent;
+                const allKeysCount = messageData.templateParams ? Object.keys(messageData.templateParams).filter(k => k !== 'language' && k !== 'paramsOrder' && k !== 'guest_response_link' && k !== 'headerImageUrl' && k !== 'eventData').length : 0;
+                diagnosticMessage += `\n\n   📊 WHAT WE ARE SENDING:`;
+                diagnosticMessage += `\n   - Body parameters: ${actualBodyParamsCount}`;
+                diagnosticMessage += `\n   - Header image: ${hasHeader ? 'YES' : 'NO'}`;
+                diagnosticMessage += `\n   - Total keys in templateParams: ${allKeysCount}`;
+                diagnosticMessage += '\n\n   ⚠️ IMPORTANT:';
+                diagnosticMessage += '\n   - The error "Parameter name is missing or empty" means';
+                diagnosticMessage += '\n     a variable in Meta Business Manager doesn\'t have a name.';
+                diagnosticMessage += '\n   - You MUST add names to ALL variables in the template.';
+                diagnosticMessage += '\n   - After fixing, wait a few minutes for Meta to update.';
+                diagnosticMessage += '\n   - Then try sending again.';
+                
+                if (messageData.templateName?.toLowerCase() === 'bb') {
+                  diagnosticMessage += '\n\n   📋 SPECIFIC FIXES for template "bb":';
+                  diagnosticMessage += '\n      Template "bb" has a header image and 6 body parameters.';
+                  diagnosticMessage += '\n\n   🔴 MOST COMMON ISSUE: Header Image Variable Name';
+                  diagnosticMessage += '\n      1. In Meta Business Manager, edit template "bb"';
+                  diagnosticMessage += '\n      2. Go to "Header" section';
+                  diagnosticMessage += '\n      3. If header type is "Image", find "Variable Samples"';
+                  diagnosticMessage += '\n      4. Look for the image variable';
+                  diagnosticMessage += '\n      5. The "Name" field MUST have a value (e.g., "header_image")';
+                  diagnosticMessage += '\n      6. If the name is empty, enter a name and save';
+                  diagnosticMessage += '\n\n   📋 Body Parameters (6 total - check each one):';
+                  diagnosticMessage += '\n      1. guest_name - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      2. event_type - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      3. couple_name - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      4. event_date - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      5. event_time - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      6. venue - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n\n   ✅ HOW TO CHECK:';
+                  diagnosticMessage += '\n      - In Meta Business Manager → Edit template "bb"';
+                  diagnosticMessage += '\n      - Go to "Body" section → "Variable Samples"';
+                  diagnosticMessage += '\n      - For EACH of the 6 variables, check the "Name" column';
+                  diagnosticMessage += '\n      - If ANY name is empty, enter a name (e.g., "guest_name", "event_type", etc.)';
+                  diagnosticMessage += '\n      - Save the template and wait a few minutes';
+                  diagnosticMessage += '\n      - Try sending again';
+                }
+                
+                diagnosticMessage += '\n\n   📋 SUMMARY - What You Need To Do:';
+                diagnosticMessage += '\n   1. Go to Meta Business Manager → WhatsApp → Message Templates';
+                diagnosticMessage += `\n   2. Find and edit template "${messageData.templateName}"`;
+                diagnosticMessage += '\n   3. Check EVERY variable in Header and Body sections';
+                diagnosticMessage += '\n   4. For EACH variable, ensure the "Name" field is NOT empty';
+                diagnosticMessage += '\n   5. If any name is empty, enter a name and save';
+                diagnosticMessage += '\n   6. Wait 2-3 minutes for Meta to update';
+                diagnosticMessage += '\n   7. Try sending the message again';
+                diagnosticMessage += '\n\n   ⚠️ REMEMBER: This is a template configuration issue in Meta,';
+                diagnosticMessage += '\n   not a code issue. You MUST fix it in Meta Business Manager.';
               }
               
               diagnosticMessage += '\n\n1. Verify Phone Number ID is correct:';
@@ -810,9 +968,10 @@ class WhatsAppService {
               diagnosticMessage += '\n\n   🔍 CRITICAL CHECKS:';
               diagnosticMessage += `\n   1. Template "${messageData.templateName}" expects specific number of parameters`;
               if (messageData.templateName?.toLowerCase() === 'bb') {
-                diagnosticMessage += '\n   2. Template "bb" expects 6 body parameters: guest_name, groom_name, bride_name, event_date, event_time, venue';
+                diagnosticMessage += '\n   2. Template "bb" expects 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue';
                 diagnosticMessage += '\n   3. Template "bb" does NOT require header image - check if header was added incorrectly';
                 diagnosticMessage += '\n   4. Template "bb" may not have buttons - check if button parameters were added incorrectly';
+                diagnosticMessage += '\n   5. Verify in Meta Business Manager that template "bb" has exactly 6 variable samples in the Body section';
               }
               diagnosticMessage += '\n\n   Check the console logs above for:';
               diagnosticMessage += '\n   - Number of body parameters being sent';

@@ -635,13 +635,15 @@ const EventManagement: React.FC = () => {
   const currentEventFromStore = currentEventFromStoreRef.current;
   
   // CRITICAL: All hooks must be before any conditional returns
-  // Get guests from store - ALWAYS use events array to ensure we get the latest data
+  // Get guests from store - ALWAYS use getState() inside useMemo to avoid React #310 errors
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
-    // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
-    // This ensures React detects changes when events array updates
-    // The events array is subscribed via useEventStore(state => state.events) at the top
-    const currentEvents = events;
+    // CRITICAL: Use getState() inside useMemo to avoid React #310 errors
+    // This ensures we don't access unstable references (events, currentEvent) directly
+    // React will not complain because getState() is a stable function reference
+    const state = useEventStore.getState();
+    const currentEvents = state.events;
+    const currentEventFromState = state.currentEvent;
     
     console.log('🔄 guestsToDisplay recalculating:', {
       eventId: id,
@@ -654,14 +656,14 @@ const EventManagement: React.FC = () => {
     // Don't rely on currentEventFromStore ref as it might be stale
     // This ensures we always get the latest data, even if update was for a different event
     let event = currentEvents.find(e => e.id === id) || null;
-    // Fallback to currentEventFromStore if event not found in array
+    // Fallback to currentEventFromStore ref if event not found in array
     if (!event) {
       event = currentEventFromStore;
     }
     
-    // Final fallback to currentEvent if it matches the ID
-    if (!event && currentEvent && currentEvent.id === id) {
-      event = currentEvent;
+    // Final fallback to currentEvent from state if it matches the ID
+    if (!event && currentEventFromState && currentEventFromState.id === id) {
+      event = currentEventFromState;
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
