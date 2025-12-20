@@ -447,10 +447,10 @@ class WhatsAppService {
             const buttonComponents = components.filter((c: any) => c.type === 'button');
             const bodyParamsCount = bodyComponent?.parameters?.length || 0;
             
-            if (bodyParamsCount !== 6) {
+            if (bodyParamsCount !== 8) {
               console.error(`❌ CRITICAL ERROR: Template "aa" requires exactly 8 body parameters, but ${bodyParamsCount} are being sent!`);
               console.error(`❌ This will cause Meta API error 100 or 132000`);
-              console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
+              console.error(`❌ Expected parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name`);
               console.error(`❌ Actual parameters sent:`, bodyComponent?.parameters?.map((p: any, i: number) => `${i + 1}. "${p.text?.substring(0, 30)}..."`));
             }
             
@@ -601,11 +601,11 @@ class WhatsAppService {
         }
         
         // Final count validation
-        if (bodyParams.length !== 6) {
+        if (bodyParams.length !== 8) {
           console.error(`❌ CRITICAL VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
           console.error(`❌ Actual count: ${bodyParams.length}`);
           console.error(`❌ This payload will be REJECTED by Meta API`);
-          console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
+          console.error(`❌ Expected parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name`);
         }
       }
       
@@ -1148,7 +1148,7 @@ class WhatsAppService {
                   diagnosticMessage += '\n\n   ✅ HOW TO CHECK:';
                   diagnosticMessage += '\n      1. In Meta Business Manager → Edit template "aa"';
                   diagnosticMessage += '\n      2. Go to "Body" section → "Variable Samples"';
-                  diagnosticMessage += '\n      3. For EACH of the 6 variables, check the "Name" column';
+                  diagnosticMessage += '\n      3. For EACH of the 8 variables, check the "Name" column';
                   diagnosticMessage += '\n      4. If ANY name is empty, enter a name (e.g., "guest_name", "event_type", etc.)';
                   diagnosticMessage += '\n      5. Save the template and wait a few minutes';
                   diagnosticMessage += '\n      6. Try sending again';
