@@ -168,42 +168,52 @@ class WhatsAppService {
               console.error(`❌ Please ensure all parameters are provided in templateParams`);
             }
             
-            bodyParams = filteredParamsOrder.map((key: string) => {
+            // CRITICAL: Validate all parameters BEFORE constructing bodyParams
+            // This ensures we catch any issues early
+            const paramValidationErrors: string[] = [];
+            filteredParamsOrder.forEach((key: string) => {
+              const paramValue = messageData.templateParams![key];
+              if (paramValue === undefined || paramValue === null) {
+                paramValidationErrors.push(`Parameter "${key}" is undefined or null`);
+              } else {
+                const strValue = String(paramValue).trim();
+                if (strValue.length === 0) {
+                  paramValidationErrors.push(`Parameter "${key}" is empty after trim`);
+                }
+              }
+            });
+            
+            if (paramValidationErrors.length > 0) {
+              console.error(`❌ CRITICAL: Parameter validation failed for template "${templateName}":`);
+              paramValidationErrors.forEach(err => console.error(`  - ${err}`));
+              console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
+              console.error(`❌ Please ensure all parameters have valid non-empty values`);
+            }
+            
+            bodyParams = filteredParamsOrder.map((key: string, index: number) => {
                 // CRITICAL: Check if parameter exists, if not use empty string (will be replaced with space)
                 const paramValue = messageData.templateParams![key];
                 
                 // Handle undefined, null, or empty values
                 let textValue: string;
                 if (paramValue === undefined || paramValue === null) {
-                  console.warn(`⚠️ Parameter "${key}" is undefined or null, using default value`);
-                  textValue = '';
+                  console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is undefined or null, using space`);
+                  textValue = ' '; // Use space for empty parameters (Meta requires non-empty)
                 } else {
                   textValue = String(paramValue).trim();
+                  
+                  // If empty after trim, use space
+                  if (textValue.length === 0) {
+                    console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is empty after trim, using space`);
+                    textValue = ' ';
+                  }
                 }
                 
-                // Log if parameter is empty to help debug
-                if (!textValue || textValue.length === 0) {
-                  console.warn(`⚠️ Empty parameter detected: ${key}`);
-                  textValue = ' '; // Use space for empty parameters (Meta requires non-empty)
-                }
-                
-                // Ensure parameter is not empty - Meta requires non-empty parameters
-                if (textValue.length === 0) {
-                  console.warn(`⚠️ Parameter ${key} is empty after trim, using space`);
-                  textValue = ' ';
-                }
-                
-                // Log each parameter for debugging
-                console.log(`📋 Parameter ${key}: "${textValue}" (length: ${textValue.length}, isEmpty: ${textValue.length === 0})`);
-                
-                // Ensure parameter is valid - Meta doesn't accept empty strings
-                // Use a single space if parameter is empty
+                // CRITICAL: Ensure parameter is never empty - Meta rejects empty parameters
                 const finalValue = textValue.length > 0 ? textValue : ' ';
                 
-                // Additional validation: Check if parameter contains only whitespace
-                if (textValue.trim().length === 0 && textValue.length > 0) {
-                  console.warn(`⚠️ Parameter ${key} contains only whitespace, using space instead`);
-                }
+                // Log each parameter for debugging with position
+                console.log(`📋 Parameter ${index + 1}/${filteredParamsOrder.length} [${key}]: "${finalValue.substring(0, 50)}${finalValue.length > 50 ? '...' : ''}" (length: ${finalValue.length})`);
                 
                 // Return parameter in exact format Meta requires
                 // CRITICAL: Body parameters do NOT include parameter_name - only header/button parameters do
@@ -433,6 +443,52 @@ class WhatsAppService {
             console.log('ℹ️ Template "bb" - skipping all button parameters (template has static buttons in Meta that don\'t require parameters)');
           }
           
+          // CRITICAL: Final validation before adding components
+          // For template "bb", ensure we have exactly 6 body parameters and NO header/button components
+          if (templateName === 'bb' || templateName === 'BB') {
+            const bodyComponent = components.find((c: any) => c.type === 'body');
+            const headerComponent = components.find((c: any) => c.type === 'header');
+            const buttonComponents = components.filter((c: any) => c.type === 'button');
+            const bodyParamsCount = bodyComponent?.parameters?.length || 0;
+            
+            if (bodyParamsCount !== 6) {
+              console.error(`❌ CRITICAL ERROR: Template "bb" requires exactly 6 body parameters, but ${bodyParamsCount} are being sent!`);
+              console.error(`❌ This will cause Meta API error 100 or 132000`);
+              console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
+              console.error(`❌ Actual parameters sent:`, bodyComponent?.parameters?.map((p: any, i: number) => `${i + 1}. "${p.text?.substring(0, 30)}..."`));
+            }
+            
+            if (headerComponent) {
+              console.error(`❌ CRITICAL ERROR: Template "bb" should NOT have a header component!`);
+              console.error(`❌ Header image is STATIC in Meta Business Manager and does not require a parameter`);
+              console.error(`❌ Removing header component to prevent error...`);
+              // Remove header component
+              const headerIndex = components.findIndex((c: any) => c.type === 'header');
+              if (headerIndex !== -1) {
+                components.splice(headerIndex, 1);
+                console.log(`✅ Removed header component`);
+              }
+            }
+            
+            if (buttonComponents.length > 0) {
+              console.error(`❌ CRITICAL ERROR: Template "bb" should NOT have button components!`);
+              console.error(`❌ Buttons are STATIC in Meta Business Manager and do not require parameters`);
+              console.error(`❌ Removing button components to prevent error...`);
+              // Remove button components
+              const buttonIndices: number[] = [];
+              components.forEach((c: any, index: number) => {
+                if (c.type === 'button') {
+                  buttonIndices.push(index);
+                }
+              });
+              // Remove in reverse order to maintain indices
+              buttonIndices.reverse().forEach(index => {
+                components.splice(index, 1);
+              });
+              console.log(`✅ Removed ${buttonIndices.length} button component(s)`);
+            }
+          }
+          
           // Only add components if we have parameters (Meta requirement)
           // Empty components array is not allowed
           if (components.length > 0) {
@@ -460,11 +516,27 @@ class WhatsAppService {
             console.log(`  - Total components: ${components.length}`);
             
             if (templateName === 'bb' || templateName === 'BB') {
-              console.log('📋 Template "bb" expects:');
+              console.log('📋 Template "bb" requirements:');
               console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
               console.log('  - 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue');
               console.log('  - 0 button components (static buttons in Meta)');
-              console.log(`📊 ACTUAL: ${headerComponent ? '❌ 1 (should be 0)' : '✅ 0'} header, ${bodyComponent?.parameters?.length || 0} body params, ${buttonComponents.length} buttons`);
+              const finalBodyParamsCount = bodyComponent?.parameters?.length || 0;
+              const finalHeaderCount = headerComponent ? 1 : 0;
+              const finalButtonCount = buttonComponents.length;
+              console.log(`📊 FINAL VALIDATION: ${finalHeaderCount === 0 ? '✅' : '❌'} ${finalHeaderCount} header (should be 0), ${finalBodyParamsCount === 6 ? '✅' : '❌'} ${finalBodyParamsCount} body params (should be 6), ${finalButtonCount === 0 ? '✅' : '❌'} ${finalButtonCount} buttons (should be 0)`);
+              
+              if (finalBodyParamsCount !== 6) {
+                console.error(`❌ VALIDATION FAILED: Template "bb" requires exactly 6 body parameters!`);
+                console.error(`❌ This payload will be rejected by Meta API with error 100 or 132000`);
+              }
+              if (finalHeaderCount > 0) {
+                console.error(`❌ VALIDATION FAILED: Template "bb" should NOT have header components!`);
+                console.error(`❌ This payload will be rejected by Meta API with error 100 or 132012`);
+              }
+              if (finalButtonCount > 0) {
+                console.error(`❌ VALIDATION FAILED: Template "bb" should NOT have button components!`);
+                console.error(`❌ This payload will be rejected by Meta API with error 132018`);
+              }
             }
           } else {
             // If no parameters, don't send components at all (for templates without parameters)
@@ -493,6 +565,54 @@ class WhatsAppService {
         }
       }
 
+      // CRITICAL: Final payload validation before sending
+      if (messagePayload.type === 'template' && templateName === 'bb') {
+        const bodyParams = messagePayload.template?.components?.find((c: any) => c.type === 'body')?.parameters || [];
+        const headerComponent = messagePayload.template?.components?.find((c: any) => c.type === 'header');
+        const buttonComponents = messagePayload.template?.components?.filter((c: any) => c.type === 'button') || [];
+        
+        // Validate each body parameter structure
+        bodyParams.forEach((param: any, index: number) => {
+          if (!param.type || param.type !== 'text') {
+            console.error(`❌ CRITICAL: Body parameter ${index + 1} has invalid type: ${param.type}`);
+            console.error(`❌ Expected: { type: 'text', text: 'value' }`);
+            console.error(`❌ Actual:`, param);
+          }
+          if (!param.text || typeof param.text !== 'string') {
+            console.error(`❌ CRITICAL: Body parameter ${index + 1} has invalid text field:`, param.text);
+          }
+          if (param.parameter_name) {
+            console.error(`❌ CRITICAL: Body parameter ${index + 1} incorrectly includes 'parameter_name' field!`);
+            console.error(`❌ Body parameters should NOT have 'parameter_name' - only header/button parameters do`);
+            console.error(`❌ This will cause Meta API error 100`);
+          }
+        });
+        
+        // Validate header component (should NOT exist for "bb")
+        if (headerComponent) {
+          console.error(`❌ CRITICAL: Template "bb" payload includes header component but should NOT!`);
+          console.error(`❌ Header component:`, headerComponent);
+          console.error(`❌ This will cause Meta API error 100 or 132012`);
+        }
+        
+        // Validate button components (should NOT exist for "bb")
+        if (buttonComponents.length > 0) {
+          console.error(`❌ CRITICAL: Template "bb" payload includes ${buttonComponents.length} button component(s) but should NOT!`);
+          buttonComponents.forEach((btn: any, index: number) => {
+            console.error(`❌ Button component ${index + 1}:`, btn);
+          });
+          console.error(`❌ This will cause Meta API error 132018`);
+        }
+        
+        // Final count validation
+        if (bodyParams.length !== 6) {
+          console.error(`❌ CRITICAL VALIDATION FAILED: Template "bb" requires exactly 6 body parameters!`);
+          console.error(`❌ Actual count: ${bodyParams.length}`);
+          console.error(`❌ This payload will be REJECTED by Meta API`);
+          console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
+        }
+      }
+      
       // Log the FULL payload being sent to Meta API
       console.log('📤 FULL PAYLOAD TO META API:');
       console.log(JSON.stringify(messagePayload, null, 2));
@@ -505,6 +625,7 @@ class WhatsAppService {
         
         console.log('📊 PAYLOAD ANALYSIS:');
         console.log(`  Template name: ${messagePayload.template?.name}`);
+        console.log(`  Template language: ${messagePayload.template?.language?.code || 'NOT SET'}`);
         console.log(`  Body parameters count: ${bodyParams.length}`);
         console.log(`  Header component: ${headerComponent ? 'YES' : 'NO'}`);
         console.log(`  Button components count: ${buttonComponents.length}`);
@@ -515,11 +636,20 @@ class WhatsAppService {
           console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
           console.log('  - MUST have 6 body parameters');
           console.log('  - MUST have 0 button components (static buttons in Meta)');
-          console.log(`📊 ACTUAL PAYLOAD: ${headerComponent ? '❌' : '✅'} header (should be NO), ${bodyParams.length === 6 ? '✅' : '❌'} ${bodyParams.length} body params, ${buttonComponents.length === 0 ? '✅' : '❌'} ${buttonComponents.length} buttons`);
+          console.log('  - Language code MUST be set (default: "he")');
+          const actualBodyCount = bodyParams.length;
+          const actualHeaderCount = headerComponent ? 1 : 0;
+          const actualButtonCount = buttonComponents.length;
+          const hasLanguage = !!messagePayload.template?.language?.code;
+          console.log(`📊 ACTUAL PAYLOAD: ${actualHeaderCount === 0 ? '✅' : '❌'} header (${actualHeaderCount}, should be 0), ${actualBodyCount === 6 ? '✅' : '❌'} ${actualBodyCount} body params (should be 6), ${actualButtonCount === 0 ? '✅' : '❌'} ${actualButtonCount} buttons (should be 0), ${hasLanguage ? '✅' : '❌'} language code`);
           
-          if (bodyParams.length !== 6) {
-            console.error(`❌ ERROR: Template "bb" expects 6 body parameters, but ${bodyParams.length} are being sent!`);
+          if (actualBodyCount !== 6) {
+            console.error(`❌ ERROR: Template "bb" expects 6 body parameters, but ${actualBodyCount} are being sent!`);
             console.error('❌ This will cause Meta API error 100 or 132000');
+            console.error('❌ Body parameters being sent:');
+            bodyParams.forEach((p: any, i: number) => {
+              console.error(`  ${i + 1}. "${p.text?.substring(0, 50)}${p.text?.length > 50 ? '...' : ''}"`);
+            });
           }
           
           if (headerComponent) {
@@ -531,6 +661,11 @@ class WhatsAppService {
           if (buttonComponents.length > 0) {
             console.warn(`⚠️ WARNING: Template "bb" has static buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
             console.warn('⚠️ This may cause Meta API error 132018');
+          }
+          
+          if (!hasLanguage) {
+            console.error(`❌ ERROR: Template language code is missing!`);
+            console.error('❌ This may cause Meta API errors');
           }
         }
       }
