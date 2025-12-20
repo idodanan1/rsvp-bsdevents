@@ -1338,7 +1338,7 @@ export const useEventStore = create<EventStore>()(
               createdAt: new Date(),
               updatedAt: new Date(),
               // Use WhatsApp template for first message
-              templateName: 'aaa', // Template name in Meta Business Manager
+              templateName: 'aa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -1375,8 +1375,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'aaa' for this campaign
-              templateName: 'aaa', // Template name in Meta Business Manager
+              // Use WhatsApp template 'aa' for this campaign
+              templateName: 'aa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -1413,8 +1413,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // Use WhatsApp template 'aaa' for this campaign
-              templateName: 'aaa', // Template name in Meta Business Manager
+              // Use WhatsApp template 'aa' for this campaign
+              templateName: 'aa', // Template name in Meta Business Manager
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
@@ -2987,14 +2987,14 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
-          // Use template "aaa" for the first three campaigns
+          // Use template "aa" for the first three campaigns
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'aaa'; // Template name in Meta Business Manager
+            templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
           } else if (campaign.name === 'תזכורת שנייה') {
-            // Use template 'aaa' for "תזכורת שנייה"
-            templateNameForCampaign = 'aaa';
+            // Use template 'aa' for "תזכורת שנייה"
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'aaa';
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת אחרונה') {
             // CRITICAL: Always use template 'today' for "תזכורת אחרונה" campaign
             templateNameForCampaign = 'today';
@@ -3112,23 +3112,7 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = {};
             
-            if (templateNameForCampaign === 'aaa' || templateNameForCampaign === 'AAA') {
-              // Template "aaa" requires 6 parameters in order (matching the template body):
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, couple_name, event_date, event_time, venue
-              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
-              templateParams = {
-                paramsOrder: ['guest_name', 'event_type', 'couple_name', 
-                             'event_date', 'event_time', 'venue'],
-                guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || 'חתונה', // Parameter 2 - event_type
-                couple_name: templateCoupleName, // Parameter 3 - couple_name
-                event_date: formatDate(event.eventDate),
-                event_time: event.eventTime || '',
-                venue: event.venue || '',
-                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-                language: 'he'
-              };
-            } else if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
               // Template "aa" requires 8 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
@@ -3418,11 +3402,11 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           if (campaign.name === 'הזמנה ראשונית') {
-            templateNameForCampaign = 'aaa';
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת שנייה') {
-            templateNameForCampaign = 'aaa';
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת שבועית') {
-            templateNameForCampaign = 'aaa';
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת אחרונה') {
             templateNameForCampaign = 'today';
           } else if (campaign.name === 'תזכורת יום האירוע') {
@@ -3466,8 +3450,8 @@ export const useEventStore = create<EventStore>()(
             
             let templateParams: any = undefined;
             
-            if (templateNameForCampaign === 'aaa' || templateNameForCampaign === 'AAA') {
-              // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
+            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'couple_name', 
                              'event_date', 'event_time', 'venue'],

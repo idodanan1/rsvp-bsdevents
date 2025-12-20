@@ -106,37 +106,33 @@ class WhatsAppService {
             // Convert object to array - parameters must be in order (1, 2, 3...)
             // Check if there's a paramsOrder array to specify the order
             // Default parameter order matching Meta template format
-            // Template "aaa" requires 6 parameters in order: guest_name, event_type, couple_name, event_date, event_time, venue
             // Template "aa" requires 8 parameters in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
             // Template "a" requires 7 parameters: guest_name, event_type, event_date, event_time, venue, guest_response_link, couple_name
-            // NOTE: For template "aaa" and "aa", guest_response_link is NOT in body parameters - it's only used for the button
+            // NOTE: For template "aa", guest_response_link is NOT in body parameters - it's only used for the button
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
-              : templateName === 'aaa' || templateName === 'AAA'
-                ? ['guest_name', 'event_type', 'couple_name', 
-                   'event_date', 'event_time', 'venue']
-                : templateName === 'aa' || templateName === 'AA'
-                  ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                     'event_date', 'event_time', 'venue', 'couple_name']
-                  : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
+              : templateName === 'aa' || templateName === 'AA'
+                ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                   'event_date', 'event_time', 'venue', 'couple_name']
+                : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
             
-            // CRITICAL FIX: Remove guest_response_link from body params for template "aaa" and "aa" if it exists
-            // Template "aaa" and "aa" do NOT include guest_response_link in body parameters - it's only used for the button
-            if (templateName === 'aaa' || templateName === 'AAA' || templateName === 'aa' || templateName === 'AA') {
+            // CRITICAL FIX: Remove guest_response_link from body params for template "aa" if it exists
+            // Template "aa" does NOT include guest_response_link in body parameters - it's only used for the button
+            if (templateName === 'aa' || templateName === 'AA') {
               paramsOrder = paramsOrder.filter(key => key !== 'guest_response_link');
             }
             
             // IMPORTANT: Meta requires ALL parameters to be sent in the exact order
             // Even if a parameter is empty, we must send it (as empty string)
             // The filter only removes 'language' and 'paramsOrder' keys, but keeps all actual template parameters
-            // CRITICAL: Also filter out 'guest_response_link' for template "aaa" and "aa" body params (it's only for button)
+            // CRITICAL: Also filter out 'guest_response_link' for template "aa" body params (it's only for button)
             
             // CRITICAL: Validate that all required parameters exist in templateParams
             const missingParams: string[] = [];
             filteredParamsOrder = paramsOrder.filter((key: string) => 
               key !== 'language' && 
               key !== 'paramsOrder' && 
-              !((templateName === 'aaa' || templateName === 'AAA' || templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link')
+              !((templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link')
             );
             
             // CRITICAL: Check for extra parameters in templateParams that aren't in paramsOrder
@@ -256,7 +252,7 @@ class WhatsAppService {
           let headerImageUrl = headerImageFromParams || eventInvitationImage || finalImageUrl;
           
           // CRITICAL FIX: Only add header image if we have a valid URL
-          // For template "aaa", try sending without header first - only add if we get an error
+          // For template "aa", try sending without header first - only add if we get an error
           const DEFAULT_PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
           
           // Check if we have a valid HTTPS image URL for header
@@ -266,14 +262,14 @@ class WhatsAppService {
             headerImageUrl.startsWith('http://')
           );
           
-          // CRITICAL: Template "aaa" has a STATIC header image (not a variable) in Meta Business Manager
+          // CRITICAL: Template "aa" has a STATIC header image (not a variable) in Meta Business Manager
           // Based on the template image provided by the user, the header image is static
           // Meta does NOT expect a dynamic header parameter for static images
-          // Therefore, we should NOT send a header component for template "aaa"
-          if (templateName === 'aaa' || templateName === 'AAA') {
-            // Template "aaa" has a static header image - do NOT send header component
+          // Therefore, we should NOT send a header component for template "aa"
+          if (templateName === 'aa' || templateName === 'AA') {
+            // Template "aa" has a static header image - do NOT send header component
             // The image is defined in the template itself in Meta Business Manager
-            console.log('ℹ️ Template "aaa" - header image is STATIC (not a variable) in Meta Business Manager');
+            console.log('ℹ️ Template "aa" - header image is STATIC (not a variable) in Meta Business Manager');
             console.log('ℹ️ Skipping header component (Meta will use the static image from the template)');
             console.log('ℹ️ headerImageUrl provided:', headerImageUrl || 'none');
           } else {
@@ -330,14 +326,14 @@ class WhatsAppService {
           
           // Add buttons if provided (URL buttons for guest response links, Reply buttons for quick actions)
           // IMPORTANT: Even if template has predefined buttons in Meta, URL buttons still need parameters!
-          // For templates "aaa", "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
-          const templatesWithPredefinedButtons = ['aaa', 'aa', 'a', 'reminer', 'reminder'];
+          // For templates "aa" and "a", buttons are already defined in Meta, but URL buttons need parameters
+          const templatesWithPredefinedButtons = ['aa', 'a', 'reminer', 'reminder'];
           const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
           const templateNameLower = (messageData.templateName || '').toLowerCase();
           
-          // CRITICAL: Template "aaa" does NOT require any button parameters - skip all button processing
-          // The template "aaa" in Meta Business Manager has static buttons that don't need dynamic parameters
-          if (templateNameLower !== 'aaa') {
+          // CRITICAL: Template "aa" does NOT require any button parameters - skip all button processing
+          // The template "aa" in Meta Business Manager has static buttons that don't need dynamic parameters
+          if (templateNameLower !== 'aa') {
             // Always add URL button parameters if provided (they are required even for predefined buttons)
             // Only skip Reply buttons for predefined templates (they don't need parameters)
             if (messageData.buttons && messageData.buttons.length > 0) {
@@ -439,27 +435,27 @@ class WhatsAppService {
               console.log(`🔘 Added URL button parameter for predefined template button`);
             }
           } else {
-            // Template "aaa" - skip all button processing
-            console.log('ℹ️ Template "aaa" - skipping all button parameters (template has static buttons in Meta that don\'t require parameters)');
+            // Template "aa" - skip all button processing
+            console.log('ℹ️ Template "aa" - skipping all button parameters (template has static buttons in Meta that don\'t require parameters)');
           }
           
           // CRITICAL: Final validation before adding components
-          // For template "aaa", ensure we have exactly 6 body parameters and NO header/button components
-          if (templateName === 'aaa' || templateName === 'AAA') {
+          // For template "aa", ensure we have exactly 8 body parameters and NO header/button components
+          if (templateName === 'aa' || templateName === 'AA') {
             const bodyComponent = components.find((c: any) => c.type === 'body');
             const headerComponent = components.find((c: any) => c.type === 'header');
             const buttonComponents = components.filter((c: any) => c.type === 'button');
             const bodyParamsCount = bodyComponent?.parameters?.length || 0;
             
             if (bodyParamsCount !== 6) {
-              console.error(`❌ CRITICAL ERROR: Template "aaa" requires exactly 6 body parameters, but ${bodyParamsCount} are being sent!`);
+              console.error(`❌ CRITICAL ERROR: Template "aa" requires exactly 8 body parameters, but ${bodyParamsCount} are being sent!`);
               console.error(`❌ This will cause Meta API error 100 or 132000`);
               console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
               console.error(`❌ Actual parameters sent:`, bodyComponent?.parameters?.map((p: any, i: number) => `${i + 1}. "${p.text?.substring(0, 30)}..."`));
             }
             
             if (headerComponent) {
-              console.error(`❌ CRITICAL ERROR: Template "aaa" should NOT have a header component!`);
+              console.error(`❌ CRITICAL ERROR: Template "aa" should NOT have a header component!`);
               console.error(`❌ Header image is STATIC in Meta Business Manager and does not require a parameter`);
               console.error(`❌ Removing header component to prevent error...`);
               // Remove header component
@@ -471,7 +467,7 @@ class WhatsAppService {
             }
             
             if (buttonComponents.length > 0) {
-              console.error(`❌ CRITICAL ERROR: Template "aaa" should NOT have button components!`);
+              console.error(`❌ CRITICAL ERROR: Template "aa" should NOT have button components!`);
               console.error(`❌ Buttons are STATIC in Meta Business Manager and do not require parameters`);
               console.error(`❌ Removing button components to prevent error...`);
               // Remove button components
@@ -515,26 +511,26 @@ class WhatsAppService {
             console.log(`  - Button components: ${buttonComponents.length}`);
             console.log(`  - Total components: ${components.length}`);
             
-            if (templateName === 'aaa' || templateName === 'AAA') {
-              console.log('📋 Template "aaa" requirements:');
+            if (templateName === 'aa' || templateName === 'AA') {
+              console.log('📋 Template "aa" requirements:');
               console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
-              console.log('  - 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue');
+              console.log('  - 8 body parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name');
               console.log('  - 0 button components (static buttons in Meta)');
               const finalBodyParamsCount = bodyComponent?.parameters?.length || 0;
               const finalHeaderCount = headerComponent ? 1 : 0;
               const finalButtonCount = buttonComponents.length;
-              console.log(`📊 FINAL VALIDATION: ${finalHeaderCount === 0 ? '✅' : '❌'} ${finalHeaderCount} header (should be 0), ${finalBodyParamsCount === 6 ? '✅' : '❌'} ${finalBodyParamsCount} body params (should be 6), ${finalButtonCount === 0 ? '✅' : '❌'} ${finalButtonCount} buttons (should be 0)`);
+              console.log(`📊 FINAL VALIDATION: ${finalHeaderCount === 0 ? '✅' : '❌'} ${finalHeaderCount} header (should be 0), ${finalBodyParamsCount === 8 ? '✅' : '❌'} ${finalBodyParamsCount} body params (should be 8), ${finalButtonCount === 0 ? '✅' : '❌'} ${finalButtonCount} buttons (should be 0)`);
               
-              if (finalBodyParamsCount !== 6) {
-                console.error(`❌ VALIDATION FAILED: Template "aaa" requires exactly 6 body parameters!`);
+              if (finalBodyParamsCount !== 8) {
+                console.error(`❌ VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
                 console.error(`❌ This payload will be rejected by Meta API with error 100 or 132000`);
               }
               if (finalHeaderCount > 0) {
-                console.error(`❌ VALIDATION FAILED: Template "aaa" should NOT have header components!`);
+                console.error(`❌ VALIDATION FAILED: Template "aa" should NOT have header components!`);
                 console.error(`❌ This payload will be rejected by Meta API with error 100 or 132012`);
               }
               if (finalButtonCount > 0) {
-                console.error(`❌ VALIDATION FAILED: Template "aaa" should NOT have button components!`);
+                console.error(`❌ VALIDATION FAILED: Template "aa" should NOT have button components!`);
                 console.error(`❌ This payload will be rejected by Meta API with error 132018`);
               }
             }
@@ -566,7 +562,7 @@ class WhatsAppService {
       }
 
       // CRITICAL: Final payload validation before sending
-      if (messagePayload.type === 'template' && templateName === 'aaa') {
+      if (messagePayload.type === 'template' && templateName === 'aa') {
         const bodyParams = messagePayload.template?.components?.find((c: any) => c.type === 'body')?.parameters || [];
         const headerComponent = messagePayload.template?.components?.find((c: any) => c.type === 'header');
         const buttonComponents = messagePayload.template?.components?.filter((c: any) => c.type === 'button') || [];
@@ -588,16 +584,16 @@ class WhatsAppService {
           }
         });
         
-        // Validate header component (should NOT exist for "aaa")
+        // Validate header component (should NOT exist for "aa")
         if (headerComponent) {
-          console.error(`❌ CRITICAL: Template "aaa" payload includes header component but should NOT!`);
+          console.error(`❌ CRITICAL: Template "aa" payload includes header component but should NOT!`);
           console.error(`❌ Header component:`, headerComponent);
           console.error(`❌ This will cause Meta API error 100 or 132012`);
         }
         
-        // Validate button components (should NOT exist for "aaa")
+        // Validate button components (should NOT exist for "aa")
         if (buttonComponents.length > 0) {
-          console.error(`❌ CRITICAL: Template "aaa" payload includes ${buttonComponents.length} button component(s) but should NOT!`);
+          console.error(`❌ CRITICAL: Template "aa" payload includes ${buttonComponents.length} button component(s) but should NOT!`);
           buttonComponents.forEach((btn: any, index: number) => {
             console.error(`❌ Button component ${index + 1}:`, btn);
           });
@@ -606,7 +602,7 @@ class WhatsAppService {
         
         // Final count validation
         if (bodyParams.length !== 6) {
-          console.error(`❌ CRITICAL VALIDATION FAILED: Template "aaa" requires exactly 6 body parameters!`);
+          console.error(`❌ CRITICAL VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
           console.error(`❌ Actual count: ${bodyParams.length}`);
           console.error(`❌ This payload will be REJECTED by Meta API`);
           console.error(`❌ Expected parameters: guest_name, event_type, couple_name, event_date, event_time, venue`);
@@ -631,20 +627,20 @@ class WhatsAppService {
         console.log(`  Button components count: ${buttonComponents.length}`);
         console.log(`  Total components: ${messagePayload.template?.components?.length || 0}`);
         
-        if (messagePayload.template?.name?.toLowerCase() === 'aaa') {
-          console.log('📋 Template "aaa" requirements:');
+        if (messagePayload.template?.name?.toLowerCase() === 'aa') {
+          console.log('📋 Template "aa" requirements:');
           console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
-          console.log('  - MUST have 6 body parameters');
+          console.log('  - MUST have 8 body parameters');
           console.log('  - MUST have 0 button components (static buttons in Meta)');
           console.log('  - Language code MUST be set (default: "he")');
           const actualBodyCount = bodyParams.length;
           const actualHeaderCount = headerComponent ? 1 : 0;
           const actualButtonCount = buttonComponents.length;
           const hasLanguage = !!messagePayload.template?.language?.code;
-          console.log(`📊 ACTUAL PAYLOAD: ${actualHeaderCount === 0 ? '✅' : '❌'} header (${actualHeaderCount}, should be 0), ${actualBodyCount === 6 ? '✅' : '❌'} ${actualBodyCount} body params (should be 6), ${actualButtonCount === 0 ? '✅' : '❌'} ${actualButtonCount} buttons (should be 0), ${hasLanguage ? '✅' : '❌'} language code`);
+          console.log(`📊 ACTUAL PAYLOAD: ${actualHeaderCount === 0 ? '✅' : '❌'} header (${actualHeaderCount}, should be 0), ${actualBodyCount === 8 ? '✅' : '❌'} ${actualBodyCount} body params (should be 8), ${actualButtonCount === 0 ? '✅' : '❌'} ${actualButtonCount} buttons (should be 0), ${hasLanguage ? '✅' : '❌'} language code`);
           
-          if (actualBodyCount !== 6) {
-            console.error(`❌ ERROR: Template "aaa" expects 6 body parameters, but ${actualBodyCount} are being sent!`);
+          if (actualBodyCount !== 8) {
+            console.error(`❌ ERROR: Template "aa" expects 8 body parameters, but ${actualBodyCount} are being sent!`);
             console.error('❌ This will cause Meta API error 100 or 132000');
             console.error('❌ Body parameters being sent:');
             bodyParams.forEach((p: any, i: number) => {
@@ -653,13 +649,13 @@ class WhatsAppService {
           }
           
           if (headerComponent) {
-            console.error(`❌ ERROR: Template "aaa" has a STATIC header image in Meta Business Manager!`);
+            console.error(`❌ ERROR: Template "aa" has a STATIC header image in Meta Business Manager!`);
             console.error('❌ Header image component should NOT be sent (it will cause Meta API error 100)');
             console.error('❌ The header image is defined in the template itself, not as a dynamic parameter');
           }
           
           if (buttonComponents.length > 0) {
-            console.warn(`⚠️ WARNING: Template "aaa" has static buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
+            console.warn(`⚠️ WARNING: Template "aa" has static buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
             console.warn('⚠️ This may cause Meta API error 132018');
           }
           
@@ -750,13 +746,13 @@ class WhatsAppService {
         
         console.log('🔍 Error details:', { errorCode, errorDetails, errorMessage });
         
-        // CRITICAL: For template "aaa" with error 100, try removing header image
+        // CRITICAL: For template "aa" with error 100, try removing header image
         // The header image might be defined as Static (not Variable) in Meta Business Manager
         if (errorCode === 100 && 
-            templateName === 'aaa' && 
+            templateName === 'aa' && 
             messagePayload.template?.components?.some((c: any) => c.type === 'header') &&
             (errorDetails.includes('Parameter name is missing or empty') || errorDetails.includes('Invalid parameter'))) {
-          console.warn('⚠️ Template "aaa" - Error 100 detected with header image');
+          console.warn('⚠️ Template "aa" - Error 100 detected with header image');
           console.warn('💡 Header image might be Static (not Variable) in Meta Business Manager');
           console.warn('🔄 Retrying WITHOUT header image...');
           
@@ -778,7 +774,7 @@ class WhatsAppService {
               delete retryPayload.template.components;
             }
             
-            console.log('📤 RETRY PAYLOAD (without header image for template "aaa"):');
+            console.log('📤 RETRY PAYLOAD (without header image for template "aa"):');
             console.log(JSON.stringify(retryPayload, null, 2));
             
             // Retry the request
@@ -795,7 +791,7 @@ class WhatsAppService {
             
             if (retryResponse.ok) {
               console.log('✅ Message sent successfully WITHOUT header image');
-              console.warn('💡 Note: Template "aaa" header image is Static (not Variable) in Meta Business Manager.');
+              console.warn('💡 Note: Template "aa" header image is Static (not Variable) in Meta Business Manager.');
               console.warn('💡 The image will still appear because it\'s defined in the template itself.');
               // Use the successful retry response
               response = retryResponse;
@@ -1130,25 +1126,27 @@ class WhatsAppService {
                 diagnosticMessage += '\n   - After fixing, wait a few minutes for Meta to update.';
                 diagnosticMessage += '\n   - Then try sending again.';
                 
-                if (messageData.templateName?.toLowerCase() === 'aaa') {
-                  diagnosticMessage += '\n\n   📋 SPECIFIC FIXES for template "aaa":';
-                  diagnosticMessage += '\n      Template "aaa" has a STATIC header image (not a variable) and 6 body parameters.';
-                  diagnosticMessage += '\n\n   ⚠️ IMPORTANT: Template "aaa" Header Image';
-                  diagnosticMessage += '\n      - The header image in template "aaa" is STATIC (not a variable)';
+                if (messageData.templateName?.toLowerCase() === 'aa') {
+                  diagnosticMessage += '\n\n   📋 SPECIFIC FIXES for template "aa":';
+                  diagnosticMessage += '\n      Template "aa" has a STATIC header image (not a variable) and 8 body parameters.';
+                  diagnosticMessage += '\n\n   ⚠️ IMPORTANT: Template "aa" Header Image';
+                  diagnosticMessage += '\n      - The header image in template "aa" is STATIC (not a variable)';
                   diagnosticMessage += '\n      - You do NOT need to check the Header section for variable names';
                   diagnosticMessage += '\n      - The header image is defined in the template itself in Meta Business Manager';
                   diagnosticMessage += '\n      - If you see this error, it\'s likely a Body parameter issue, not Header';
                   diagnosticMessage += '\n\n   🔴 MOST COMMON ISSUE: Body Parameter Variable Names';
-                  diagnosticMessage += '\n      Template "aaa" has 6 body parameters - check EACH one:';
-                  diagnosticMessage += '\n\n   📋 Body Parameters (6 total - check each one):';
+                  diagnosticMessage += '\n      Template "aa" has 8 body parameters - check EACH one:';
+                  diagnosticMessage += '\n\n   📋 Body Parameters (8 total - check each one):';
                   diagnosticMessage += '\n      1. guest_name - MUST have a name in Variable Samples';
                   diagnosticMessage += '\n      2. event_type - MUST have a name in Variable Samples';
-                  diagnosticMessage += '\n      3. couple_name - MUST have a name in Variable Samples';
-                  diagnosticMessage += '\n      4. event_date - MUST have a name in Variable Samples';
-                  diagnosticMessage += '\n      5. event_time - MUST have a name in Variable Samples';
-                  diagnosticMessage += '\n      6. venue - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      3. groom_name - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      4. bride_name - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      5. event_date - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      6. event_time - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      7. venue - MUST have a name in Variable Samples';
+                  diagnosticMessage += '\n      8. couple_name - MUST have a name in Variable Samples';
                   diagnosticMessage += '\n\n   ✅ HOW TO CHECK:';
-                  diagnosticMessage += '\n      1. In Meta Business Manager → Edit template "aaa"';
+                  diagnosticMessage += '\n      1. In Meta Business Manager → Edit template "aa"';
                   diagnosticMessage += '\n      2. Go to "Body" section → "Variable Samples"';
                   diagnosticMessage += '\n      3. For EACH of the 6 variables, check the "Name" column';
                   diagnosticMessage += '\n      4. If ANY name is empty, enter a name (e.g., "guest_name", "event_type", etc.)';
@@ -1198,11 +1196,11 @@ class WhatsAppService {
               diagnosticMessage += '\n   4. Parameter order mismatch';
               diagnosticMessage += '\n\n   🔍 CRITICAL CHECKS:';
               diagnosticMessage += `\n   1. Template "${messageData.templateName}" expects specific number of parameters`;
-              if (messageData.templateName?.toLowerCase() === 'aaa') {
-                diagnosticMessage += '\n   2. Template "aaa" expects 6 body parameters: guest_name, event_type, couple_name, event_date, event_time, venue';
-                diagnosticMessage += '\n   3. Template "aaa" does NOT require header image - check if header was added incorrectly';
-                diagnosticMessage += '\n   4. Template "aaa" may not have buttons - check if button parameters were added incorrectly';
-                diagnosticMessage += '\n   5. Verify in Meta Business Manager that template "aaa" has exactly 6 variable samples in the Body section';
+              if (messageData.templateName?.toLowerCase() === 'aa') {
+                diagnosticMessage += '\n   2. Template "aa" expects 8 body parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name';
+                diagnosticMessage += '\n   3. Template "aa" does NOT require header image - check if header was added incorrectly';
+                diagnosticMessage += '\n   4. Template "aa" may not have buttons - check if button parameters were added incorrectly';
+                diagnosticMessage += '\n   5. Verify in Meta Business Manager that template "aa" has exactly 8 variable samples in the Body section';
               }
               diagnosticMessage += '\n\n   Check the console logs above for:';
               diagnosticMessage += '\n   - Number of body parameters being sent';

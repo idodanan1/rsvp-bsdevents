@@ -2752,37 +2752,39 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, use template "aaa"
-      console.log('📝 Sending manual message with template "aaa"');
+      // CRITICAL: For manual messages from table, use template "aa"
+      console.log('📝 Sending manual message with template "aa"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Prepare template parameters for template "aaa" (6 parameters only)
-      // Template "aaa" expects: guest_name, event_type, couple_name, event_date, event_time, venue
-      const templateParamsForAAA = {
-        paramsOrder: ['guest_name', 'event_type', 'couple_name', 
-                     'event_date', 'event_time', 'venue'],
+      // Prepare template parameters for template "aa" (8 parameters)
+      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+      const templateParamsForAA = {
+        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name'],
         guest_name: guest.firstName,
         event_type: event.eventTypeHebrew || 'חתונה',
-        couple_name: coupleName || '',
+        groom_name: event.groomName || '',
+        bride_name: event.brideName || '',
         event_date: formatDate(event.eventDate) || '',
         event_time: event.eventTime || '',
         venue: event.venue || '',
+        couple_name: coupleName || '',
         guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
         language: 'he'
       };
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
-      console.log('📋 Template params:', templateParamsForAAA);
+      console.log('📋 Template params:', templateParamsForAA);
       
       let result;
       try {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "aaa" for manual messages from table
-          templateName: 'aaa',
-          templateParams: templateParamsForAAA,
+          // CRITICAL: Use template "aa" for manual messages from table
+          templateName: 'aa',
+          templateParams: templateParamsForAA,
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
@@ -2802,8 +2804,8 @@ const EventManagement: React.FC = () => {
               venue: event.venue || '',
               invitationImageUrl: finalImageUrl // Use event image first, then campaign image
             },
-            // CRITICAL: Pass template params for template "aaa"
-            templateParams: templateParamsForAAA
+            // CRITICAL: Pass template params for template "aa"
+            templateParams: templateParamsForAA
           }]
         });
         
