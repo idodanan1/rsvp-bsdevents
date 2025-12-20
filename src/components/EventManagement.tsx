@@ -2573,14 +2573,29 @@ const EventManagement: React.FC = () => {
       console.log('📋 Recipients count:', recipients.length);
       console.log('📋 Recipients:', recipients.map(r => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
       
-      const result = await messageService.sendBulkMessages({
-        message: '', // Will be overridden by individual messages
-        templateName: undefined, // CRITICAL: No template - send as regular text message
-        templateParams: undefined, // CRITICAL: No template params
-        recipients
-      });
+      console.log('📤 About to call messageService.sendBulkMessages');
+      console.log('📋 Recipients count:', recipients.length);
+      console.log('📋 Recipients:', recipients.map(r => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
       
-      console.log('📊 messageService.sendBulkMessages result:', result);
+      let result;
+      try {
+        result = await messageService.sendBulkMessages({
+          message: '', // Will be overridden by individual messages
+          templateName: undefined, // CRITICAL: No template - send as regular text message
+          templateParams: undefined, // CRITICAL: No template params
+          recipients
+        });
+        
+        console.log('📊 messageService.sendBulkMessages result:', result);
+      } catch (error) {
+        console.error('❌ ERROR in messageService.sendBulkMessages:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error
+        });
+        throw error; // Re-throw to be caught by outer try-catch
+      }
 
       // Update guest channels and message status based on actual results
       result.results.forEach(messageResult => {
@@ -2613,8 +2628,13 @@ const EventManagement: React.FC = () => {
       setSelectedGuests([]);
       setCustomMessage('');
     } catch (error) {
-      console.error('Error sending messages:', error);
-      alert('שגיאה בשליחת ההודעות');
+      console.error('❌ ERROR in handleSendMessage:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
+      alert(`שגיאה בשליחת ההודעות: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -2751,35 +2771,52 @@ const EventManagement: React.FC = () => {
         language: 'he'
       };
       
-      const result = await messageService.sendBulkMessages({
-        message,
-        imageUrl: finalImageUrl,
-        // CRITICAL: Use template "bb" for manual messages from table
-        templateName: 'bb',
-        templateParams: templateParamsForBB,
-        recipients: [{
-          id: guest.id,
-          firstName: guest.firstName,
-          lastName: guest.lastName,
-          phoneNumber: guest.phoneNumber,
-          channel: messageChannel,
-          message: message,
-          firstMessageSent: guest.firstMessageSent || false, // Pass first message status
-          eventData: {
-            coupleName: event.coupleName || coupleName,
-            groomName: event.groomName || groomName,
-            brideName: event.brideName || brideName,
-            eventType: event.eventType,
-            eventTypeHebrew: event.eventTypeHebrew || 'חתונה',
-            eventDate: formatDate(event.eventDate),
-            eventTime: event.eventTime || '',
-            venue: event.venue || '',
-            invitationImageUrl: finalImageUrl // Use event image first, then campaign image
-          },
-          // CRITICAL: Pass template params for template "bb"
-          templateParams: templateParamsForBB
-        }]
-      });
+      console.log('📤 About to call messageService.sendBulkMessages for single guest');
+      console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+      console.log('📋 Template params:', templateParamsForBB);
+      
+      let result;
+      try {
+        result = await messageService.sendBulkMessages({
+          message,
+          imageUrl: finalImageUrl,
+          // CRITICAL: Use template "bb" for manual messages from table
+          templateName: 'bb',
+          templateParams: templateParamsForBB,
+          recipients: [{
+            id: guest.id,
+            firstName: guest.firstName,
+            lastName: guest.lastName,
+            phoneNumber: guest.phoneNumber,
+            channel: messageChannel,
+            message: message,
+            firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+            eventData: {
+              coupleName: event.coupleName || coupleName,
+              groomName: event.groomName || groomName,
+              brideName: event.brideName || brideName,
+              eventType: event.eventType,
+              eventTypeHebrew: event.eventTypeHebrew || 'חתונה',
+              eventDate: formatDate(event.eventDate),
+              eventTime: event.eventTime || '',
+              venue: event.venue || '',
+              invitationImageUrl: finalImageUrl // Use event image first, then campaign image
+            },
+            // CRITICAL: Pass template params for template "bb"
+            templateParams: templateParamsForBB
+          }]
+        });
+        
+        console.log('📊 messageService.sendBulkMessages result:', result);
+      } catch (error) {
+        console.error('❌ ERROR in messageService.sendBulkMessages:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error
+        });
+        throw error; // Re-throw to be caught by outer try-catch
+      }
 
       // Update guest channel and message status based on actual result
       if (result.results.length > 0) {
