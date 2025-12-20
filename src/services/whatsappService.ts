@@ -34,6 +34,23 @@ class WhatsAppService {
     }
   }
 
+  // Get meaningful placeholder value for empty parameters
+  private getPlaceholderForParameter(paramName: string): string {
+    const placeholders: Record<string, string> = {
+      'guest_name': 'אורח',
+      'event_type': 'אירוע',
+      'groom_name': 'חתן',
+      'bride_name': 'כלה',
+      'event_date': 'תאריך',
+      'event_time': 'שעה',
+      'venue': 'מיקום',
+      'couple_name': 'זוג',
+      'guest_response_link': 'קישור'
+    };
+    
+    return placeholders[paramName] || 'ערך';
+  }
+
   async sendMessage(messageData: WhatsAppMessage): Promise<WhatsAppResponse> {
     try {
       console.log('📱 WhatsApp Message:', messageData);
@@ -187,26 +204,35 @@ class WhatsAppService {
             }
             
             bodyParams = filteredParamsOrder.map((key: string, index: number) => {
-                // CRITICAL: Check if parameter exists, if not use empty string (will be replaced with space)
+                // CRITICAL: Check if parameter exists, if not use placeholder value
                 const paramValue = messageData.templateParams![key];
                 
-                // Handle undefined, null, or empty values
+                // Handle undefined, null, or empty values with meaningful placeholders
                 let textValue: string;
                 if (paramValue === undefined || paramValue === null) {
-                  console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is undefined or null, using space`);
-                  textValue = ' '; // Use space for empty parameters (Meta requires non-empty)
+                  // Use meaningful placeholder based on parameter name
+                  const placeholder = this.getPlaceholderForParameter(key);
+                  console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is undefined or null, using placeholder: "${placeholder}"`);
+                  textValue = placeholder;
                 } else {
                   textValue = String(paramValue).trim();
                   
-                  // If empty after trim, use space
+                  // If empty after trim, use meaningful placeholder
                   if (textValue.length === 0) {
-                    console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is empty after trim, using space`);
-                    textValue = ' ';
+                    const placeholder = this.getPlaceholderForParameter(key);
+                    console.warn(`⚠️ Parameter "${key}" (position ${index + 1}) is empty after trim, using placeholder: "${placeholder}"`);
+                    textValue = placeholder;
                   }
                 }
                 
                 // CRITICAL: Ensure parameter is never empty - Meta rejects empty parameters
-                const finalValue = textValue.length > 0 ? textValue : ' ';
+                // Final validation: if textValue is still empty or only whitespace, use placeholder
+                let finalValue = textValue.trim();
+                if (finalValue.length === 0) {
+                  const placeholder = this.getPlaceholderForParameter(key);
+                  console.error(`❌ CRITICAL: Parameter "${key}" (position ${index + 1}) is still empty after processing! Using placeholder: "${placeholder}"`);
+                  finalValue = placeholder;
+                }
                 
                 // Log each parameter for debugging with position
                 console.log(`📋 Parameter ${index + 1}/${filteredParamsOrder.length} [${key}]: "${finalValue.substring(0, 50)}${finalValue.length > 50 ? '...' : ''}" (length: ${finalValue.length})`);
@@ -577,10 +603,23 @@ class WhatsAppService {
           if (!param.text || typeof param.text !== 'string') {
             console.error(`❌ CRITICAL: Body parameter ${index + 1} has invalid text field:`, param.text);
           }
+          // CRITICAL: Check if text value is empty or only whitespace
+          if (param.text && typeof param.text === 'string' && param.text.trim().length === 0) {
+            console.error(`❌ CRITICAL: Body parameter ${index + 1} has empty or whitespace-only text value!`);
+            console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
+            console.error(`❌ Parameter value: "${param.text}"`);
+            // Replace with placeholder
+            const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+            param.text = placeholder;
+            console.warn(`⚠️ Replaced empty parameter ${index + 1} with placeholder: "${placeholder}"`);
+          }
           if (param.parameter_name) {
             console.error(`❌ CRITICAL: Body parameter ${index + 1} incorrectly includes 'parameter_name' field!`);
             console.error(`❌ Body parameters should NOT have 'parameter_name' - only header/button parameters do`);
             console.error(`❌ This will cause Meta API error 100`);
+            // Remove parameter_name if present
+            delete param.parameter_name;
+            console.warn(`⚠️ Removed 'parameter_name' from body parameter ${index + 1}`);
           }
         });
         
