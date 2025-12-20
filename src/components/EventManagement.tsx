@@ -3,6 +3,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
+import { messageService } from '../services/messageService';
+
+// Log that messageService is loaded
+console.log('✅ EventManagement: messageService imported successfully', typeof messageService);
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -2530,8 +2534,6 @@ const EventManagement: React.FC = () => {
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
-      // Send messages using the message service
-      const { messageService } = await import('../services/messageService');
       // Import helper function once before map
       const { generateGuestResponseLink } = await import('../utils/helpers');
       
@@ -2740,8 +2742,6 @@ const EventManagement: React.FC = () => {
         message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(event.eventDate)}\n📍 ${event.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
       }
 
-      const { messageService } = await import('../services/messageService');
-      
       // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
       // Priority: event.invitationImageUrl > campaign.imageUrl
       const finalImageUrl = event.invitationImageUrl || campaignImageUrl;
@@ -3717,7 +3717,17 @@ const EventManagement: React.FC = () => {
                   <td className="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={() => handleSendToSingleGuest(guest)}
+                        onClick={(e) => {
+                          console.log('🔘 Send to Single Guest button clicked!');
+                          console.log('🔘 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+                          console.log('🔘 handleSendToSingleGuest function:', typeof handleSendToSingleGuest);
+                          try {
+                            handleSendToSingleGuest(guest);
+                          } catch (error) {
+                            console.error('❌ ERROR in button onClick handler:', error);
+                            alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
+                          }
+                        }}
                         className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-colors duration-200"
                         title="שלח הודעה"
                       >
@@ -3868,7 +3878,17 @@ const EventManagement: React.FC = () => {
                 ביטול
               </button>
               <button
-                onClick={handleSendMessage}
+                onClick={(e) => {
+                  console.log('🔘 Send Message button clicked!');
+                  console.log('🔘 Event:', e);
+                  console.log('🔘 handleSendMessage function:', typeof handleSendMessage);
+                  try {
+                    handleSendMessage();
+                  } catch (error) {
+                    console.error('❌ ERROR in button onClick handler:', error);
+                    alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
+                  }
+                }}
                 className="btn-warning flex items-center space-x-2"
               >
                 <Send className="w-4 h-4" />
