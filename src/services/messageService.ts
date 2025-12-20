@@ -77,6 +77,14 @@ class MessageService {
   }
 
   async sendBulkMessages(messageData: MessageData): Promise<BulkMessageResult> {
+    console.log('🚀 messageService.sendBulkMessages called');
+    console.log('📋 messageData:', {
+      recipientsCount: messageData.recipients.length,
+      templateName: messageData.templateName,
+      hasTemplateParams: !!messageData.templateParams,
+      message: messageData.message?.substring(0, 100)
+    });
+    
     const results: MessageResult[] = [];
     let successful = 0;
     let failed = 0;

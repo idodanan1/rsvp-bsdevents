@@ -2512,13 +2512,20 @@ const EventManagement: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
+    console.log('🚀 handleSendMessage called');
+    console.log('📋 selectedGuests:', selectedGuests);
+    console.log('📋 currentEvent:', currentEvent);
+    
     if (selectedGuests.length === 0) {
+      console.warn('⚠️ No guests selected');
       alert('אנא בחר לפחות מוזמן אחד');
       return;
     }
 
     try {
+      console.log('✅ Starting message send process...');
       const guestsToSend = currentEvent.guests.filter(guest => selectedGuests.includes(guest.id));
+      console.log('📋 guestsToSend:', guestsToSend.length, 'guests');
       
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
@@ -2562,12 +2569,18 @@ const EventManagement: React.FC = () => {
         };
       });
 
+      console.log('📤 About to call messageService.sendBulkMessages');
+      console.log('📋 Recipients count:', recipients.length);
+      console.log('📋 Recipients:', recipients.map(r => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
+      
       const result = await messageService.sendBulkMessages({
         message: '', // Will be overridden by individual messages
         templateName: undefined, // CRITICAL: No template - send as regular text message
         templateParams: undefined, // CRITICAL: No template params
         recipients
       });
+      
+      console.log('📊 messageService.sendBulkMessages result:', result);
 
       // Update guest channels and message status based on actual results
       result.results.forEach(messageResult => {
@@ -2606,9 +2619,15 @@ const EventManagement: React.FC = () => {
   };
 
   const handleSendToSingleGuest = useCallback(async (guest: any) => {
+    console.log('🚀 handleSendToSingleGuest called');
+    console.log('📋 guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+    
     try {
       const event = useEventStore.getState().currentEvent;
+      console.log('📋 event:', event ? { id: event.id, name: event.eventName } : 'null');
+      
       if (!event || !event.id) {
+        console.error('❌ No active event found');
         alert('שגיאה: לא נמצא אירוע פעיל');
         return;
       }
