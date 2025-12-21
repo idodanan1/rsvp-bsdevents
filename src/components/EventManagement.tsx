@@ -1330,12 +1330,16 @@ const EventManagement: React.FC = () => {
       });
       
       // Update in store first - clean names before updating
+      // CRITICAL: If guestCount is being updated, include source and responseDate to prevent reversion
       await updateGuest(currentEvent.id, editingGuest.id, {
         firstName: cleanName(newGuest.firstName),
         lastName: cleanName(newGuest.lastName),
         phoneNumber: newGuest.phoneNumber,
         guestCount: newGuest.guestCount,
-        notes: newGuest.notes
+        notes: newGuest.notes,
+        // CRITICAL: Mark as manual_update and include responseDate for guestCount updates
+        source: 'manual_update',
+        responseDate: new Date()
       });
       
       // CRITICAL: Get updated currentEvent from store immediately after update

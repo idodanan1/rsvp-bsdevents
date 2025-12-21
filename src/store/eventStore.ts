@@ -1959,6 +1959,7 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Update the guest in the full event
+            // CRITICAL: Preserve manual guestCount changes - if current value is from manual_update, preserve it
             const updatedFullEvent = {
               ...fullEvent,
               guests: fullEvent.guests.map((g: any) => 
@@ -1967,10 +1968,32 @@ export const useEventStore = create<EventStore>()(
                   ...updatedGuest,
                   // Ensure all fields are updated
                   rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : g.rsvpStatus,
-                  guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : g.guestCount,
+                  // CRITICAL: Preserve manual guestCount - if current is from manual_update and update would change it, preserve current
+                  guestCount: (() => {
+                    const currentSource = g.source || '';
+                    const isCurrentFromManual = currentSource === 'manual_update';
+                    const updateSource = updatedGuest.source || '';
+                    const isUpdateFromManual = updateSource === 'manual_update';
+                    
+                    // If current is manual and update would change it, preserve current unless update is also manual and newer
+                    if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== g.guestCount) {
+                      const currentDate = g.responseDate ? new Date(g.responseDate).getTime() : 0;
+                      const updateDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate).getTime() : Date.now();
+                      
+                      if (!isUpdateFromManual || currentDate >= updateDate) {
+                        console.log(`🛡️ Preserving manual guestCount ${g.guestCount} (update ${updatedGuest.guestCount} would revert it)`);
+                        return g.guestCount; // Preserve manual value
+                      }
+                    }
+                    
+                    // Otherwise use update's value if provided, or keep existing
+                    return updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : g.guestCount;
+                  })(),
                   notes: updatedGuest.notes !== undefined ? updatedGuest.notes : g.notes,
                   responseDate: updatedGuest.responseDate || g.responseDate || new Date(),
-                  actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : g.actualAttendance
+                  actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : g.actualAttendance,
+                  // CRITICAL: Preserve source to track manual updates
+                  source: updatedGuest.source || g.source
                 } : g
               ),
               updatedAt: new Date().toISOString()
@@ -2301,20 +2324,43 @@ export const useEventStore = create<EventStore>()(
                     const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
                     const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime() || isManualUpdateEcho;
                     
-                    // CRITICAL: If guestCount is explicitly provided in the update, ALWAYS use it
-                    // This ensures new manual changes are preserved when they come back from backend
-                    // Only if guestCount is undefined should we preserve the existing value
-                    const finalGuestCount = updatedGuest.guestCount !== undefined 
-                      ? updatedGuest.guestCount // Use new value if explicitly provided
-                      : guest.guestCount; // Only preserve existing if update doesn't include guestCount
+                    // CRITICAL: Preserve manual guestCount changes - if current value is from manual_update, preserve it
+                    // This prevents old backend updates from reverting manual changes
+                    let finalGuestCount: number | undefined;
+                    
+                    const currentGuestSource = guest.source || '';
+                    const isCurrentFromManual = currentGuestSource === 'manual_update';
+                    const updateSource = updatedGuest.source || '';
+                    const isUpdateFromManual = updateSource === 'manual_update';
+                    
+                    if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                      // Current is manual and update would change it - preserve current unless update is also manual and newer
+                      if (!isUpdateFromManual || oldResponseDate.getTime() >= newResponseDate.getTime()) {
+                        console.log(`🛡️ Preserving manual guestCount ${guest.guestCount} in currentEvent (update ${updatedGuest.guestCount} would revert it)`);
+                        finalGuestCount = guest.guestCount; // Preserve manual value
+                      } else {
+                        // Update is also manual and newer - use it
+                        finalGuestCount = updatedGuest.guestCount;
+                      }
+                    } else {
+                      // Use update's value if provided, otherwise keep existing
+                      finalGuestCount = updatedGuest.guestCount !== undefined 
+                        ? updatedGuest.guestCount 
+                        : guest.guestCount;
+                    }
+                    
+                    // CRITICAL: Create updatedGuest without guestCount if we need to preserve it
+                    const updatedGuestWithoutCount = { ...updatedGuest };
+                    if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== finalGuestCount) {
+                      delete updatedGuestWithoutCount.guestCount;
+                    }
                     
                     const updatedGuestData = {
                       ...guest,
-                      ...updatedGuest,
+                      ...updatedGuestWithoutCount, // Override with new values BUT preserve guestCount if needed
                       // Always use new values if provided (latest update wins)
                       rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                      // CRITICAL: For manual_update with guestCount, always preserve the new value
-                      // This prevents old updates from reverting manual changes
+                      // CRITICAL: Use finalGuestCount which preserves manual values
                       guestCount: finalGuestCount,
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                       responseDate: isNewerUpdate ? newResponseDate : oldResponseDate,
