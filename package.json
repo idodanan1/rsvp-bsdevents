@@ -1,6 +1,6 @@
 {
   "name": "rsvp-management-system",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "description": "מערכת ניהול אישורי הגעה עם וואטסאפ ו-SMS",
   "main": "index.js",
