@@ -583,7 +583,7 @@ class WhatsAppService {
             });
             
             // CRITICAL: Count actual body parameters being sent
-            const bodyComponent = components.find((c: any) => c.type === 'body');
+            // Note: bodyComponent already declared above, reuse it
             const headerComponent = components.find((c: any) => c.type === 'header');
             const buttonComponents = components.filter((c: any) => c.type === 'button');
             
