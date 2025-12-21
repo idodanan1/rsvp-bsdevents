@@ -101,13 +101,27 @@ class WhatsAppService {
       // CRITICAL: Validate templateName before using it
       if (messageData.templateName && typeof messageData.templateName === 'string' && messageData.templateName.trim().length > 0) {
         console.log('📋 Sending template message:', messageData.templateName);
-        messagePayload.type = 'template';
-        messagePayload.template = {
-          name: messageData.templateName, // Use original templateName (preserves case)
-          language: {
-            code: messageData.templateParams?.language || 'he' // Default to Hebrew for template "a"
-          }
-        };
+        
+        // SIMPLE: For hello_world template, use simple payload like curl
+        if (templateName === 'hello_world') {
+          messagePayload.type = 'template';
+          messagePayload.template = {
+            name: 'hello_world',
+            language: {
+              code: 'en_US'
+            }
+          };
+          // No components needed for hello_world - it's that simple!
+          // Skip all the complex logic below and go directly to sending
+        } else {
+          // For other templates, use the complex logic
+          messagePayload.type = 'template';
+          messagePayload.template = {
+            name: messageData.templateName, // Use original templateName (preserves case)
+            language: {
+              code: messageData.templateParams?.language || 'he' // Default to Hebrew for template "a"
+            }
+          };
         
         // CRITICAL: For template "aa", rebuild components array FIRST before building regular components
         // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters + 1 URL button
@@ -193,7 +207,7 @@ class WhatsAppService {
           
           // Skip the regular component building logic for template "aa"
           // Go directly to final validation and sending
-        } else if (messageData.templateName !== 'hello_world' && 
+        } else if (templateName !== 'hello_world' && 
             messageData.templateParams && 
             Object.keys(messageData.templateParams).length > 0) {
           const components: any[] = [];
