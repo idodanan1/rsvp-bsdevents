@@ -2554,8 +2554,13 @@ const EventManagement: React.FC = () => {
       
       let result;
       try {
+        // CRITICAL: For free-form messages, pass the message content
+        // Each recipient has their own personalized message in recipient.message
+        // But we also need to pass a base message for messageService to use
+        const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
+        
         result = await messageService.sendBulkMessages({
-          message: '', // Will be overridden by individual messages
+          message: baseMessage, // Base message for free-form messages
           templateName: undefined, // CRITICAL: No template - send as regular text message
           templateParams: undefined, // CRITICAL: No template params
           recipients

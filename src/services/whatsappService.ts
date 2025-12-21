@@ -1383,6 +1383,79 @@ class WhatsAppService {
               diagnosticMessage += '\n\n🔧 Access Token is invalid or expired';
               diagnosticMessage += '\n   Generate a new token from Business Settings → System Users';
             } else if (errorCode === 131047) {
+              // CRITICAL: First message requires a template - retry with template "aa"
+              console.warn('⚠️ Meta rejected regular message - first message requires template');
+              console.warn('🔄 Retrying with template "aa"...');
+              
+              // If this was a regular message (not template), retry with template "aa"
+              if (messagePayload.type === 'text' && !messageData.templateName) {
+                // Prepare template parameters for template "aa"
+                const eventData = (messageData.templateParams as any)?.eventData;
+                const templateParamsForAA = {
+                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                               'event_date', 'event_time', 'venue', 'couple_name'],
+                  guest_name: messageData.message?.substring(0, 50) || 'אורח',
+                  event_type: eventData?.eventTypeHebrew || 'חתונה',
+                  groom_name: eventData?.groomName || '',
+                  bride_name: eventData?.brideName || '',
+                  event_date: eventData?.eventDate || '',
+                  event_time: eventData?.eventTime || '',
+                  venue: eventData?.venue || '',
+                  couple_name: eventData?.coupleName || 'הזוג',
+                  language: 'he'
+                };
+                
+                // Retry with template "aa"
+                const retryPayload: any = {
+                  messaging_product: 'whatsapp',
+                  recipient_type: 'individual',
+                  to: phoneNumber,
+                  type: 'template',
+                  template: {
+                    name: 'aa',
+                    language: { code: 'he' },
+                    components: [{
+                      type: 'body',
+                      parameters: [
+                        { type: 'text', text: templateParamsForAA.guest_name },
+                        { type: 'text', text: templateParamsForAA.event_type },
+                        { type: 'text', text: templateParamsForAA.groom_name },
+                        { type: 'text', text: templateParamsForAA.bride_name },
+                        { type: 'text', text: templateParamsForAA.event_date },
+                        { type: 'text', text: templateParamsForAA.event_time },
+                        { type: 'text', text: templateParamsForAA.venue },
+                        { type: 'text', text: templateParamsForAA.couple_name }
+                      ]
+                    }]
+                  }
+                };
+                
+                console.log('📤 Retrying with template "aa":', JSON.stringify(retryPayload, null, 2));
+                
+                const retryResponse = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(retryPayload)
+                });
+                
+                if (retryResponse.ok) {
+                  const retryData = await retryResponse.json();
+                  console.log('✅ Message sent successfully with template "aa" after retry');
+                  return {
+                    success: true,
+                    messageId: retryData.messages?.[0]?.id,
+                    contact: retryData.contacts?.[0],
+                    warning: 'Message sent as template "aa" (first message requires template)'
+                  };
+                } else {
+                  const retryErrorData = await retryResponse.json();
+                  console.error('❌ Retry with template "aa" also failed:', retryErrorData);
+                }
+              }
+              
               diagnosticMessage += '\n\n🔧 First message requires a Template';
               diagnosticMessage += '\n   Go to: WhatsApp → Message Templates and create a template';
             } else if (errorCode === 131026) {
