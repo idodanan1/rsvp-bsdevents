@@ -257,11 +257,39 @@ class MessageService {
       // The campaign.message content will be ignored when using templates
     } else if (explicitlyNoTemplate) {
       // CRITICAL: User explicitly wants free-form message (templateName === undefined with message content)
-      // Respect user's choice even for first messages (WhatsApp API will reject if truly first message, but that's user's choice)
-      console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
-      console.log('⚠️ Note: If this is a first message, WhatsApp API may reject it (requires template)');
-      templateName = undefined;
-      templateParams = undefined;
+      // BUT: If this is a first message, Meta REQUIRES a template - we MUST use template "aa"
+      if (isFirstMessage) {
+        console.log('⚠️ User requested free-form message, but this is a FIRST MESSAGE');
+        console.log('⚠️ Meta requires template for first messages - using template "aa" instead');
+        console.log('⚠️ Note: Template content will be sent, not the free-form message');
+        templateName = 'aa';
+        // Prepare template parameters for template "aa" (8 parameters)
+        const eventData = recipient.eventData;
+        if (eventData) {
+          templateParams = {
+            paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                         'event_date', 'event_time', 'venue', 'couple_name'],
+            guest_name: recipient.firstName,
+            event_type: eventData.eventTypeHebrew || 'חתונה',
+            groom_name: eventData.groomName || '',
+            bride_name: eventData.brideName || '',
+            event_date: eventData.eventDate || '',
+            event_time: eventData.eventTime || '',
+            venue: eventData.venue || '',
+            couple_name: eventData.coupleName || '',
+            language: 'he'
+          };
+        } else {
+          templateParams = {
+            language: 'he'
+          };
+        }
+      } else {
+        // NOT a first message - can send free-form message as requested
+        console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
+        templateName = undefined;
+        templateParams = undefined;
+      }
     } else if (isFirstMessage) {
       // FIRST MESSAGE - Meta requires approved template
       // No explicit template from campaign → use "aa" template as fallback (instead of hello_world)
