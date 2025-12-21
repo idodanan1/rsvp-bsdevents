@@ -122,11 +122,14 @@ class WhatsAppService {
             }
           };
           
-          // SIMPLE: Build components for template "new" - 9 body params + 1 URL button
-          // Get data from templateParams (eventData, guestName, guest_response_link)
+          // SIMPLE: Build components for template "new" - header image (if needed) + 9 body params + 1 URL button
+          // Get data from templateParams (eventData, guestName, guest_response_link, headerImageUrl)
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
           const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
+          const eventInvitationImage = eventData?.invitationImageUrl;
+          const headerImageUrl = headerImageFromParams || eventInvitationImage || messageData.imageUrl;
           
           // Build 9 body parameters (in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name, guest_response_link)
           // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
@@ -142,13 +145,49 @@ class WhatsAppService {
             { type: 'text', text: guestResponseLink || '' } // 9th parameter: guest_response_link in body
           ];
           
-          // Build components array
+          // Build components array - start with body
           const components: any[] = [
             {
               type: 'body',
               parameters: bodyParams
             }
           ];
+          
+          // Add header image component if template "new" has a header image variable
+          // Check if we have a valid image URL
+          const isValidImageUrl = headerImageUrl && (
+            headerImageUrl.startsWith('https://') || 
+            headerImageUrl.startsWith('http://')
+          );
+          
+          if (isValidImageUrl) {
+            let imageUrlForMeta = headerImageUrl;
+            if (headerImageUrl.startsWith('http://')) {
+              imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+            }
+            
+            // Add header component with image
+            // CRITICAL: If template "new" has a header image variable, it needs parameter_name
+            // Check if template expects a named variable (usually "header_image" or "event_image")
+            components.unshift({
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: {
+                    link: imageUrlForMeta
+                  },
+                  // CRITICAL: Header image parameters MUST include parameter_name if template has a variable
+                  // Common names: "header_image", "event_image", "invitation_image"
+                  // If template "new" has a header image variable, add its name here
+                  parameter_name: 'header_image' // Try common name - adjust if template uses different name
+                }
+              ]
+            });
+            console.log('🖼️ ✅ Adding header image to template "new" with parameter_name "header_image":', imageUrlForMeta);
+          } else {
+            console.log('ℹ️ Template "new" - no header image URL provided or invalid URL');
+          }
           
           // Add URL button if guest_response_link is available
           if (guestResponseLink) {
