@@ -272,11 +272,49 @@ class WhatsAppService {
               console.error(`❌ Please ensure all parameters are provided in templateParams`);
                 }
                 
+            // CRITICAL: Get eventData if it exists in templateParams (for cases where data is nested)
+            const eventData = (messageData.templateParams as any)?.eventData;
+            
+            // CRITICAL: Helper function to get parameter value from templateParams or eventData
+            const getParamValue = (key: string): any => {
+              // First try direct access in templateParams
+              if (messageData.templateParams && key in messageData.templateParams) {
+                return messageData.templateParams[key];
+              }
+              
+              // If not found, try to get from eventData
+              if (eventData) {
+                // Map parameter keys to eventData properties
+                const eventDataMap: { [key: string]: string } = {
+                  'guest_name': 'guestName', // This won't be in eventData, but keep for consistency
+                  'event_type': 'eventTypeHebrew',
+                  'groom_name': 'groomName',
+                  'bride_name': 'brideName',
+                  'event_date': 'eventDate',
+                  'event_time': 'eventTime',
+                  'venue': 'venue',
+                  'couple_name': 'coupleName'
+                };
+                
+                const eventDataKey = eventDataMap[key];
+                if (eventDataKey && eventDataKey in eventData) {
+                  return eventData[eventDataKey];
+                }
+              }
+              
+              // Also check for guestName in templateParams (for retry scenarios)
+              if (key === 'guest_name' && (messageData.templateParams as any)?.guestName) {
+                return (messageData.templateParams as any).guestName;
+              }
+              
+              return undefined;
+            };
+            
             // CRITICAL: Validate all parameters BEFORE constructing bodyParams
             // This ensures we catch any issues early
             const paramValidationErrors: string[] = [];
             filteredParamsOrder.forEach((key: string) => {
-              const paramValue = messageData.templateParams![key];
+              const paramValue = getParamValue(key);
               if (paramValue === undefined || paramValue === null) {
                 paramValidationErrors.push(`Parameter "${key}" is undefined or null`);
               } else {
@@ -292,11 +330,16 @@ class WhatsAppService {
               paramValidationErrors.forEach(err => console.error(`  - ${err}`));
               console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
               console.error(`❌ Please ensure all parameters have valid non-empty values`);
+              console.error(`❌ Available keys in templateParams:`, Object.keys(messageData.templateParams || {}));
+              if (eventData) {
+                console.error(`❌ Available keys in eventData:`, Object.keys(eventData));
+              }
             }
             
             bodyParams = filteredParamsOrder.map((key: string, index: number) => {
                 // CRITICAL: Check if parameter exists, if not use placeholder value
-                const paramValue = messageData.templateParams![key];
+                // Use helper function to get value from templateParams or eventData
+                const paramValue = getParamValue(key);
                 
                 // Handle undefined, null, or empty values with meaningful placeholders
                 let textValue: string;
@@ -329,13 +372,22 @@ class WhatsAppService {
                 console.log(`📋 Parameter ${index + 1}/${filteredParamsOrder.length} [${key}]: "${finalValue.substring(0, 50)}${finalValue.length > 50 ? '...' : ''}" (length: ${finalValue.length})`);
                 
                 // Return parameter in exact format Meta requires
-                // CRITICAL: Body parameters do NOT include parameter_name - only header/button parameters do
-                // Body parameters are sent in order, and Meta matches them by position
+                // CRITICAL: Some templates may require parameter_name field even for body parameters
+                // If the template in Meta Business Manager has named variables, we should include parameter_name
                 // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
-                return {
+                const paramObj: any = {
                   type: 'text',
                   text: finalValue
                 };
+                
+                // CRITICAL: Add parameter_name if the template requires it (for templates with named variables)
+                // The parameter name should match the variable name in Meta Business Manager Variable Samples
+                if (templateName === 'aa') {
+                  // Template "aa" has named variables - include parameter_name to match Meta's expectation
+                  paramObj.parameter_name = key; // Use the key as parameter_name (e.g., "guest_name", "event_type", etc.)
+                }
+                
+                return paramObj;
               });
           }
           
