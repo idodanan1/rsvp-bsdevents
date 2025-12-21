@@ -122,13 +122,14 @@ class WhatsAppService {
             }
           };
           
-          // SIMPLE: Build components for template "new" - 8 body params + 1 URL button
+          // SIMPLE: Build components for template "new" - 9 body params + 1 URL button
           // Get data from templateParams (eventData, guestName, guest_response_link)
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
           const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
           
-          // Build 8 body parameters (in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name)
+          // Build 9 body parameters (in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name, guest_response_link)
+          // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
           const bodyParams = [
             { type: 'text', text: guestName || 'אורח' },
             { type: 'text', text: eventData.eventTypeHebrew || 'חתונה' },
@@ -137,7 +138,8 @@ class WhatsAppService {
             { type: 'text', text: eventData.eventDate || '' },
             { type: 'text', text: eventData.eventTime || '' },
             { type: 'text', text: eventData.venue || '' },
-            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג') }
+            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג') },
+            { type: 'text', text: guestResponseLink || '' } // 9th parameter: guest_response_link in body
           ];
           
           // Build components array
