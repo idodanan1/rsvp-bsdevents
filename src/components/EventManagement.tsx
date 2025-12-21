@@ -70,7 +70,9 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Also subscribe to a computed value that changes when events change
   // This ensures the component re-renders even if events array reference doesn't change
   // CRITICAL: Include responseDate timestamp to catch all updates
-  const eventsHash = useEventStore(state => {
+  // CRITICAL: Use a stable selector that returns a primitive value
+  // This avoids React #310 errors by ensuring the dependency is stable
+  const eventsHashRaw = useEventStore(state => {
     // Create a hash from events that changes when any event or guest changes
     // CRITICAL: Also include currentEvent to catch immediate updates
     // CRITICAL: Use currentEvent if it exists and matches an event in events array, otherwise use events array
@@ -117,6 +119,9 @@ const EventManagement: React.FC = () => {
     // CRITICAL: Combine both hashes to ensure we catch updates from both sources
     return `${eventsToHash}${currentEventHash}`;
   });
+  
+  // CRITICAL: Memoize eventsHash to ensure stable reference for useMemo dependencies
+  const eventsHash = useMemo(() => eventsHashRaw, [eventsHashRaw]);
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
   const updateGuest = useEventStore(state => state.updateGuest);
@@ -762,7 +767,8 @@ const EventManagement: React.FC = () => {
     return [];
     // CRITICAL: Use only primitive stable values as dependencies to avoid React #310 errors
     // DO NOT include arrays or objects directly - they cause infinite loops
-    // Use eventsHash and eventsVersion instead - they change when events/guests change
+    // Use eventsVersion and eventsHash (string is primitive and stable)
+    // CRITICAL: eventsHash is a string from zustand selector, which is stable as a dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, eventsVersion, eventsHash]);
   
