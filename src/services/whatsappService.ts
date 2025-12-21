@@ -1567,6 +1567,92 @@ class WhatsAppService {
             } else if (errorCode === 190 || errorMessage.includes('Invalid OAuth')) {
               diagnosticMessage += '\n\n🔧 Access Token is invalid or expired';
               diagnosticMessage += '\n   Generate a new token from Business Settings → System Users';
+            } else if (errorCode === 100 && messageData.templateName && errorDetails.includes('Parameter name is missing or empty')) {
+              // CRITICAL: Template has configuration issue - try sending as regular text message as fallback
+              console.warn('⚠️ Template configuration error detected - trying fallback to regular text message');
+              console.warn('💡 This will send the message content as plain text instead of using the template');
+              
+              // Build a plain text message from template parameters
+              let fallbackMessage = messageData.message || '';
+              
+              // If no message provided, try to build from template params
+              if (!fallbackMessage && messageData.templateParams) {
+                const params = messageData.templateParams as any;
+                const eventData = params.eventData;
+                
+                // Build a simple text message from available data
+                const parts: string[] = [];
+                if (params.guestName) parts.push(`שלום ${params.guestName}`);
+                if (eventData?.eventType) parts.push(`סוג אירוע: ${eventData.eventType}`);
+                if (eventData?.coupleName || (eventData?.groomName && eventData?.brideName)) {
+                  const coupleName = eventData.coupleName || `${eventData.groomName} ו-${eventData.brideName}`;
+                  parts.push(`זוג: ${coupleName}`);
+                }
+                if (eventData?.eventDate) parts.push(`תאריך: ${eventData.eventDate}`);
+                if (eventData?.eventTime) parts.push(`שעה: ${eventData.eventTime}`);
+                if (eventData?.venue) parts.push(`מיקום: ${eventData.venue}`);
+                if (params.guest_response_link) parts.push(`קישור לעדכון: ${params.guest_response_link}`);
+                
+                fallbackMessage = parts.join('\n');
+              }
+              
+              // Fallback to default message if still empty
+              if (!fallbackMessage || fallbackMessage.trim().length === 0) {
+                fallbackMessage = 'שלום, זהו עדכון לגבי האירוע שלך.';
+              }
+              
+              console.log('📝 Fallback message:', fallbackMessage);
+              
+              // Try sending as regular text message
+              const fallbackPayload = {
+                messaging_product: 'whatsapp',
+                to: messagePayload.to,
+                type: 'text',
+                text: {
+                  body: fallbackMessage
+                }
+              };
+              
+              console.log('🔄 Attempting to send as regular text message (fallback)...');
+              console.log('📤 FALLBACK PAYLOAD:', JSON.stringify(fallbackPayload, null, 2));
+              
+              try {
+                const fallbackResponse = await fetch(`https://graph.facebook.com/v22.0/${phoneNumberId}/messages`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify(fallbackPayload)
+                });
+                
+                console.log('📊 Fallback response status:', fallbackResponse.status);
+                
+                if (fallbackResponse.ok) {
+                  const fallbackResponseData = await fallbackResponse.json();
+                  console.log('✅ Message sent successfully as regular text (fallback)');
+                  console.log('📨 Message ID:', fallbackResponseData.messages?.[0]?.id);
+                  
+                  return {
+                    success: true,
+                    messageId: fallbackResponseData.messages?.[0]?.id,
+                    warning: 'Message sent as regular text instead of template due to template configuration issue. Please fix the template in Meta Business Manager.'
+                  };
+                } else {
+                  const fallbackErrorData = await fallbackResponse.json();
+                  console.error('❌ Fallback also failed:', fallbackErrorData);
+                  
+                  // If fallback failed with 131047 (first message requires template), we can't send
+                  if (fallbackErrorData.error?.code === 131047) {
+                    console.error('❌ Cannot send as regular text - first message requires template');
+                    diagnosticMessage += '\n\n⚠️ FALLBACK ATTEMPTED: Tried to send as regular text message but failed.';
+                    diagnosticMessage += '\n   This is likely a FIRST MESSAGE which requires a template.';
+                    diagnosticMessage += '\n   You MUST fix the template configuration in Meta Business Manager.';
+                  }
+                }
+              } catch (fallbackError) {
+                console.error('❌ Fallback attempt failed with exception:', fallbackError);
+              }
             } else if (errorCode === 131047) {
               // CRITICAL: First message requires a template - retry with template "aa"
               console.warn('⚠️ Meta rejected regular message - first message requires template');
