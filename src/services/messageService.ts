@@ -400,12 +400,31 @@ class MessageService {
       }
     }
     
+    // CRITICAL: For free-form messages, pass eventData and guest name in templateParams so whatsappService can use it for retry
+    // This ensures that if Meta rejects the free-form message (error 131047), whatsappService can retry with template "aa"
+    let finalTemplateParams = templateParams;
+    if (!templateParams && recipient.eventData) {
+      // Pass eventData and guest name in templateParams even for free-form messages so retry can use it
+      finalTemplateParams = {
+        eventData: recipient.eventData,
+        guestName: recipient.firstName, // Pass guest name for retry with template "aa"
+        language: 'he'
+      } as any;
+    } else if (templateParams && recipient.eventData) {
+      // Add eventData and guest name to existing templateParams
+      finalTemplateParams = {
+        ...templateParams,
+        eventData: recipient.eventData,
+        guestName: recipient.firstName // Pass guest name for retry with template "aa"
+      } as any;
+    }
+    
     const whatsappMessage: WhatsAppMessage = {
       to: recipient.phoneNumber,
       message: processedMessage,
       imageUrl: imageUrl, // This is already set to event.invitationImageUrl || campaign.imageUrl
       templateName: templateName, // This should never be undefined for first messages
-      templateParams: templateParams,
+      templateParams: finalTemplateParams,
       buttons: recipient.buttons // Add buttons from recipient
     };
     

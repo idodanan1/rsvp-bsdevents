@@ -2559,10 +2559,27 @@ const EventManagement: React.FC = () => {
         // But we also need to pass a base message for messageService to use
         const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
         
+        // CRITICAL: Pass eventData in templateParams even for free-form messages
+        // This allows whatsappService to retry with template "aa" if Meta rejects (error 131047)
+        const eventDataForRetry = {
+          eventData: {
+            coupleName: currentEvent.coupleName,
+            groomName: currentEvent.groomName,
+            brideName: currentEvent.brideName,
+            eventType: currentEvent.eventType,
+            eventTypeHebrew: currentEvent.eventTypeHebrew,
+            eventDate: formatDate(currentEvent.eventDate),
+            eventTime: currentEvent.eventTime,
+            venue: currentEvent.venue,
+            invitationImageUrl: currentEvent.invitationImageUrl
+          },
+          language: 'he'
+        };
+        
         result = await messageService.sendBulkMessages({
           message: baseMessage, // Base message for free-form messages
           templateName: undefined, // CRITICAL: No template - send as regular text message
-          templateParams: undefined, // CRITICAL: No template params
+          templateParams: eventDataForRetry as any, // CRITICAL: Pass eventData for retry with template "aa"
           recipients
         });
         

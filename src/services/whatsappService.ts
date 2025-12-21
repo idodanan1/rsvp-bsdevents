@@ -1389,12 +1389,36 @@ class WhatsAppService {
               
               // If this was a regular message (not template), retry with template "aa"
               if (messagePayload.type === 'text' && !messageData.templateName) {
-                // Prepare template parameters for template "aa"
+                // CRITICAL: Get eventData and guestName from templateParams (passed from messageService)
+                // messageService passes eventData and guestName in templateParams for free-form messages
                 const eventData = (messageData.templateParams as any)?.eventData;
+                let guestName = (messageData.templateParams as any)?.guestName;
+                
+                // If guestName not in templateParams, try to extract from message
+                if (!guestName && messageData.message) {
+                  const firstLine = messageData.message.split('\n')[0];
+                  // Try to extract name from common Hebrew greetings
+                  const nameMatch = firstLine.match(/(?:שלום|היי|הי)\s+([^\s!.,]+)/i);
+                  if (nameMatch && nameMatch[1]) {
+                    guestName = nameMatch[1];
+                  } else {
+                    // Use first word after greeting
+                    const words = firstLine.split(/\s+/);
+                    if (words.length > 1) {
+                      guestName = words[1];
+                    }
+                  }
+                }
+                
+                // Fallback to default if still no name
+                if (!guestName) {
+                  guestName = 'אורח';
+                }
+                
                 const templateParamsForAA = {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                                'event_date', 'event_time', 'venue', 'couple_name'],
-                  guest_name: messageData.message?.substring(0, 50) || 'אורח',
+                  guest_name: guestName,
                   event_type: eventData?.eventTypeHebrew || 'חתונה',
                   groom_name: eventData?.groomName || '',
                   bride_name: eventData?.brideName || '',
@@ -1404,6 +1428,8 @@ class WhatsAppService {
                   couple_name: eventData?.coupleName || 'הזוג',
                   language: 'he'
                 };
+                
+                console.log('📋 Template params for retry:', templateParamsForAA);
                 
                 // Retry with template "aa"
                 const retryPayload: any = {
@@ -1453,6 +1479,8 @@ class WhatsAppService {
                 } else {
                   const retryErrorData = await retryResponse.json();
                   console.error('❌ Retry with template "aa" also failed:', retryErrorData);
+                  console.error('❌ Retry error code:', retryErrorData.error?.code);
+                  console.error('❌ Retry error message:', retryErrorData.error?.message);
                 }
               }
               
