@@ -59,10 +59,11 @@ class WebhookService {
 
   // Check for updates from backend
   private async checkForUpdates(includeAll: boolean = false) {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
       // Use AbortController for timeout (compatible with older browsers)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), includeAll ? 10000 : 3000); // Increased timeout for all updates
+      timeoutId = setTimeout(() => controller.abort(), includeAll ? 10000 : 3000); // Increased timeout for all updates
       
       const url = includeAll 
         ? `${BACKEND_URL}/api/guests/pending-updates?all=true`
@@ -72,7 +73,11 @@ class WebhookService {
         signal: controller.signal
       });
       
-      clearTimeout(timeoutId);
+      // Clear timeout if request completed successfully
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
       
       if (!response.ok) {
         console.error('❌ Failed to fetch pending updates:', response.status);
@@ -88,6 +93,17 @@ class WebhookService {
         console.log(`ℹ️ No updates returned but ${data.totalPending} total pending (may be filtered)`);
       }
     } catch (error: any) {
+      // Clear timeout in case of error
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      
+      // Silently ignore AbortError (timeout) - this is expected when request times out
+      if (error.name === 'AbortError') {
+        // Timeout occurred - silently ignore (this is normal behavior)
+        return;
+      }
       // Only log if it's not a connection refused error (backend not running)
       if (error.name !== 'TypeError' || !error.message.includes('Failed to fetch')) {
         console.error('❌ Error checking for updates:', error);
