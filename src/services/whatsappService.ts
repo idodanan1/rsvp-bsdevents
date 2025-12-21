@@ -158,7 +158,9 @@ class WhatsAppService {
               index: '0',
               parameters: [{
                 type: 'text',
-                text: guestResponseLink
+                text: guestResponseLink,
+                // CRITICAL: URL button parameters MUST include parameter_name for template "new"
+                parameter_name: 'url' // Required by Meta API for URL button components
               }]
             });
           }
