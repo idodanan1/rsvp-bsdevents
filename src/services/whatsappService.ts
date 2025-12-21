@@ -372,22 +372,14 @@ class WhatsAppService {
                 console.log(`📋 Parameter ${index + 1}/${filteredParamsOrder.length} [${key}]: "${finalValue.substring(0, 50)}${finalValue.length > 50 ? '...' : ''}" (length: ${finalValue.length})`);
                 
                 // Return parameter in exact format Meta requires
-                // CRITICAL: Some templates may require parameter_name field even for body parameters
-                // If the template in Meta Business Manager has named variables, we should include parameter_name
+                // CRITICAL: Body parameters do NOT include parameter_name - only header/button parameters do
+                // Body parameters are sent in order, and Meta matches them by position
+                // The parameter_name field is ONLY for header and button components, NOT for body parameters
                 // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
-                const paramObj: any = {
+                return {
                   type: 'text',
                   text: finalValue
                 };
-                
-                // CRITICAL: Add parameter_name if the template requires it (for templates with named variables)
-                // The parameter name should match the variable name in Meta Business Manager Variable Samples
-                if (templateName === 'aa') {
-                  // Template "aa" has named variables - include parameter_name to match Meta's expectation
-                  paramObj.parameter_name = key; // Use the key as parameter_name (e.g., "guest_name", "event_type", etc.)
-                }
-                
-                return paramObj;
               });
           }
           
