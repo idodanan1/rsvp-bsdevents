@@ -159,8 +159,8 @@ class WhatsAppService {
               parameters: [{
                 type: 'text',
                 text: guestResponseLink,
-                // CRITICAL: URL button parameters MUST include parameter_name for template "new"
-                parameter_name: 'url' // Required by Meta API for URL button components
+                // CRITICAL: URL button parameters MUST include parameter_name matching the variable name in template "new"
+                parameter_name: 'guest_response_link' // Must match the variable name in Meta Business Manager template
               }]
             });
           }
