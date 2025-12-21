@@ -26,6 +26,21 @@ class SMSService {
 
   async sendMessage(messageData: SMSMessage): Promise<SMSResponse> {
     try {
+      // Check if credentials are valid before attempting
+      const hasValidCredentials = this.accountSid && 
+                                   this.authToken && 
+                                   this.accountSid !== 'ACb9bdf15ec4c32919f0605df55b4c32e5' && // Default placeholder
+                                   this.authToken !== '17073428e45b4285c68a01bfdbd3daa1'; // Default placeholder
+      
+      if (!hasValidCredentials) {
+        // Silently fail if credentials are invalid/not configured
+        // This prevents console errors when SMS is used as fallback but not configured
+        return {
+          success: false,
+          error: 'SMS service not configured. Please set valid Twilio credentials in environment variables.'
+        };
+      }
+
       console.log('📱 SMS Message:', messageData);
       console.log('📞 To:', messageData.to);
       console.log('💬 Message:', messageData.message.substring(0, 100) + '...');
@@ -39,11 +54,6 @@ class SMSService {
       console.log('To:', toNumber);
       console.log('Original number:', messageData.to);
       console.log('Formatted number:', toNumber);
-      
-      // Validate credentials
-      if (!this.accountSid || !this.authToken) {
-        throw new Error('Twilio credentials are missing. Please set VITE_TWILIO_ACCOUNT_SID and VITE_TWILIO_AUTH_TOKEN');
-      }
 
       const response = await fetch(`${this.apiUrl}/${this.accountSid}/Messages.json`, {
         method: 'POST',
@@ -56,6 +66,10 @@ class SMSService {
           From: fromNumber,
           Body: messageData.message
         })
+      }).catch((fetchError) => {
+        // Suppress network errors in console - they're not critical if WhatsApp is working
+        console.warn('⚠️ SMS (Twilio) network error - this is normal if SMS is not configured:', fetchError.message);
+        throw fetchError;
       });
 
       const data = await response.json();
@@ -69,13 +83,16 @@ class SMSService {
           messageId: data.messageId || data.sid
         };
       } else {
-        console.error('❌ SMS failed:', data);
-        console.error('❌ Error details:', data.error);
-        console.error('❌ Response status:', response.status);
+        // Use console.warn instead of console.error for non-critical SMS failures
+        // (SMS is often used as fallback, so failures aren't critical if WhatsApp works)
+        console.warn('⚠️ SMS (Twilio) failed - this is normal if SMS is not configured:', {
+          status: response.status,
+          error: data.error?.message || 'Unknown error'
+        });
         
         let errorMessage = data.error?.message || `SMS sending failed (${response.status})`;
         
-        // Provide detailed error diagnostics
+        // Provide detailed error diagnostics only if explicitly requested
         if (response.status === 401) {
           errorMessage += '\n\n🔧 Authentication Failed (401 Unauthorized):';
           errorMessage += '\n1. Verify Account SID is correct:';
@@ -103,15 +120,14 @@ class SMSService {
           errorMessage += '\n3. Check if the destination country is supported';
         }
         
-        console.error('📋 Full Error Response:', JSON.stringify(data, null, 2));
-        
         return {
           success: false,
           error: errorMessage
         };
       }
-    } catch (error) {
-      console.error('SMS API Error:', error);
+    } catch (error: any) {
+      // Suppress network errors - they're not critical if WhatsApp is working
+      console.warn('⚠️ SMS (Twilio) service unavailable - this is normal if SMS is not configured:', error?.message || 'Unknown error');
       return {
         success: false,
         error: 'Network error or SMS service unavailable'

@@ -18,8 +18,6 @@ class WebhookService {
   private pollingInterval: number | null = null;
   private isPolling = false;
   private processedUpdates = new Set<string>(); // Track processed updates to show toast only once
-  private manualChanges = new Map<string, number>(); // Track manual changes: "eventId-guestId" -> timestamp
-  private readonly MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds protection after manual change - reduced for faster sync
 
   // Getter to check if polling is active
   get pollingActive(): boolean {
@@ -27,7 +25,7 @@ class WebhookService {
   }
 
   // Start polling for webhook updates
-  startPolling(intervalMs: number = 10000) {
+  startPolling(intervalMs: number = 5000) { // Optimized: 5 seconds for faster updates (reduced from 8)
     // If already polling, restart with new interval
     if (this.isPolling) {
       this.stopPolling();
@@ -42,6 +40,12 @@ class WebhookService {
     this.checkForUpdates().catch(() => {
       // Silent fail - backend might not be running yet
     });
+    
+    // CRITICAL: Also check for older updates periodically (every 30 seconds)
+    // This ensures we catch any updates that might have been missed
+    setInterval(async () => {
+      await this.checkForUpdates(true); // Include all updates (including old ones)
+    }, 30000); // Check for all updates every 30 seconds
   }
 
   // Stop polling
@@ -54,13 +58,17 @@ class WebhookService {
   }
 
   // Check for updates from backend
-  private async checkForUpdates() {
+  private async checkForUpdates(includeAll: boolean = false) {
     try {
       // Use AbortController for timeout (compatible with older browsers)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const timeoutId = setTimeout(() => controller.abort(), includeAll ? 10000 : 3000); // Increased timeout for all updates
       
-      const response = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+      const url = includeAll 
+        ? `${BACKEND_URL}/api/guests/pending-updates?all=true`
+        : `${BACKEND_URL}/api/guests/pending-updates`;
+      
+      const response = await fetch(url, {
         signal: controller.signal
       });
       
@@ -74,7 +82,10 @@ class WebhookService {
       const data = await response.json();
       
       if (data.success && data.updates && data.updates.length > 0) {
+        console.log(`📥 Received ${data.updates.length} update(s) from backend (includeAll: ${includeAll})`);
         await this.processUpdates(data.updates);
+      } else if (includeAll && data.totalPending > 0) {
+        console.log(`ℹ️ No updates returned but ${data.totalPending} total pending (may be filtered)`);
       }
     } catch (error: any) {
       // Only log if it's not a connection refused error (backend not running)
@@ -83,6 +94,54 @@ class WebhookService {
       }
       // Silently ignore connection refused - backend might not be running
       // This is expected in development if backend is not started
+    }
+  }
+
+  // Manual sync: Process all pending updates (including old ones)
+  async syncAllUpdates(processTodayOnly: boolean = false): Promise<{ processed: number; failed: number; remaining: number }> {
+    console.log(`🔄 Starting manual sync of all pending updates (today only: ${processTodayOnly})...`);
+    
+    try {
+      // First, call backend endpoint to process all updates server-side
+      const url = processTodayOnly 
+        ? `${BACKEND_URL}/api/guests/process-all-updates?today=true`
+        : `${BACKEND_URL}/api/guests/process-all-updates`;
+      
+      const processResponse = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (processResponse.ok) {
+        const processData = await processResponse.json();
+        console.log(`✅ Backend processed ${processData.processed} updates, ${processData.failed} failed, ${processData.remaining} remaining`);
+        
+        // Then fetch remaining updates and process them in frontend
+        if (processData.remaining > 0) {
+          await this.checkForUpdates(true); // Include all updates
+        }
+        
+        // Trigger events refresh to sync with backend
+        const store = await import('../store/eventStore');
+        const { useEventStore } = store;
+        const state = useEventStore.getState();
+        await state.fetchEvents(false, true);
+        
+        return {
+          processed: processData.processed || 0,
+          failed: processData.failed || 0,
+          remaining: processData.remaining || 0
+        };
+      } else {
+        throw new Error(`Backend processing failed: ${processResponse.status}`);
+      }
+    } catch (error: any) {
+      console.error('❌ Error syncing all updates:', error);
+      // Fallback: just fetch all updates and process them
+      await this.checkForUpdates(true);
+      return { processed: 0, failed: 0, remaining: 0 };
     }
   }
 
@@ -138,28 +197,28 @@ class WebhookService {
 
           // Fallback to phone number search if guestId not found or not provided
           if (!foundGuest) {
-            for (const event of events) {
-              const guest = event.guests?.find((g: any) => {
-                const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-                const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
-                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
-                const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
-                const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
-                
-                return guestPhone === updatePhone || 
-                       guestPhone === updatePhoneWith0 ||
-                       guestPhone === updatePhoneWith972 ||
-                       guestPhoneWith0 === updatePhone ||
-                       guestPhoneWith0 === updatePhoneWith0 ||
-                       guestPhoneWith972 === updatePhone ||
-                       guestPhoneWith972 === updatePhoneWith972;
-              });
+          for (const event of events) {
+            const guest = event.guests?.find((g: any) => {
+              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
+              const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+              const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+              const guestPhoneWith972 = '972' + guestPhone.replace(/^0/, '');
+              const updatePhoneWith972 = '972' + updatePhone.replace(/^0/, '');
+              
+              return guestPhone === updatePhone || 
+                     guestPhone === updatePhoneWith0 ||
+                     guestPhone === updatePhoneWith972 ||
+                     guestPhoneWith0 === updatePhone ||
+                     guestPhoneWith0 === updatePhoneWith0 ||
+                     guestPhoneWith972 === updatePhone ||
+                     guestPhoneWith972 === updatePhoneWith972;
+            });
 
-              if (guest) {
-                foundGuest = guest;
-                foundEventId = event.id;
-                break;
+            if (guest) {
+              foundGuest = guest;
+              foundEventId = event.id;
+              break;
               }
             }
           }
@@ -167,32 +226,32 @@ class WebhookService {
           if (foundGuest && foundEventId) {
             const guestKey = `${foundEventId}-${foundGuest.id}`;
             
-            // CRITICAL: Check if there was a manual change recently
-            const lastManualChange = this.manualChanges.get(guestKey);
-            const now = Date.now();
-            if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-              const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
-              console.log(`🛡️ BLOCKING guest count update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
-              // Remove from backend to prevent it from being processed again
-              try {
-                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                  method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber,
-                    guestCount: update.guestCount
-                  })
-                });
-                if (removeResponse.ok) {
-                  console.log(`✅ Removed blocked guest count update from backend`);
-                }
-              } catch (error) {
-                console.warn('⚠️ Could not remove blocked guest count update from backend:', error);
+            // CRITICAL: Remove ALL previous updates for this guest BEFORE processing the new update
+            // This ensures old updates don't interfere with new ones and don't appear in the table
+            try {
+              const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  phoneNumber: update.phoneNumber,
+                  guestId: update.guestId, // Include guestId if available for precise matching
+                  eventId: update.eventId, // Include eventId if available for precise matching
+                  removeAllForPhone: true // Remove all updates for this phone/guest
+                })
+              });
+              if (removeAllResponse.ok) {
+                const removeAllData = await removeAllResponse.json();
+                console.log(`🗑️ Removed all previous updates for guest BEFORE processing guestCount update: ${removeAllData.removed || 0} update(s) removed`);
               }
-              continue; // Skip this update
+            } catch (error) {
+              console.warn('⚠️ Could not remove all previous updates from backend:', error);
             }
+            
+            // NEW APPROACH: Don't block ANY updates - always process them
+            // The store will handle conflict resolution based on timestamps
+            console.log(`✅ Processing guestCount update from ${update.source || 'unknown'} source - always allowed`);
 
             // Check if guestCount is different from current value
             if (foundGuest.guestCount === update.guestCount) {
@@ -235,44 +294,56 @@ class WebhookService {
               // Only update guestCount, keep existing rsvpStatus
               rsvpStatus: foundGuest.rsvpStatus,
               // CRITICAL: Preserve notes if provided in update, otherwise keep existing notes
-              notes: update.notes !== undefined ? update.notes : foundGuest.notes
+              notes: update.notes !== undefined ? update.notes : foundGuest.notes,
+              // CRITICAL: Include source to ensure update is tracked correctly
+              source: update.source || 'guest_count'
             };
 
             await updateGuestResponse(foundEventId, foundGuest.id, updatedGuestForCount);
+            
+            // CRITICAL: Verify the update was successful
+            const verifyState = useEventStore.getState();
+            const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
+            const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
+            console.log(`🔍 Verification - Guest count after update: ${verifyGuest?.guestCount} (expected: ${update.guestCount})`);
+            if (verifyGuest?.guestCount !== update.guestCount) {
+              console.error(`❌ GUEST COUNT UPDATE FAILED! Expected: ${update.guestCount}, Got: ${verifyGuest?.guestCount}`);
+            } else {
+              console.log(`✅ Guest count updated successfully: ${verifyGuest?.guestCount}`);
+            }
             
             // CRITICAL: Wait a bit to ensure the update is processed before continuing
             // This ensures the store has the latest guestCount when we process the status update below
             await new Promise(resolve => setTimeout(resolve, 100));
             
-            // Remove from backend - remove only the guestCount part if there's also a status
-            // If there's a status, we'll process it separately below
-            try {
-              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phoneNumber: update.phoneNumber,
-                  guestCount: update.guestCount
-                  // Don't include status here - if there's a status, it will be processed separately
-                })
-              });
-              if (removeResponse.ok) {
-                console.log(`✅ Removed processed guest count update from backend`);
-              }
-            } catch (error) {
-              console.warn('⚠️ Could not remove guest count update from backend:', error);
-            }
-            
-            // If there's also a status in this update, continue to process it below
-            // Otherwise, skip to next update
+            // CRITICAL: If there's also a status in this update, DON'T remove guestCount from backend yet
+            // We'll remove the entire update (status + guestCount) together after processing status
+            // This ensures the status update includes the guestCount
             if (!update.status) {
+              // Only guestCount, no status - safe to remove now
+              try {
+                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                  method: 'DELETE',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    phoneNumber: update.phoneNumber,
+                    guestCount: update.guestCount
+                  })
+                });
+                if (removeResponse.ok) {
+                  console.log(`✅ Removed processed guest count update from backend`);
+                }
+              } catch (error) {
+                console.warn('⚠️ Could not remove guest count update from backend:', error);
+              }
               continue; // Move to next update (only guestCount, no status)
             }
             // If there's a status, fall through to process it below
             // CRITICAL: The guestCount has been updated, so when we process status below,
             // we'll get the latest guestCount from the store
+            // CRITICAL: Don't remove guestCount from backend yet - we'll remove the entire update together
           } else {
             console.log(`⏭️ Guest not found for guest count update, removing from backend`);
             // Remove from backend if guest not found
@@ -394,9 +465,9 @@ class WebhookService {
               }
             } catch (error) {
               console.warn('⚠️ Could not remove orphaned actualAttendance update from backend:', error);
-            }
-            continue; // Move to next update
           }
+          continue; // Move to next update
+        }
         }
         
         // Skip updates without status, guestCount, or actualAttendance
@@ -436,53 +507,53 @@ class WebhookService {
 
         // Fallback to phone number search if guestId not found or not provided
         if (!foundGuest) {
-          for (const event of events) {
-            const guestCount = event.guests?.length || 0;
-            console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
+        for (const event of events) {
+          const guestCount = event.guests?.length || 0;
+          console.log(`🔍 Checking event: ${event.coupleName} (${guestCount} guests)`);
+          
+          if (!event.guests || event.guests.length === 0) {
+            console.log(`   ⚠️ Event has no guests`);
+            continue;
+          }
+          
+          const guest = event.guests.find(g => {
+            // Normalize both phone numbers for comparison
+            const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
+            const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
             
-            if (!event.guests || event.guests.length === 0) {
-              console.log(`   ⚠️ Event has no guests`);
-              continue;
+            if (!guestPhone || !updatePhone) {
+              return false; // Skip if phone numbers are missing
             }
             
-            const guest = event.guests.find(g => {
-              // Normalize both phone numbers for comparison
-              const guestPhone = (g.phoneNumber || '').replace(/[^0-9]/g, '');
-              const updatePhone = (update.phoneNumber || '').replace(/[^0-9]/g, '');
-              
-              if (!guestPhone || !updatePhone) {
-                return false; // Skip if phone numbers are missing
-              }
-              
-              console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
-              
-              // Try multiple formats
-              const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
-              const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
-              const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
-              const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
-              
-              const matches = guestPhone === updatePhone || 
-                     guestPhone === updatePhoneWith0 ||
-                     guestPhone === updatePhoneWith972 ||
-                     guestPhoneWith972 === updatePhone ||
-                     guestPhoneWith972 === updatePhoneWith972 ||
-                     guestPhoneWith0 === updatePhone ||
-                     guestPhoneWith0 === updatePhoneWith0;
-              
-              if (matches) {
-                console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
-                console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
-              }
-              
-              return matches;
-            });
+            console.log(`   🔍 Comparing: guest="${guestPhone}" (${g.firstName} ${g.lastName}) vs update="${updatePhone}"`);
+            
+            // Try multiple formats
+            const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+            const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+            const guestPhoneWith0 = guestPhone.startsWith('972') ? '0' + guestPhone.substring(3) : guestPhone;
+            const updatePhoneWith0 = updatePhone.startsWith('972') ? '0' + updatePhone.substring(3) : updatePhone;
+            
+            const matches = guestPhone === updatePhone || 
+                   guestPhone === updatePhoneWith0 ||
+                   guestPhone === updatePhoneWith972 ||
+                   guestPhoneWith972 === updatePhone ||
+                   guestPhoneWith972 === updatePhoneWith972 ||
+                   guestPhoneWith0 === updatePhone ||
+                   guestPhoneWith0 === updatePhoneWith0;
+            
+            if (matches) {
+              console.log(`   ✅ Phone match found! Guest: ${g.firstName} ${g.lastName} (${g.phoneNumber})`);
+              console.log(`   ✅ Match details: guestPhone="${guestPhone}", updatePhone="${updatePhone}"`);
+            }
+            
+            return matches;
+          });
 
-            if (guest) {
-              foundGuest = guest;
-              foundEventId = event.id;
-              console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
-              break;
+          if (guest) {
+            foundGuest = guest;
+            foundEventId = event.id;
+            console.log(`✅ Found guest: ${foundGuest.firstName} ${foundGuest.lastName} in event ${foundEventId}`);
+            break;
             }
           }
         }
@@ -490,25 +561,38 @@ class WebhookService {
         if (foundGuest && foundEventId) {
           // CRITICAL: Remove ALL previous updates for this guest BEFORE processing the new update
           // This ensures old updates don't interfere with new ones and don't appear in the table
-          if (update.guestId && update.eventId) {
-            try {
-              const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phoneNumber: update.phoneNumber,
-                  removeAllForPhone: true // Remove all updates for this phone/guest
-                })
-              });
-              if (removeAllResponse.ok) {
-                const removeAllData = await removeAllResponse.json();
-                console.log(`🗑️ Removed all previous updates for guest BEFORE processing new update: ${removeAllData.removed || 0} update(s) removed`);
+          // CRITICAL: Always remove old updates, not just when guestId and eventId are provided
+          // CRITICAL: Wait for removal to complete before processing new update to prevent race conditions
+          try {
+            console.log(`🗑️ Removing ALL previous updates for guest BEFORE processing new update...`);
+            const removeAllResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phoneNumber: update.phoneNumber,
+                guestId: update.guestId, // Include guestId if available for precise matching
+                eventId: update.eventId, // Include eventId if available for precise matching
+                removeAllForPhone: true // Remove all updates for this phone/guest
+              })
+            });
+            if (removeAllResponse.ok) {
+              const removeAllData = await removeAllResponse.json();
+              const removedCount = removeAllData.removed || 0;
+              console.log(`🗑️ Removed ${removedCount} previous update(s) for guest BEFORE processing new update`);
+              // CRITICAL: Wait a bit after removal to ensure backend has processed it
+              if (removedCount > 0) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                console.log(`✅ Waited for backend to process removal of ${removedCount} old update(s)`);
               }
-            } catch (error) {
-              console.warn('⚠️ Could not remove all previous updates from backend:', error);
+            } else {
+              const errorText = await removeAllResponse.text();
+              console.warn(`⚠️ Failed to remove old updates: ${removeAllResponse.status} ${errorText}`);
             }
+          } catch (error) {
+            console.warn('⚠️ Could not remove all previous updates from backend:', error);
+            // Continue processing even if removal fails - the update should still be processed
           }
           
           // Create unique key for this update to avoid duplicate toasts
@@ -518,34 +602,19 @@ class WebhookService {
           // Check if we already processed this exact update
           const isNewUpdate = !this.processedUpdates.has(updateKey);
           
-          // CRITICAL: Check if there was a manual change recently (within protection time)
-          const lastManualChange = this.manualChanges.get(guestKey);
-          const now = Date.now();
-          if (lastManualChange && (now - lastManualChange) < this.MANUAL_CHANGE_PROTECTION_TIME) {
-            const timeSinceManualChange = Math.round((now - lastManualChange) / 1000);
-            console.log(`🛡️ BLOCKING webhook update - manual change detected ${timeSinceManualChange}s ago for ${foundGuest.firstName} ${foundGuest.lastName}. Protection active for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s.`);
-            // Still remove from backend to prevent it from being processed again
-            // But only remove this specific status update, not all updates (preserve guestCount updates)
-            try {
-              const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  phoneNumber: update.phoneNumber,
-                  status: update.status,
-                  responseDate: update.responseDate
-                  // Don't use removeAllForPhone - only remove this specific status update
-                })
-              });
-              if (removeResponse.ok) {
-                console.log(`✅ Removed blocked status update from backend`);
-              }
-            } catch (error) {
-              console.warn('⚠️ Could not remove blocked update from backend:', error);
-            }
-            continue; // Skip to next update
+          // NEW APPROACH: Don't block ANY updates - always process them
+          // The store will handle conflict resolution based on timestamps
+          // This ensures all updates are processed and reflected in the UI
+          const isFromWhatsApp = update.source === 'whatsapp';
+          const isFromManualSource = update.source === 'guest_link' || update.source === 'manual_update';
+          
+          // Log the update source for debugging
+          if (isFromManualSource) {
+            console.log(`✅ Processing ${update.source} update - always allowed`);
+          } else if (isFromWhatsApp) {
+            console.log(`✅ Processing WhatsApp update - always allowed`);
+          } else {
+            console.log(`✅ Processing update from ${update.source || 'unknown'} source - always allowed`);
           }
           
           // Ensure status is correctly set
@@ -554,8 +623,7 @@ class WebhookService {
           console.log(`🔍 Checking if update needed for ${foundGuest.firstName} ${foundGuest.lastName}:`, {
             currentStatus: foundGuest.rsvpStatus,
             newStatus: newStatus,
-            isNewUpdate: isNewUpdate,
-            lastManualChange: lastManualChange ? `${Math.round((now - lastManualChange) / 1000)}s ago` : 'none'
+            isNewUpdate: isNewUpdate
           });
           
           // CRITICAL: Check if there are other fields that need updating (guestCount, actualAttendance, notes, responseDate)
@@ -565,20 +633,24 @@ class WebhookService {
           const hasResponseDateChange = update.responseDate && foundGuest.responseDate && 
                                        new Date(update.responseDate).getTime() !== new Date(foundGuest.responseDate).getTime();
           
-          // CRITICAL: Always sync updates from guest_link OR whatsapp button to ensure cross-device sync
+          // CRITICAL: Always sync updates from guest_link, manual_update, OR whatsapp button to ensure cross-device sync
           // Even if status matches, we should still sync if:
           // 1. Update is from guest_link (new update from phone)
-          // 2. Update is from whatsapp button (new update from WhatsApp)
-          // 3. Other fields changed (guestCount, actualAttendance, responseDate)
-          // 4. Status changed
-          const isFromGuestLink = update.source === 'guest_link';
-          const isFromWhatsApp = update.source === 'whatsapp';
-          const shouldSyncEvenIfStatusMatches = isFromGuestLink || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
+          // 2. Update is from manual_update (new update from status update buttons) - CRITICAL: Always sync manual_update to ensure cross-device consistency
+          // 3. Update is from whatsapp button (new update from WhatsApp) - CRITICAL: Always sync WhatsApp updates
+          // 4. Other fields changed (guestCount, actualAttendance, responseDate)
+          // 5. Status changed
+          // Note: isFromManualSource and isFromWhatsApp are already defined above
+          // CRITICAL: manual_update updates MUST always be synced, even if status matches, to ensure the update is properly reflected
+          // This is because manual_update updates come from the backend echo of a manual change, and we need to ensure
+          // the update is properly applied even if it was already applied locally
+          const shouldSyncEvenIfStatusMatches = isFromManualSource || isFromWhatsApp || hasGuestCountChange || hasActualAttendanceChange || hasResponseDateChange;
           
-          // CRITICAL: Only skip if status matches AND no other fields need updating AND not from guest_link or whatsapp
-          // This ensures all updates from guest_link and whatsapp are synced across devices, even if status already matches
+          // CRITICAL: For manual_update updates, ALWAYS sync even if status matches - this ensures the update is properly reflected
+          // This is critical because manual_update updates are echoes from the backend, and we need to ensure they're applied
+          // even if the local state was already updated (to ensure cross-device consistency)
           if (foundGuest.rsvpStatus === newStatus && !shouldSyncEvenIfStatusMatches) {
-            console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link.`);
+            console.log(`⏭️ Skipping update - status already matches (${newStatus}) and no other fields changed, and not from guest_link/manual_update/whatsapp.`);
             // CRITICAL: Remove only THIS status update, not all updates (preserve guestCount updates)
             try {
               const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
@@ -603,9 +675,15 @@ class WebhookService {
             continue; // Skip to next update
           }
           
-          // If status matches but update is from guest_link or whatsapp, log it
-          if (foundGuest.rsvpStatus === newStatus && (isFromGuestLink || isFromWhatsApp)) {
-            console.log(`🔄 Status matches but update is from ${update.source} - syncing to ensure cross-device consistency`);
+          // CRITICAL: For manual_update updates, always proceed even if status matches
+          // This ensures the update is properly applied and reflected in the UI
+          if (update.source === 'manual_update' && foundGuest.rsvpStatus === newStatus) {
+            console.log(`🔄 Processing manual_update echo even though status matches - ensuring update is properly applied`);
+          }
+          
+          // If status matches but update is from manual source or whatsapp, log it
+          if (foundGuest.rsvpStatus === newStatus && (isFromManualSource || isFromWhatsApp)) {
+            console.log(`🔄 Status matches but update is from ${update.source || 'manual'} - syncing to ensure cross-device consistency`);
           }
           
           // If status matches but other fields changed, log it
@@ -626,28 +704,39 @@ class WebhookService {
           // Use current guest data if available, otherwise fall back to foundGuest
           const latestGuest = currentGuest || foundGuest;
           
+          // CRITICAL: Store OLD values BEFORE updating - these will be used to match and remove the update from backend
+          const oldStatus = latestGuest.rsvpStatus;
+          const oldGuestCount = latestGuest.guestCount;
+          
           console.log(`✅ Updating guest ${latestGuest.firstName} ${latestGuest.lastName} status to ${update.status}`);
-          console.log(`   Current status: ${latestGuest.rsvpStatus}`);
+          console.log(`   Current status: ${oldStatus}`);
           console.log(`   New status: ${update.status}`);
-          console.log(`   Current guestCount: ${latestGuest.guestCount}`);
+          console.log(`   Current guestCount: ${oldGuestCount}`);
           console.log(`   Update guestCount: ${update.guestCount}`);
           console.log(`   Guest ID: ${latestGuest.id}`);
           console.log(`   Event ID: ${foundEventId}`);
           console.log(`   Is new update: ${isNewUpdate}`);
           
-          // CRITICAL: Always use update.guestCount if provided, otherwise use latest guestCount from store
-          // This ensures guestCount updates from WhatsApp are preserved
+          // CRITICAL: Always use latest guestCount from store (which may have been updated earlier in this function)
+          // This ensures guestCount updates from WhatsApp are preserved even when processing status separately
+          // CRITICAL: If guestCount was already updated earlier in this function, use latestGuest.guestCount (most up-to-date)
+          // Otherwise, use update.guestCount if provided
           // CRITICAL: Also preserve notes from updates (especially from guest_link)
           // CRITICAL: Clean names when updating from webhook
+          // CRITICAL: Preserve source from update - if it's 'whatsapp', keep it; otherwise default to 'whatsapp' for webhook updates
           const updatedGuest = {
             ...latestGuest,
             firstName: cleanName(latestGuest.firstName),
             lastName: cleanName(latestGuest.lastName),
             rsvpStatus: newStatus,
             responseDate: new Date(update.responseDate || Date.now()),
-            guestCount: update.guestCount !== undefined ? update.guestCount : latestGuest.guestCount,
+            // CRITICAL: Always use latestGuest.guestCount (already updated earlier if update had guestCount)
+            // This ensures we preserve the guestCount that was already updated
+            guestCount: latestGuest.guestCount !== undefined ? latestGuest.guestCount : (update.guestCount !== undefined ? update.guestCount : 1),
             notes: update.notes !== undefined ? update.notes : latestGuest.notes,
-            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance
+            actualAttendance: update.actualAttendance !== undefined ? update.actualAttendance : latestGuest.actualAttendance,
+            // CRITICAL: Preserve source - if update has source, use it; otherwise default to 'whatsapp' for webhook updates
+            source: update.source || 'whatsapp'
           };
           
           console.log(`📊 Updated guest data:`, {
@@ -670,29 +759,74 @@ class WebhookService {
           });
 
           // Update the guest status
+          // CRITICAL: Ensure source is preserved for WhatsApp updates
+          const guestWithSource = {
+            ...updatedGuest,
+            source: update.source || 'whatsapp' // Preserve source, default to 'whatsapp' for webhook updates
+          };
+          
           console.log('🔄 WEBHOOK: About to call updateGuestResponse with:', {
             eventId: foundEventId,
             guestId: foundGuest.id,
             oldStatus: foundGuest.rsvpStatus,
             newStatus: updatedGuest.rsvpStatus,
+            source: guestWithSource.source,
             guestName: `${foundGuest.firstName} ${foundGuest.lastName}`
           });
           
-          await updateGuestResponse(foundEventId, foundGuest.id, updatedGuest);
-          
+          // CRITICAL: Call updateGuestResponse and wait for it to complete
+          console.log('🔄 WEBHOOK: Calling updateGuestResponse...');
+          await updateGuestResponse(foundEventId, foundGuest.id, guestWithSource);
           console.log('✅ WEBHOOK: updateGuestResponse completed');
           
-          // Verify immediately after update
-          const immediateState = useEventStore.getState();
-          const immediateEvent = immediateState.events.find(e => e.id === foundEventId);
-          const immediateGuest = immediateEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log('🔍 WEBHOOK: Immediate verification - Guest status:', immediateGuest?.rsvpStatus, 'Expected:', updatedGuest.rsvpStatus);
+          // CRITICAL: Wait a bit for store to update before verifying
+          await new Promise(resolve => setTimeout(resolve, 100));
           
-          // Verify the update was applied BEFORE removing from backend
+          // Verify immediately after update
           const verifyState = useEventStore.getState();
           const verifyEvent = verifyState.events.find(e => e.id === foundEventId);
           const verifyGuest = verifyEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log(`🔍 Verification - Guest status after update: ${verifyGuest?.rsvpStatus} (expected: ${newStatus})`);
+          
+          console.log('🔍 WEBHOOK: Verification after update:', {
+            eventId: foundEventId,
+            guestId: foundGuest.id,
+            guestName: `${foundGuest.firstName} ${foundGuest.lastName}`,
+            expectedStatus: newStatus,
+            actualStatus: verifyGuest?.rsvpStatus,
+            expectedGuestCount: update.guestCount,
+            actualGuestCount: verifyGuest?.guestCount,
+            updateSuccessful: verifyGuest?.rsvpStatus === newStatus
+          });
+          
+          // CRITICAL: Immediately update currentEvent if it's the event being viewed
+          // This ensures the table in EventManagement updates instantly without waiting for fetchEvents
+          const immediateState = useEventStore.getState();
+          const immediateEvent = immediateState.events.find(e => e.id === foundEventId);
+          if (immediateEvent) {
+            // CRITICAL: Update currentEvent immediately to force table refresh
+            const { setCurrentEvent, fetchEvents } = immediateState;
+            const currentEvent = immediateState.currentEvent;
+            
+            // Only update if this is the event currently being viewed
+            if (currentEvent && currentEvent.id === foundEventId) {
+              // Create new object reference with updated guest to force React re-render
+              const updatedCurrentEvent = {
+                ...immediateEvent,
+                guests: immediateEvent.guests ? immediateEvent.guests.map(g => ({ ...g })) : [],
+                updatedAt: new Date() // CRITICAL: Update timestamp to force re-render
+              };
+              setCurrentEvent(updatedCurrentEvent);
+              console.log('✅ WEBHOOK: Updated currentEvent immediately - table should refresh now');
+              
+              // CRITICAL: Also trigger a silent fetchEvents to sync with backend
+              // This ensures the table gets the latest data from backend immediately
+              setTimeout(() => {
+                fetchEvents(false, true).catch(err => {
+                  console.warn('⚠️ Failed to refresh events after webhook update:', err);
+                });
+              }, 100);
+            }
+          }
           
           // Only remove from backend if update was successful
           const updateSuccessful = verifyGuest?.rsvpStatus === newStatus;
@@ -711,40 +845,149 @@ class WebhookService {
             // All automatic "yes" template messages have been disabled
             console.log(`ℹ️ Guest confirmed (source: ${update.source || 'undefined'}) - "yes" template message will NOT be sent`);
             console.log(`   Status changed from "${foundGuest.rsvpStatus}" to "${newStatus}"`);
-            
-            // Mark this update as processed
-            this.processedUpdates.add(updateKey);
-            
-            // IMPORTANT: Remove this update from backend AFTER successful update
+          
+          // Mark this update as processed
+          this.processedUpdates.add(updateKey);
+          
+            // CRITICAL: Remove this update from backend AFTER successful update
             // Note: All previous updates for this guest were already removed BEFORE processing (see above)
+            // CRITICAL: Use a longer delay to ensure the update has been fully processed and UI has updated
+            // CRITICAL: Match using OLD values (oldStatus, oldGuestCount) to find the update that was just processed
+            // The backend stores updates with NEW values, but we need to match them using the OLD values that triggered the update
             setTimeout(async () => {
-              try {
-                // Remove this specific update (all previous ones were already removed)
-                const removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                  method: 'DELETE',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    phoneNumber: update.phoneNumber,
-                    status: update.status,
-                    responseDate: update.responseDate,
-                    guestCount: update.guestCount, // Include guestCount for matching
-                    guestId: update.guestId, // Include guestId for precise matching
-                    eventId: update.eventId // Include eventId for precise matching
-                  })
-                });
-                if (removeResponse.ok) {
-                  const removeData = await removeResponse.json();
-                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 1} update(s) removed`);
-                } else {
-                  const errorText = await removeResponse.text();
-                  console.warn('⚠️ Failed to remove update from backend:', removeResponse.status, errorText);
+          try {
+                // CRITICAL: Try multiple matching strategies to ensure we find and remove the correct update
+                // Strategy 1: Match by phoneNumber + guestId + eventId (most precise)
+                // Strategy 2: Match by phoneNumber + status + guestCount (if guestId/eventId not available)
+                // Strategy 3: Match by phoneNumber + responseDate (fallback)
+                
+                let removeResponse: Response | null = null;
+                let removeData: any = null;
+                
+                // First, try matching with guestId and eventId (most precise)
+                if (update.guestId && update.eventId) {
+                  console.log(`🔍 Attempting to remove update using guestId + eventId matching...`);
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phoneNumber: update.phoneNumber,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+                      // Don't include status/guestCount - match by guestId/eventId only
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using guestId + eventId: ${removeData.removed} update(s) removed`);
+                    }
+                  }
                 }
-              } catch (error) {
-                console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
+                
+                // If that didn't work, try matching with OLD status and OLD guestCount
+                // This matches the update that was stored BEFORE we processed it
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove update using OLD status + OLD guestCount matching...`);
+                  console.log(`   Matching with: status=${oldStatus}, guestCount=${oldGuestCount}`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      status: oldStatus, // Use OLD status to match the update
+                      guestCount: oldGuestCount !== undefined ? oldGuestCount : update.guestCount, // Use OLD guestCount if available
+                responseDate: update.responseDate,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+              })
+            });
+                  
+            if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using OLD values: ${removeData.removed} update(s) removed`);
+                    }
+                  }
+                }
+                
+                // If that still didn't work, try matching with NEW status and NEW guestCount
+                // Sometimes the backend stores updates with the NEW values
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove update using NEW status + NEW guestCount matching...`);
+                  console.log(`   Matching with: status=${update.status}, guestCount=${update.guestCount}`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      status: update.status, // Use NEW status
+                      guestCount: update.guestCount, // Use NEW guestCount
+                      responseDate: update.responseDate,
+                      guestId: update.guestId,
+                      eventId: update.eventId
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    if (removeData.removed > 0) {
+                      console.log(`✅ Removed processed update using NEW values: ${removeData.removed} update(s) removed`);
+                    }
+                  }
+                }
+                
+                // Final fallback: Remove all updates for this phone/guest
+                if (!removeResponse || !removeResponse.ok || (removeData && removeData.removed === 0)) {
+                  console.log(`🔍 Attempting to remove ALL updates for this phone/guest (fallback)...`);
+                  
+                  removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                    method: 'DELETE',
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      phoneNumber: update.phoneNumber,
+                      guestId: update.guestId,
+                      eventId: update.eventId,
+                      removeAllForPhone: true
+                    })
+                  });
+                  
+                  if (removeResponse.ok) {
+                    removeData = await removeResponse.json();
+                    console.log(`✅ Removed all updates for phone/guest (fallback): ${removeData.removed || 0} update(s) removed`);
+                  }
+                }
+                
+                // Log final result
+                if (removeResponse && removeResponse.ok && removeData) {
+                  console.log(`✅ Removed processed update from backend: ${removeData.removed || 0} update(s) removed`);
+              
+              // CRITICAL: Verify that the update was actually removed
+              if (removeData.removed === 0) {
+                console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
+                    console.warn(`   Tried matching with: phoneNumber=${update.phoneNumber}, guestId=${update.guestId}, eventId=${update.eventId}`);
+                    console.warn(`   OLD values: status=${oldStatus}, guestCount=${oldGuestCount}`);
+                    console.warn(`   NEW values: status=${update.status}, guestCount=${update.guestCount}`);
               }
-            }, 500); // Wait 500ms before removing to ensure UI has updated
+            } else {
+                  const errorText = removeResponse ? await removeResponse.text() : 'No response';
+                  console.warn('⚠️ Failed to remove update from backend:', removeResponse?.status || 'unknown', errorText);
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
+          }
+            }, 2000); // CRITICAL: Increased delay to 2000ms to ensure UI has fully updated and server has saved before removing
           } else {
             console.error(`❌ STATUS UPDATE FAILED! Expected: ${newStatus}, Got: ${verifyGuest?.rsvpStatus}`);
             console.error(`❌ Keeping update in backend for retry`);
@@ -753,19 +996,13 @@ class WebhookService {
           
           // CRITICAL: Force refresh events from store to ensure UI updates immediately
           // This ensures the table in EventManagement updates immediately after WhatsApp button click
-          const refreshedState = useEventStore.getState();
-          const refreshedEvent = refreshedState.events.find(e => e.id === foundEventId);
-          const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === foundGuest.id);
-          console.log(`🔄 Refreshed guest status: ${refreshedGuest?.rsvpStatus}`);
-          
-          // CRITICAL: Single refresh call - the store update already triggers React re-renders
-          // Multiple calls cause excessive API requests and performance issues
-          // The events array update from updateGuestResponse already triggers EventManagement to re-render
+          // Use immediate refresh (minimal delay) to ensure table updates instantly
           setTimeout(() => {
+            const refreshedState = useEventStore.getState();
             refreshedState.fetchEvents(false, true).catch(err => {
               console.warn(`⚠️ Failed to refresh events after WhatsApp update:`, err);
             });
-          }, 100); // Single delayed refresh to ensure API is in sync
+          }, 50); // Minimal delay to ensure API is in sync and table updates immediately
           
           console.log('🔄 Triggered single fetchEvents call to sync with API');
           
@@ -842,20 +1079,7 @@ class WebhookService {
     }
   }
 
-  // Mark a manual change to prevent webhook from overwriting it
-  markManualChange(eventId: string, guestId: string) {
-    const guestKey = `${eventId}-${guestId}`;
-    this.manualChanges.set(guestKey, Date.now());
-    console.log(`🛡️ Marked manual change for ${guestKey} - webhook updates will be blocked for ${this.MANUAL_CHANGE_PROTECTION_TIME / 1000}s`);
-    
-    // Clean up old manual change entries (older than protection time)
-    const now = Date.now();
-    for (const [key, timestamp] of this.manualChanges.entries()) {
-      if (now - timestamp > this.MANUAL_CHANGE_PROTECTION_TIME) {
-        this.manualChanges.delete(key);
-      }
-    }
-  }
+  // Manual change protection removed - rely on timestamp-based conflict resolution
 }
 
 export const webhookService = new WebhookService();

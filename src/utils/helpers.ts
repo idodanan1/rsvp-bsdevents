@@ -1,8 +1,55 @@
 import { Event, EventStats, GlobalStats } from '../types';
 
-// Generate unique ID
+// Generate unique ID with guaranteed uniqueness
+// Uses: random string + timestamp + counter + random suffix
+let idCounter = 0;
 export const generateId = (): string => {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+  const randomPart = Math.random().toString(36).substr(2, 9);
+  const timestamp = Date.now().toString(36);
+  const counter = (++idCounter).toString(36);
+  const randomSuffix = Math.random().toString(36).substr(2, 5);
+  // Format: random-timestamp-counter-suffix (e.g., "k3j2h1-abc123-1-x7y9z")
+  return `${randomPart}-${timestamp}-${counter}-${randomSuffix}`;
+};
+
+// Validate and fix duplicate event IDs in existing events
+// This ensures all events have unique IDs, even if they were created with the old system
+export const ensureUniqueEventIds = (events: Event[]): Event[] => {
+  const seenIds = new Set<string>();
+  const fixedEvents: Event[] = [];
+  let fixedCount = 0;
+
+  for (const event of events) {
+    // If event has no ID, generate one
+    if (!event.id || event.id.trim() === '') {
+      console.warn(`⚠️ Event "${event.coupleName}" has no ID, generating new one`);
+      const newEvent = { ...event, id: generateId() };
+      fixedEvents.push(newEvent);
+      seenIds.add(newEvent.id);
+      fixedCount++;
+      continue;
+    }
+
+    // If ID already exists, generate a new one
+    if (seenIds.has(event.id)) {
+      console.warn(`⚠️ Duplicate event ID detected: "${event.id}" for event "${event.coupleName}", generating new ID`);
+      const newEvent = { ...event, id: generateId() };
+      fixedEvents.push(newEvent);
+      seenIds.add(newEvent.id);
+      fixedCount++;
+      continue;
+    }
+
+    // ID is unique, keep the event as is
+    seenIds.add(event.id);
+    fixedEvents.push(event);
+  }
+
+  if (fixedCount > 0) {
+    console.log(`✅ Fixed ${fixedCount} event(s) with duplicate or missing IDs`);
+  }
+
+  return fixedEvents;
 };
 
 // Clean name by removing extra spaces
@@ -48,7 +95,16 @@ export const formatDate = (date: Date | string | undefined | null): string => {
     // Convert string to Date if needed (from localStorage)
     let dateObj: Date;
     if (typeof date === 'string') {
-      dateObj = new Date(date);
+      // CRITICAL: Parse date string and create date in local timezone
+      // If the string is in ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss), extract just the date part
+      const dateOnlyMatch = date.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dateOnlyMatch) {
+        // Extract date part only (YYYY-MM-DD) and create date in local timezone
+        const [year, month, day] = dateOnlyMatch[1].split('-').map(Number);
+        dateObj = new Date(year, month - 1, day); // month is 0-indexed
+      } else {
+        dateObj = new Date(date);
+      }
     } else if (date instanceof Date) {
       dateObj = date;
     } else {
@@ -65,13 +121,24 @@ export const formatDate = (date: Date | string | undefined | null): string => {
       return '-';
     }
     
+    // CRITICAL: Use local timezone for display (not UTC)
+    // Extract year, month, day from local timezone to avoid timezone shifts
+    const year = dateObj.getFullYear();
+    const month = dateObj.getMonth(); // 0-indexed
+    const day = dateObj.getDate();
+    
+    // Create a new date object in local timezone with just the date (no time)
+    const localDate = new Date(year, month, day);
+    
     return new Intl.DateTimeFormat('he-IL', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
-    }).format(dateObj);
+      day: 'numeric',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone // Use local timezone
+    }).format(localDate);
   } catch (error) {
     // If any error occurs, return '-'
+    console.warn('⚠️ Error formatting date:', error, 'date:', date);
     return '-';
   }
 };

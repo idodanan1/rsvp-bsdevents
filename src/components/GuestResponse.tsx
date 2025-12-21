@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import type { useEventStore as UseEventStoreType } from '../store/eventStore';
 import { formatDate, formatDateTime, formatFullName, cleanName } from '../utils/helpers';
-import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart } from 'lucide-react';
+import { CheckCircle, XCircle, Users, Calendar, MapPin, Phone, User, MessageSquare, Clock, Heart, Navigation, Plus } from 'lucide-react';
 
 const GuestResponse = () => {
   console.log(`🚀 GuestResponse component RENDERED`);
@@ -22,31 +22,64 @@ const GuestResponse = () => {
   
   // Parse eventId from hash if not in params (HashRouter fallback)
   const parseEventIdFromHash = () => {
-    if (paramEventId) {
-      console.log(`✅ Found eventId in params: ${paramEventId}`);
-      return paramEventId;
-    }
-    
-    // Try to parse from hash
+    // CRITICAL: Always check hash first for concatenated URLs, even if paramEventId exists
+    // The hash contains the full URL including concatenated links
     const hash = window.location.hash;
     console.log(`🔍 Parsing eventId from hash: ${hash}`);
     
     if (hash) {
+      // CRITICAL: Find ALL eventIds in the hash (in case of concatenated URLs)
+      // Use a more comprehensive regex that captures eventIds even with query params
+      const allMatches = hash.match(/\/guest-response\/([a-z0-9]{10,})/gi);
+      if (allMatches && allMatches.length > 0) {
+        console.log(`🔍 Found ${allMatches.length} eventId matches in hash:`, allMatches);
+        // Extract all eventIds from matches
+        const eventIds = allMatches.map(m => {
+          const idMatch = m.match(/\/([a-z0-9]{10,})/i);
+          return idMatch ? idMatch[1] : null;
+        }).filter(id => id !== null);
+        
+        if (eventIds.length > 0) {
+          // Get the last eventId found (most likely the correct one)
+          const lastEventId = eventIds[eventIds.length - 1];
+          console.log(`✅ Found last eventId in hash (from ${eventIds.length} matches): ${lastEventId}`);
+          console.log(`🔍 All eventIds found:`, eventIds);
+          return lastEventId;
+        }
+      }
+      
       // Hash format: #/guest-response/eventId?guest=guestId
       // Try multiple patterns to handle different URL formats
       let match = hash.match(/\/guest-response\/([^/?]+)/);
       if (match && match[1]) {
         const parsedId = match[1];
+        // Clean the ID if it contains URL
+        if (parsedId.includes('http://') || parsedId.includes('https://')) {
+          const idMatch = parsedId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+          if (idMatch && idMatch[1]) {
+            console.log(`✅ Found eventId in hash (cleaned): ${idMatch[1]}`);
+            return idMatch[1];
+          }
+        } else {
         console.log(`✅ Found eventId in hash: ${parsedId}`);
         return parsedId;
+        }
       }
       
       // Try alternative pattern: #guest-response/eventId
       match = hash.match(/guest-response\/([^/?]+)/);
       if (match && match[1]) {
         const parsedId = match[1];
+        if (parsedId.includes('http://') || parsedId.includes('https://')) {
+          const idMatch = parsedId.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
+          if (idMatch && idMatch[1]) {
+            console.log(`✅ Found eventId in hash (alt pattern, cleaned): ${idMatch[1]}`);
+            return idMatch[1];
+          }
+        } else {
         console.log(`✅ Found eventId in hash (alt pattern): ${parsedId}`);
         return parsedId;
+        }
       }
       
       // Try pathname if hash doesn't work
@@ -68,6 +101,12 @@ const GuestResponse = () => {
       }
     }
     
+    // Fallback: Check if paramEventId exists and is valid
+    if (paramEventId && paramEventId.length >= 10 && /^[a-z0-9]+$/i.test(paramEventId)) {
+      console.log(`✅ Found eventId in params (fallback): ${paramEventId}`);
+      return paramEventId;
+    }
+    
     console.warn(`⚠️ Could not parse eventId from URL`);
     console.warn(`⚠️ Hash: ${window.location.hash}`);
     console.warn(`⚠️ Pathname: ${window.location.pathname}`);
@@ -75,11 +114,139 @@ const GuestResponse = () => {
     return null;
   };
   
-  const eventId = paramEventId || parseEventIdFromHash();
+  const eventId = parseEventIdFromHash();
   console.log(`🔍 Final eventId: ${eventId}`);
   
   // Parse guestId from hash or search params
   const parseGuestId = () => {
+    // CRITICAL: First, get the eventId that was parsed (the last one)
+    const finalEventId = parseEventIdFromHash();
+    
+    // CRITICAL: Always check hash first for concatenated URLs, even if searchParams has guest
+    // The hash contains the full URL including concatenated links
+    const hash = window.location.hash;
+    if (hash && finalEventId) {
+      // CRITICAL FIX: Find the guestId that corresponds to the finalEventId
+      // Look for the pattern: /guest-response/{eventId}?guest={guestId} or /guest-response/{eventId}&guest={guestId}
+      // Escape special regex characters in eventId
+      const escapedEventId = finalEventId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const eventGuestPattern = new RegExp(`/guest-response/${escapedEventId}[?&]guest=([a-z0-9-]{10,})`, 'gi');
+      const eventGuestMatch = eventGuestPattern.exec(hash);
+      
+      if (eventGuestMatch && eventGuestMatch[1]) {
+        let cleanGuestId = eventGuestMatch[1];
+        // Check what comes after the guestId
+        const matchIndex = hash.indexOf(eventGuestMatch[0]);
+        const afterMatch = hash.substring(matchIndex + eventGuestMatch[0].length);
+        
+        // If 'https://' or 'http://' appears right after, trim the ID
+        if (afterMatch.startsWith('https://') || afterMatch.startsWith('http://')) {
+          // Remove 'h', 'ht', 'htt', 'http', or 'https' from the end
+          if (cleanGuestId.endsWith('https')) {
+            cleanGuestId = cleanGuestId.slice(0, -5);
+          } else if (cleanGuestId.endsWith('http')) {
+            cleanGuestId = cleanGuestId.slice(0, -4);
+          } else if (cleanGuestId.endsWith('htt')) {
+            cleanGuestId = cleanGuestId.slice(0, -3);
+          } else if (cleanGuestId.endsWith('ht')) {
+            cleanGuestId = cleanGuestId.slice(0, -2);
+          } else if (cleanGuestId.endsWith('h')) {
+            if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+              cleanGuestId = cleanGuestId.slice(0, -1);
+            }
+          }
+        }
+        
+        // Final validation: alphanumeric and hyphens, at least 10 chars
+        if (cleanGuestId.length >= 10 && /^[a-z0-9-]+$/i.test(cleanGuestId)) {
+          console.log(`✅ Found guestId matching eventId ${finalEventId}: ${cleanGuestId}`);
+          return cleanGuestId;
+        }
+      }
+      
+      // Fallback: Find ALL guest= parameters in the hash (in case of concatenated URLs)
+      // Use a more comprehensive regex that captures guestIds but stops before URLs or other non-alphanumeric chars
+      // CRITICAL FIX: Extract guestId by finding the pattern and manually cleaning it
+      // This handles cases where guestId is followed immediately by https:// or http://
+      const guestPattern = /[?&]guest=([a-z0-9-]{10,})/gi;
+      const allGuestMatches: string[] = [];
+      let match;
+      while ((match = guestPattern.exec(hash)) !== null) {
+        allGuestMatches.push(match[0]); // Store the full match including 'guest='
+      }
+      
+      if (allGuestMatches.length > 0) {
+        console.log(`🔍 Found ${allGuestMatches.length} guestId matches in hash:`, allGuestMatches);
+        // Extract all guestIds from matches - get the ID part before any URL or other characters
+        const guestIds = allGuestMatches.map(m => {
+          // Extract the ID part after 'guest='
+          const idMatch = m.match(/guest=([a-z0-9-]+)/i);
+          if (idMatch && idMatch[1]) {
+            let cleanId = idMatch[1];
+            // CRITICAL: Check if the ID ends with characters that are part of 'https' or 'http'
+            // Find where 'https://' or 'http://' starts after this match in the hash
+            const matchIndex = hash.indexOf(m);
+            const afterMatch = hash.substring(matchIndex + m.length);
+            
+            // If 'https://' or 'http://' appears right after the match, trim the ID
+            // CRITICAL FIX: Check if cleanId ends with 'https' or 'http' and remove it
+            if (afterMatch.startsWith('https://') || afterMatch.startsWith('http://')) {
+              // The ID might include 'h', 'ht', 'htt', 'http', or 'https' at the end
+              // Remove these characters from the end
+              if (cleanId.endsWith('https')) {
+                cleanId = cleanId.slice(0, -5);
+              } else if (cleanId.endsWith('http')) {
+                cleanId = cleanId.slice(0, -4);
+              } else if (cleanId.endsWith('htt')) {
+                cleanId = cleanId.slice(0, -3);
+              } else if (cleanId.endsWith('ht')) {
+                cleanId = cleanId.slice(0, -2);
+              } else if (cleanId.endsWith('h')) {
+                // Check if 'h' is part of 'https://' or 'http://'
+                if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+                  cleanId = cleanId.slice(0, -1);
+                }
+              }
+            }
+            
+            // CRITICAL: Also check if cleanId itself contains 'https' or 'http' at the end
+            // This handles cases where the regex captured too much
+            if (cleanId.endsWith('https')) {
+              cleanId = cleanId.slice(0, -5);
+            } else if (cleanId.endsWith('http')) {
+              cleanId = cleanId.slice(0, -4);
+            } else if (cleanId.endsWith('htt')) {
+              cleanId = cleanId.slice(0, -3);
+            } else if (cleanId.endsWith('ht')) {
+              cleanId = cleanId.slice(0, -2);
+            } else if (cleanId.endsWith('h')) {
+              // Check if this 'h' is followed by 'ttps' or 'ttp' in the hash
+              const idEndIndex = hash.indexOf(cleanId) + cleanId.length;
+              const afterId = hash.substring(idEndIndex);
+              if (afterId.startsWith('ttps://') || afterId.startsWith('ttp://')) {
+                cleanId = cleanId.slice(0, -1);
+              }
+            }
+            
+            // Final validation: alphanumeric and hyphens, at least 10 chars
+            if (cleanId.length >= 10 && /^[a-z0-9-]+$/i.test(cleanId)) {
+              return cleanId;
+            }
+          }
+          return null;
+        }).filter(id => id !== null && id !== undefined && id.length >= 10);
+        
+        if (guestIds.length > 0) {
+          // Get the last guestId found (most likely the correct one)
+          const lastGuestId = guestIds[guestIds.length - 1];
+          console.log(`✅ Found last guestId in hash (from ${guestIds.length} matches): ${lastGuestId}`);
+          console.log(`🔍 All guestIds found:`, guestIds);
+          return lastGuestId;
+        }
+      }
+    }
+    
+    // Fallback: Check search params
     const fromSearch = searchParams.get('guest');
     if (fromSearch) {
       // CRITICAL: Clean the guestId - remove any URL that might be appended
@@ -116,44 +283,6 @@ const GuestResponse = () => {
       }
       
       console.warn(`⚠️ Could not parse valid guestId from search param: ${fromSearch}`);
-    }
-    
-    // Try to parse from hash
-    const hash = window.location.hash;
-    if (hash) {
-      const match = hash.match(/[?&]guest=([^&]+)/);
-      if (match && match[1]) {
-        let cleaned = decodeURIComponent(match[1]).trim();
-        
-        // CRITICAL: First, try to extract just the ID part before any URL appears
-        const idBeforeUrlMatch = cleaned.match(/^([a-z0-9]{10,})(?=https?:\/\/)/i);
-        if (idBeforeUrlMatch && idBeforeUrlMatch[1]) {
-          console.log(`✅ Extracted guestId from hash before URL: ${idBeforeUrlMatch[1]}`);
-          return idBeforeUrlMatch[1];
-        }
-        
-        // Remove any full URL that might be appended
-        cleaned = cleaned.replace(/https?:\/\/[^\s]+/g, '').trim();
-        // Remove any hash fragments
-        cleaned = cleaned.replace(/#\/?[^\s]*/g, '').trim();
-        // Remove any trailing slashes
-        cleaned = cleaned.replace(/[\/]+$/g, '').trim();
-        
-        // Only return if it looks like a valid ID
-        if (cleaned && cleaned.length >= 10 && /^[a-z0-9]+$/i.test(cleaned)) {
-          console.log(`✅ Cleaned guestId from hash: ${cleaned}`);
-          return cleaned;
-        }
-        
-        // Try to extract just the ID part
-        const idMatch = cleaned.match(/^([a-z0-9]{10,})/i);
-        if (idMatch && idMatch[1]) {
-          console.log(`✅ Extracted guestId from hash: ${idMatch[1]}`);
-          return idMatch[1];
-        }
-        
-        console.warn(`⚠️ Could not parse valid guestId from hash: ${match[1]}`);
-      }
     }
     
     console.warn(`⚠️ No guestId found in URL`);
@@ -476,6 +605,9 @@ const GuestResponse = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error' | 'not_found'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+  // CRITICAL: Store the response status that was submitted, to ensure correct message display
+  const [submittedResponse, setSubmittedResponse] = useState<'attending' | 'maybe' | 'not_attending' | null>(null);
+  const [submittedGuestCount, setSubmittedGuestCount] = useState<number>(1);
   
   // State to store event found directly from localStorage (for public access)
   const [directEvent, setDirectEvent] = React.useState<any>(null);
@@ -528,10 +660,10 @@ const GuestResponse = () => {
     event = directEvent;
   }
   
-  const guest = event?.guests.find(g => g.id === guestId) || directGuest;
+  const guest = event?.guests.find((g: any) => g.id === guestId) || directGuest;
   
   // Fallback: Try to find guest by partial ID match
-  const fallbackGuest = event?.guests.find(g => guestId && (g.id.includes(guestId) || guestId.includes(g.id)));
+  const fallbackGuest = event?.guests.find((g: any) => guestId && (g.id.includes(guestId) || guestId.includes(g.id)));
   
   // Use fallback guest if main guest not found
   const finalGuest = guest || fallbackGuest || directGuest;
@@ -597,9 +729,9 @@ const GuestResponse = () => {
     let currentGuest = guest || directGuest || finalGuest;
     if (guestId && currentEvent) {
       // If currentGuest doesn't match guestId or doesn't belong to currentEvent, find it
-      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
+                      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find((g: any) => g.id === guestId)) {
         console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
-        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
+                        const guestFromEvent = currentEvent.guests?.find((g: any) => g.id === guestId);
         if (guestFromEvent) {
           console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
           currentGuest = guestFromEvent;
@@ -631,7 +763,7 @@ const GuestResponse = () => {
     }
     
     // CRITICAL: Additional verification - ensure guest belongs to the correct event
-    if (guestId && currentEvent && !currentEvent.guests?.find(g => g.id === guestId)) {
+    if (guestId && currentEvent && !currentEvent.guests?.find((g: any) => g.id === guestId)) {
       console.error(`❌ Guest ${guestId} not found in event ${eventId}`);
       console.error(`❌ This ensures we're updating the correct guest in the correct event`);
       setSubmitStatus('error');
@@ -767,11 +899,13 @@ const GuestResponse = () => {
           // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
           // The store update already triggers React re-renders, but fetchEvents ensures API sync
           // This ensures the table in EventManagement updates immediately
+          // Use immediate refresh (minimal delay) to ensure table updates instantly
+          // CRITICAL: Force refresh to ensure EventManagement detects the change
           setTimeout(() => {
-            storeState.fetchEvents(false, true).catch(err => {
+            storeState.fetchEvents(true, true).catch(err => {
               console.warn('⚠️ Failed to refresh events after guest response update:', err);
             });
-          }, 100);
+          }, 100); // Small delay to ensure store update completes first
         } else {
           // Create new guest (fallback for direct access)
           let finalNotes = formData.notes || '';
@@ -800,6 +934,10 @@ const GuestResponse = () => {
       
       // Reset confirm button state
       setShowConfirmButton(false);
+      
+      // CRITICAL: Store the response status BEFORE showing success message
+      setSubmittedResponse(formData.response);
+      setSubmittedGuestCount(formData.guestCount);
       
       // Refresh events in background (non-blocking)
       fetchEvents().catch(() => {}); // Don't wait for it
@@ -975,20 +1113,33 @@ const GuestResponse = () => {
           </h2>
           <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6 mb-6">
             <p className="text-green-800 font-bold text-lg mb-3">
-              {formData.response === 'attending' 
-                ? `אתם ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!` 
-                : formData.response === 'maybe'
-                ? 'תודה על העדכון!'
-                : 'אנו מצטערים שלא תוכלו להגיע'
+              {(() => {
+                const response = submittedResponse || formData.response;
+                const guestCount = submittedGuestCount || formData.guestCount;
+                if (response === 'attending') {
+                  return `אתם ${guestCount} ${guestCount === 1 ? 'אורח' : 'אורחים'} תגיעו לאירוע!`;
+                } else if (response === 'maybe') {
+                  return `אתם ${guestCount} ${guestCount === 1 ? 'אורח' : 'אורחים'} מתלבטים - נשמח לעדכון!`;
+                } else {
+                  return 'אנו מצטערים שלא תוכלו להגיע';
               }
+              })()}
             </p>
-            {(formData.response === 'maybe' || formData.response === 'not_attending') && (
+            {(() => {
+              const response = submittedResponse || formData.response;
+              return (response === 'maybe' || response === 'not_attending') && (
               <p className="text-green-700 text-base font-semibold mb-2 bg-green-100 rounded-lg p-3">
                 נשמח לעדכון אם יש שינוי בתכניות
               </p>
-            )}
+              );
+            })()}
             <p className="text-green-700 text-xs mt-2">
-              סטטוס: {formData.response === 'attending' ? 'מגיע' : formData.response === 'maybe' ? 'מתלבט' : 'לא מגיע'} | מספר אורחים: {formData.guestCount}
+              {(() => {
+                const response = submittedResponse || formData.response;
+                const guestCount = submittedGuestCount || formData.guestCount;
+                const statusText = response === 'attending' ? 'מגיע' : response === 'maybe' ? 'מתלבט' : 'לא מגיע';
+                return `סטטוס: ${statusText} | מספר אורחים: ${guestCount}`;
+              })()}
             </p>
             {formData.notes && (
               <p className="text-green-700 text-sm mt-2">
@@ -999,6 +1150,8 @@ const GuestResponse = () => {
           <button
             onClick={() => {
               setSubmitStatus('idle');
+              setSubmittedResponse(null);
+              setSubmittedGuestCount(1);
               setShowStatusButtons(true);
               setShowGuestCount(false);
               setShowConfirmButton(false);
@@ -1026,294 +1179,468 @@ const GuestResponse = () => {
     );
   }
   
+  // Helper function to generate calendar link
+  const generateCalendarLink = () => {
+    if (!currentEvent.eventDate) {
+      return '#';
+    }
+    
+    try {
+      const eventDate = new Date(currentEvent.eventDate);
+      // Check if date is valid
+      if (isNaN(eventDate.getTime())) {
+        console.warn('⚠️ Invalid eventDate:', currentEvent.eventDate);
+        return '#';
+      }
+      
+      const startDate = eventDate.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const endDate = new Date(eventDate.getTime() + 3 * 60 * 60 * 1000).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const title = encodeURIComponent(currentEvent.coupleName || 'חתונה');
+      const details = encodeURIComponent(`${currentEvent.venue || ''}`);
+      const location = encodeURIComponent(currentEvent.venue || '');
+      
+      return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}`;
+    } catch (error) {
+      console.error('❌ Error generating calendar link:', error);
+      return '#';
+    }
+  };
+
+  // Helper function to generate navigation link
+  const generateNavigationLink = () => {
+    if (!currentEvent.venue) return '#';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(currentEvent.venue)}`;
+  };
+
+  const coupleName = currentEvent.coupleName || 
+    (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
+     currentEvent.groomName || currentEvent.brideName || 'הזוג');
+  const groomName = currentEvent.groomName || '';
+  const brideName = currentEvent.brideName || '';
+  // Safely format event date
+  let eventDateFormatted = '-';
+  let eventDateShort = '-';
+  try {
+    if (currentEvent.eventDate) {
+      eventDateFormatted = formatDate(currentEvent.eventDate);
+      if (eventDateFormatted !== '-') {
+        eventDateShort = eventDateFormatted.split(' ')[0]; // Get just the date part
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Error formatting event date:', error);
+  }
+  
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-pink-50">
-      {/* Header with Event Details */}
-      <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Heart className="w-6 h-6 fill-current" />
-            <div className="text-center">
-              <h1 className="text-2xl font-bold">
-                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
-              </h1>
-              {(currentEvent.groomName || currentEvent.brideName) && (
-                <p className="text-white/90 text-lg mt-1">
-                  {currentEvent.groomName && currentEvent.brideName 
-                    ? `${currentEvent.groomName} & ${currentEvent.brideName}`
-                    : currentEvent.groomName || currentEvent.brideName}
-                </p>
+    <div className="min-h-screen" style={{ 
+      background: 'linear-gradient(to bottom, #faf8f5 0%, #faf8f5 50%, #f5f3f0 50%, #f5f3f0 100%)',
+      backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.3) 0%, transparent 50%)'
+    }}>
+      {/* Top section with invitation cards */}
+      <div className="relative pt-8 pb-4">
+        {/* Silky white texture background */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white via-white to-transparent opacity-60" 
+             style={{
+               backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.1) 10px, rgba(255,255,255,0.1) 20px)'
+             }}></div>
+        
+        <div className="max-w-4xl mx-auto px-4 relative z-10">
+          {/* Invitation Cards */}
+          <div className="grid grid-cols-1 gap-4 mb-4">
+            {/* Hebrew Card */}
+            <div className="bg-white rounded-lg shadow-lg p-6 text-center border border-gray-200 max-w-md mx-auto">
+              <div className="text-xs text-gray-500 mb-2">בס"ד אירועים</div>
+              <div className="text-4xl font-serif mb-2 text-gray-800">
+                {groomName && brideName ? `${groomName.toUpperCase()} & ${brideName.toUpperCase()}` : coupleName.toUpperCase()}
+              </div>
+              <div className="text-sm text-gray-700 mb-3">אנו נרגשים ושמחים להזמינכם ליום חתונתנו</div>
+              <div className="text-lg font-bold text-gray-800 mb-3">{eventDateFormatted !== '-' ? eventDateFormatted : eventDateShort}</div>
+              {currentEvent.venue && (
+                <div className="text-sm text-gray-600 mb-4">{currentEvent.venue}</div>
+              )}
+              {currentEvent.eventTime && (
+                <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="border-l border-gray-300 pl-4">
+                    <div className="font-semibold">קבלת פנים</div>
+                    <div>{currentEvent.eventTime}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold">חופה וקידושין</div>
+                    <div>20:30</div>
+                  </div>
+                </div>
               )}
             </div>
           </div>
           
           {/* Event Image */}
           {currentEvent.invitationImageUrl && (
-            <div className="mb-4 flex justify-center">
+            <div className="mb-2 flex justify-center">
               <img 
                 src={currentEvent.invitationImageUrl} 
                 alt="תמונת האירוע"
-                className="max-w-full h-48 object-cover rounded-xl shadow-lg border-4 border-white"
+                className="max-w-full max-h-96 object-contain rounded-lg shadow-xl"
               />
             </div>
           )}
-          
-          {/* Event Details */}
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-4 space-y-2">
-            <div className="flex items-center justify-center space-x-2 text-white/90">
-              <Calendar className="w-5 h-5" />
-              <span className="font-medium">{formatDate(currentEvent.eventDate)}</span>
             </div>
-            {currentEvent.eventTime && (
-              <div className="flex items-center justify-center space-x-2 text-white/90">
-                <Clock className="w-5 h-5" />
-                <span className="font-medium">{currentEvent.eventTime}</span>
               </div>
-            )}
-            {currentEvent.venue && (
-              <div className="flex items-center justify-center space-x-2 text-white/90">
-                <MapPin className="w-5 h-5" />
-                <span className="font-medium">{currentEvent.venue}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-2">
+        {/* RSVP Buttons */}
+        {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
+          <div className="text-center mb-4">
+            <div className="flex flex-wrap justify-center gap-4 mb-4">
+              <button
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, response: 'attending' }));
+                  setShowStatusButtons(true);
+                }}
+                className="bg-green-600 text-white rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                style={{ borderRadius: '9999px' }}
+              >
+                נגיע
+              </button>
+              <button
+                onClick={async () => {
+                  const currentEvent = event || directEvent;
+                  const currentGuest = guest || directGuest || finalGuest;
+                  const guestIdToUse = currentGuest?.id || guestId;
+                  
+                  if (currentEvent && guestIdToUse) {
+                    setIsSubmitting(true);
+                    try {
+                      let guestToUpdate = currentGuest;
+                      if (!guestToUpdate && currentEvent.guests) {
+                        // Try exact match first
+                        guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        // If not found, try partial match (in case guestId has extra characters like 'https')
+                        if (!guestToUpdate && guestIdToUse) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => 
+                            g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                          );
+                        }
+                        console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                        console.log('🔍 Available guest IDs:', currentEvent.guests.map((g: any) => g.id).slice(0, 5));
+                      }
+                      
+                      if (guestToUpdate) {
+                        console.log('✅ Updating guest with "maybe" status:', guestToUpdate.id);
+                        // CRITICAL: Store the response status BEFORE showing success message
+                        setSubmittedResponse('maybe');
+                        setSubmittedGuestCount(1);
+                        setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
+                        
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
+                          notes: formData.notes || '',
+                          rsvpStatus: 'maybe' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link'
+                        };
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        setTimeout(() => {
+                          const storeState = useEventStore.getState();
+                          storeState.fetchEvents(false, true).catch(() => {});
+                        }, 100);
+                        setSubmitStatus('success');
+                      }
+                    } catch (error) {
+                      console.error('❌ Error updating guest:', error);
+                      setSubmitStatus('error');
+                      setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  } else {
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
+                  }
+                }}
+                disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                style={{ borderRadius: '9999px' }}
+              >
+                {isSubmitting ? 'שולח...' : 'אולי'}
+              </button>
+              <button
+                onClick={async () => {
+                  console.log('🔴 "לא נוכל להגיע" button clicked');
+                  const currentEvent = event || directEvent;
+                  const currentGuest = guest || directGuest || finalGuest;
+                  const guestIdToUse = currentGuest?.id || guestId;
+                  
+                  console.log('🔍 Button click debug:', {
+                    currentEvent: currentEvent?.id,
+                    currentGuest: currentGuest?.id,
+                    guestIdFromUrl: guestId,
+                    guestIdToUse
+                  });
+                  
+                  if (currentEvent && guestIdToUse) {
+                    setIsSubmitting(true);
+                    try {
+                      let guestToUpdate = currentGuest;
+                      if (!guestToUpdate && currentEvent.guests) {
+                        // Try exact match first
+                        guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                        // If not found, try partial match (in case guestId has extra characters)
+                        if (!guestToUpdate && guestIdToUse) {
+                          guestToUpdate = currentEvent.guests.find((g: any) => 
+                            g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                          );
+                        }
+                        console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                        console.log('🔍 Available guest IDs:', currentEvent.guests.map((g: any) => g.id).slice(0, 5));
+                      }
+                      
+                      if (guestToUpdate) {
+                        console.log('✅ Updating guest with "declined" status:', guestToUpdate.id);
+                        // CRITICAL: Store the response status BEFORE showing success message
+                        setSubmittedResponse('not_attending');
+                        setSubmittedGuestCount(1);
+                        setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
+                        
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
+                          notes: formData.notes || '',
+                          rsvpStatus: 'declined' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
+                          source: 'guest_link'
+                        };
+                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
+                        setTimeout(() => {
+                          const storeState = useEventStore.getState();
+                          storeState.fetchEvents(false, true).catch(() => {});
+                        }, 100);
+                        setSubmitStatus('success');
+                      }
+                    } catch (error) {
+                      console.error('❌ Error updating guest:', error);
+                      setSubmitStatus('error');
+                      setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  } else {
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
+                  }
+                }}
+                disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50"
+                style={{ borderRadius: '9999px' }}
+              >
+                {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
+              </button>
+              </div>
+          </div>
+        ) : null}
+
         {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center space-x-2 mb-4">
-              <Heart className="w-8 h-8 text-amber-500 fill-current" />
-              <h2 className="text-3xl font-bold text-gray-800">
-                שיניתם תכניות?
-              </h2>
-            </div>
-            <p className="text-lg text-gray-600">
-              נשמח שתעדכנו אותנו
-            </p>
-          </div>
-          {/* Main Status Button */}
           {!showStatusButtons && !showGuestCount && !showConfirmButton ? (
-            <div className="text-center space-y-4">
+            <div className="text-center">
               <button
                 onClick={() => setShowStatusButtons(true)}
-                className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl px-12 py-6 font-bold text-xl shadow-2xl hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-3 mx-auto"
+                className="bg-green-600 text-white rounded-lg px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105 mb-4"
               >
-                <Users className="w-7 h-7" />
-                <span>עדכן סטטוס הגעה</span>
-                <svg className="w-6 h-6 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <div>
-                <button
-                  onClick={() => window.history.back()}
-                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
-                >
-                  ← חזרה
+                לחצו כאן לבחירת כמות
                 </button>
-              </div>
             </div>
           ) : !showGuestCount && !showConfirmButton ? (
             <div className="space-y-4">
               <div className="text-center mb-4">
                 <button
                   onClick={() => setShowStatusButtons(false)}
-                  className="text-amber-600 hover:text-amber-700 font-medium text-sm underline"
+                  className="text-gray-600 hover:text-gray-700 font-medium text-sm underline"
                 >
                   ← חזרה
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex flex-wrap justify-center gap-4 mb-6">
                 <button
                   onClick={() => {
                     console.log('🟢 "מגיע" button clicked - showing guest count selection');
                     setFormData(prev => ({ ...prev, response: 'attending' }));
                     setShowGuestCount(true);
                   }}
-                  className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-green-600 hover:to-green-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                  className="bg-green-600 text-white rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-700 transition-all transform hover:scale-105"
+                  style={{ borderRadius: '9999px' }}
                 >
-                  <CheckCircle className="w-6 h-6" />
-                  <span>מגיע</span>
+                  נגיע
                 </button>
                 
                 <button
-                  onClick={async () => {
-                    console.log('🟡 "מתלבט" button clicked - submitting immediately');
-                    // CRITICAL: Always use eventId from URL to find the correct event
-                    let currentEvent = event || directEvent;
-                    
-                    // CRITICAL: If eventId is provided, verify that currentEvent matches it
-                    if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
-                      console.log(`⚠️ Current event (${currentEvent?.id}) doesn't match eventId from URL (${eventId}), searching in store...`);
-                      const storeState = useEventStore.getState();
-                      const eventFromStore = storeState.events.find(e => e.id === eventId);
-                      if (eventFromStore) {
-                        console.log(`✅ Found event ${eventId} in store: ${eventFromStore.coupleName}`);
-                        currentEvent = eventFromStore;
-                      }
-                    }
-                    
-                    // CRITICAL: Also verify guestId matches the event
-                    let currentGuest = guest || directGuest || finalGuest;
-                    if (guestId && currentEvent) {
-                      if (!currentGuest || currentGuest.id !== guestId || !currentEvent.guests?.find(g => g.id === guestId)) {
-                        console.log(`⚠️ Current guest doesn't match guestId from URL (${guestId}), searching in event...`);
-                        const guestFromEvent = currentEvent.guests?.find(g => g.id === guestId);
-                        if (guestFromEvent) {
-                          console.log(`✅ Found guest ${guestId} in event: ${guestFromEvent.firstName} ${guestFromEvent.lastName}`);
-                          currentGuest = guestFromEvent;
-                        }
-                      }
-                    }
-                    
-                    // CRITICAL: Final verification - ensure eventId matches
-                    if (eventId && currentEvent && currentEvent.id !== eventId) {
-                      console.error(`❌ Event ID mismatch! URL eventId: ${eventId}, Current event ID: ${currentEvent.id}`);
-                      setSubmitStatus('error');
-                      setErrorMessage('אירוע לא תואם');
-                      return;
-                    }
-                    
-                    if (currentEvent && currentGuest) {
-                      setIsSubmitting(true);
-                      try {
-                        // CRITICAL: Update formData.response to 'maybe' so the success message displays correctly
-                        setFormData(prev => ({
-                          ...prev,
-                          response: 'maybe' as const
-                        }));
-                        
-                        const updatedGuest = {
-                          ...currentGuest,
-                          guestCount: 1,
-                          notes: formData.notes || '', // Preserve notes if they exist
-                          rsvpStatus: 'maybe' as const,
-                          responseDate: new Date(),
-                          actualAttendance: 'not_marked' as const,
-                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
-                        };
-                        console.log('🔄 Calling updateGuestResponse directly from "מתלבט" button');
-                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', currentGuest.id);
-                        console.log('📋 EventId from URL:', eventId, 'GuestId from URL:', guestId);
-                        await updateGuestResponse(currentEvent.id, currentGuest.id, updatedGuest);
-                        
-                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
-                        const storeModule = await import('../store/eventStore');
-                        const storeState = storeModule.useEventStore.getState();
-                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === currentGuest.id);
-                        console.log(`🔄 Refreshed guest status after "מתלבט" update: ${refreshedGuest?.rsvpStatus}`);
-                        console.log(`🔄 Refreshed guest count after "מתלבט" update: ${refreshedGuest?.guestCount}`);
-                        
-                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
-                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
-                        // This ensures the table in EventManagement updates immediately
-                        setTimeout(() => {
-                          storeState.fetchEvents(false, true).catch(err => {
-                            console.warn('⚠️ Failed to refresh events after "מתלבט" update:', err);
-                          });
-                        }, 100);
-                        
-                        setSubmitStatus('success');
-                      } catch (error) {
-                        console.error('❌ Error submitting:', error);
-                        setSubmitStatus('error');
-                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
-                      } finally {
-                        setIsSubmitting(false);
-                      }
-                    } else {
-                      setFormData(prev => ({ ...prev, response: 'maybe', guestCount: 1 }));
-                      setShowStatusButtons(false);
-                      setShowConfirmButton(true);
-                    }
-                  }}
-                  disabled={isSubmitting}
-                  className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-yellow-600 hover:to-yellow-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <MessageSquare className="w-6 h-6" />
-                  <span>{isSubmitting ? 'שולח...' : 'מתלבט'}</span>
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    console.log('🔴 "לא מגיע" button clicked - submitting immediately');
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🟡 "אולי" button clicked!');
                     const currentEvent = event || directEvent;
                     const currentGuest = guest || directGuest || finalGuest;
-                    
-                    // CRITICAL: Use cleaned guestId if currentGuest not found
                     const guestIdToUse = currentGuest?.id || guestId;
-                    console.log('📋 Using guestId:', guestIdToUse, 'from currentGuest:', currentGuest?.id, 'or guestId:', guestId);
+                    
+                    console.log('🔍 Button click debug:', {
+                      currentEvent: currentEvent?.id,
+                      currentGuest: currentGuest?.id,
+                      guestIdToUse,
+                      guestId,
+                      hasEvent: !!currentEvent,
+                      hasGuest: !!currentGuest
+                    });
                     
                     if (currentEvent && guestIdToUse) {
                       setIsSubmitting(true);
                       try {
-                        // If currentGuest not found, create guest object from currentEvent
                         let guestToUpdate = currentGuest;
                         if (!guestToUpdate && currentEvent.guests) {
+                          // Try exact match first
                           guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                          // If not found, try partial match (in case guestId has extra characters like 'https')
+                          if (!guestToUpdate && guestIdToUse) {
+                            guestToUpdate = currentEvent.guests.find((g: any) => 
+                              g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                            );
+                          }
+                          console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
                         }
                         
-                        if (!guestToUpdate) {
-                          console.error('❌ Guest not found in event');
-                          setSubmitStatus('error');
-                          setErrorMessage('אורח לא נמצא');
-                          setIsSubmitting(false);
-                          return;
-                        }
+                        if (guestToUpdate) {
+                          console.log('✅ Updating guest with "maybe" status:', guestToUpdate.id);
+                          // CRITICAL: Store the response status BEFORE showing success message
+                          setSubmittedResponse('maybe');
+                          setSubmittedGuestCount(1);
                         
                         const updatedGuest = {
-                          ...guestToUpdate,
+                            ...guestToUpdate,
                           guestCount: 1,
-                          notes: formData.notes || '', // Preserve notes if they exist
-                          rsvpStatus: 'declined' as const,
+                            notes: formData.notes || '',
+                          rsvpStatus: 'maybe' as const,
                           responseDate: new Date(),
                           actualAttendance: 'not_marked' as const,
-                          source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
+                            source: 'guest_link'
                         };
-                        console.log('🔄 Calling updateGuestResponse directly from "לא מגיע" button');
-                        console.log('📋 Event ID:', currentEvent.id, 'Guest ID:', guestIdToUse);
-                        await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
-                        
-                        // CRITICAL: Force refresh events from store to ensure UI updates immediately
-                        const storeModule = await import('../store/eventStore');
-                        const storeState = storeModule.useEventStore.getState();
-                        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-                        const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestIdToUse);
-                        console.log(`🔄 Refreshed guest status after "לא מגיע" update: ${refreshedGuest?.rsvpStatus}`);
-                        console.log(`🔄 Refreshed guest count after "לא מגיע" update: ${refreshedGuest?.guestCount}`);
-                        
-                        // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
-                        // The store update already triggers React re-renders, but fetchEvents ensures API sync
-                        // This ensures the table in EventManagement updates immediately
+                          // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
+                          await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
                         setTimeout(() => {
-                          storeState.fetchEvents(false, true).catch(err => {
-                            console.warn('⚠️ Failed to refresh events after "לא מגיע" update:', err);
-                          });
+                            const storeState = useEventStore.getState();
+                            storeState.fetchEvents(false, true).catch(() => {});
                         }, 100);
-                        
                         setSubmitStatus('success');
+                        } else {
+                          console.error('❌ Guest not found for maybe status');
+                          setSubmitStatus('error');
+                          setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
+                        }
                       } catch (error) {
-                        console.error('❌ Error submitting:', error);
+                        console.error('Error:', error);
                         setSubmitStatus('error');
-                        setErrorMessage('אירעה שגיאה בעדכון התגובה');
+                        setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
                       } finally {
                         setIsSubmitting(false);
                       }
                     } else {
+                    console.warn('⚠️ Cannot update - missing event or guestId');
+                    console.warn('⚠️ Event:', currentEvent?.id, 'GuestId:', guestIdToUse);
+                    setSubmitStatus('error');
+                    setErrorMessage('לא ניתן לעדכן את הסטטוס. אנא בדוק את הקישור.');
+                    }
+                  }}
+                  disabled={isSubmitting}
+                className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 cursor-pointer"
+                style={{ borderRadius: '9999px', pointerEvents: isSubmitting ? 'none' : 'auto' }}
+                >
+                {isSubmitting ? 'שולח...' : 'אולי'}
+                </button>
+                
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🔴 "לא נוכל להגיע" button clicked!');
+                    const currentEvent = event || directEvent;
+                    const currentGuest = guest || directGuest || finalGuest;
+                    const guestIdToUse = currentGuest?.id || guestId;
+                    
+                    console.log('🔍 Button click debug:', {
+                      currentEvent: currentEvent?.id,
+                      currentGuest: currentGuest?.id,
+                      guestIdToUse,
+                      guestId,
+                      hasEvent: !!currentEvent,
+                      hasGuest: !!currentGuest
+                    });
+                    
+                    if (currentEvent && guestIdToUse) {
+                      setIsSubmitting(true);
+                      try {
+                        let guestToUpdate = currentGuest;
+                        if (!guestToUpdate && currentEvent.guests) {
+                            // Try exact match first
+                          guestToUpdate = currentEvent.guests.find((g: any) => g.id === guestIdToUse);
+                            // If not found, try partial match (in case guestId has extra characters like 'https')
+                            if (!guestToUpdate && guestIdToUse) {
+                              guestToUpdate = currentEvent.guests.find((g: any) => 
+                                g.id.startsWith(guestIdToUse) || guestIdToUse.startsWith(g.id)
+                              );
+                            }
+                            console.log('🔍 Searched for guest:', guestToUpdate ? `Found: ${guestToUpdate.id}` : 'Not found');
+                          }
+                          
+                          if (guestToUpdate) {
+                            console.log('✅ Updating guest with "declined" status:', guestToUpdate.id);
+                            // CRITICAL: Store the response status BEFORE showing success message
+                            setSubmittedResponse('not_attending');
+                            setSubmittedGuestCount(1);
+                        
+                        const updatedGuest = {
+                          ...guestToUpdate,
+                          guestCount: 1,
+                            notes: formData.notes || '',
+                          rsvpStatus: 'declined' as const,
+                          responseDate: new Date(),
+                          actualAttendance: 'not_marked' as const,
+                            source: 'guest_link'
+                        };
+                        // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
+                        await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
+                        setTimeout(() => {
+                            const storeState = useEventStore.getState();
+                            storeState.fetchEvents(false, true).catch(() => {});
+                        }, 100);
+                        setSubmitStatus('success');
+                        } else {
+                          console.error('❌ Guest not found for declined status');
+                          setSubmitStatus('error');
+                          setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
+                        }
+                      } catch (error) {
+                        console.error('Error:', error);
+                        setSubmitStatus('error');
+                        setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
+                      } finally {
+                        setIsSubmitting(false);
+                      }
+                    } else {
+                      console.warn('⚠️ Cannot update - missing event or guestId, falling back to form');
                       setFormData(prev => ({ ...prev, response: 'not_attending', guestCount: 1 }));
                       setShowStatusButtons(false);
                       setShowConfirmButton(true);
                     }
                   }}
                   disabled={isSubmitting}
-                  className="bg-gradient-to-br from-red-500 to-red-600 text-white rounded-xl px-8 py-6 font-bold text-lg shadow-lg hover:from-red-600 hover:to-red-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-white text-gray-800 border-2 border-gray-300 rounded-full px-8 py-4 font-bold text-lg shadow-lg hover:bg-gray-50 transition-all transform hover:scale-105 disabled:opacity-50 cursor-pointer"
+                  style={{ borderRadius: '9999px', pointerEvents: isSubmitting ? 'none' : 'auto' }}
                 >
-                  <XCircle className="w-6 h-6" />
-                  <span>{isSubmitting ? 'שולח...' : 'לא מגיע'}</span>
+                  {isSubmitting ? 'שולח...' : 'לא נוכל להגיע'}
                 </button>
               </div>
             </div>
@@ -1479,6 +1806,70 @@ const GuestResponse = () => {
               </div>
             </div>
           ) : null}
+        </div>
+
+        {/* Event Details and Actions */}
+        <div className="bg-white rounded-2xl shadow-xl p-6 mb-4">
+          {/* Navigation and Calendar Actions */}
+          <div className="grid grid-cols-3 gap-4 mb-3">
+            <a
+              href={generateNavigationLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <div className="text-2xl mb-2">😊</div>
+              <span className="text-sm font-medium text-gray-700">ניווט לאירוע</span>
+            </a>
+            <a
+              href={generateCalendarLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <Calendar className="w-6 h-6 text-gray-700 mb-2" />
+              <span className="text-sm font-medium text-gray-700">הוספה ליומן</span>
+            </a>
+            <div className="flex flex-col items-center justify-center p-4 rounded-lg">
+              <Heart className="w-6 h-6 text-gray-700 mb-2" />
+              <span className="text-sm font-medium text-gray-700">חתונה</span>
+            </div>
+          </div>
+
+          {/* Event Timings and Parents Names */}
+          <div className="mb-3 pb-3 border-b border-gray-200">
+            {/* Event Timings */}
+            {currentEvent.eventTime && (
+              <div className="grid grid-cols-2 gap-4 mb-2">
+                <div className="text-center border-l border-gray-300">
+                  <div className="font-semibold text-gray-800 mb-1">קבלת פנים</div>
+                  <div className="text-lg text-gray-600">{currentEvent.eventTime}</div>
+                </div>
+                <div className="text-center">
+                  <div className="font-semibold text-gray-800 mb-1">חופה וקידושין</div>
+                  <div className="text-lg text-gray-600">20:30</div>
+                </div>
+              </div>
+            )}
+            
+            {/* Parents Names - Always show, even if empty */}
+            <div className="grid grid-cols-2 gap-4 text-sm mt-2">
+              <div className="text-center">
+                <div className="font-semibold text-gray-700 mb-1">הורי החתן</div>
+                <div className="text-gray-600">{currentEvent.groomParentsName || '-'}</div>
+              </div>
+              <div className="text-center">
+                <div className="font-semibold text-gray-700 mb-1">הורי הכלה</div>
+                <div className="text-gray-600">{currentEvent.brideParentsName || '-'}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="text-center text-sm text-gray-500 pb-8">
+          <div className="mb-2">בס"ד אירועים</div>
+          <div>אישורי הגעה וסידורי הושבה</div>
         </div>
       </div>
     </div>

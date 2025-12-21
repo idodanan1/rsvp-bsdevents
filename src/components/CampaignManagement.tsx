@@ -31,7 +31,7 @@ import MessagePreview from './MessagePreview';
 const CampaignManagement: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { events, currentEvent, setCurrentEvent, sendCampaign, sendTestMessage, scheduleCampaign: scheduleEventCampaign } = useEventStore();
+  const { events, currentEvent, setCurrentEvent, sendCampaign, resendFailedMessages, sendTestMessage, scheduleCampaign: scheduleEventCampaign } = useEventStore();
   const { createCampaign, updateCampaign, deleteCampaign, scheduleCampaign, isLoading } = useCampaignStore();
   
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
@@ -42,7 +42,7 @@ const CampaignManagement: React.FC = () => {
     name: '',
     message: '',
     imageUrl: '',
-    channel: 'whatsapp' as 'whatsapp' | 'sms',
+    channel: 'whatsapp' as 'whatsapp',
     scheduledDate: '',
     scheduledTime: '',
     repeatType: 'none' as 'none' | 'daily' | 'weekly' | 'custom',
@@ -262,12 +262,50 @@ const CampaignManagement: React.FC = () => {
     }
   };
 
+  const handleResendFailed = async (campaignId: string) => {
+    try {
+      if (!currentEvent) return;
+      
+      // Count failed guests before resending
+      const failedGuestsCount = currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0;
+      
+      if (failedGuestsCount === 0) {
+        alert('ℹ️ אין אורחים עם הודעות שנכשלו לשליחה חוזרת');
+        return;
+      }
+      
+      const confirmMessage = `האם אתה בטוח שברצונך לשלוח שוב את ההודעה ל-${failedGuestsCount} אורחים שההודעה נכשלה להם?`;
+      if (!window.confirm(confirmMessage)) {
+        return;
+      }
+      
+      const result = await resendFailedMessages(currentEvent.id, campaignId);
+      
+      // Show result message
+      let message = '';
+      if (result.successful > 0 && result.failed === 0) {
+        message = `✅ הודעות נשלחו בהצלחה!\n\n${result.successful} הודעות נשלחו בהצלחה מחדש`;
+      } else if (result.successful > 0 && result.failed > 0) {
+        message = `⚠️ הודעות נשלחו חלקית\n\n✅ ${result.successful} הודעות נשלחו בהצלחה מחדש\n❌ ${result.failed} הודעות עדיין נכשלו`;
+      } else {
+        message = `❌ כל ההודעות עדיין נכשלו\n\n${result.failed} הודעות נכשלו`;
+      }
+      
+      console.log('📊 Resend failed messages result:', result);
+      alert(message);
+    } catch (error: any) {
+      console.error('Error resending failed messages:', error);
+      const errorMessage = error?.message || error?.toString() || 'שגיאה לא ידועה';
+      alert(`❌ שגיאה בשליחה חוזרת\n\n🔍 שגיאה: ${errorMessage}`);
+    }
+  };
+
   const handleSendTestMessage = async (campaign: any) => {
     const phoneNumber = prompt('הזן מספר טלפון לבדיקה:');
     if (!phoneNumber) return;
 
     try {
-      const success = await sendTestMessage(phoneNumber, campaign.message, campaign.channel);
+      const success = await sendTestMessage(phoneNumber, campaign.message, 'whatsapp');
       
       if (success) {
         alert('הודעת בדיקה נשלחה בהצלחה!');
@@ -520,14 +558,10 @@ const CampaignManagement: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     ערוץ שליחה
                   </label>
-                  <select
-                    value={newCampaign.channel}
-                    onChange={(e) => setNewCampaign({...newCampaign, channel: e.target.value as 'whatsapp' | 'sms'})}
-                    className="input-field"
-                  >
-                    <option value="whatsapp">וואטסאפ</option>
-                    <option value="sms">SMS</option>
-                  </select>
+                  <div className="flex items-center text-sm text-gray-600 py-2">
+                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                    <span>וואטסאפ</span>
+                  </div>
                 </div>
               </div>
 
@@ -885,6 +919,24 @@ const CampaignManagement: React.FC = () => {
                     </button>
                   )}
 
+                  {/* Show resend failed button if campaign was sent/scheduled - always show it, even if no failures currently */}
+                  {currentEvent && (campaign.status === 'sent' || campaign.status === 'scheduled') && (
+                    <button
+                      onClick={() => handleResendFailed(campaign.id)}
+                      className="btn-secondary text-sm flex items-center space-x-1 bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={isLoading}
+                      title={`שלח שוב ל-${currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0} אורחים שההודעה נכשלה להם`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>שליחה חוזרת לכשלונות</span>
+                      {(currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0) > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 mr-1">
+                          {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   <button
                     onClick={() => handleScheduleCampaign(campaign)}
                     className="btn-secondary text-sm flex items-center space-x-1"
@@ -939,7 +991,7 @@ const CampaignManagement: React.FC = () => {
               <div className="flex items-center space-x-4 text-sm">
                 <div className="flex items-center space-x-1">
                   {getChannelIcon(selectedCampaign.channel)}
-                  <span>{selectedCampaign.channel === 'whatsapp' ? 'וואטסאפ' : 'SMS'}</span>
+                  <span>וואטסאפ</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <Clock className="w-4 h-4 text-gray-500" />

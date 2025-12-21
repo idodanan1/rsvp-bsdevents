@@ -114,16 +114,16 @@ const Dashboard: React.FC = () => {
       console.error('❌ Error initial fetch:', error);
     });
     
-    // Set up auto-refresh interval - fetch every 15 seconds to reduce server load
+    // Set up auto-refresh interval - fetch every 10 seconds for better cross-device sync
     // Using startTransition and silent mode to make updates smooth and non-blocking
     const dataInterval = setInterval(() => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(true, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
-        });
+        console.error('❌ Error auto-refreshing events:', error);
       });
-    }, 15000); // 15 seconds - balanced sync without excessive load
+      });
+    }, 10000); // 10 seconds (optimized for better cross-device synchronization)
 
     return () => clearInterval(dataInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,6 +168,8 @@ const Dashboard: React.FC = () => {
         coupleName: selectedEventForEdit.coupleName,
         groomName: selectedEventForEdit.groomName,
         brideName: selectedEventForEdit.brideName,
+        groomParentsName: selectedEventForEdit.groomParentsName || undefined,
+        brideParentsName: selectedEventForEdit.brideParentsName || undefined,
         eventDate: selectedEventForEdit.eventDate,
         eventTime: selectedEventForEdit.eventTime,
         venue: selectedEventForEdit.venue,
@@ -207,6 +209,67 @@ const Dashboard: React.FC = () => {
           <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
+          {/* Quick restore button for specific event */}
+          <button
+            onClick={async () => {
+              const eventId = prompt('הזן את מזהה האירוע לשחזור:');
+              if (eventId && eventId.trim()) {
+                try {
+                  const success = await restoreDeletedEvent(eventId.trim());
+                  if (success) {
+                    alert('✅ האירוע שוחזר בהצלחה!');
+                    await fetchEvents(true);
+                  } else {
+                    alert('❌ שגיאה בשחזור האירוע. נסה לבדוק את המזהה או לפתוח את חלון האירועים שנמחקו.');
+                  }
+                } catch (error: any) {
+                  console.error('❌ Error restoring event:', error);
+                  alert(`❌ שגיאה בשחזור האירוע: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }
+            }}
+            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-green-100 text-green-700 hover:bg-green-200 border-green-300"
+            title="שחזר אירוע לפי מזהה"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>שחזר אירוע לפי מזהה</span>
+          </button>
+          {/* Restore from localStorage button */}
+          <button
+            onClick={async () => {
+              const confirmed = window.confirm(
+                'האם אתה בטוח שברצונך לשחזר את כל האירועים מ-localStorage?\n\n' +
+                'זה יחליף את כל האירועים הנוכחיים בנתונים מ-localStorage.\n\n' +
+                '⚠️ שים לב: זה יכול לגרום לאובדן נתונים אם localStorage לא מעודכן.'
+              );
+              
+              if (confirmed) {
+                try {
+                  const { restoreEvents } = useEventStore.getState();
+                  const success = restoreEvents();
+                  
+                  if (success) {
+                    // Sync restored events to backend
+                    const { syncAllEventsToAPI, fetchEvents } = useEventStore.getState();
+                    await syncAllEventsToAPI();
+                    await fetchEvents(true);
+                    
+                    alert('✅ האירועים שוחזרו מ-localStorage בהצלחה!\n\nכל האירועים נשלחו לשרת.');
+                  } else {
+                    alert('❌ לא נמצאו נתונים ב-localStorage לשחזור.');
+                  }
+                } catch (error: any) {
+                  console.error('❌ Error restoring from localStorage:', error);
+                  alert(`❌ שגיאה בשחזור מ-localStorage: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }
+            }}
+            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-300"
+            title="שחזר אירועים מ-localStorage (גיבוי מקומי)"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>שחזר מ-localStorage</span>
+          </button>
           {deletedEvents.length > 0 && (
             <button
               onClick={() => setShowDeletedEventsModal(true)}
@@ -395,6 +458,9 @@ const Dashboard: React.FC = () => {
                             : event.groomName || event.brideName}
                         </p>
                       )}
+                      <p className="text-xs text-gray-400 mb-1 font-mono">
+                        מזהה: {event.id}
+                      </p>
                       <p className="text-gray-600 flex items-center font-medium">
                         <Calendar className="w-4 h-4 mr-1" />
                         {formatDate(event.eventDate)} - {event.eventTime}
@@ -629,6 +695,37 @@ const Dashboard: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      שם הורי החתן (אופציונלי)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedEventForEdit.groomParentsName || ''}
+                      onChange={(e) => setSelectedEventForEdit({
+                        ...selectedEventForEdit,
+                        groomParentsName: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      שם הורי הכלה (אופציונלי)
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedEventForEdit.brideParentsName || ''}
+                      onChange={(e) => setSelectedEventForEdit({
+                        ...selectedEventForEdit,
+                        brideParentsName: e.target.value
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       שעת האירוע
                     </label>
                     <input
@@ -758,12 +855,12 @@ const Dashboard: React.FC = () => {
                               // CRITICAL: Verify imageUrl is a valid HTTP/HTTPS URL, not a local file path
                               if (data.imageUrl && !data.imageUrl.startsWith('file://')) {
                                 console.log('✅ Valid image URL received:', data.imageUrl);
-                                setSelectedEventForEdit({
-                                  ...selectedEventForEdit,
-                                  invitationImageUrl: data.imageUrl
-                                });
+                              setSelectedEventForEdit({
+                                ...selectedEventForEdit,
+                                invitationImageUrl: data.imageUrl
+                              });
                                 alert(`✅ התמונה הועלתה בהצלחה!\n\nקישור: ${data.imageUrl}`);
-                              } else {
+                            } else {
                                 alert('שגיאה: התמונה לא הועלתה לשרת. נא לנסות שוב.');
                                 console.error('❌ Invalid image URL received:', data.imageUrl);
                               }
@@ -851,7 +948,7 @@ const Dashboard: React.FC = () => {
                       // Validate URL format
                       if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
                         setSelectedEventForEdit({
-                          ...selectedEventForEdit,
+                      ...selectedEventForEdit,
                           invitationImageUrl: url
                         });
                       } else if (url === '') {

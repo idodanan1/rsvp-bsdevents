@@ -47,7 +47,7 @@ const ClientDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false); // Start with false - show page immediately
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'confirmed' | 'declined' | 'maybe' | 'pending'>('all');
-  const [messageFilterStatus, setMessageFilterStatus] = useState<'all' | 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sms_sent' | 'sent_not_delivered'>('all');
+  const [messageFilterStatus, setMessageFilterStatus] = useState<'all' | 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sent_not_delivered'>('all');
   const pollingIntervalRef = useRef<number | null>(null);
   const isPollingRef = useRef(false);
 
@@ -58,13 +58,43 @@ const ClientDashboard: React.FC = () => {
     
     console.log(`🔍 ClientDashboard loading event silently: ${eventId}`);
     
-    // Try to find event in current events first (for fast initial display)
-      const event = events.find(e => e.id === eventId);
-      if (event) {
+    // CRITICAL: Try to load from localStorage FIRST (even on new device) - might have data from previous session
+    // This is important because API might return incomplete data for large events
+    let eventFromStorage: any = null;
+    try {
+      const stored = localStorage.getItem('rsvp-events-storage');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.state && parsed.state.events) {
+          eventFromStorage = parsed.state.events.find((e: any) => e.id === eventId);
+          if (eventFromStorage) {
+            const displayName = eventFromStorage.coupleName || 
+              (eventFromStorage.groomName && eventFromStorage.brideName ? `${eventFromStorage.groomName} & ${eventFromStorage.brideName}` : 
+               eventFromStorage.groomName || eventFromStorage.brideName || 'אירוע');
+            console.log(`✅ Found event in localStorage: ${displayName} - ${eventFromStorage.guests?.length || 0} guests`);
+            console.log(`🔍 Event details from localStorage:`, {
+              coupleName: eventFromStorage.coupleName,
+              groomName: eventFromStorage.groomName,
+              brideName: eventFromStorage.brideName,
+              eventDate: eventFromStorage.eventDate,
+              venue: eventFromStorage.venue,
+              guestsCount: eventFromStorage.guests?.length || 0,
+              updatedAt: eventFromStorage.updatedAt
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing localStorage:', error);
+    }
+    
+    // Try to find event in current events (for fast initial display)
+    const event = events.find(e => e.id === eventId);
+    if (event) {
       const displayName = event.coupleName || 
         (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
          event.groomName || event.brideName || 'אירוע');
-      console.log(`✅ Found event in store: ${displayName} - showing immediately, will update from backend`);
+      console.log(`✅ Found event in store: ${displayName} - ${event.guests?.length || 0} guests`);
       console.log(`🔍 Event details:`, {
         coupleName: event.coupleName,
         groomName: event.groomName,
@@ -75,7 +105,7 @@ const ClientDashboard: React.FC = () => {
         updatedAt: event.updatedAt
       });
       
-      // CRITICAL: Only set if we don't have currentEvent or if this is newer
+      // CRITICAL: Prefer store over localStorage if both exist (store is more up-to-date)
       setCurrentEvent((prev: any) => {
         if (!prev) {
           return event;
@@ -88,100 +118,219 @@ const ClientDashboard: React.FC = () => {
         if (newUpdatedAt >= prevUpdatedAt) {
           console.log('✅ Updating from store (newer or same timestamp)');
           return event;
-      } else {
+        } else {
           console.log('⚠️ Ignoring store data (older than current)');
           return prev; // Keep current (newer) data
         }
       });
       // Continue to load from API to get latest data
-    }
-    
-    // Try to load from localStorage (for fast display if not in store)
-    if (!event) {
-        try {
-          const stored = localStorage.getItem('rsvp-events-storage');
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (parsed.state && parsed.state.events) {
-              const foundEvent = parsed.state.events.find((e: any) => e.id === eventId);
-              if (foundEvent) {
-              const displayName = foundEvent.coupleName || 
-                (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
-                 foundEvent.groomName || foundEvent.brideName || 'אירוע');
-              console.log(`✅ Found event in localStorage: ${displayName} - showing immediately, will update from backend`);
-              console.log(`🔍 Event details from localStorage:`, {
-                coupleName: foundEvent.coupleName,
-                groomName: foundEvent.groomName,
-                brideName: foundEvent.brideName,
-                eventDate: foundEvent.eventDate,
-                venue: foundEvent.venue,
-                guestsCount: foundEvent.guests?.length || 0,
-                updatedAt: foundEvent.updatedAt
-              });
-              
-              // CRITICAL: Only set if we don't have currentEvent or if this is newer
-              setCurrentEvent((prev: any) => {
-                if (!prev) {
-                  // CRITICAL: Ensure guests array exists
-                  return {
-                    ...foundEvent,
-                    guests: foundEvent.guests || []
-                  };
-                }
-                
-                // Compare updatedAt timestamps
-                const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
-                const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
-                
-                if (newUpdatedAt >= prevUpdatedAt) {
-                  console.log('✅ Updating from localStorage (newer or same timestamp)');
-                  // CRITICAL: Merge to preserve fields and ensure guests array exists
-                  return {
-                    ...prev,
-                    ...foundEvent,
-                    coupleName: foundEvent.coupleName || prev.coupleName,
-                    campaigns: foundEvent.campaigns || prev.campaigns || [],
-                    tables: foundEvent.tables || prev.tables || [],
-                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
-                    eventImages: foundEvent.eventImages || prev.eventImages || [],
-                    guests: foundEvent.guests || prev.guests || []
-                  };
-                } else {
-                  console.log('⚠️ Ignoring localStorage data (older than current)');
-                  return prev; // Keep current (newer) data
-                }
-              });
-            }
-          }
+    } else if (eventFromStorage) {
+      // Use localStorage data if store doesn't have it
+      const displayName = eventFromStorage.coupleName || 
+        (eventFromStorage.groomName && eventFromStorage.brideName ? `${eventFromStorage.groomName} & ${eventFromStorage.brideName}` : 
+         eventFromStorage.groomName || eventFromStorage.brideName || 'אירוע');
+      console.log(`✅ Using event from localStorage: ${displayName} - ${eventFromStorage.guests?.length || 0} guests`);
+      
+      setCurrentEvent((prev: any) => {
+        if (!prev) {
+          // CRITICAL: Ensure guests array exists
+          return {
+            ...eventFromStorage,
+            guests: eventFromStorage.guests || []
+          };
         }
-      } catch (error) {
-        console.error('Error parsing localStorage:', error);
-      }
+        
+        // Compare updatedAt timestamps
+        const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
+        const newUpdatedAt = eventFromStorage.updatedAt ? (eventFromStorage.updatedAt instanceof Date ? eventFromStorage.updatedAt.getTime() : new Date(eventFromStorage.updatedAt).getTime()) : 0;
+        
+        if (newUpdatedAt >= prevUpdatedAt) {
+          console.log('✅ Updating from localStorage (newer or same timestamp)');
+          // CRITICAL: Merge to preserve fields and ensure guests array exists
+          return {
+            ...prev,
+            ...eventFromStorage,
+            coupleName: eventFromStorage.coupleName || prev.coupleName,
+            campaigns: eventFromStorage.campaigns || prev.campaigns || [],
+            tables: eventFromStorage.tables || prev.tables || [],
+            venueLayout: eventFromStorage.venueLayout || prev.venueLayout,
+            eventImages: eventFromStorage.eventImages || prev.eventImages || [],
+            guests: eventFromStorage.guests || prev.guests || []
+          };
+        } else {
+          console.log('⚠️ Ignoring localStorage data (older than current)');
+          return prev; // Keep current (newer) data
+        }
+      });
     }
     
     // CRITICAL: Always load from public API endpoint to get latest data (backend is source of truth)
     // This ensures we always have the most up-to-date data, even if event was found in store/localStorage
-    const loadFromAPI = async () => {
+    const loadFromAPI = async (retryCount = 0) => {
+      const MAX_RETRIES = 3;
+      const RETRY_DELAY = 2000; // 2 seconds between retries
+      
       try {
         const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        console.log(`🔄 Loading from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}), BACKEND_URL: ${BACKEND_URL}`);
         
-        // CRITICAL: Try to load from /api/events/:userId first if user is logged in (this returns FULL event data)
-        // This is important because /api/events/all may return truncated data for large events
-        const userStorage = localStorage.getItem('rsvp-user-storage');
-        let userId = '';
-        if (userStorage) {
-          try {
-            const parsed = JSON.parse(userStorage);
-            userId = parsed.state?.user?.id || '';
-          } catch (e) {
-            // Ignore parse errors
+        // CRITICAL: Use /api/events/all FIRST - this endpoint works reliably
+        // The /api/events/:eventId endpoint has issues on Render (returns wrong format)
+        let foundEvent: any = null;
+        try {
+          console.log(`🔄 Loading all events from: ${BACKEND_URL}/api/events/all`);
+          const allEventsResponse = await fetch(`${BACKEND_URL}/api/events/all`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          console.log(`🔍 All events response status: ${allEventsResponse.status} ${allEventsResponse.statusText}`);
+          
+          if (allEventsResponse.ok) {
+            const allEventsData = await allEventsResponse.json();
+            const allEvents = allEventsData.events || [];
+            console.log(`🔍 All events response: ${allEvents.length} events`);
+            console.log(`🔍 Looking for eventId: ${eventId}`);
+            console.log(`🔍 Available event IDs:`, allEvents.map((e: any) => e.id));
+            
+            // Find the event in the array
+            foundEvent = allEvents.find((e: any) => e.id === eventId);
+            
+            if (foundEvent) {
+              const guestsCount = foundEvent.guests?.length || 0;
+              console.log(`✅ Found event in /api/events/all with ${guestsCount} guests`);
+              console.log(`🔍 Event name: ${foundEvent.coupleName || (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : foundEvent.groomName || foundEvent.brideName || 'אירוע')}`);
+              
+              // CRITICAL: Log guest details for debugging
+              if (guestsCount > 0) {
+                console.log(`🔍 First few guests:`, foundEvent.guests.slice(0, 3).map((g: any) => ({ id: g.id, name: g.firstName + ' ' + g.lastName })));
+              }
+            } else {
+              console.warn(`⚠️ Event ${eventId} not found in /api/events/all`);
+            }
+          } else {
+            console.warn(`⚠️ All events endpoint returned ${allEventsResponse.status}`);
+          }
+        } catch (error) {
+          console.error(`❌ All events endpoint error:`, error);
+        }
+        
+        // CRITICAL: ALWAYS try to load guests from /api/events/:eventId/guests endpoint
+        // This endpoint returns only the guests array, which should not be truncated
+        // This is the PRIMARY method for getting all guests for large events
+        // We'll try this multiple times if needed
+        let fullGuestsList: any[] | null = null;
+        const loadGuestsFromEndpoint = async (retryCount = 0): Promise<any[] | null> => {
+          const MAX_RETRIES = 3;
+          const RETRY_DELAY = 1000;
+          
+        try {
+            console.log(`🔄 Attempting to load ALL guests from /api/events/${eventId}/guests (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+          const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+          
+          if (guestsResponse.ok) {
+            const guestsData = await guestsResponse.json();
+            console.log(`🔍 Guests endpoint response:`, {
+              success: guestsData.success,
+              guestsCount: guestsData.guests?.length || 0,
+              total: guestsData.total
+            });
+            
+            if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+                console.log(`✅ Loaded ${guestsData.guests.length} guests from /api/events/${eventId}/guests`);
+                return guestsData.guests;
+            }
+            } else if (guestsResponse.status === 404 && retryCount < MAX_RETRIES) {
+              console.log(`⚠️ Guests endpoint returned 404, retrying in ${RETRY_DELAY}ms...`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+              return loadGuestsFromEndpoint(retryCount + 1);
+          } else {
+            console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
+          }
+        } catch (error) {
+            console.log(`⚠️ Guests endpoint error (attempt ${retryCount + 1}):`, error);
+            if (retryCount < MAX_RETRIES) {
+              console.log(`🔄 Retrying guests endpoint in ${RETRY_DELAY}ms...`);
+              await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+              return loadGuestsFromEndpoint(retryCount + 1);
+            }
+          }
+          return null;
+        };
+        
+        // Try to load guests from endpoint
+        fullGuestsList = await loadGuestsFromEndpoint();
+        
+        // If single event endpoint didn't work, try /api/events/:userId (but it may also truncate)
+        if (!foundEvent) {
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              userId = parsed.state?.user?.id || '';
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          if (userId) {
+            console.log(`🌐 Loading event from authenticated endpoint: ${BACKEND_URL}/api/events/${userId}`);
+            try {
+              const authResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+                method: 'GET',
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                mode: 'cors',
+                credentials: 'omit'
+              });
+              
+              if (authResponse.ok) {
+                const authData = await authResponse.json();
+                const authEvents = authData.events || [];
+                const authEvent = authEvents.find((e: any) => e.id === eventId);
+                
+                if (authEvent) {
+                  const displayName = authEvent.coupleName || 
+                    (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
+                     authEvent.groomName || authEvent.brideName || 'אירוע');
+                  console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
+                  console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
+                  
+                  // WARNING: This endpoint may also truncate data for large events
+                  if (authEvent.guests && authEvent.guests.length < 50) {
+                    console.warn(`⚠️ Authenticated endpoint returned only ${authEvent.guests.length} guests - may be incomplete`);
+                  }
+                  
+                  foundEvent = authEvent;
+                }
+              }
+            } catch (error) {
+              console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
+            }
           }
         }
         
-        if (userId) {
-          console.log(`🌐 Loading event from authenticated endpoint: ${BACKEND_URL}/api/events/${userId}`);
+        // Fallback to public endpoint /api/events/all (last resort - may truncate)
+        if (!foundEvent) {
+          console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
           try {
-            const authResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+            const response = await fetch(`${BACKEND_URL}/api/events/all`, {
               method: 'GET',
               headers: { 
                 'Content-Type': 'application/json',
@@ -191,146 +340,67 @@ const ClientDashboard: React.FC = () => {
               credentials: 'omit'
             });
             
-            if (authResponse.ok) {
-              const authData = await authResponse.json();
-              const authEvents = authData.events || [];
-              const authEvent = authEvents.find((e: any) => e.id === eventId);
+            if (response.ok) {
+              const data = await response.json();
+              const allEvents = data.events || [];
+              console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
+              console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
+              console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
               
-              if (authEvent) {
-                const displayName = authEvent.coupleName || 
-                  (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
-                   authEvent.groomName || authEvent.brideName || 'אירוע');
-                console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
-                console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
-                
-                // CRITICAL: Ensure event has all required fields before setting
-                if (!authEvent.guests) {
-                  console.warn('⚠️ Event from authenticated endpoint has no guests array, initializing empty array');
-                  authEvent.guests = [];
-                }
-                
-                // Use authenticated endpoint data (which should have all guests)
-                setCurrentEvent((prev: any) => {
-                  if (!prev) {
-                    console.log('✅ Setting initial event from authenticated endpoint');
-                    return {
-                      ...authEvent,
-                      guests: authEvent.guests || []
-                    };
-                  }
-                  
-                  // Compare updatedAt timestamps
-                  const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
-                  const newUpdatedAt = authEvent.updatedAt ? (authEvent.updatedAt instanceof Date ? authEvent.updatedAt.getTime() : new Date(authEvent.updatedAt).getTime()) : 0;
-                  
-                  if (newUpdatedAt >= prevUpdatedAt) {
-                    console.log('✅ Updating from authenticated endpoint (newer or same timestamp) - merging data');
-                    // Merge data intelligently
-                    const prevGuests = prev.guests || [];
-                    const authGuests = authEvent.guests || [];
-                    const prevGuestsMap = new Map(prevGuests.map((g: any) => [g.id, g]));
-                    const authGuestsMap = new Map(authGuests.map((g: any) => [g.id, g]));
-                    
-                    // Merge guests: update existing, add new, keep prev if not in auth
-                    const mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const authGuest = authGuestsMap.get(prevGuest.id);
-                      return authGuest || prevGuest;
-                    });
-                    
-                    // Add any new guests from auth
-                    authGuests.forEach((authGuest: any) => {
-                      if (!prevGuests.find((g: any) => g.id === authGuest.id)) {
-                        mergedGuests.push(authGuest);
-                      }
-                    });
-                    
-                    return {
-                      ...prev,
-                      ...authEvent,
-                      coupleName: authEvent.coupleName || prev.coupleName,
-                      campaigns: authEvent.campaigns || prev.campaigns || [],
-                      tables: authEvent.tables || prev.tables || [],
-                      venueLayout: authEvent.venueLayout || prev.venueLayout,
-                      eventImages: authEvent.eventImages || prev.eventImages || [],
-                      guests: mergedGuests
-                    };
-                  } else {
-                    console.log('⚠️ Ignoring authenticated endpoint data (older than current)');
-                    return prev;
-                  }
-                });
-                
-                return; // Successfully loaded from authenticated endpoint
+              foundEvent = allEvents.find((e: any) => e.id === eventId);
+              
+              if (!foundEvent) {
+                console.error(`❌ Event ${eventId} not found in API`);
+                console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
               }
+            } else {
+              console.error(`❌ API returned error: ${response.status}`);
             }
           } catch (error) {
-            console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
+            console.error('❌ Failed to fetch from /api/events/all:', error);
           }
         }
         
-        // Fallback to public endpoint
-        console.log(`🌐 Loading event from public API endpoint: ${BACKEND_URL}/api/events/all`);
-        
-        // CRITICAL: Try to load single event by ID first (this returns FULL event data without truncation)
-        // This is the preferred method for large events that get truncated in /api/events/all
-        let foundEvent: any = null;
-        try {
-          console.log(`🔄 Attempting to load single event with ALL guests: ${BACKEND_URL}/api/events/${eventId}`);
-          const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          
-          if (singleEventResponse.ok) {
-            const singleEventData = await singleEventResponse.json();
-            if (singleEventData.success && singleEventData.event) {
-              foundEvent = singleEventData.event;
-              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
-            } else if (singleEventData.event) {
-              // Fallback: if response doesn't have success field but has event
-              foundEvent = singleEventData.event;
-              console.log(`✅ Loaded FULL event from /api/events/${eventId}: ${foundEvent.guests?.length || 0} guests`);
-            }
-          } else if (singleEventResponse.status === 404) {
-            console.log(`⚠️ Single event endpoint returned 404, event ${eventId} not found`);
-          }
-        } catch (error) {
-          console.log(`⚠️ Single event endpoint error, falling back to /api/events/all:`, error);
+        // CRITICAL: If we haven't loaded guests yet, try again now that we have the event
+        // This ensures we always try to load full guest list, even if event was found from /api/events/all
+        if (!fullGuestsList && foundEvent) {
+          console.log(`🔄 Event found but guests not loaded yet, retrying guests endpoint...`);
+          fullGuestsList = await loadGuestsFromEndpoint();
         }
         
-        // If single event endpoint didn't work, try /api/events/all
-        if (!foundEvent) {
-          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            const allEvents = data.events || [];
-            console.log(`🔍 DEBUG: API returned ${allEvents.length} events`);
-            console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
-            console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
-            
-            foundEvent = allEvents.find((e: any) => e.id === eventId);
-          }
-        }
-        
+        // If we found the event from any endpoint, use it
         if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
           console.log(`✅ Found event silently in API: ${displayName}`);
+          
+          // CRITICAL: If we loaded full guests list from /api/events/:eventId/guests, ALWAYS use it
+          // This ensures we have ALL guests, not just the truncated list from /api/events/all
+          if (fullGuestsList && fullGuestsList.length > 0) {
+            console.log(`✅ Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests (full list)`);
+            foundEvent.guests = fullGuestsList;
+          } else {
+            // CRITICAL: Check if data from /api/events/all is incomplete
+            const eventFromAll = foundEvent;
+            const currentGuestsCount = eventFromAll.guests?.length || 0;
+            
+            // CRITICAL: If we have fewer than expected guests, log detailed info
+            if (currentGuestsCount > 0 && currentGuestsCount < 100) {
+              console.warn(`⚠️ Event has only ${currentGuestsCount} guests - may be incomplete`);
+              console.warn(`⚠️ This might indicate the backend file has incomplete data`);
+              console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
+              console.warn(`⚠️ Will use partial data from /api/events/all`);
+              
+              // Log guest details for debugging
+              if (eventFromAll.guests && eventFromAll.guests.length > 0) {
+                console.log(`🔍 Guest IDs in response:`, eventFromAll.guests.slice(0, 5).map((g: any) => g.id));
+              }
+            } else if (currentGuestsCount === 0) {
+              console.warn(`⚠️ Event has no guests - guests endpoint failed or event is empty`);
+            }
+          }
+          
           const apiGuestsCount = foundEvent.guests?.length || 0;
           console.log(`🔍 Event details from API (SUMMARY):`, {
             id: foundEvent.id,
@@ -344,15 +414,19 @@ const ClientDashboard: React.FC = () => {
             hasGuests: !!foundEvent.guests,
             guestsArrayLength: foundEvent.guests?.length,
             eventTypeHebrew: foundEvent.eventTypeHebrew,
-            invitationImageUrl: foundEvent.invitationImageUrl
+            invitationImageUrl: foundEvent.invitationImageUrl,
+            guestsFromSeparateEndpoint: fullGuestsList ? fullGuestsList.length : 0
           });
           
           // CRITICAL: Check if API returned incomplete data (common for large events)
           // If API returned very few guests (< 50), it's likely incomplete due to response size limits
-          if (apiGuestsCount > 0 && apiGuestsCount < 50) {
+          if (apiGuestsCount > 0 && apiGuestsCount < 50 && !fullGuestsList) {
             console.warn(`⚠️ WARNING: API returned only ${apiGuestsCount} guests - data may be incomplete!`);
             console.warn(`⚠️ This is a known limitation of /api/events/all for large events`);
-            console.warn(`⚠️ For full guest list, please use the admin dashboard or wait for polling to update`);
+            console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
+            console.warn(`⚠️ For full guest list, please log in to the admin dashboard or wait for polling to update`);
+          } else if (fullGuestsList && fullGuestsList.length > apiGuestsCount) {
+            console.log(`✅ Using ${fullGuestsList.length} guests from separate endpoint (vs ${apiGuestsCount} from event data)`);
           }
           
           // CRITICAL: Ensure event has all required fields before setting
@@ -365,70 +439,20 @@ const ClientDashboard: React.FC = () => {
             setCurrentEvent((prev: any) => {
               if (!prev) {
                 console.log('✅ Setting initial event from API');
-                console.log(`🔍 Initial load - API returned ${foundEvent.guests?.length || 0} guests`);
-                
-                // CRITICAL: If API returned very few guests (likely incomplete), log warning
-                // This happens when the event is too large and the API response is truncated
                 const apiGuestsCount = foundEvent.guests?.length || 0;
-                const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50; // Less than 50 guests suggests incomplete data
+                console.log(`🔍 Initial load - API returned ${apiGuestsCount} guests`);
+                
+                // CRITICAL: If API returned very few guests (< 50), it's likely incomplete data
+                // But we still set it as initial if we don't have any data yet, and polling will update it
+                const isLikelyIncomplete = apiGuestsCount > 0 && apiGuestsCount < 50;
                 
                 if (isLikelyIncomplete) {
                   console.warn(`⚠️ API returned only ${apiGuestsCount} guests - likely incomplete data. Event might have more guests.`);
                   console.warn(`⚠️ This is a known limitation - large events may be truncated in /api/events/all`);
-                  console.warn(`⚠️ Attempting to load full event data...`);
+                  console.warn(`⚠️ Setting incomplete data as initial - polling will attempt to update with complete data`);
                   
-                  // CRITICAL: Try to load from /api/events/:userId if user is logged in (this returns full event data)
-                  // Note: This is done asynchronously after setting initial event, not inside setCurrentEvent callback
-                  const userStorage = localStorage.getItem('rsvp-user-storage');
-                  let userId = '';
-                  if (userStorage) {
-                    try {
-                      const parsed = JSON.parse(userStorage);
-                      userId = parsed.state?.user?.id || '';
-                    } catch (e) {
-                      // Ignore parse errors
-                    }
-                  }
-                  
-                  // Load full event data asynchronously (outside of setCurrentEvent callback)
-                  // Try both /api/events/:userId (if logged in) and keep polling for updates
-                  (async () => {
-                    try {
-                      if (userId) {
-                        console.log(`🔄 Attempting to load full event data from /api/events/${userId}...`);
-                        const fullResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-                          method: 'GET',
-                          headers: { 
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                          },
-                          mode: 'cors',
-                          credentials: 'omit'
-                        });
-                        
-                        if (fullResponse.ok) {
-                          const fullData = await fullResponse.json();
-                          const fullEvents = fullData.events || [];
-                          const fullEvent = fullEvents.find((e: any) => e.id === eventId);
-                          
-                          if (fullEvent && fullEvent.guests && fullEvent.guests.length > apiGuestsCount) {
-                            console.log(`✅ Loaded full event data: ${fullEvent.guests.length} guests (vs ${apiGuestsCount} from /api/events/all)`);
-                            setCurrentEvent({
-                              ...fullEvent,
-                              guests: fullEvent.guests || []
-                            });
-                            return; // Successfully loaded full data
-                          }
-                        }
-                      }
-                      
-                      // If still incomplete, log warning that polling will try to update
-                      console.warn(`⚠️ Could not load full event data. Polling will attempt to update every 5 seconds.`);
-                      console.warn(`⚠️ For immediate full guest list, please log in to the admin dashboard.`);
-                    } catch (error) {
-                      console.warn('⚠️ Failed to load full event data:', error);
-                    }
-                  })();
+                  // CRITICAL: Set incomplete data as initial, but polling will try to update it
+                  // This ensures the user sees something immediately, even if incomplete
                 }
                 
                 // CRITICAL: Ensure guests array exists even for initial load
@@ -436,6 +460,23 @@ const ClientDashboard: React.FC = () => {
                   ...foundEvent,
                   guests: foundEvent.guests || []
                 };
+              }
+              
+              // CRITICAL: Check if API data is incomplete BEFORE merging
+              // If prev has many more guests than API, don't overwrite with incomplete data
+              const prevGuests = prev.guests || [];
+              const apiGuests = foundEvent.guests || [];
+              const prevGuestsCount = prevGuests.length;
+              const apiGuestsCount = apiGuests.length;
+              
+              // CRITICAL: If API has significantly fewer guests (< 50% of prev), it's incomplete data
+              // Don't overwrite complete data with incomplete data
+              const isIncompleteApiData = prevGuestsCount > 0 && apiGuestsCount > 0 && apiGuestsCount < prevGuestsCount * 0.5;
+              
+              if (isIncompleteApiData) {
+                console.warn(`⚠️ API data appears incomplete (${apiGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING API data to preserve complete data`);
+                console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                return prev; // Keep previous complete data, don't overwrite with incomplete API data
               }
               
               // Compare updatedAt timestamps
@@ -447,48 +488,27 @@ const ClientDashboard: React.FC = () => {
                 
                 // CRITICAL: Merge guests intelligently - don't lose guests that aren't in API response
                 // API might return partial data (e.g., only 6 guests out of 417)
-                const prevGuests = prev.guests || [];
-                const apiGuests = foundEvent.guests || [];
                 const prevGuestsMap = new Map(prevGuests.map((g: any) => [g.id, g]));
                 const apiGuestsMap = new Map(apiGuests.map((g: any) => [g.id, g]));
                 
-                // If API has significantly fewer guests than prev, it's likely incomplete data
-                // Only merge if API has similar or more guests, or if it's the initial load
-                const apiGuestsCount = apiGuests.length;
-                const prevGuestsCount = prevGuests.length;
-                const isIncompleteApiData = apiGuestsCount > 0 && apiGuestsCount < prevGuestsCount * 0.5; // Less than 50% of prev
-                
                 let mergedGuests = prevGuests;
-                if (!isIncompleteApiData) {
-                  // API data seems complete - merge intelligently
-                  // Update existing guests with API data, add new guests from API
-                  mergedGuests = [...prevGuests];
-                  
-                  // Update existing guests with API data
-                  apiGuests.forEach((apiGuest: any) => {
-                    const index = mergedGuests.findIndex((g: any) => g.id === apiGuest.id);
-                    if (index >= 0) {
-                      // Update existing guest with API data
-                      mergedGuests[index] = apiGuest;
-                    } else {
-                      // Add new guest from API
-                      mergedGuests.push(apiGuest);
-                    }
-                  });
-                  
-                  console.log(`🔍 Merged guests: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${apiGuestsCount} from API)`);
-                } else {
-                  console.warn(`⚠️ API data appears incomplete (${apiGuestsCount} guests vs ${prevGuestsCount} prev) - keeping prev guests`);
-                  // Keep previous guests but update any that exist in API
-                  mergedGuests = prevGuests.map((prevGuest: any) => {
-                    const apiGuest = apiGuestsMap.get(prevGuest.id);
-                    if (apiGuest) {
-                      // Update this guest with API data
-                      return apiGuest;
-                    }
-                    return prevGuest; // Keep prev guest as-is
-                  });
-                }
+                // API data seems complete - merge intelligently
+                // Update existing guests with API data, add new guests from API
+                mergedGuests = [...prevGuests];
+                
+                // Update existing guests with API data
+                apiGuests.forEach((apiGuest: any) => {
+                  const index = mergedGuests.findIndex((g: any) => g.id === apiGuest.id);
+                  if (index >= 0) {
+                    // Update existing guest with API data
+                    mergedGuests[index] = apiGuest;
+                  } else {
+                    // Add new guest from API
+                    mergedGuests.push(apiGuest);
+                  }
+                });
+                
+                console.log(`🔍 Merged guests: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${apiGuestsCount} from API)`);
                 
                 // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
                 // This prevents losing data like coupleName, campaigns, tables, etc.
@@ -522,15 +542,47 @@ const ClientDashboard: React.FC = () => {
                 return prev; // Keep current (newer) data
               }
             });
-          } else {
-            console.error(`❌ Event ${eventId} not found in API`);
-            console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
-          }
-        } else {
-          console.error(`❌ API returned error: ${response.status}`);
         }
-      } catch (error) {
-        console.error('❌ Failed to load event from API:', error);
+      } catch (error: any) {
+        const isTimeout = error.name === 'TimeoutError' || error.name === 'AbortError' || error.message?.includes('timeout');
+        const isNetworkError = error.name === 'TypeError' && error.message?.includes('fetch');
+        
+        console.error(`❌ Failed to load event from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}):`, error);
+        console.error('❌ Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack,
+          eventId: eventId,
+          isTimeout: isTimeout,
+          isNetworkError: isNetworkError
+        });
+        
+        // Retry if we haven't exceeded max retries (especially for network/timeout errors)
+        if (retryCount < MAX_RETRIES && (isTimeout || isNetworkError || error.name === 'TypeError')) {
+          const retryDelay = isTimeout ? RETRY_DELAY * 2 : RETRY_DELAY; // Longer delay for timeouts
+          console.log(`🔄 Retrying API load in ${retryDelay}ms... (${isTimeout ? 'timeout' : isNetworkError ? 'network' : 'error'})`);
+          setTimeout(() => {
+            loadFromAPI(retryCount + 1);
+          }, retryDelay);
+        } else if (retryCount < MAX_RETRIES) {
+          console.log(`🔄 Retrying API load in ${RETRY_DELAY}ms...`);
+          setTimeout(() => {
+            loadFromAPI(retryCount + 1);
+          }, RETRY_DELAY);
+        } else {
+          console.error('❌ Max retries reached. Failed to load event from API.');
+          // CRITICAL: Even if API fails, don't clear currentEvent if we have it
+          // This ensures users can still see data even if API is temporarily unavailable
+          setCurrentEvent((prev: any) => {
+            if (!prev) {
+              console.warn('⚠️ No event data available - API failed and no local data found');
+              return null;
+            } else {
+              console.log('✅ Keeping existing event data despite API failure');
+              return prev; // Keep existing data
+            }
+          });
+        }
       }
     };
     
@@ -554,9 +606,9 @@ const ClientDashboard: React.FC = () => {
       // User is logged in - try fetchEvents first (this returns FULL event data with all guests)
       // Then also load from public API as backup
       console.log(`🔍 User is logged in (${userId}) - using fetchEvents for full event data`);
-      fetchEvents().then(() => {
-        const foundEvent = events.find(e => e.id === eventId);
-        if (foundEvent) {
+          fetchEvents().then(() => {
+            const foundEvent = events.find(e => e.id === eventId);
+            if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -588,14 +640,27 @@ const ClientDashboard: React.FC = () => {
             const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
             const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
             
+            // CRITICAL: Check if fetchEvents data is incomplete BEFORE merging
+            // If prev has many more guests than fetchEvents, don't overwrite with incomplete data
+            const prevGuests = prev.guests || [];
+            const fetchGuests = foundEvent.guests || [];
+            const prevGuestsCount = prevGuests.length;
+            const fetchGuestsCount = fetchGuests.length;
+            
+            // CRITICAL: If fetchEvents has significantly fewer guests (< 50% of prev), it's incomplete data
+            // Don't overwrite complete data with incomplete data
+            const isIncompleteFetchData = prevGuestsCount > 0 && fetchGuestsCount > 0 && fetchGuestsCount < prevGuestsCount * 0.5;
+            
+            if (isIncompleteFetchData) {
+              console.warn(`⚠️ fetchEvents data appears incomplete (${fetchGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING fetchEvents data to preserve complete data`);
+              console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+              return prev; // Keep previous complete data, don't overwrite with incomplete fetchEvents data
+            }
+            
             if (newUpdatedAt >= prevUpdatedAt) {
               console.log('✅ Updating from fetchEvents (newer or same timestamp) - merging data');
               
               // CRITICAL: Merge guests intelligently - don't lose guests that aren't in fetchEvents data
-              const prevGuests = prev.guests || [];
-              const fetchGuests = foundEvent.guests || [];
-              const prevGuestsCount = prevGuests.length;
-              const fetchGuestsCount = fetchGuests.length;
               const fetchGuestsMap = new Map(fetchGuests.map((g: any) => [g.id, g]));
               
               // Merge guests: update existing, add new, keep prev if not in fetch
@@ -656,6 +721,60 @@ const ClientDashboard: React.FC = () => {
       pollingIntervalRef.current = window.setInterval(async () => {
         try {
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          // CRITICAL: Try to load full event with all guests from /api/events/:eventId FIRST
+          // This ensures we get ALL guests, not truncated data from /api/events/all
+          let foundEvent: any = null;
+          let fullGuestsList: any[] | null = null;
+          
+          try {
+            const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            
+            if (singleEventResponse.ok) {
+              const singleEventData = await singleEventResponse.json();
+              if (singleEventData.success && singleEventData.event) {
+                foundEvent = singleEventData.event;
+                console.log(`✅ Polling: Loaded event from /api/events/${eventId} with ${foundEvent.guests?.length || 0} guests`);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Polling: Single event endpoint failed, trying /api/events/all:', error);
+          }
+          
+          // CRITICAL: Always try to load guests from /api/events/:eventId/guests
+          // This ensures we have ALL guests even if single event endpoint returned incomplete data
+          try {
+            const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+              method: 'GET',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            
+            if (guestsResponse.ok) {
+              const guestsData = await guestsResponse.json();
+              if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
+                fullGuestsList = guestsData.guests;
+                console.log(`✅ Polling: Loaded ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Polling: Guests endpoint failed:', error);
+          }
+          
+          // Fallback to /api/events/all if single event endpoint didn't work
+          if (!foundEvent) {
           const response = await fetch(`${BACKEND_URL}/api/events/all`, {
             method: 'GET',
             headers: { 
@@ -669,7 +788,18 @@ const ClientDashboard: React.FC = () => {
           if (response.ok) {
             const data = await response.json();
             const allEvents = data.events || [];
-            const foundEvent = allEvents.find((e: any) => e.id === eventId);
+              foundEvent = allEvents.find((e: any) => e.id === eventId);
+            }
+          }
+          
+          // CRITICAL: If we loaded full guests list, use it instead of event's guests
+          if (foundEvent) {
+            if (fullGuestsList && fullGuestsList.length > 0) {
+              console.log(`✅ Polling: Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
+              foundEvent.guests = fullGuestsList;
+            } else if (foundEvent.guests && foundEvent.guests.length < 50) {
+              console.warn(`⚠️ Polling: Event has only ${foundEvent.guests.length} guests - may be incomplete`);
+            }
             
           if (foundEvent) {
               // CRITICAL: Only update if new data is more recent or has actual changes
@@ -702,16 +832,30 @@ const ClientDashboard: React.FC = () => {
                 const prevGuestsMap = new Map((prev.guests || []).map((g: any) => [g.id, g]));
                 const newGuestsMap = new Map((foundEvent.guests || []).map((g: any) => [g.id, g]));
                 
+                // CRITICAL: Check if polling data is incomplete BEFORE merging
+                // If prev has many more guests than polling, don't overwrite with incomplete data
+                const prevGuests = prev.guests || [];
+                const pollingGuests = foundEvent.guests || [];
+                const prevGuestsCount = prevGuests.length;
+                const pollingGuestsCount = pollingGuests.length;
+                
+                // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
+                // Don't overwrite complete data with incomplete data
+                const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
+                
+                if (isIncompletePollingData) {
+                  console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
+                  console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                  return prev; // Keep previous complete data, don't overwrite with incomplete polling data
+                }
+                
                 // Check if number of guests changed
                 if (prevGuestsMap.size !== newGuestsMap.size) {
                   console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
                   
                   // CRITICAL: If API returned 0 guests but prev has guests, keep prev guests (API data is incomplete)
-                  const apiGuestsCount = foundEvent.guests?.length || 0;
-                  const prevGuestsCount = prev.guests?.length || 0;
-                  
-                  if (apiGuestsCount === 0 && prevGuestsCount > 0) {
-                    console.warn(`⚠️ API returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (API data incomplete)`);
+                  if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
+                    console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
                     // Keep previous guests but update other fields
                     return {
                       ...prev,
@@ -770,50 +914,48 @@ const ClientDashboard: React.FC = () => {
                 }
                 
                 if (hasChanged || newUpdatedAt > prevUpdatedAt) {
-                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
-                  
-                  // CRITICAL: Merge guests intelligently - don't lose guests that aren't in polling data
+                  // CRITICAL: Check if polling data is incomplete BEFORE merging
+                  // If prev has many more guests than polling, don't overwrite with incomplete data
                   const prevGuests = prev.guests || [];
                   const pollingGuests = foundEvent.guests || [];
                   const prevGuestsCount = prevGuests.length;
                   const pollingGuestsCount = pollingGuests.length;
+                  
+                  // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
+                  // Don't overwrite complete data with incomplete data
+                  const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
+                  
+                  if (isIncompletePollingData) {
+                    console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
+                    console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
+                    return prev; // Keep previous complete data, don't overwrite with incomplete polling data
+                  }
+                  
+                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
+                  
+                  // CRITICAL: Merge guests intelligently - don't lose guests that aren't in polling data
                   const pollingGuestsMap = new Map(pollingGuests.map((g: any) => [g.id, g]));
                   
                   // CRITICAL: If polling returned 0 guests but prev has guests, keep prev guests (polling data is incomplete)
-                  const isIncompletePollingData = (pollingGuestsCount === 0 && prevGuestsCount > 0) || 
-                                                   (pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5);
-                  
                   if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
                     console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
                   }
                   
                   let mergedGuests = prevGuests;
-                  if (!isIncompletePollingData) {
-                    // Polling data seems complete - merge intelligently
-                    mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const pollingGuest = pollingGuestsMap.get(prevGuest.id);
-                      return pollingGuest || prevGuest; // Use polling data if exists, otherwise keep prev
-                    });
-                    
-                    // Add any new guests from polling
-                    pollingGuests.forEach((pollingGuest: any) => {
-                      if (!prevGuests.find((g: any) => g.id === pollingGuest.id)) {
-                        mergedGuests.push(pollingGuest);
-                      }
-                    });
-                    
-                    console.log(`🔍 Merged from polling: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${pollingGuestsCount} from polling)`);
-                  } else {
-                    console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} vs ${prevGuestsCount}) - keeping prev guests, updating only existing`);
-                    // Keep previous guests but update any that exist in polling
-                    mergedGuests = prevGuests.map((prevGuest: any) => {
-                      const pollingGuest = pollingGuestsMap.get(prevGuest.id);
-                      if (pollingGuest) {
-                        return pollingGuest; // Update this guest with polling data
-                      }
-                      return prevGuest; // Keep prev guest as-is
-                    });
-                  }
+                  // Polling data seems complete - merge intelligently
+                  mergedGuests = prevGuests.map((prevGuest: any) => {
+                    const pollingGuest = pollingGuestsMap.get(prevGuest.id);
+                    return pollingGuest || prevGuest; // Use polling data if exists, otherwise keep prev
+                  });
+                  
+                  // Add any new guests from polling
+                  pollingGuests.forEach((pollingGuest: any) => {
+                    if (!prevGuests.find((g: any) => g.id === pollingGuest.id)) {
+                      mergedGuests.push(pollingGuest);
+                    }
+                  });
+                  
+                  console.log(`🔍 Merged from polling: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${pollingGuestsCount} from polling)`);
                   
                   // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
                   const mergedEvent = {
@@ -834,10 +976,10 @@ const ClientDashboard: React.FC = () => {
               });
             }
           }
-        } catch (error) {
+    } catch (error) {
           console.warn('⚠️ Polling error (will retry):', error);
         }
-      }, 5000); // Poll every 5 seconds
+      }, 10000); // Poll every 10 seconds (optimized: balanced between freshness and performance)
     };
     
     // Start polling
@@ -845,7 +987,7 @@ const ClientDashboard: React.FC = () => {
     
     // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
     if (!webhookService.pollingActive) {
-      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
     }
     
     // Cleanup on unmount
@@ -1022,12 +1164,29 @@ const ClientDashboard: React.FC = () => {
   };
 
   // Show page immediately - no loading screen
+  // But show helpful message if event is not loaded yet
   if (!currentEvent) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">אירוע לא נמצא</h1>
-          <p className="text-gray-600">האירוע המבוקש לא נמצא במערכת</p>
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">טוען אירוע...</h1>
+          <p className="text-gray-600 mb-4">מחפש את האירוע במערכת</p>
+          <p className="text-sm text-gray-500">
+            אם הבעיה נמשכת, נסה לרענן את הדף או לבדוק את החיבור לאינטרנט
+          </p>
+          <button
+            onClick={() => {
+              if (eventId) {
+                window.location.reload();
+              }
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            רענן דף
+          </button>
         </div>
       </div>
     );
@@ -1258,7 +1417,7 @@ const ClientDashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
+            <h3 className="text-lg font-semibold text-gray-900">רשימת מוזמנים</h3>
             </div>
             
             {/* Search and Filters */}
@@ -1310,7 +1469,6 @@ const ClientDashboard: React.FC = () => {
                     <option value="sent">נשלח</option>
                     <option value="delivered">נמסר</option>
                     <option value="failed">נכשל</option>
-                    <option value="sms_sent">נשלח SMS</option>
                     <option value="sent_not_delivered">נשלח ולא נמסר</option>
                   </select>
                 </div>
@@ -1322,20 +1480,35 @@ const ClientDashboard: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12">
+                    #
+                  </th>
+                  <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
                     מוזמן
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    טלפון
+                  </th>
+                  <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px]">
                     מספר מוזמנים
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
                     סטטוס אישור
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                    הגעה בפועל
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
                     ערוץ
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    תאריך תגובה
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                    שולחן
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                    סטטוס הודעה
+                  </th>
+                  <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                    תאריך שליחה
                   </th>
                 </tr>
               </thead>
@@ -1370,8 +1543,8 @@ const ClientDashboard: React.FC = () => {
                       
                       if (messageFilterStatus === 'sent_not_delivered') {
                         // Show only guests who were sent a message but didn't receive it
-                        // This includes 'sent' and 'sms_sent' but excludes 'delivered'
-                        matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+                        // This includes 'sent' but excludes 'delivered'
+                        matchesMessageFilter = currentMessageStatus === 'sent';
                       } else if (messageFilterStatus !== 'all') {
                         if (messageFilterStatus === 'not_sent') {
                           // Include both 'not_sent' and undefined (which we treat as 'not_sent')
@@ -1430,34 +1603,73 @@ const ClientDashboard: React.FC = () => {
                       // Sort descending (newest first)
                       return bDate - aDate;
                     })
-                    .map((guest: any) => {
+                    .map((guest: any, index: number) => {
                       // Ensure guest is valid before rendering
                       if (!guest || typeof guest !== 'object') {
                         return null;
                       }
+                      
+                      const getMessageStatusColor = (status: string) => {
+                        switch (status) {
+                          case 'sent': return 'text-blue-600';
+                          case 'delivered': return 'text-green-600';
+                          case 'failed': return 'text-red-600';
+                          default: return 'text-gray-600';
+                        }
+                      };
+                      
+                      const getMessageStatusText = (status: string) => {
+                        switch (status) {
+                          case 'not_sent': return 'לא נשלחה';
+                          case 'sent': return 'נשלחה';
+                          case 'delivered': return 'נשלחה והתקבלה';
+                          case 'failed': return 'נשלחה ונכשלה';
+                          default: return 'לא נשלחה';
+                        }
+                      };
+                      
+                      const getActualAttendanceText = (status: string) => {
+                        switch (status) {
+                          case 'attended': return 'הגיע';
+                          case 'not_attended': return 'לא הגיע';
+                          default: return 'לא סומן';
+                        }
+                      };
+                      
+                      const table = currentEvent.tables?.find((t: any) => t.id === guest.tableId);
+                      
                       return (
-                  <tr key={guest.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-normal">
+                        <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-4 w-40 whitespace-normal">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-semibold text-gray-900 break-words">
                                 {formatFullName(guest.firstName, guest.lastName)}
                         </div>
                               {renderGuestNotes(guest.notes)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {guest.guestCount}
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                            {guest.phoneNumber}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-medium ${getStatusColor(guest.rsvpStatus)}`}>
+                          <td className="px-3 py-4 text-sm text-gray-900 w-24 min-w-[100px] text-center">
+                            {guest.guestCount || 1}
+                          </td>
+                          <td className="px-3 py-4 w-32 min-w-[120px]">
+                            <span className={`text-sm font-semibold ${getStatusColor(guest.rsvpStatus)}`}>
                           {getStatusIcon(guest.rsvpStatus)} {guest.rsvpStatus === 'pending' ? 'לא ענה' :
                            guest.rsvpStatus === 'confirmed' ? 'מגיע' :
                            guest.rsvpStatus === 'declined' ? 'לא מגיע' : 'אולי מגיע'}
                         </span>
-                      </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-3 py-4 w-32 min-w-[120px]">
+                            <span className="text-sm font-semibold">
+                              {getStatusIcon(guest.actualAttendance || 'not_marked')} {getActualAttendanceText(guest.actualAttendance || 'not_marked')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 text-sm text-gray-500 w-32 min-w-[120px]">
                       <div className="flex items-center">
                         {guest.channel === 'whatsapp' ? (
                           <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
@@ -1466,21 +1678,37 @@ const ClientDashboard: React.FC = () => {
                         ) : (
                           <Users className="w-4 h-4 text-gray-600 ml-1" />
                         )}
-                        {guest.channel === 'whatsapp' ? 'וואטסאפ' : 
-                         guest.channel === 'sms' ? 'SMS' : 'ידני'}
+                              <span>{guest.channel === 'whatsapp' ? 'וואטסאפ' : 
+                                     guest.channel === 'sms' ? 'SMS' : 'ידני'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {guest && guest.responseDate ? formatDateTime(guest.responseDate) : '-'}
+                          <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                            {table ? (
+                              <span className="font-semibold">שולחן {table.number}</span>
+                            ) : (
+                              <span className="text-gray-400 italic">ללא שולחן</span>
+                            )}
                           </td>
-                        </tr>
+                          <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                            <span className={`font-semibold ${getMessageStatusColor(guest.messageStatus || 'not_sent')}`}>
+                              {getMessageStatusText(guest.messageStatus || 'not_sent')}
+                            </span>
+                          </td>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
+                            {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
+                    </td>
+                  </tr>
                       );
                     })
                     .filter((row: any) => row !== null)
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                      אין אורחים להצגה
+                    <td colSpan={10} className="px-6 py-12 text-center">
+                      <div className="text-gray-500">
+                        <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">אין אורחים</h3>
+                        <p className="text-gray-500">עדיין לא נוספו אורחים לאירוע זה</p>
+                      </div>
                     </td>
                   </tr>
                 )}

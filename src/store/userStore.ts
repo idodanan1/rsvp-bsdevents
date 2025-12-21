@@ -466,39 +466,33 @@ export const useUserStore = create<UserStore>()(
       name: 'rsvp-user-storage',
       partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
-        // CRITICAL SECURITY FIX: Always verify user from backend on page load
-        // Don't trust localStorage user data - it might be stale or from wrong user
-        // This prevents auto-logging in as wrong user when switching devices/computers
+        // CRITICAL: Keep user logged in after page refresh
+        // User data is already loaded from localStorage by zustand persist
+        // Only validate that state is consistent (isAuthenticated matches user existence)
         
-        if (state && state.user && state.isAuthenticated) {
-          // User is stored in localStorage - verify it's still valid
-          // Don't auto-login - require explicit login to prevent security issues
-          console.log('🔒 User found in localStorage - clearing for security (require explicit login)');
-          
-          // Clear authentication state - require explicit login
-          // This prevents logging in as wrong user when switching devices
-          state.user = null;
-          state.isAuthenticated = false;
-          
-          // Generate new session ID for this browser/device
-          const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          localStorage.setItem('rsvp-session-id', newSessionId);
-          localStorage.setItem('rsvp-last-session-id', newSessionId);
-          sessionStorage.setItem('rsvp-session-id', newSessionId);
-          
-          // Clear old session IDs to prevent conflicts
-          const oldSessionId = localStorage.getItem('rsvp-session-id');
-          if (oldSessionId && oldSessionId !== newSessionId) {
-            console.log('🔒 Cleared old session ID:', oldSessionId);
+        if (state) {
+          // Validate state consistency
+          if (state.user && !state.isAuthenticated) {
+            // User exists but isAuthenticated is false - fix it
+            console.log('🔧 Fixing inconsistent state: user exists but isAuthenticated is false');
+            state.isAuthenticated = true;
+          } else if (!state.user && state.isAuthenticated) {
+            // isAuthenticated is true but no user - clear it
+            console.warn('⚠️ Invalid state: isAuthenticated is true but no user - clearing');
+            state.isAuthenticated = false;
           }
-        } else {
-          // No user in state - ensure we have a fresh session ID
+          
+          // Ensure session ID exists
           const sessionIdFromStorage = localStorage.getItem('rsvp-session-id') || sessionStorage.getItem('rsvp-session-id');
           if (!sessionIdFromStorage) {
             const newSessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             localStorage.setItem('rsvp-session-id', newSessionId);
             localStorage.setItem('rsvp-last-session-id', newSessionId);
             sessionStorage.setItem('rsvp-session-id', newSessionId);
+          }
+          
+          if (state.user && state.isAuthenticated) {
+            console.log('✅ User restored from localStorage after refresh:', state.user.email);
           }
         }
       },

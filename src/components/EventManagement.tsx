@@ -1,8 +1,12 @@
-import React, { useState, useEffect, useRef, useMemo, startTransition } from 'react';
+import React, { useState, useEffect, useRef, useMemo, startTransition, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
+import { messageService } from '../services/messageService';
+
+// Log that messageService is loaded
+console.log('✅ EventManagement: messageService imported successfully', typeof messageService);
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -27,7 +31,8 @@ import {
   FileSpreadsheet,
   Camera,
   Activity,
-  BarChart3
+  BarChart3,
+  Clock
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -65,10 +70,17 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Also subscribe to a computed value that changes when events change
   // This ensures the component re-renders even if events array reference doesn't change
   // CRITICAL: Include responseDate timestamp to catch all updates
-  const eventsHash = useEventStore(state => {
+  // CRITICAL: Use a stable selector that returns a primitive value
+  // This avoids React #310 errors by ensuring the dependency is stable
+  const eventsHashRaw = useEventStore(state => {
     // Create a hash from events that changes when any event or guest changes
-    return state.events.map(e => {
-      const guestsHash = e.guests?.map(g => {
+    // CRITICAL: Also include currentEvent to catch immediate updates
+    // CRITICAL: Use currentEvent if it exists and matches an event in events array, otherwise use events array
+    const eventsToHash = state.events.map(e => {
+      // If this is the currentEvent, use currentEvent data (it's more up-to-date)
+      const eventToUse = (state.currentEvent && state.currentEvent.id === e.id) ? state.currentEvent : e;
+      
+      const guestsHash = eventToUse.guests?.map(g => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -81,10 +93,35 @@ const EventManagement: React.FC = () => {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
-      const eventUpdatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
+      const eventUpdatedAt = eventToUse.updatedAt ? (eventToUse.updatedAt instanceof Date ? eventToUse.updatedAt.getTime() : new Date(eventToUse.updatedAt).getTime()) : 0;
       return `${e.id}:${eventUpdatedAt}:${guestsHash}`;
     }).join('||');
+    
+    // CRITICAL: Also include currentEvent hash to catch immediate updates
+    // CRITICAL: Always include currentEvent hash even if it's in events array to ensure we catch updates
+    const currentEventHash = state.currentEvent ? (() => {
+      const guestsHash = state.currentEvent.guests?.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
+        }
+      }).join('|') || '';
+      const eventUpdatedAt = state.currentEvent.updatedAt ? (state.currentEvent.updatedAt instanceof Date ? state.currentEvent.updatedAt.getTime() : new Date(state.currentEvent.updatedAt).getTime()) : 0;
+      return `||current:${state.currentEvent.id}:${eventUpdatedAt}:${guestsHash}`;
+    })() : '';
+    
+    // CRITICAL: Combine both hashes to ensure we catch updates from both sources
+    return `${eventsToHash}${currentEventHash}`;
   });
+  
+  // CRITICAL: Memoize eventsHash to ensure stable reference for useMemo dependencies
+  const eventsHash = useMemo(() => eventsHashRaw, [eventsHashRaw]);
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
   const updateGuest = useEventStore(state => state.updateGuest);
@@ -93,6 +130,8 @@ const EventManagement: React.FC = () => {
   const assignGuestToTable = useEventStore(state => state.assignGuestToTable);
   const removeGuestFromTable = useEventStore(state => state.removeGuestFromTable);
   const moveGuestToTable = useEventStore(state => state.moveGuestToTable);
+  const syncCurrentEventToAPI = useEventStore(state => state.syncCurrentEventToAPI);
+  const recreateCampaigns = useEventStore(state => state.recreateCampaigns);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -104,7 +143,7 @@ const EventManagement: React.FC = () => {
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [showSyncMonitoringModal, setShowSyncMonitoringModal] = useState(false);
   const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
-  const [messageChannel, setMessageChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [messageChannel] = useState<'whatsapp'>('whatsapp');
   const [customMessage, setCustomMessage] = useState('');
   const [newGuest, setNewGuest] = useState({
     firstName: '',
@@ -138,6 +177,23 @@ const EventManagement: React.FC = () => {
   useEffect(() => {
     if (!id) return;
     
+    // CRITICAL: Perform initial sync of all WhatsApp updates when component mounts
+    // This ensures all pending updates from WhatsApp are processed immediately
+    // Process ALL updates (not just today's) to catch any missed updates
+    webhookService.syncAllUpdates(false).then(result => {
+      if (result.processed > 0) {
+        console.log(`✅ Initial sync completed: ${result.processed} updates processed, ${result.failed} failed, ${result.remaining} remaining`);
+        // Refresh events to show updated data
+        fetchEvents(false, true).catch(err => {
+          console.warn('⚠️ Failed to refresh events after initial sync:', err);
+        });
+      } else if (result.remaining > 0) {
+        console.log(`ℹ️ No updates processed, but ${result.remaining} updates remain (may need manual processing)`);
+      }
+    }).catch(err => {
+      console.warn('⚠️ Initial sync failed (non-critical):', err);
+    });
+    
     // Initial fetch
     fetchEvents().catch(error => {
       console.error('❌ Error initial fetch:', error);
@@ -147,20 +203,21 @@ const EventManagement: React.FC = () => {
     // This ensures EventManagement receives real-time updates from backend
     // Only start if not already active to avoid duplicate polling
     if (!webhookService.pollingActive) {
-      webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+      webhookService.startPolling(5000); // Poll every 5 seconds (optimized for faster updates - reduced from 8)
+      console.log('✅ Started webhook polling - updates from WhatsApp will appear in table immediately');
     }
     
-    // Auto-refresh events every 15 seconds for real-time sync between devices
+    // Auto-refresh events every 10 seconds for real-time sync between devices
     // Using startTransition and silent mode to make updates smooth and non-blocking
-    // Reduced frequency to prevent excessive updates and reduce server load
+    // Increased frequency for better cross-device synchronization
     const intervalId = setInterval(() => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
         fetchEvents(false, true).catch(error => {
-          console.error('❌ Error auto-refreshing events:', error);
-        });
+        console.error('❌ Error auto-refreshing events:', error);
       });
-    }, 15000); // Refresh every 15 seconds to reduce server load
+      });
+    }, 10000); // Refresh every 10 seconds (optimized for better cross-device sync)
 
     return () => {
       clearInterval(intervalId);
@@ -273,10 +330,222 @@ const EventManagement: React.FC = () => {
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
       lastEventUpdatedAtRef.current = eventUpdatedAt;
+      
+      // Log message statistics for verification
+      if (newCurrentEvent.guests && newCurrentEvent.guests.length > 0) {
+        const messageStats = {
+          total: newCurrentEvent.guests.length,
+          not_sent: newCurrentEvent.guests.filter(g => !g.messageStatus || g.messageStatus === 'not_sent').length,
+          sent: newCurrentEvent.guests.filter(g => g.messageStatus === 'sent').length,
+          delivered: newCurrentEvent.guests.filter(g => g.messageStatus === 'delivered').length,
+          failed: newCurrentEvent.guests.filter(g => g.messageStatus === 'failed').length,
+          sent_or_delivered: newCurrentEvent.guests.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+        };
+        console.log('📊 Message Statistics:', messageStats);
+        console.log('✅ Verified: Delivered messages count =', messageStats.delivered);
+        if (messageStats.delivered === 53) {
+          console.log('✅ Confirmed: Exactly 53 messages were successfully delivered');
+        } else {
+          console.log(`ℹ️ Note: Delivered count is ${messageStats.delivered}, not 53`);
+        }
+      }
     }
     // CRITICAL: Do NOT include currentEvent in dependencies to prevent infinite loop
     // The useEffect should only run when events array changes, not when currentEvent changes
   }, [id, events, setCurrentEvent, navigate]); // Removed currentEvent to prevent infinite loop
+
+  // CRITICAL: Auto-sync event to API when it's loaded and has guests
+  // This ensures that if the local event has guests but the server doesn't, it gets synced automatically
+  const syncedEventsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!id || !currentEvent || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Only sync if event has guests
+    if (!currentEvent.guests || currentEvent.guests.length === 0) {
+      return;
+    }
+    
+    // Only sync once per event (tracked by ref)
+    if (syncedEventsRef.current.has(currentEvent.id)) {
+      return;
+    }
+    
+    // Mark as synced immediately to prevent duplicate syncs
+    syncedEventsRef.current.add(currentEvent.id);
+    
+    // Sync in background (don't await to avoid blocking UI)
+    console.log(`🔄 Auto-syncing event ${currentEvent.id} with ${currentEvent.guests.length} guests to server...`);
+    syncCurrentEventToAPI(currentEvent.id).catch((error: any) => {
+      console.warn('⚠️ Auto-sync failed:', error);
+      // Remove from synced set so we can retry later
+      syncedEventsRef.current.delete(currentEvent.id);
+    });
+  }, [id, currentEvent, syncCurrentEventToAPI]);
+
+  // CRITICAL: Force immediate table update when currentEvent changes
+  // This ensures the table updates immediately when guest status changes via link or WhatsApp
+  const currentEventGuestsKeyRef = useRef<string>('');
+  useEffect(() => {
+    if (!currentEvent || !currentEvent.guests || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Create a key from guests to detect changes
+    const guestsKey = currentEvent.guests.map(g => {
+      try {
+        let responseDateValue = '';
+        if (g.responseDate) {
+          const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+          responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+        }
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:${responseDateValue}`;
+      } catch (error) {
+        return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:`;
+      }
+    }).join('|');
+    
+    // Only update if guests actually changed
+    if (guestsKey !== currentEventGuestsKeyRef.current) {
+      currentEventGuestsKeyRef.current = guestsKey;
+      
+      // Force guestsToDisplay to recalculate by incrementing eventsVersion
+      // This ensures the table updates immediately when currentEvent changes
+      setEventsVersion(prev => {
+        const newVersion = prev + 1;
+        console.log('🔄 currentEvent guests changed, forcing table update - eventsVersion:', newVersion);
+        return newVersion;
+      });
+      
+      // Log message statistics for verification
+      const messageStats = {
+        total: currentEvent.guests.length,
+        not_sent: currentEvent.guests.filter(g => !g.messageStatus || g.messageStatus === 'not_sent').length,
+        sent: currentEvent.guests.filter(g => g.messageStatus === 'sent').length,
+        delivered: currentEvent.guests.filter(g => g.messageStatus === 'delivered').length,
+        failed: currentEvent.guests.filter(g => g.messageStatus === 'failed').length,
+        sent_or_delivered: currentEvent.guests.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+      };
+      
+      console.log('📊 Message Statistics Breakdown:', {
+        eventId: currentEvent.id,
+        eventName: currentEvent.coupleName || currentEvent.eventTypeHebrew,
+        ...messageStats,
+        deliveryRate: messageStats.sent_or_delivered > 0 
+          ? `${Math.round((messageStats.delivered / messageStats.sent_or_delivered) * 100)}%` 
+          : '0%'
+      });
+      
+      if (messageStats.delivered === 53) {
+        console.log('✅ VERIFIED: Exactly 53 messages were successfully delivered');
+      } else {
+        console.log(`ℹ️ Current delivered count: ${messageStats.delivered} ${messageStats.delivered === 53 ? '(matches expected)' : `(expected: 53)`}`);
+      }
+    }
+  }, [currentEvent, id]);
+
+  // CRITICAL: Auto-create campaigns if they don't exist
+  // This ensures events always have campaigns available
+  const campaignsCreatedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!id || !currentEvent || currentEvent.id !== id) {
+      return;
+    }
+    
+    // Check if campaigns exist
+    if (currentEvent.campaigns && currentEvent.campaigns.length > 0) {
+      return;
+    }
+    
+    // Only create once per event (tracked by ref)
+    if (campaignsCreatedRef.current.has(currentEvent.id)) {
+      return;
+    }
+    
+    // Mark as created immediately to prevent duplicate creation
+    campaignsCreatedRef.current.add(currentEvent.id);
+    
+    // Create campaigns in background (don't await to avoid blocking UI)
+    console.log(`🔄 Auto-creating campaigns for event ${currentEvent.id}...`);
+    recreateCampaigns(currentEvent.id).then(() => {
+      console.log(`✅ Campaigns created for event ${currentEvent.id}`);
+      // Refresh events to get the updated event with campaigns
+      fetchEvents(false, true).catch((error: any) => {
+        console.warn('⚠️ Failed to refresh events after campaign creation:', error);
+      });
+    }).catch((error: any) => {
+      console.warn('⚠️ Auto-create campaigns failed:', error);
+      // Remove from created set so we can retry later
+      campaignsCreatedRef.current.delete(currentEvent.id);
+    });
+  }, [id, currentEvent, recreateCampaigns, fetchEvents]);
+
+  // CRITICAL: Listen for guest status updates and refresh event data from backend
+  // This ensures the table updates immediately after guest status changes via GuestResponse page
+  // Use a more efficient approach: check for updates periodically, but also listen to store changes
+  const lastRefreshTimeRef = useRef<number>(0);
+  useEffect(() => {
+    if (!id) return;
+
+    // Set up a polling mechanism to check for guest status updates
+    // This ensures we detect updates even if the events array doesn't change reference
+    const checkForUpdates = async () => {
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+        
+        // Fetch the specific event from backend to get latest guest data
+        const response = await fetch(`${BACKEND_URL}/api/events/${id}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.event) {
+            const backendEvent = data.event;
+            const currentEventFromStore = useEventStore.getState().events.find(e => e.id === id);
+            
+            // Compare guest statuses to detect changes
+            if (currentEventFromStore && backendEvent.guests) {
+              const hasChanges = backendEvent.guests.some((backendGuest: any) => {
+                const localGuest = currentEventFromStore.guests?.find(g => g.id === backendGuest.id);
+                if (!localGuest) return false;
+                
+                // Check if status, guestCount, or responseDate changed
+                return backendGuest.rsvpStatus !== localGuest.rsvpStatus ||
+                       backendGuest.guestCount !== localGuest.guestCount ||
+                       (backendGuest.responseDate && 
+                        (!localGuest.responseDate || 
+                         new Date(backendGuest.responseDate).getTime() !== 
+                         (localGuest.responseDate instanceof Date ? localGuest.responseDate.getTime() : new Date(localGuest.responseDate).getTime())));
+              });
+              
+              if (hasChanges) {
+                const now = Date.now();
+                // Throttle refreshes to avoid too frequent updates
+                if (now - lastRefreshTimeRef.current > 1000) {
+                  console.log('🔄 Detected guest status changes from backend, refreshing events...');
+                  lastRefreshTimeRef.current = now;
+                  // Trigger fetchEvents to refresh from backend
+                  const { fetchEvents } = useEventStore.getState();
+                  await fetchEvents(false, true);
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Silently fail - this is a background check
+        console.debug('Background update check failed:', error);
+      }
+    };
+
+    // Check for updates every 5 seconds (less aggressive to avoid performance issues)
+    // This ensures we catch updates from GuestResponse page even if fetchEvents didn't trigger properly
+    const intervalId = setInterval(checkForUpdates, 5000);
+    
+    // Also check immediately on mount
+    checkForUpdates();
+    
+    return () => clearInterval(intervalId);
+  }, [id]);
 
   // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
   const eventGuestsKeyRef = useRef<string>('');
@@ -375,26 +644,30 @@ const EventManagement: React.FC = () => {
   const currentEventFromStore = currentEventFromStoreRef.current;
   
   // CRITICAL: All hooks must be before any conditional returns
-  // Get guests from store - ALWAYS use events array to ensure we get the latest data
+  // Get guests from store - ALWAYS use getState() inside useMemo to avoid React #310 errors
   // Use useMemo with minimal dependencies to avoid React #310 errors
   const guestsToDisplay = useMemo(() => {
-    // CRITICAL: Use events from props (from Zustand subscription) instead of getState()
-    // This ensures React detects changes when events array updates
-    // The events array is subscribed via useEventStore(state => state.events) at the top
-    const currentEvents = events;
+    // CRITICAL: Use getState() inside useMemo to avoid React #310 errors
+    // This ensures we don't access unstable references (events, currentEvent) directly
+    // React will not complain because getState() is a stable function reference
+    const state = useEventStore.getState();
+    const currentEvents = state.events;
+    const currentEventFromState = state.currentEvent;
+    
+    console.log('🔄 guestsToDisplay recalculating:', {
+      eventId: id,
+      eventsLength: currentEvents.length,
+      eventsVersion,
+      eventFound: !!currentEvents.find(e => e.id === id)
+    });
     
     // CRITICAL: Always get directly from events array (most up-to-date)
-    // Don't rely on currentEventFromStore ref as it might be stale
-    // This ensures we always get the latest data, even if update was for a different event
+    // Use getState() to get the latest data - don't rely on refs or component state
     let event = currentEvents.find(e => e.id === id) || null;
-    // Fallback to currentEventFromStore if event not found in array
-    if (!event) {
-      event = currentEventFromStore;
-    }
     
-    // Final fallback to currentEvent if it matches the ID
-    if (!event && currentEvent && currentEvent.id === id) {
-      event = currentEvent;
+    // Final fallback to currentEvent from state if it matches the ID
+    if (!event && currentEventFromState && currentEventFromState.id === id) {
+      event = currentEventFromState;
     }
     
     if (event?.guests && Array.isArray(event.guests) && event.guests.length > 0) {
@@ -430,25 +703,61 @@ const EventManagement: React.FC = () => {
       });
       
       // Update the ref to track changes
-      const newKey = guests.map(g => 
-        `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.getTime() : new Date(g.responseDate).getTime()) : ''}`
-      ).join('|');
+      // CRITICAL: Include ALL fields that might change to ensure we catch updates
+      const newKey = guests.map(g => {
+        try {
+          let responseDateValue = '';
+          if (g.responseDate) {
+            const date = g.responseDate instanceof Date ? g.responseDate : new Date(g.responseDate);
+            responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
+          }
+          // CRITICAL: Include ALL fields that might change
+          return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:${responseDateValue}`;
+        } catch (error) {
+          return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:`;
+        }
+      }).join('|');
       
-      if (newKey !== eventGuestsKeyRef.current) {
-        console.log('📊 Guests data changed:', guests.map(g => ({
-          id: g.id,
-          name: `${g.firstName} ${g.lastName}`,
-          status: g.rsvpStatus,
-          count: g.guestCount,
-          responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
-        })));
+      const keyChanged = newKey !== eventGuestsKeyRef.current;
+      
+      if (keyChanged) {
+        console.log('📊 Guests data changed in guestsToDisplay:', {
+          eventId: id,
+          guestsCount: guests.length,
+          eventsVersion,
+          sampleGuests: guests.slice(0, 3).map(g => ({
+            id: g.id,
+            name: `${g.firstName} ${g.lastName}`,
+            status: g.rsvpStatus,
+            count: g.guestCount,
+            actualAttendance: g.actualAttendance,
+            responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : 'none'
+          }))
+        });
         eventGuestsKeyRef.current = newKey;
+      } else {
+        // CRITICAL: Even if key unchanged, we still need to return a new array reference
+        // This ensures React detects changes when eventsVersion or eventsHash changes
+        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
       }
       
-      // CRITICAL: Always return a new array reference, even if contents are the same
-      // This ensures React detects changes when eventsVersion increments
-      // CRITICAL: Also include eventsHash in the array to force new reference
-      return [...guests];
+      // CRITICAL: Always return a new array reference with deep copy of guests
+      // This ensures React detects changes even if the key is the same
+      // CRITICAL: Include eventsHash and eventsVersion to force new reference
+      // CRITICAL: Map to create new object references for each guest
+      // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
+      // CRITICAL: Add a timestamp to force new reference on every calculation
+      const guestsCopy = guests.map((g, index) => ({ 
+        ...g,
+        // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
+        _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
+      }));
+      // CRITICAL: Add eventsHash as a property to force new reference when it changes
+      // This ensures React detects changes even if guests array appears unchanged
+      (guestsCopy as any)._eventsHash = eventsHash;
+      (guestsCopy as any)._eventsVersion = eventsVersion;
+      (guestsCopy as any)._timestamp = Date.now();
+      return guestsCopy;
     }
     
     // Only log warning if we have events but not for this ID
@@ -456,12 +765,12 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find(e => e.id === id));
     }
     return [];
-    // CRITICAL: Dependencies include only id and eventsVersion to avoid React #310 errors
-    // eventsVersion is updated when events array changes, triggering re-calculation
-    // We don't include eventsHash directly to avoid circular dependencies
-    // eventsVersion already captures changes from eventsHash via the useEffect that updates it
+    // CRITICAL: Use only primitive stable values as dependencies to avoid React #310 errors
+    // DO NOT include arrays or objects directly - they cause infinite loops
+    // Use eventsVersion and eventsHash (string is primitive and stable)
+    // CRITICAL: eventsHash is a string from zustand selector, which is stable as a dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion]);
+  }, [id, eventsVersion, eventsHash]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -600,6 +909,266 @@ const EventManagement: React.FC = () => {
     }
   }, [id, events, setCurrentEvent]);
 
+  // CRITICAL: All useCallback hooks MUST be before early return
+  // React hooks must be called before any conditional returns
+  const handleEditGuest = useCallback((guest: any) => {
+    setEditingGuest(guest);
+    setNewGuest({
+      firstName: guest.firstName,
+      lastName: guest.lastName,
+      phoneNumber: guest.phoneNumber,
+      guestCount: guest.guestCount,
+      notes: guest.notes || ''
+    });
+  }, []);
+
+  const handleUpdateGuestStatus = useCallback(async (guestId: string, status: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    try {
+      console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: event.id });
+      
+      // NEW APPROACH: Update directly in store using updateGuestResponse instead of updateGuest
+      // This ensures the update is processed the same way as guest_link updates
+      const guest = event.guests?.find(g => g.id === guestId);
+      if (!guest) {
+        console.error('❌ Guest not found:', guestId);
+        return;
+      }
+      
+      // Use updateGuestResponse to ensure consistent update flow
+      const { updateGuestResponse } = useEventStore.getState();
+      const updatedGuest = {
+        ...guest,
+        rsvpStatus: status as 'confirmed' | 'declined' | 'maybe' | 'pending',
+        responseDate: new Date(),
+        source: 'manual_update' // Mark as manual update from status page
+      };
+      
+      console.log('🔄 Updating guest via updateGuestResponse:', { guestId, status });
+      await updateGuestResponse(event.id, guestId, updatedGuest);
+      
+      // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+      // The updateGuestResponse function already syncs to the server and will refresh when ready
+      // The table will update automatically from the store state change
+      console.log('✅ Guest status updated - table will update automatically from store state');
+      
+      // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
+      // This ensures the UI reflects the change without waiting for server refresh
+      const updatedState = useEventStore.getState();
+      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      if (updatedEvent) {
+        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        if (updatedGuest && updatedGuest.rsvpStatus === status) {
+          // Update currentEvent to reflect the change immediately
+          setCurrentEvent({
+            ...updatedEvent,
+            guests: updatedEvent.guests.map(g => ({ ...g }))
+          });
+          console.log('✅ CurrentEvent updated from store - table will show updated status');
+        } else {
+          console.warn('⚠️ Updated guest not found in store or status mismatch:', {
+            found: !!updatedGuest,
+            expectedStatus: status,
+            actualStatus: updatedGuest?.rsvpStatus
+          });
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating guest:', error);
+    }
+  }, [setCurrentEvent, fetchEvents]);
+
+  const handleUpdateAttendance = useCallback(async (guestId: string, attendance: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    try {
+      console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: event.id });
+      
+      // NEW APPROACH: Update directly in store using updateGuestResponse
+      const guest = event.guests?.find(g => g.id === guestId);
+      if (!guest) {
+        console.error('❌ Guest not found:', guestId);
+        return;
+      }
+      
+      // Use updateGuestResponse to ensure consistent update flow
+      const { updateGuestResponse } = useEventStore.getState();
+      const updatedGuest = {
+        ...guest,
+        actualAttendance: attendance as 'attended' | 'not_attended' | 'not_marked',
+        attendanceDate: new Date(),
+        source: 'manual_update' // Mark as manual update from status page
+      };
+      
+      console.log('🔄 Updating attendance via updateGuestResponse:', { guestId, attendance });
+      await updateGuestResponse(event.id, guestId, updatedGuest);
+      
+      // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+      // The updateGuestResponse function already syncs to the server and will refresh when ready
+      // The table will update automatically from the store state change
+      console.log('✅ Guest attendance updated - table will update automatically from store state');
+      
+      // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
+      // This ensures the UI reflects the change without waiting for server refresh
+      const updatedState = useEventStore.getState();
+      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      if (updatedEvent) {
+        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        if (updatedGuest && updatedGuest.actualAttendance === attendance) {
+          // Update currentEvent to reflect the change immediately
+          setCurrentEvent({
+            ...updatedEvent,
+            guests: updatedEvent.guests.map(g => ({ ...g }))
+          });
+          console.log('✅ CurrentEvent updated from store - table will show updated attendance');
+        } else {
+          console.warn('⚠️ Updated guest not found in store or attendance mismatch:', {
+            found: !!updatedGuest,
+            expectedAttendance: attendance,
+            actualAttendance: updatedGuest?.actualAttendance
+          });
+        }
+      }
+      
+      console.log('✅ handleUpdateAttendance completed successfully');
+    } catch (error) {
+      console.error('❌ Error updating attendance:', error);
+    }
+  }, [setCurrentEvent, fetchEvents]);
+
+  const handleUpdateGuestField = useCallback(async (guestId: string, updates: any) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    try {
+      console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: event.id });
+      
+      // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
+      // This ensures seating management is updated correctly
+      if (updates.tableId !== undefined) {
+        const currentGuest = event.guests?.find(g => g.id === guestId);
+        const oldTableId = currentGuest?.tableId;
+        const newTableId = updates.tableId;
+        
+        if (newTableId && newTableId !== oldTableId) {
+          // Moving to a new table
+          console.log(`🔄 Moving guest ${guestId} from table ${oldTableId || 'none'} to table ${newTableId}`);
+          await moveGuestToTable(event.id, guestId, newTableId);
+        } else if (!newTableId && oldTableId) {
+          // Removing from table
+          console.log(`🔄 Removing guest ${guestId} from table ${oldTableId}`);
+          await removeGuestFromTable(event.id, guestId);
+        } else if (newTableId && newTableId === oldTableId) {
+          // Same table, just update other fields if any
+          const otherUpdates = { ...updates };
+          delete otherUpdates.tableId;
+          if (Object.keys(otherUpdates).length > 0) {
+            await updateGuest(event.id, guestId, otherUpdates);
+          }
+        }
+      } else {
+        // Update other fields normally - always include responseDate for timestamp-based conflict resolution
+        // If updating guestCount, always use current timestamp
+        const updatesWithTimestamp = updates.guestCount !== undefined 
+          ? { ...updates, responseDate: new Date() }
+          : updates;
+        await updateGuest(event.id, guestId, updatesWithTimestamp);
+      }
+      
+      // CRITICAL: Get updated currentEvent from store immediately after update
+      // This ensures the UI updates instantly with the latest data from store
+      // Important for: tableId, actualAttendance, guestCount, rsvpStatus, firstName, lastName, phoneNumber
+      const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
+      const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+      
+      if (hasCriticalField) {
+        const storeState = useEventStore.getState();
+        const updatedEvent = storeState.currentEvent;
+        if (updatedEvent && updatedEvent.id === event.id) {
+          setCurrentEvent(updatedEvent);
+          console.log('✅ handleUpdateGuestField - currentEvent updated immediately from store for:', Object.keys(updates).join(', '));
+        }
+      }
+    } catch (error) {
+      console.error('Error updating guest:', error);
+    }
+  }, [updateGuest, setCurrentEvent, moveGuestToTable, removeGuestFromTable]);
+
+  const handleDeleteGuest = useCallback(async (guestId: string) => {
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.id) {
+      alert('שגיאה: לא נמצא אירוע פעיל');
+      return;
+    }
+    
+    if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
+      try {
+        await deleteGuest(event.id, guestId);
+      } catch (error) {
+        console.error('Error deleting guest:', error);
+        alert('אירעה שגיאה במחיקת המוזמן');
+      }
+    }
+  }, [deleteGuest]);
+
+  const handleSelectGuest = useCallback((guestId: string) => {
+    setSelectedGuests(prev => 
+      prev.includes(guestId) 
+        ? prev.filter(id => id !== guestId)
+        : [...prev, guestId]
+    );
+  }, []);
+
+  const handleSelectAllGuests = useCallback(() => {
+    // Calculate filteredGuests inside the callback to avoid dependency issues
+    const event = useEventStore.getState().currentEvent;
+    if (!event || !event.guests) return;
+    
+    const guests = event.guests || [];
+    const filtered = guests.filter(guest => {
+      const matchesSearch = 
+        guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        guest.phoneNumber.includes(searchTerm);
+      
+      const matchesFilter = filterStatus === 'all' || guest.rsvpStatus === filterStatus;
+      
+      let matchesMessageFilter = true;
+      const currentMessageStatus = guest.messageStatus || 'not_sent';
+      
+      if (messageFilterStatus === 'sent_not_delivered') {
+        matchesMessageFilter = currentMessageStatus === 'sent';
+      } else if (messageFilterStatus !== 'all') {
+        if (messageFilterStatus === 'not_sent') {
+          matchesMessageFilter = !guest.messageStatus || currentMessageStatus === 'not_sent';
+        } else {
+          matchesMessageFilter = currentMessageStatus === messageFilterStatus;
+        }
+      }
+      
+      return matchesSearch && matchesFilter && matchesMessageFilter;
+    });
+    
+    const allGuestIds = filtered.map(guest => guest.id);
+    setSelectedGuests(allGuestIds);
+  }, [searchTerm, filterStatus, messageFilterStatus]);
+
+  const handleDeselectAllGuests = useCallback(() => {
+    setSelectedGuests([]);
+  }, []);
+
   // Early return after ALL hooks (no hooks after this point!)
   if (!currentEvent) {
     return (
@@ -609,7 +1178,30 @@ const EventManagement: React.FC = () => {
     );
   }
 
-  const stats = calculateEventStats(currentEvent);
+  // CRITICAL: Use useMemo to recalculate stats when currentEvent or eventsHash changes
+  // This ensures stats update immediately when guestCount changes
+  const stats = useMemo(() => {
+    if (!currentEvent) {
+      return {
+        totalGuests: 0,
+        confirmed: 0,
+        declined: 0,
+        maybe: 0,
+        pending: 0,
+        responseRate: 0,
+        attendanceRate: 0
+      };
+    }
+    const calculatedStats = calculateEventStats(currentEvent);
+    console.log('📊 Stats recalculated:', {
+      totalGuests: calculatedStats.totalGuests,
+      confirmed: calculatedStats.confirmed,
+      eventId: currentEvent.id,
+      guestsCount: currentEvent.guests?.length || 0,
+      eventsHash: eventsHash.substring(0, 50) + '...'
+    });
+    return calculatedStats;
+  }, [currentEvent, eventsHash]); // CRITICAL: Include eventsHash to detect guestCount changes
   
   // CRITICAL: Calculate filteredGuests directly without useMemo to avoid React #310 errors
   // Calculate on every render - guestsToDisplay is already memoized, so this is efficient
@@ -632,8 +1224,8 @@ const EventManagement: React.FC = () => {
     
     if (messageFilterStatus === 'sent_not_delivered') {
       // Show only guests who were sent a message but didn't receive it
-      // This includes 'sent' and 'sms_sent' but excludes 'delivered'
-      matchesMessageFilter = currentMessageStatus === 'sent' || currentMessageStatus === 'sms_sent';
+      // This includes 'sent' but excludes 'delivered'
+      matchesMessageFilter = currentMessageStatus === 'sent';
     } else if (messageFilterStatus !== 'all') {
       if (messageFilterStatus === 'not_sent') {
         // Include both 'not_sent' and undefined (which we treat as 'not_sent')
@@ -703,17 +1295,6 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleEditGuest = (guest: any) => {
-    setEditingGuest(guest);
-    setNewGuest({
-      firstName: guest.firstName,
-      lastName: guest.lastName,
-      phoneNumber: guest.phoneNumber,
-      guestCount: guest.guestCount,
-      notes: guest.notes || ''
-    });
-  };
-
   const handleUpdateGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -770,159 +1351,25 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleUpdateGuestStatus = async (guestId: string, status: string) => {
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    try {
-      console.log('🎯 handleUpdateGuestStatus called:', { guestId, status, eventId: currentEvent.id });
-      
-      // Update in store first
-      await updateGuest(currentEvent.id, guestId, {
-        rsvpStatus: status as any,
-        responseDate: new Date()
-      });
-      
-      // CRITICAL: Get updated event from store immediately after update
-      // First try to get from currentEvent, then from events array
-      const storeState = useEventStore.getState();
-      let updatedEvent = storeState.currentEvent;
-      
-      // If currentEvent doesn't match or is null, get from events array
-      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
-      }
-      
-      if (updatedEvent && updatedEvent.id === currentEvent.id) {
-        // Create new object reference to force React re-render
-        const updatedEventWithNewRef = {
-          ...updatedEvent,
-          guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
-        };
-        setCurrentEvent(updatedEventWithNewRef);
-        console.log('✅ handleUpdateGuestStatus - currentEvent updated immediately from store');
-      } else {
-        // Fallback: update from events array via useEffect
-        console.log('⚠️ handleUpdateGuestStatus - currentEvent not found, will update via useEffect');
-      }
-    } catch (error) {
-      console.error('Error updating guest:', error);
-    }
-  };
-
-  const handleUpdateAttendance = async (guestId: string, attendance: string) => {
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    try {
-      console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: currentEvent.id });
-      
-      // Update in store first
-      await updateGuest(currentEvent.id, guestId, {
-        actualAttendance: attendance as any,
-        attendanceDate: new Date()
-      });
-      
-      // CRITICAL: Get updated event from store immediately after update
-      // First try to get from currentEvent, then from events array
-      const storeState = useEventStore.getState();
-      let updatedEvent = storeState.currentEvent;
-      
-      // If currentEvent doesn't match or is null, get from events array
-      if (!updatedEvent || updatedEvent.id !== currentEvent.id) {
-        updatedEvent = storeState.events.find(e => e.id === currentEvent.id) || null;
-      }
-      
-      if (updatedEvent && updatedEvent.id === currentEvent.id) {
-        // Create new object reference to force React re-render
-        const updatedEventWithNewRef = {
-          ...updatedEvent,
-          guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
-        };
-        setCurrentEvent(updatedEventWithNewRef);
-        console.log('✅ handleUpdateAttendance - currentEvent updated immediately from store');
-      } else {
-        // Fallback: update from events array via useEffect
-        console.log('⚠️ handleUpdateAttendance - currentEvent not found, will update via useEffect');
-      }
-      
-      console.log('✅ handleUpdateAttendance completed successfully');
-    } catch (error) {
-      console.error('❌ Error updating attendance:', error);
-    }
-  };
-
-  const handleUpdateGuestField = async (guestId: string, updates: any) => {
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    try {
-      console.log('🎯 handleUpdateGuestField called:', { guestId, updates, eventId: currentEvent.id });
-      
-      // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
-      // This ensures seating management is updated correctly
-      if (updates.tableId !== undefined) {
-        const currentGuest = currentEvent.guests?.find(g => g.id === guestId);
-        const oldTableId = currentGuest?.tableId;
-        const newTableId = updates.tableId;
-        
-        if (newTableId && newTableId !== oldTableId) {
-          // Moving to a new table
-          console.log(`🔄 Moving guest ${guestId} from table ${oldTableId || 'none'} to table ${newTableId}`);
-          await moveGuestToTable(currentEvent.id, guestId, newTableId);
-        } else if (!newTableId && oldTableId) {
-          // Removing from table
-          console.log(`🔄 Removing guest ${guestId} from table ${oldTableId}`);
-          await removeGuestFromTable(currentEvent.id, guestId);
-        } else if (newTableId && newTableId === oldTableId) {
-          // Same table, just update other fields if any
-          const otherUpdates = { ...updates };
-          delete otherUpdates.tableId;
-          if (Object.keys(otherUpdates).length > 0) {
-            await updateGuest(currentEvent.id, guestId, otherUpdates);
-          }
-        }
-      } else {
-        // Update other fields normally - always include responseDate for timestamp-based conflict resolution
-        // If updating guestCount, always use current timestamp
-        const updatesWithTimestamp = updates.guestCount !== undefined 
-          ? { ...updates, responseDate: new Date() }
-          : updates;
-        await updateGuest(currentEvent.id, guestId, updatesWithTimestamp);
-      }
-      
-      // CRITICAL: Get updated currentEvent from store immediately after update
-      // This ensures the UI updates instantly with the latest data from store
-      // Important for: tableId, actualAttendance, guestCount, rsvpStatus, firstName, lastName, phoneNumber
-      const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
-      const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
-      
-      if (hasCriticalField) {
-        const storeState = useEventStore.getState();
-        const updatedEvent = storeState.currentEvent;
-        if (updatedEvent && updatedEvent.id === currentEvent.id) {
-          setCurrentEvent(updatedEvent);
-          console.log('✅ handleUpdateGuestField - currentEvent updated immediately from store for:', Object.keys(updates).join(', '));
-        }
-      }
-    } catch (error) {
-      console.error('Error updating guest:', error);
-    }
-  };
-
   const getMessageStatusColor = (status: string) => {
     switch (status) {
-      case 'sent': return 'text-blue-600';
-      case 'delivered': return 'text-green-600';
-      case 'failed': return 'text-red-600';
-      case 'sms_sent': return 'text-purple-600';
-      default: return 'text-gray-600';
+      case 'sent': return 'text-blue-600 bg-blue-50';
+      case 'delivered': return 'text-green-600 bg-green-50';
+      case 'failed': return 'text-red-600 bg-red-50';
+      default: return 'text-gray-600 bg-gray-50';
+    }
+  };
+
+  const getMessageStatusIcon = (status: string) => {
+    switch (status) {
+      case 'sent':
+        return <Send className="w-4 h-4 text-blue-600" />;
+      case 'delivered':
+        return <CheckCircle className="w-4 h-4 text-green-600" />;
+      case 'failed':
+        return <XCircle className="w-4 h-4 text-red-600" />;
+      default:
+        return <MessageSquare className="w-4 h-4 text-gray-400" />;
     }
   };
 
@@ -930,11 +1377,24 @@ const EventManagement: React.FC = () => {
     switch (status) {
       case 'not_sent': return 'לא נשלחה';
       case 'sent': return 'נשלח';
-      case 'delivered': return 'קיבל';
+      case 'delivered': return 'נמסר';
       case 'failed': return 'נכשל';
-      case 'sms_sent': return 'נשלח SMS';
       default: return 'לא נשלח';
     }
+  };
+
+  const getMessageStatusTooltip = (guest: any) => {
+    const parts: string[] = [];
+    if (guest.messageSentDate) {
+      parts.push(`נשלח: ${formatDate(guest.messageSentDate)}`);
+    }
+    if (guest.messageDeliveredDate) {
+      parts.push(`נמסר: ${formatDate(guest.messageDeliveredDate)}`);
+    }
+    if (guest.messageFailedDate) {
+      parts.push(`נכשל: ${formatDate(guest.messageFailedDate)}`);
+    }
+    return parts.length > 0 ? parts.join('\n') : 'אין פרטים נוספים';
   };
 
   const getRsvpStatusText = (status: string): string => {
@@ -1012,10 +1472,17 @@ const EventManagement: React.FC = () => {
     });
 
     // Add totals row
-    const totalAttended = currentEvent.guests.filter(g => g.actualAttendance === 'attended').length;
-    const totalNotAttended = currentEvent.guests.filter(g => g.actualAttendance === 'not_attended').length;
-    const totalNotMarked = currentEvent.guests.filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked').length;
-    const totalGuests = currentEvent.guests.length;
+    // CRITICAL: Use guestCount for accurate totals (not just guest count)
+    const totalAttended = currentEvent.guests
+      .filter(g => g.actualAttendance === 'attended')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalNotAttended = currentEvent.guests
+      .filter(g => g.actualAttendance === 'not_attended')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalNotMarked = currentEvent.guests
+      .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
+      .reduce((sum, g) => sum + (g.guestCount || 1), 0);
+    const totalGuests = currentEvent.guests.reduce((sum, g) => sum + (g.guestCount || 1), 0);
     const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
 
     dataRows.push([
@@ -1311,22 +1778,6 @@ const EventManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteGuest = async (guestId: string) => {
-    if (!currentEvent || !currentEvent.id) {
-      alert('שגיאה: לא נמצא אירוע פעיל');
-      return;
-    }
-    
-    if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
-      try {
-        await deleteGuest(currentEvent.id, guestId);
-      } catch (error) {
-        console.error('Error deleting guest:', error);
-        alert('אירעה שגיאה במחיקת המוזמן');
-      }
-    }
-  };
-
   const handleDeleteSelectedGuests = async () => {
     if (!currentEvent || !currentEvent.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
@@ -1345,7 +1796,7 @@ const EventManagement: React.FC = () => {
 
     const eventId = currentEvent.id; // Store eventId to prevent issues if currentEvent changes
     const guestsToDelete = [...selectedGuests]; // Create a copy to avoid issues if state changes
-    
+
     try {
       // Delete all selected guests
       for (const guestId of guestsToDelete) {
@@ -1559,26 +2010,26 @@ const EventManagement: React.FC = () => {
     workbook.created = new Date();
     workbook.modified = new Date();
     
-    // Create worksheet
+    // Create worksheet - LTR order: עמודה A תהיה "שם מלא" (שמאל), עמודה K תהיה "הערות" (ימין)
     const worksheet = workbook.addWorksheet('רשימת אורחים', {
       properties: {
         tabColor: { argb: 'FF2F5597' }
       }
     });
     
-    // Define columns in RTL order - עמודה A תהיה "הערות" (ימין), עמודה K תהיה "שם מלא" (שמאל)
+    // Define columns in LTR order - עמודה A תהיה "שם מלא" (שמאל), עמודה K תהיה "הערות" (ימין)
     worksheet.columns = [
-      { header: 'הערות', key: 'notes', width: 30 },
-      { header: 'תאריך שליחה', key: 'messageSentDate', width: 12 },
-      { header: 'סטטוס הודעה', key: 'messageStatus', width: 15 },
-      { header: 'שולחן', key: 'table', width: 8 },
-      { header: 'הגעה בפועל', key: 'actualAttendance', width: 15 },
-      { header: 'ערוץ', key: 'channel', width: 12 },
-      { header: 'תאריך תגובה', key: 'responseDate', width: 12 },
-      { header: 'סטטוס אישור', key: 'rsvpStatus', width: 15 },
-      { header: 'מספר מוזמנים', key: 'guestCount', width: 12 },
+      { header: 'שם מלא', key: 'fullName', width: 25 },
       { header: 'מספר טלפון', key: 'phoneNumber', width: 15 },
-      { header: 'שם מלא', key: 'fullName', width: 25 }
+      { header: 'מספר מוזמנים', key: 'guestCount', width: 12 },
+      { header: 'סטטוס אישור', key: 'rsvpStatus', width: 15 },
+      { header: 'תאריך תגובה', key: 'responseDate', width: 12 },
+      { header: 'ערוץ', key: 'channel', width: 12 },
+      { header: 'הגעה בפועל', key: 'actualAttendance', width: 15 },
+      { header: 'שולחן', key: 'table', width: 8 },
+      { header: 'סטטוס הודעה', key: 'messageStatus', width: 15 },
+      { header: 'תאריך שליחה', key: 'messageSentDate', width: 12 },
+      { header: 'הערות', key: 'notes', width: 30 }
     ];
     
     // Style header row
@@ -1608,20 +2059,20 @@ const EventManagement: React.FC = () => {
       };
     });
     
-    // Add data rows
+    // Add data rows - סדר הנתונים תואם לסדר העמודות (LTR)
     currentEvent.guests.forEach((guest, index) => {
       const row = worksheet.addRow({
-        notes: guest.notes || '',
-        messageSentDate: guest.messageSentDate ? formatDate(guest.messageSentDate) : '',
-        messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
-        table: guest.tableId ? currentEvent.tables?.find(t => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
-        actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
-        channel: guest.channel || 'וואטסאפ',
-        responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
-        rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
-        guestCount: guest.guestCount || 1,
+        fullName: formatFullName(guest.firstName, guest.lastName),
         phoneNumber: guest.phoneNumber || '',
-        fullName: formatFullName(guest.firstName, guest.lastName)
+        guestCount: guest.guestCount || 1,
+        rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
+        responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
+        channel: guest.channel || 'וואטסאפ',
+        actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
+        table: guest.tableId ? currentEvent.tables?.find(t => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
+        messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
+        messageSentDate: guest.messageSentDate ? formatDate(guest.messageSentDate) : '',
+        notes: guest.notes || ''
       });
       
       // Style data row
@@ -1678,21 +2129,39 @@ const EventManagement: React.FC = () => {
     reader.onload = async (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        // Read Excel file with proper encoding options for Hebrew text
+        const workbook = XLSX.read(data, { 
+          type: 'binary',
+          codepage: 65001, // UTF-8 encoding for proper Hebrew character support
+          cellText: false,
+          cellDates: true
+        });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        // Convert to JSON with proper handling of Hebrew text
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+          header: 1,
+          defval: '', // Default value for empty cells
+          raw: false // Convert all values to strings to preserve Hebrew characters
+        });
 
         // Helper function to parse RSVP status from text
         const parseRsvpStatus = (text: string): 'pending' | 'confirmed' | 'declined' | 'maybe' => {
+          if (!text || !text.trim()) return 'pending';
+          
           const lowerText = text.toLowerCase().trim();
-          if (lowerText.includes('מגיע') || lowerText.includes('confirmed') || lowerText.includes('אישר')) {
+          // Check for confirmed status
+          if (lowerText.includes('מגיע') || lowerText.includes('confirmed') || lowerText.includes('אישר') || 
+              lowerText.includes('אישור') || lowerText === '✓' || lowerText === 'v') {
             return 'confirmed';
           }
-          if (lowerText.includes('לא מגיע') || lowerText.includes('declined') || lowerText.includes('דחה')) {
+          // Check for declined status
+          if (lowerText.includes('לא מגיע') || lowerText.includes('declined') || lowerText.includes('דחה') || 
+              lowerText.includes('דחייה') || lowerText === '✗' || lowerText === 'x') {
             return 'declined';
           }
-          if (lowerText.includes('אולי') || lowerText.includes('maybe')) {
+          // Check for maybe status
+          if (lowerText.includes('אולי') || lowerText.includes('maybe') || lowerText.includes('לא בטוח')) {
             return 'maybe';
           }
           return 'pending';
@@ -1700,19 +2169,28 @@ const EventManagement: React.FC = () => {
 
         // Helper function to parse actual attendance from text
         const parseActualAttendance = (text: string): 'attended' | 'not_attended' | 'not_marked' => {
+          if (!text || !text.trim()) return 'not_marked';
+          
           const lowerText = text.toLowerCase().trim();
-          if (lowerText.includes('הגיע') || lowerText.includes('attended') || lowerText.includes('כן')) {
+          // Check for attended status
+          if (lowerText.includes('הגיע') || lowerText.includes('attended') || lowerText.includes('כן') || 
+              lowerText.includes('נוכח') || lowerText === '✓' || lowerText === 'v') {
             return 'attended';
           }
-          if (lowerText.includes('לא הגיע') || lowerText.includes('not_attended') || lowerText.includes('לא')) {
+          // Check for not attended status
+          if (lowerText.includes('לא הגיע') || lowerText.includes('not_attended') || 
+              (lowerText.includes('לא') && !lowerText.includes('לא בטוח')) || lowerText === '✗' || lowerText === 'x') {
             return 'not_attended';
           }
           return 'not_marked';
         };
 
         // Convert to guests array
-        // Excel columns order (RTL - Right to Left, מימין לשמאל): שם האורח, פלאפון האורח, כמות מגיעים, שיוך למשפחה, הערות
-        // Array indices (0-based, RTL): [0] שם האורח, [1] פלאפון האורח, [2] כמות מגיעים, [3] שיוך למשפחה, [4] הערות
+        // Excel columns order (LTR - Left to Right, משמאל לימין): 
+        // Column A: שם מלא, B: מספר טלפון, C: מספר מוזמנים, D: סטטוס אישור, E: תאריך תגובה, 
+        // F: ערוץ, G: הגעה בפועל, H: שולחן, I: סטטוס הודעה, J: תאריך שליחה, K: הערות
+        // Array indices (0-based): [0] שם מלא, [1] מספר טלפון, [2] מספר מוזמנים, [3] סטטוס אישור, 
+        // [4] תאריך תגובה, [5] ערוץ, [6] הגעה בפועל, [7] שולחן, [8] סטטוס הודעה, [9] תאריך שליחה, [10] הערות
         
         console.log('📊 Total rows in Excel:', jsonData.length);
         console.log('📊 Header row:', jsonData[0]);
@@ -1742,45 +2220,48 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Processing row ${index + 1}:`, row);
             console.log(`📋 Row length: ${row.length}, Values:`, row);
             
-            // Excel structure (RTL - מימין לשמאל): Column A=שם האורח, B=פלאפון האורח, C=כמות מגיעים, D=שיוך למשפחה, E=הערות
-            
-            // Column A (index 0): שם האורח → תחת "מוזמן"
+            // Excel structure (LTR - משמאל לימין): 
+            // Column A (index 0): שם מלא
             const fullName = String(row[0] || '').trim();
             console.log(`📋 Full name from column A (index 0): "${fullName}"`);
             
             let firstName = '';
             let lastName = '';
             if (fullName) {
-              // Split name by common separators (space, comma, "ו")
-              const nameParts = fullName.split(/[\s,ו]+/).filter((part: string) => part.trim());
+              // Split name by common separators (space, comma)
+              // Note: We don't split by "ו" because it's part of Hebrew names (e.g., "יובל", "ליאור", "נווה")
+              // If names are connected with "ו" (e.g., "דוד ורותי"), they should be separated by spaces in Excel
+              const nameParts = fullName.split(/[\s,]+/).filter((part: string) => part.trim());
               firstName = nameParts[0] || '';
               lastName = nameParts.slice(1).join(' ') || '';
             }
             
-            // Column B (index 1): פלאפון האורח → תחת "טלפון"
+            // Column B (index 1): מספר טלפון
             const phoneNumber = String(row[1] || '').trim();
             console.log(`📋 Phone from column B (index 1): "${phoneNumber}"`);
             const finalPhone = phoneNumber.replace(/[^\d]/g, ''); // Remove non-digits
             
-            // Column C (index 2): כמות מגיעים → תחת "מספר מוזמנים"
+            // Column C (index 2): מספר מוזמנים
             const guestCount = parseInt(String(row[2] || '1')) || 1;
             console.log(`📋 Guest count from column C (index 2): "${guestCount}"`);
             
-            // Column D (index 3): שיוך למשפחה (optional)
-            const family = String(row[3] || '').trim();
-            console.log(`📋 Family from column D (index 3): "${family}"`);
+            // Column D (index 3): סטטוס אישור (RSVP Status)
+            const rsvpStatusText = String(row[3] || '').trim();
+            console.log(`📋 RSVP status from column D (index 3): "${rsvpStatusText}"`);
+            const rsvpStatus = parseRsvpStatus(rsvpStatusText) || 'pending';
             
-            // Column E (index 4): הערות (optional)
-            const notes = String(row[4] || '').trim();
-            console.log(`📋 Notes from column E (index 4): "${notes}"`);
+            // Column G (index 6): הגעה בפועל (Actual Attendance)
+            const actualAttendanceText = String(row[6] || '').trim();
+            console.log(`📋 Actual attendance from column G (index 6): "${actualAttendanceText}"`);
+            const actualAttendance = parseActualAttendance(actualAttendanceText) || 'not_marked';
             
-            // Default RSVP status and attendance (not in template)
-            const rsvpStatus = 'pending' as 'pending' | 'confirmed' | 'declined' | 'maybe';
-            const actualAttendance = 'not_marked' as 'attended' | 'not_attended' | 'not_marked';
+            // Column H (index 7): שולחן
+            const tableNumber = String(row[7] || '').trim();
+            console.log(`📋 Table number from column H (index 7): "${tableNumber}"`);
             
-            // Table number not in template - will be empty
-            const tableNumber = '';
-            console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
+            // Column K (index 10): הערות
+            const notes = String(row[10] || '').trim();
+            console.log(`📋 Notes from column K (index 10): "${notes}"`);
             
             // Try to find existing table
             let table = tableNumber && !isNaN(parseInt(tableNumber)) ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
@@ -1842,14 +2323,20 @@ const EventManagement: React.FC = () => {
         if (guests.length === 0) {
           console.error('❌ No guests found! Check the Excel file structure.');
           console.log('📋 Sample row data:', jsonData[1]);
-          console.log('📋 Expected columns (RTL - מימין לשמאל):', [
-            '[0] Column A: שם האורח',
-            '[1] Column B: פלאפון האורח',
-            '[2] Column C: כמות מגיעים',
-            '[3] Column D: שיוך למשפחה',
-            '[4] Column E: הערות'
+          console.log('📋 Expected columns (LTR - משמאל לימין):', [
+            '[0] Column A: שם מלא',
+            '[1] Column B: מספר טלפון',
+            '[2] Column C: מספר מוזמנים',
+            '[3] Column D: סטטוס אישור',
+            '[4] Column E: תאריך תגובה',
+            '[5] Column F: ערוץ',
+            '[6] Column G: הגעה בפועל',
+            '[7] Column H: שולחן',
+            '[8] Column I: סטטוס הודעה',
+            '[9] Column J: תאריך שליחה',
+            '[10] Column K: הערות'
           ]);
-          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (מימין לשמאל):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: שיוך למשפחה\n- Column E: הערות');
+          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (משמאל לימין):\n- Column A: שם מלא\n- Column B: מספר טלפון\n- Column C: מספר מוזמנים\n- Column D: סטטוס אישור\n- Column E: תאריך תגובה\n- Column F: ערוץ\n- Column G: הגעה בפועל\n- Column H: שולחן\n- Column I: סטטוס הודעה\n- Column J: תאריך שליחה\n- Column K: הערות\n\nשים לב: ניתן לייבא גם קובץ עם העמודות הבסיסיות בלבד (A, B, C, K).');
         }
 
         // Check for duplicates in the imported file
@@ -2001,38 +2488,25 @@ const EventManagement: React.FC = () => {
     });
   };
 
-  // Send message functions
-  const handleSelectGuest = (guestId: string) => {
-    setSelectedGuests(prev => 
-      prev.includes(guestId) 
-        ? prev.filter(id => id !== guestId)
-        : [...prev, guestId]
-    );
-  };
-
-  const handleSelectAllGuests = () => {
-    const allGuestIds = filteredGuests.map(guest => guest.id);
-    setSelectedGuests(allGuestIds);
-  };
-
-  const handleDeselectAllGuests = () => {
-    setSelectedGuests([]);
-  };
-
   const handleSendMessage = async () => {
+    console.log('🚀 handleSendMessage called');
+    console.log('📋 selectedGuests:', selectedGuests);
+    console.log('📋 currentEvent:', currentEvent);
+    
     if (selectedGuests.length === 0) {
+      console.warn('⚠️ No guests selected');
       alert('אנא בחר לפחות מוזמן אחד');
       return;
     }
 
     try {
+      console.log('✅ Starting message send process...');
       const guestsToSend = currentEvent.guests.filter(guest => selectedGuests.includes(guest.id));
+      console.log('📋 guestsToSend:', guestsToSend.length, 'guests');
       
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
-      // Send messages using the message service
-      const { messageService } = await import('../services/messageService');
       // Import helper function once before map
       const { generateGuestResponseLink } = await import('../utils/helpers');
       
@@ -2047,6 +2521,31 @@ const EventManagement: React.FC = () => {
       const personalizedMessage = customMessage 
         ? customMessage.replace('{{guest_link}}', guestLink)
         : `${baseMessage}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}`;
+      
+      // CRITICAL: Prepare template parameters for template "aa" (8 parameters + guest_response_link)
+      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+      // Plus guest_response_link for the URL button at index 0
+      const coupleName = currentEvent.coupleName || 
+        (currentEvent.groomName && currentEvent.brideName 
+          ? `${currentEvent.groomName} ו${currentEvent.brideName}` 
+          : 'הזוג');
+      const groomName = currentEvent.groomName || '';
+      const brideName = currentEvent.brideName || '';
+      
+      const templateParamsForAA = {
+        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name'],
+        guest_name: guest.firstName,
+        event_type: currentEvent.eventTypeHebrew || 'חתונה',
+        groom_name: groomName,
+        bride_name: brideName,
+        event_date: formatDate(currentEvent.eventDate) || '',
+        event_time: currentEvent.eventTime || '',
+        venue: currentEvent.venue || '',
+        couple_name: coupleName,
+        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
+        language: 'he'
+      };
         
         return {
           id: guest.id,
@@ -2066,28 +2565,57 @@ const EventManagement: React.FC = () => {
             eventTime: currentEvent.eventTime,
             venue: currentEvent.venue,
             invitationImageUrl: currentEvent.invitationImageUrl
-          }
+          },
+          // CRITICAL: Pass template params for template "aa" so it can be used if needed (first message or retry)
+          templateParams: templateParamsForAA
         };
       });
 
-      const result = await messageService.sendBulkMessages({
-        message: '', // Will be overridden by individual messages
-        recipients
-      });
+      console.log('📤 About to call messageService.sendBulkMessages');
+      console.log('📋 Recipients count:', recipients.length);
+      console.log('📋 Recipients:', recipients.map(r => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
+      
+      console.log('📤 About to call messageService.sendBulkMessages');
+      console.log('📋 Recipients count:', recipients.length);
+      console.log('📋 Recipients:', recipients.map(r => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
+      
+      let result;
+      try {
+        // CRITICAL: For free-form messages, pass the message content
+        // Each recipient has their own personalized message in recipient.message
+        // But we also need to pass a base message for messageService to use
+        const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
+        
+        // CRITICAL: Each recipient already has templateParams with all 8 parameters + guest_response_link
+        // This allows whatsappService to use template "aa" if needed (first message or retry after error 131047)
+        // The templateParams are already set in the recipients array above
+        
+        result = await messageService.sendBulkMessages({
+          message: baseMessage, // Base message for free-form messages
+          templateName: undefined, // CRITICAL: No template - send as regular text message (will use template "aa" if first message)
+          templateParams: undefined, // CRITICAL: Template params are already in each recipient.templateParams
+          recipients
+        });
+        
+        console.log('📊 messageService.sendBulkMessages result:', result);
+      } catch (error) {
+        console.error('❌ ERROR in messageService.sendBulkMessages:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error
+        });
+        throw error; // Re-throw to be caught by outer try-catch
+      }
 
       // Update guest channels and message status based on actual results
       result.results.forEach(messageResult => {
         const guest = guestsToSend.find(g => g.id === messageResult.recipientId);
         if (guest && messageResult.success) {
           let messageStatus = 'sent';
-          if (messageResult.channel === 'sms') {
-            messageStatus = 'sms_sent';
-          } else if (messageResult.fallbackUsed) {
-            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-          }
           
           const updateData: any = { 
-            channel: messageResult.channel,
+            channel: 'whatsapp',
             messageStatus: messageStatus as any,
             messageSentDate: new Date()
           };
@@ -2111,23 +2639,40 @@ const EventManagement: React.FC = () => {
       setSelectedGuests([]);
       setCustomMessage('');
     } catch (error) {
-      console.error('Error sending messages:', error);
-      alert('שגיאה בשליחת ההודעות');
+      console.error('❌ ERROR in handleSendMessage:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
+      alert(`שגיאה בשליחת ההודעות: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  const handleSendToSingleGuest = async (guest: any) => {
+  const handleSendToSingleGuest = useCallback(async (guest: any) => {
+    console.log('🚀 handleSendToSingleGuest called');
+    console.log('📋 guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+    
     try {
+      const event = useEventStore.getState().currentEvent;
+      console.log('📋 event:', event ? { id: event.id, name: event.eventName } : 'null');
+      
+      if (!event || !event.id) {
+        console.error('❌ No active event found');
+        alert('שגיאה: לא נמצא אירוע פעיל');
+        return;
+      }
+      
       // Use local IP for testing - replace with your actual IP
       const baseUrl = window.location.origin || 'http://192.168.1.47:3001';
       
       // Debug: Check if guest ID is correct
       console.log('🔍 DEBUG - Guest ID from parameter:', guest.id);
       console.log('🔍 DEBUG - Guest object:', guest);
-      console.log('🔍 DEBUG - All guests in event:', currentEvent.guests?.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+      console.log('🔍 DEBUG - All guests in event:', event.guests?.map(g => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
       
       // Find the correct guest by name to get the real ID
-      const realGuest = currentEvent.guests?.find(g => 
+      const realGuest = event.guests?.find(g => 
         g.firstName === guest.firstName && g.lastName === guest.lastName
       );
       
@@ -2137,21 +2682,21 @@ const EventManagement: React.FC = () => {
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
       const { generateGuestResponseLink } = await import('../utils/helpers');
-      const guestLink = generateGuestResponseLink(currentEvent.id, guestIdToUse);
+      const guestLink = generateGuestResponseLink(event.id, guestIdToUse);
       
       console.log('🔗 Single guest link:', guestLink);
-      console.log('🔗 Single Event ID:', currentEvent.id);
+      console.log('🔗 Single Event ID:', event.id);
       console.log('🔗 Single Guest ID used:', guestIdToUse);
       
       // Get the first campaign (הזמנה ראשונית)
-      const firstCampaign = currentEvent.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
-                            currentEvent.campaigns?.[0];
+      const firstCampaign = event.campaigns?.find(c => c.name === 'הזמנה ראשונית') || 
+                            event.campaigns?.[0];
       
       // Debug: Log campaigns info
       console.log('🔍 DEBUG Campaigns check:', {
-        campaignsExists: !!currentEvent.campaigns,
-        campaignsLength: currentEvent.campaigns?.length || 0,
-        campaignsNames: currentEvent.campaigns?.map(c => c.name) || [],
+        campaignsExists: !!event.campaigns,
+        campaignsLength: event.campaigns?.length || 0,
+        campaignsNames: event.campaigns?.map(c => c.name) || [],
         firstCampaignFound: !!firstCampaign,
         firstCampaignName: firstCampaign?.name,
         firstCampaignTemplateName: firstCampaign?.templateName
@@ -2161,42 +2706,37 @@ const EventManagement: React.FC = () => {
       let campaignImageUrl: string | undefined;
       
       // Get couple name - use groomName & brideName if coupleName is not available
-      // Define this before the if/else so it's available for templateParams
-        const coupleName = currentEvent.coupleName || 
-          (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 
-           currentEvent.groomName || currentEvent.brideName || 'הזוג');
-        const groomName = currentEvent.groomName || '';
-        const brideName = currentEvent.brideName || '';
+        const coupleName = event.coupleName || 
+          (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
+           event.groomName || event.brideName || 'הזוג');
+        const groomName = event.groomName || '';
+        const brideName = event.brideName || '';
         
         // DEBUG: Log template variables
         console.log('🔍 DEBUG Template Variables:', {
           coupleName: coupleName,
           groomName: groomName,
           brideName: brideName,
-          eventCoupleName: currentEvent.coupleName,
-          eventGroomName: currentEvent.groomName,
-          eventBrideName: currentEvent.brideName
+          eventCoupleName: event.coupleName,
+          eventGroomName: event.groomName,
+          eventBrideName: event.brideName
         });
-      
-      // CRITICAL: If no campaign found, use template "aa" directly for first messages
-      // This ensures we always use the correct template even if campaigns are missing
-      const shouldUseTemplateAA = !firstCampaign || firstCampaign?.templateName === 'aa' || firstCampaign?.name === 'הזמנה ראשונית';
       
       if (firstCampaign) {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
         // Replace template variables in campaign message
-        const guestTable = currentEvent.tables?.find(table => table.guests.includes(guestIdToUse));
+        const guestTable = event.tables?.find(table => table.guests.includes(guestIdToUse));
         const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
         
         message = firstCampaign.message
           .replace(/\{\{guest_name\}\}/g, guest.firstName)
           .replace(/\{\{first_name\}\}/g, guest.firstName) // Support both for backward compatibility
           .replace(/\{\{last_name\}\}/g, guest.lastName)
-          .replace(/\{\{event_date\}\}/g, formatDate(currentEvent.eventDate))
-          .replace(/\{\{event_time\}\}/g, currentEvent.eventTime || '')
-          .replace(/\{\{event_type\}\}/g, currentEvent.eventTypeHebrew || '')
-          .replace(/\{\{venue\}\}/g, currentEvent.venue || '')
+          .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
+          .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+          .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
+          .replace(/\{\{venue\}\}/g, event.venue || '')
           .replace(/\{\{couple_name\}\}/g, coupleName)
           .replace(/\{\{groom_name\}\}/g, groomName)
           .replace(/\{\{bride_name\}\}/g, brideName)
@@ -2208,14 +2748,12 @@ const EventManagement: React.FC = () => {
         // Fallback to default message if no campaign found
         // BUT: For first messages, we should use template "aa" instead of regular message
         console.log('⚠️ No campaign found, but will use template "aa" for first message');
-        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
+        message = customMessage || `שלום ${guest.firstName}! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(event.eventDate)}\n📍 ${event.venue || ''}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}\n\nבברכה,\n${coupleName}`;
       }
 
-      const { messageService } = await import('../services/messageService');
-      
       // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
       // Priority: event.invitationImageUrl > campaign.imageUrl
-      const finalImageUrl = currentEvent.invitationImageUrl || campaignImageUrl;
+      const finalImageUrl = event.invitationImageUrl || campaignImageUrl;
       
       console.log('🖼️ Image URL priority check:', {
         eventInvitationImageUrl: currentEvent.invitationImageUrl,
@@ -2223,94 +2761,82 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // Debug: Log template name before sending
-      console.log('🔍 DEBUG: Campaign templateName:', firstCampaign?.templateName);
-      console.log('🔍 DEBUG: First campaign:', firstCampaign?.name);
-      console.log('🔍 DEBUG: First campaign exists:', !!firstCampaign);
-      console.log('🔍 DEBUG: Should use template AA:', shouldUseTemplateAA);
-      console.log('🔍 DEBUG: Guest firstMessageSent:', guest.firstMessageSent);
+      // CRITICAL: For manual messages from table, use template "aa"
+      console.log('📝 Sending manual message with template "aa"');
+      console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // CRITICAL: For first messages, always use template "aa" if no campaign found or campaign doesn't specify template
-      // This ensures we use the correct Meta template instead of hello_world
-      let templateNameToUse = firstCampaign?.templateName;
-      if (!templateNameToUse && (!guest.firstMessageSent || shouldUseTemplateAA)) {
-        // No template from campaign, but this is a first message or should use template AA
-        templateNameToUse = 'aa';
-        console.log('✅ Using template "aa" for first message (no campaign template found)');
+      // Prepare template parameters for template "aa" (8 parameters)
+      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+      const templateParamsForAA = {
+        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name'],
+        guest_name: guest.firstName,
+        event_type: event.eventTypeHebrew || 'חתונה',
+        groom_name: event.groomName || '',
+        bride_name: event.brideName || '',
+        event_date: formatDate(event.eventDate) || '',
+        event_time: event.eventTime || '',
+        venue: event.venue || '',
+        couple_name: coupleName || '',
+        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
+        language: 'he'
+      };
+      
+      console.log('📤 About to call messageService.sendBulkMessages for single guest');
+      console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+      console.log('📋 Template params:', templateParamsForAA);
+      
+      let result;
+      try {
+        result = await messageService.sendBulkMessages({
+          message,
+          imageUrl: finalImageUrl,
+          // CRITICAL: Use template "aa" for manual messages from table
+          templateName: 'aa',
+          templateParams: templateParamsForAA,
+          recipients: [{
+            id: guest.id,
+            firstName: guest.firstName,
+            lastName: guest.lastName,
+            phoneNumber: guest.phoneNumber,
+            channel: messageChannel,
+            message: message,
+            firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+            eventData: {
+              coupleName: event.coupleName || coupleName,
+              groomName: event.groomName || groomName,
+              brideName: event.brideName || brideName,
+              eventType: event.eventType,
+              eventTypeHebrew: event.eventTypeHebrew || 'חתונה',
+              eventDate: formatDate(event.eventDate),
+              eventTime: event.eventTime || '',
+              venue: event.venue || '',
+              invitationImageUrl: finalImageUrl // Use event image first, then campaign image
+            },
+            // CRITICAL: Pass template params for template "aa"
+            templateParams: templateParamsForAA
+          }]
+        });
+        
+        console.log('📊 messageService.sendBulkMessages result:', result);
+      } catch (error) {
+        console.error('❌ ERROR in messageService.sendBulkMessages:', error);
+        console.error('❌ Error details:', {
+          message: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          error: error
+        });
+        throw error; // Re-throw to be caught by outer try-catch
       }
-      
-      const result = await messageService.sendBulkMessages({
-        message,
-        imageUrl: finalImageUrl,
-        // Use template from campaign if it's the first campaign, otherwise use 'aa' for first messages
-        templateName: templateNameToUse || undefined,
-        recipients: [{
-          id: guest.id,
-          firstName: guest.firstName,
-          lastName: guest.lastName,
-          phoneNumber: guest.phoneNumber,
-          channel: messageChannel,
-          message: message,
-          firstMessageSent: guest.firstMessageSent || false, // Pass first message status
-          eventData: {
-            coupleName: currentEvent.coupleName,
-            groomName: currentEvent.groomName,
-            brideName: currentEvent.brideName,
-            eventType: currentEvent.eventType,
-            eventTypeHebrew: currentEvent.eventTypeHebrew,
-            eventDate: formatDate(currentEvent.eventDate),
-            eventTime: currentEvent.eventTime,
-            venue: currentEvent.venue,
-            invitationImageUrl: finalImageUrl // Use event image first, then campaign image
-          },
-              // Add template params if using template "aa"
-              // Template "aa" requires 8 parameters in order (matching the template body):
-              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
-              // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
-              // CRITICAL: Use template params if templateName is 'aa' (either from campaign or forced)
-              templateParams: (templateNameToUse === 'aa' || firstCampaign?.templateName === 'aa') ? (() => {
-                const params = {
-                  paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                               'event_date', 'event_time', 'venue', 'couple_name'],
-                  guest_name: guest.firstName,
-                  event_type: currentEvent.eventTypeHebrew || '',
-                  groom_name: groomName, // Use the variable we defined above
-                  bride_name: brideName, // Use the variable we defined above
-                  event_date: formatDate(currentEvent.eventDate),
-                  event_time: currentEvent.eventTime || '',
-                  venue: currentEvent.venue || '',
-                  couple_name: coupleName, // Use the variable we defined above
-                  guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
-                  language: 'he'
-                };
-                
-                // DEBUG: Log template parameters
-                console.log('🔍 DEBUG Template Parameters for "aa":', {
-                  groom_name: params.groom_name,
-                  bride_name: params.bride_name,
-                  couple_name: params.couple_name,
-                  allParams: params
-                });
-                
-                return params as any;
-              })() : undefined
-        }]
-      });
 
       // Update guest channel and message status based on actual result
       if (result.results.length > 0) {
         const messageResult = result.results[0];
         if (messageResult.success) {
           let messageStatus = 'sent';
-          if (messageResult.channel === 'sms') {
-            messageStatus = 'sms_sent';
-          } else if (messageResult.fallbackUsed) {
-            messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-          }
           
-          updateGuest(currentEvent.id, guest.id, { 
-            channel: messageResult.channel,
+          updateGuest(event.id, guest.id, { 
+            channel: 'whatsapp',
             messageStatus: messageStatus as any,
             messageSentDate: new Date()
           });
@@ -2354,7 +2880,7 @@ const EventManagement: React.FC = () => {
       });
       alert(`❌ שגיאה בשליחת ההודעה\n\n🔍 שגיאה: ${error?.message || 'שגיאה לא ידועה'}\n\n💡 אנא פתח את הקונסול (F12) לפרטים נוספים`);
     }
-  };
+  }, [updateGuest]);
 
   try {
     return (
@@ -2386,6 +2912,25 @@ const EventManagement: React.FC = () => {
             >
               <Activity className="w-5 h-5 ml-2" />
               ניטור סינכרון
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  // Process all updates (not just today's) to catch any missed updates
+                  const result = await webhookService.syncAllUpdates(false);
+                  alert(`✅ סריקה הושלמה!\nעובדו: ${result.processed} עדכונים\nנכשלו: ${result.failed} עדכונים\nנותרו: ${result.remaining} עדכונים`);
+                  // Refresh events to show updated data
+                  await fetchEvents(false, true);
+                } catch (error) {
+                  console.error('❌ Error syncing updates:', error);
+                  alert('❌ שגיאה בסריקת עדכונים. נסה שוב.');
+                }
+              }}
+              className="flex items-center text-green-600 hover:text-green-800 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
+              title="סרוק ועדכן את כל העדכונים מ-WhatsApp (כולל ישנים)"
+            >
+              <RefreshCw className="w-5 h-5 ml-2" />
+              סנכרן עדכוני WhatsApp
             </button>
             <button
               onClick={() => navigate('/')}
@@ -2424,6 +2969,26 @@ const EventManagement: React.FC = () => {
             <MessageSquare className="w-4 h-4" />
             <span>ניהול קמפיינים</span>
           </Link>
+          {(!currentEvent.campaigns || currentEvent.campaigns.length === 0) && (
+            <button
+              onClick={async () => {
+                if (!id) return;
+                try {
+                  await recreateCampaigns(id);
+                  await fetchEvents(false, true);
+                  alert('✅ הקמפיינים נוצרו בהצלחה!');
+                } catch (error: any) {
+                  console.error('❌ Error recreating campaigns:', error);
+                  alert(`❌ שגיאה ביצירת קמפיינים: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }}
+              className="btn-warning flex items-center space-x-2 bg-yellow-500 hover:bg-yellow-600 text-white"
+              title="צור קמפיינים מחדש לאירוע"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>צור קמפיינים</span>
+            </button>
+          )}
           <Link
             to={`/event/${currentEvent.id}/seating`}
             className="btn-secondary flex items-center space-x-2"
@@ -2486,24 +3051,33 @@ const EventManagement: React.FC = () => {
             )}
           </div>
         </div>
-        </div>
+      </div>
 
       {/* Enhanced Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-8 gap-4">
         <div className="stat-card-orange">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-orange-700">נותר להושיב</p>
               <p className="text-3xl font-bold text-orange-600">
                 {(() => {
-                  // Calculate total guests count in tables (sum of guestCount)
-                  const seatedGuestsCount = currentEvent.tables?.reduce((acc, table) => {
+                  // Calculate total confirmed guests count (only those who are coming)
+                  const totalConfirmedGuests = stats.confirmed || 0;
+                  
+                  // Calculate seated guests count (only confirmed guests who are seated)
+                  const seatedConfirmedGuestsCount = currentEvent.tables?.reduce((acc, table) => {
                     return acc + table.guests.reduce((sum, guestId) => {
                       const guest = currentEvent.guests.find(g => g.id === guestId);
-                      return sum + (guest?.guestCount || 1);
+                      // Only count confirmed guests (those who are coming)
+                      if (guest && guest.rsvpStatus === 'confirmed') {
+                        return sum + (guest.guestCount || 1);
+                      }
+                      return sum;
                     }, 0);
                   }, 0) || 0;
-                  return stats.totalGuests - seatedGuestsCount;
+                  
+                  // Remaining to seat = total confirmed - seated confirmed
+                  return totalConfirmedGuests - seatedConfirmedGuestsCount;
                 })()}
               </p>
             </div>
@@ -2566,6 +3140,54 @@ const EventManagement: React.FC = () => {
           </div>
         </div>
 
+        {/* Message Status Statistics */}
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נשלחו</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                מתוך {currentEvent.guests?.length || 0} אורחים
+              </p>
+            </div>
+            <Send className="w-8 h-8 text-blue-600" />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נמסרו</p>
+              <p className="text-3xl font-bold text-green-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0}
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
+                  ? `${Math.round((currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
+                  : '0%'} מסירה
+              </p>
+            </div>
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+        </div>
+
+        <div className="stat-card">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">הודעות נכשלו</p>
+              <p className="text-3xl font-bold text-red-600">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0}
+              </p>
+              <p className="text-xs text-red-600 mt-1">
+                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
+              </p>
+            </div>
+            <XCircle className="w-8 h-8 text-red-600" />
+          </div>
+        </div>
+
         <div className="stat-card-purple">
           <div className="flex items-center justify-between">
             <div>
@@ -2595,6 +3217,62 @@ const EventManagement: React.FC = () => {
             <MessageSquare className="w-8 h-8 text-yellow-600" />
           </div>
         </div>
+
+        <div className="stat-card bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-4 shadow-md">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-indigo-700">הודעות נשלחו</p>
+              <p className="text-3xl font-bold text-indigo-600">
+                {(() => {
+                  // Count total messages sent:
+                  // 1. Sum of sentCount from all campaigns that were sent
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                    if (campaign.status === 'sent' && campaign.sentCount) {
+                      return sum + campaign.sentCount;
+                    }
+                    return sum;
+                  }, 0) || 0;
+                  
+                  // 2. Count individual messages sent (guests with messageSentDate)
+                  // Each guest with messageSentDate represents at least one message sent
+                  // Note: This counts each guest once, but if same guest received multiple individual messages,
+                  // we can't track exact count without message history
+                  const individualMessages = currentEvent.guests?.filter(g => {
+                    const status = g.messageStatus || 'not_sent';
+                    // Count guests who received individual messages (not through campaigns)
+                    // We check if they have messageSentDate but weren't counted in campaigns
+                    return (status === 'sent' || status === 'delivered') && g.messageSentDate;
+                  }).length || 0;
+                  
+                  // Total = campaign messages + individual messages
+                  // Note: This is an approximation - if a guest received both campaign and individual messages,
+                  // they might be counted twice, but it's the best we can do without message history
+                  const totalMessages = campaignMessages + individualMessages;
+                  
+                  return totalMessages;
+                })()}
+              </p>
+              <p className="text-xs text-indigo-600 mt-1">
+                {(() => {
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                    if (campaign.status === 'sent' && campaign.sentCount) {
+                      return sum + campaign.sentCount;
+                    }
+                    return sum;
+                  }, 0) || 0;
+                  
+                  const individualMessages = currentEvent.guests?.filter(g => {
+                    const status = g.messageStatus || 'not_sent';
+                    return (status === 'sent' || status === 'delivered') && g.messageSentDate;
+                  }).length || 0;
+                  
+                  return `קמפיינים: ${campaignMessages} | אישיות: ${individualMessages}`;
+                })()}
+              </p>
+            </div>
+            <Send className="w-8 h-8 text-indigo-600" />
+          </div>
+        </div>
       </div>
 
       {/* Enhanced Search and Filter */}
@@ -2611,7 +3289,25 @@ const EventManagement: React.FC = () => {
         </div>
         
         <div className="flex gap-2">
-          <button className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+          <button 
+            onClick={() => {
+              // Filter to show only guests without table assignment
+              const unseatedGuests = currentEvent.guests?.filter(g => !g.tableId) || [];
+              if (unseatedGuests.length === 0) {
+                alert('✅ כל האורחים הושבו!');
+                return;
+              }
+              // Set filter to show unseated guests
+              setFilterStatus('all');
+              setSearchTerm('');
+              // Scroll to table and highlight unseated guests
+              const tableElement = document.querySelector('table');
+              if (tableElement) {
+                tableElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }}
+            className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-yellow-600 transition-colors cursor-pointer"
+          >
             <Users className="w-4 h-4" />
             <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc, table) => {
               const tableGuests = currentEvent.guests?.filter(g => g.tableId === table.id) || [];
@@ -2619,7 +3315,12 @@ const EventManagement: React.FC = () => {
             }, 0) || 0)})</span>
           </button>
           
-          <button className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium">
+          <button 
+            onClick={() => {
+              navigate(`/event/${currentEvent.id}/seating`);
+            }}
+            className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
+          >
             <Users className="w-4 h-4" />
             <span>הושב אורח</span>
           </button>
@@ -2648,7 +3349,6 @@ const EventManagement: React.FC = () => {
           <option value="sent">נשלחה</option>
           <option value="delivered">נשלחה והתקבלה</option>
           <option value="failed">נשלחה ונכשלה</option>
-          <option value="sms_sent">נשלח SMS</option>
         </select>
         
         <button
@@ -2795,12 +3495,12 @@ const EventManagement: React.FC = () => {
         <div className="overflow-x-auto">
           <div className="min-w-full">
           <table className="w-full divide-y divide-gray-200 table-fixed" style={{ minWidth: '1200px' }}>
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10">
+            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0 z-10 pointer-events-none">
               <tr>
-                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12">
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-12 pointer-events-auto">
                   #
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider pointer-events-auto">
                   <input
                     type="checkbox"
                     checked={selectedGuests.length === filteredGuests.length && filteredGuests.length > 0}
@@ -2808,39 +3508,39 @@ const EventManagement: React.FC = () => {
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                   />
                 </th>
-                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-4 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   מוזמן
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   טלפון
                 </th>
-                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px]">
+                <th className="px-3 py-4 text-center text-sm font-semibold text-gray-700 uppercase tracking-wider w-24 min-w-[100px] pointer-events-auto">
                   מספר מוזמנים
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   סטטוס אישור
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   הגעה בפועל
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-32 min-w-[120px] pointer-events-auto">
                   ערוץ
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px] pointer-events-auto">
                   שולחן
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px]">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider w-36 min-w-[140px] pointer-events-auto">
                   סטטוס הודעה
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   תאריך שליחה
                 </th>
-                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                <th className="px-3 py-4 text-right text-sm font-semibold text-gray-700 uppercase tracking-wider whitespace-nowrap pointer-events-auto">
                   פעולות
                 </th>
               </tr>
             </thead>
-            <tbody key={`${guestsKey}-${forceUpdate}-${eventsVersion}-${filteredGuests.length}-${eventsHash.substring(0, 50)}`} className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 relative z-0">
               {filteredGuests.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="px-6 py-12 text-center">
@@ -2868,7 +3568,7 @@ const EventManagement: React.FC = () => {
                 </tr>
               ) : (
                 filteredGuests.map((guest, index) => (
-                <tr key={`${guest.id}-${guest.rsvpStatus}-${guest.guestCount}-${guest.actualAttendance}-${guest.tableId}-${eventsVersion}-${index}-${guest.responseDate ? (guest.responseDate instanceof Date ? guest.responseDate.getTime() : new Date(guest.responseDate).getTime()) : ''}`} className={`hover:bg-blue-50 transition-colors duration-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 relative z-0 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
                     {index + 1}
                   </td>
@@ -2972,26 +3672,73 @@ const EventManagement: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-3 py-4 text-sm text-gray-500 w-36 min-w-[140px]">
+                  <td className="px-3 py-4 text-sm text-gray-500 w-40 min-w-[160px]">
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <div className={`flex items-center space-x-1 space-x-reverse px-2 py-1 rounded-lg ${getMessageStatusColor(guest.messageStatus || 'not_sent')}`}>
+                        {getMessageStatusIcon(guest.messageStatus || 'not_sent')}
+                        <span className="font-semibold text-xs">
+                          {getMessageStatusText(guest.messageStatus || 'not_sent')}
+                        </span>
+                      </div>
+                      {(guest.messageSentDate || guest.messageDeliveredDate || guest.messageFailedDate) && (
+                        <div 
+                          className="relative group cursor-help"
+                          title={getMessageStatusTooltip(guest)}
+                        >
+                          <Activity className="w-4 h-4 text-gray-400 hover:text-gray-600" />
+                          <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-pre-line">
+                            {getMessageStatusTooltip(guest)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <select
                       value={guest.messageStatus || 'not_sent'}
                       onChange={(e) => handleUpdateGuestField(guest.id, { messageStatus: e.target.value })}
-                      className={`text-sm font-semibold ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500`}
+                      className={`text-xs mt-1 ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-500`}
                     >
                       <option value="not_sent">לא נשלחה</option>
                       <option value="sent">נשלחה</option>
-                      <option value="delivered">נשלחה והתקבלה</option>
-                      <option value="failed">נשלחה ונכשלה</option>
-                      <option value="sms_sent">נשלח SMS</option>
+                      <option value="delivered">נמסרה</option>
+                      <option value="failed">נכשלה</option>
                     </select>
                   </td>
-                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-28">
-                    {guest.messageSentDate ? formatDate(guest.messageSentDate) : '-'}
+                  <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 w-32">
+                    <div className="flex flex-col">
+                      {guest.messageSentDate && (
+                        <div className="text-xs">
+                          <span className="text-gray-400">נשלח:</span> {formatDate(guest.messageSentDate)}
+                        </div>
+                      )}
+                      {guest.messageDeliveredDate && (
+                        <div className="text-xs text-green-600">
+                          <span className="text-gray-400">נמסר:</span> {formatDate(guest.messageDeliveredDate)}
+                        </div>
+                      )}
+                      {guest.messageFailedDate && (
+                        <div className="text-xs text-red-600">
+                          <span className="text-gray-400">נכשל:</span> {formatDate(guest.messageFailedDate)}
+                        </div>
+                      )}
+                      {!guest.messageSentDate && !guest.messageDeliveredDate && !guest.messageFailedDate && (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={() => handleSendToSingleGuest(guest)}
+                        onClick={(e) => {
+                          console.log('🔘 Send to Single Guest button clicked!');
+                          console.log('🔘 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
+                          console.log('🔘 handleSendToSingleGuest function:', typeof handleSendToSingleGuest);
+                          try {
+                            handleSendToSingleGuest(guest);
+                          } catch (error) {
+                            console.error('❌ ERROR in button onClick handler:', error);
+                            alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
+                          }
+                        }}
                         className="text-green-600 hover:text-green-900 p-2 rounded-lg hover:bg-green-50 transition-colors duration-200"
                         title="שלח הודעה"
                       >
@@ -3094,29 +3841,9 @@ const EventManagement: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   ערוץ שליחה
                 </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="whatsapp"
-                      checked={messageChannel === 'whatsapp'}
-                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
-                      className="ml-2"
-                    />
-                    <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
-                    <span className="text-sm">וואטסאפ</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      value="sms"
-                      checked={messageChannel === 'sms'}
-                      onChange={(e) => setMessageChannel(e.target.value as 'whatsapp' | 'sms')}
-                      className="ml-2"
-                    />
-                    <Phone className="w-4 h-4 text-blue-600 ml-1" />
-                    <span className="text-sm">SMS</span>
-                  </label>
+                <div className="flex items-center text-sm text-gray-600">
+                  <MessageSquare className="w-4 h-4 text-green-600 ml-1" />
+                  <span>וואטסאפ</span>
                 </div>
               </div>
 
@@ -3162,7 +3889,17 @@ const EventManagement: React.FC = () => {
                 ביטול
               </button>
               <button
-                onClick={handleSendMessage}
+                onClick={(e) => {
+                  console.log('🔘 Send Message button clicked!');
+                  console.log('🔘 Event:', e);
+                  console.log('🔘 handleSendMessage function:', typeof handleSendMessage);
+                  try {
+                    handleSendMessage();
+                  } catch (error) {
+                    console.error('❌ ERROR in button onClick handler:', error);
+                    alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
+                  }
+                }}
                 className="btn-warning flex items-center space-x-2"
               >
                 <Send className="w-4 h-4" />
@@ -3189,7 +3926,7 @@ const EventManagement: React.FC = () => {
               >
                 <X className="w-6 h-6" />
               </button>
-            </div>
+        </div>
             <div className="border-t border-gray-200 pt-4">
               <SyncMonitoringPanel eventId={id} />
             </div>

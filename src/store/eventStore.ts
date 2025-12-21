@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, VenueLayout, Campaign } from '../types';
-import { generateId, formatDate, cleanName } from '../utils/helpers';
+import { generateId, formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
@@ -9,19 +9,93 @@ import { cacheService, CACHE_KEYS } from '../services/cacheService';
 const mockEvents: Event[] = [];
 
 // Helper function to sync event to API for real-time cross-device sync
-// CRITICAL: Send only event details (no guests) to prevent 413 errors
+// CRITICAL: Send FULL event WITH guests to ensure all data is synced
+// This is necessary for the client dashboard to display all guests
+// Helper function to sync guests directly using the dedicated endpoint (fallback)
+// If payload is too large, splits into chunks
+const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boolean> => {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+  
+  try {
+    console.log(`📤 Syncing ${guests.length} guests directly to API for event ${eventId}...`);
+    
+    // Try sending all guests at once first
+    const response = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ guests })
+    });
+    
+    if (response.ok) {
+      console.log(`✅ Successfully synced ${guests.length} guests directly to API`);
+      return true;
+    } else if (response.status === 413) {
+      // Payload too large - split into chunks of 100 guests each
+      console.log(`⚠️ Payload too large (413), splitting into chunks...`);
+      const CHUNK_SIZE = 100;
+      let allSynced = true;
+      
+      for (let i = 0; i < guests.length; i += CHUNK_SIZE) {
+        const chunk = guests.slice(i, i + CHUNK_SIZE);
+        console.log(`📤 Syncing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(guests.length / CHUNK_SIZE)} (${chunk.length} guests)...`);
+        
+        // For chunks, we need to merge with existing guests on server
+        // So we'll use a PATCH endpoint or append to existing
+        const chunkResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ guests: chunk, append: i > 0 }) // append=true for chunks after first
+        });
+        
+        if (!chunkResponse.ok) {
+          console.warn(`⚠️ Failed to sync chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, chunkResponse.status);
+          allSynced = false;
+        } else {
+          console.log(`✅ Synced chunk ${Math.floor(i / CHUNK_SIZE) + 1} successfully`);
+        }
+        
+        // Small delay between chunks to avoid overwhelming server
+        if (i + CHUNK_SIZE < guests.length) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+      
+      if (allSynced) {
+        console.log(`✅ Successfully synced all ${guests.length} guests in chunks`);
+        return true;
+      } else {
+        console.warn(`⚠️ Some chunks failed to sync`);
+        return false;
+      }
+    } else {
+      const errorText = await response.text();
+      console.warn(`⚠️ Failed to sync guests directly:`, response.status, errorText);
+      return false;
+    }
+  } catch (error) {
+    console.warn('⚠️ Failed to sync guests directly:', error);
+    return false;
+  }
+};
+
 const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
-    // Create minimal payload with only event details (no guests)
-    // Guests will be synced separately via updateGuest/addGuest endpoints
-    const eventDetailsOnly = {
+    // CRITICAL: Send FULL event WITH guests to ensure all data is synced
+    // This is necessary for the client dashboard to display all guests
+    const fullEventPayload = {
       id: event.id,
       userId: event.userId,
       coupleName: event.coupleName,
       groomName: event.groomName,
       brideName: event.brideName,
+      groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+      brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
       eventDate: event.eventDate,
       eventTime: event.eventTime,
       venue: event.venue,
@@ -30,35 +104,61 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
       eventType: event.eventType,
       eventTypeHebrew: event.eventTypeHebrew,
       invitationImageUrl: event.invitationImageUrl,
+      guests: event.guests || [], // CRITICAL: Include guests!
       createdAt: event.createdAt,
       updatedAt: event.updatedAt
-      // Intentionally exclude guests to prevent 413 errors
     };
+    
+    const payloadSize = JSON.stringify(fullEventPayload).length;
+    console.log(`📤 Syncing FULL event to API:`, {
+      eventId: event.id,
+      guestsCount: event.guests?.length || 0,
+      payloadSize: `${(payloadSize / 1024).toFixed(2)} KB`
+    });
     
     const response = await fetch(`${BACKEND_URL}/api/events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(eventDetailsOnly)
+      body: JSON.stringify(fullEventPayload)
     });
     
     if (response.ok) {
-      console.log('✅ Event synced to API successfully:', { eventId: event.id });
+      console.log('✅ FULL event synced to API successfully:', { 
+        eventId: event.id,
+        guestsCount: event.guests?.length || 0
+      });
     } else {
       const errorText = await response.text();
       console.warn('⚠️ API sync failed:', response.status, errorText);
       
-      // If 413 error, try with even more minimal payload
+      // CRITICAL: If sync failed but we have guests, try syncing guests directly as fallback
+      if (event.guests && event.guests.length > 0) {
+        console.log(`🔄 Trying to sync guests directly as fallback...`);
+        const guestsSynced = await syncGuestsDirectly(event.id, event.guests);
+        if (guestsSynced) {
+          console.log('✅ Guests synced directly, but event details may not be updated');
+          // Don't return - continue to try event details sync
+        }
+      }
+      
+      // If 413 error, try with event details only (fallback)
       if (response.status === 413 && retries > 0) {
-        console.log(`🔄 413 error - trying minimal payload (${retries} retries left)...`);
-        const minimalPayload = {
+        console.log(`🔄 413 error - trying event details only (${retries} retries left)...`);
+        const eventDetailsOnly = {
           id: event.id,
           userId: event.userId,
           coupleName: event.coupleName,
+          groomName: event.groomName,
+          brideName: event.brideName,
+          groomParentsName: event.groomParentsName, // CRITICAL: Include parents names
+          brideParentsName: event.brideParentsName, // CRITICAL: Include parents names
           eventDate: event.eventDate,
           eventTime: event.eventTime,
-          venue: event.venue
+          venue: event.venue,
+          invitationImageUrl: event.invitationImageUrl,
+          updatedAt: event.updatedAt
         };
         
         const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
@@ -66,11 +166,15 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(minimalPayload)
+          body: JSON.stringify(eventDetailsOnly)
         });
         
         if (retryResponse.ok) {
-          console.log('✅ Event synced with minimal payload');
+          console.log('✅ Event synced with details only');
+          // If guests weren't synced yet, try syncing them directly
+          if (event.guests && event.guests.length > 0) {
+            await syncGuestsDirectly(event.id, event.guests);
+          }
           return;
         }
       }
@@ -83,6 +187,10 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
     }
   } catch (error) {
     console.warn('⚠️ Failed to sync event to API:', error);
+    // Try syncing guests directly as last resort
+    if (event.guests && event.guests.length > 0) {
+      await syncGuestsDirectly(event.id, event.guests);
+    }
     if (retries > 0) {
       console.log(`🔄 Retrying sync (${retries} retries left)...`);
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -94,7 +202,147 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
 // Track if fetchEvents is in progress to prevent duplicate calls
 let fetchInProgress = false;
 let lastFetchTime = 0;
-const FETCH_DEBOUNCE_MS = 5000; // Minimum 5 seconds between fetches to reduce server load
+const FETCH_DEBOUNCE_MS = 5000; // Minimum 5 seconds between fetches (optimized to reduce API calls while maintaining responsiveness)
+
+// Batch processing for guest updates - queues updates and sends them together
+interface PendingGuestUpdate {
+  phoneNumber: string;
+  guestId: string;
+  eventId: string;
+  status?: string;
+  guestCount?: number;
+  actualAttendance?: string;
+  notes?: string;
+  responseDate: string;
+  source: string;
+  timestamp: number;
+}
+
+class GuestUpdateBatchProcessor {
+  private updateQueue: PendingGuestUpdate[] = [];
+  private batchTimeout: number | null = null;
+  private readonly BATCH_DELAY_MS = 1000; // Wait 1 second before sending batch
+  private readonly MAX_BATCH_SIZE = 10; // Maximum updates per batch
+  private readonly CACHE_TTL_MS = 5000; // Cache updates for 5 seconds to prevent duplicates
+  private updateCache = new Map<string, number>(); // key -> timestamp
+
+  /**
+   * Add an update to the queue
+   */
+  addUpdate(update: PendingGuestUpdate): void {
+    // Check cache to prevent duplicate updates
+    const cacheKey = `${update.eventId}-${update.guestId}-${update.status || ''}-${update.guestCount || ''}`;
+    const cachedTime = this.updateCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cachedTime && (now - cachedTime) < this.CACHE_TTL_MS) {
+      console.log('🚫 Skipping duplicate update (cached):', cacheKey);
+      return;
+    }
+    
+    // Remove any existing update for the same guest from queue
+    this.updateQueue = this.updateQueue.filter(
+      u => !(u.eventId === update.eventId && u.guestId === update.guestId)
+    );
+    
+    // Add new update to queue
+    this.updateQueue.push(update);
+    this.updateCache.set(cacheKey, now);
+    
+    console.log(`📦 Added update to batch queue (${this.updateQueue.length} pending)`);
+    
+    // If queue is full, send immediately
+    if (this.updateQueue.length >= this.MAX_BATCH_SIZE) {
+      this.flushBatch();
+      return;
+    }
+    
+    // Otherwise, schedule batch send after delay
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+    }
+    
+    this.batchTimeout = window.setTimeout(() => {
+      this.flushBatch();
+    }, this.BATCH_DELAY_MS);
+  }
+
+  /**
+   * Send all pending updates in batch
+   */
+  private async flushBatch(): Promise<void> {
+    if (this.updateQueue.length === 0) {
+      return;
+    }
+    
+    const updatesToSend = [...this.updateQueue];
+    this.updateQueue = [];
+    
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+    
+    console.log(`📤 Sending batch of ${updatesToSend.length} guest updates...`);
+    
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    
+    // Send updates in parallel (but limit concurrency)
+    const BATCH_CONCURRENCY = 5;
+    for (let i = 0; i < updatesToSend.length; i += BATCH_CONCURRENCY) {
+      const batch = updatesToSend.slice(i, i + BATCH_CONCURRENCY);
+      
+      await Promise.all(
+        batch.map(async (update) => {
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(update)
+            });
+            
+            if (response.ok) {
+              console.log(`✅ Batch update sent successfully for guest ${update.guestId}`);
+            } else {
+              const errorText = await response.text();
+              console.warn(`⚠️ Batch update failed for guest ${update.guestId}:`, response.status, errorText);
+            }
+          } catch (error) {
+            console.warn(`⚠️ Batch update error for guest ${update.guestId}:`, error);
+          }
+        })
+      );
+      
+      // Small delay between batches to avoid overwhelming server
+      if (i + BATCH_CONCURRENCY < updatesToSend.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+    
+    console.log(`✅ Batch of ${updatesToSend.length} updates completed`);
+  }
+
+  /**
+   * Force flush any pending updates (useful on page unload)
+   */
+  forceFlush(): void {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+    this.flushBatch();
+  }
+}
+
+// Singleton instance
+const guestUpdateBatchProcessor = new GuestUpdateBatchProcessor();
+
+// Flush on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    guestUpdateBatchProcessor.forceFlush();
+  });
+}
 
 export const useEventStore = create<EventStore>()(
   persist(
@@ -105,7 +353,6 @@ export const useEventStore = create<EventStore>()(
       currentEvent: null,
       isLoading: false,
       error: null,
-      manualChanges: new Map<string, number>(), // Track manual changes: "eventId-guestId" -> timestamp
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
         // CRITICAL: Debounce to prevent excessive API calls
@@ -174,29 +421,50 @@ export const useEventStore = create<EventStore>()(
                   const data = await response.json();
                   apiEvents = data.events || [];
                   
-                  // Cache the API response (5 seconds TTL for fast updates)
-                  cacheService.set(cacheKey, apiEvents, 5000);
+                  // CRITICAL: Ensure all API events have unique IDs (fixes existing events with duplicate IDs)
+                  apiEvents = ensureUniqueEventIds(apiEvents);
+                  
+                  // Cache the API response (30 seconds TTL for better performance - reduces API calls)
+                  cacheService.set(cacheKey, apiEvents, 30000);
                 
                 // Get local events to merge
                 // CRITICAL: Always read from localStorage to get the latest events (including newly created ones)
                 const stored = localStorage.getItem('rsvp-events-storage');
                 let localEvents: Event[] = [];
                 let deletedEvents: any[] = [];
+                let deletedGuests: any = {};
                 if (stored) {
                   try {
                     const parsed = JSON.parse(stored);
                     localEvents = parsed.state?.events || [];
                     deletedEvents = parsed.state?.deletedEvents || [];
+                    deletedGuests = parsed.state?.deletedGuests || {};
                     
-                    // CRITICAL: Clean all guest names in local events to fix existing data
-                    localEvents = localEvents.map((event: Event) => ({
-                      ...event,
-                      guests: event.guests?.map((guest: Guest) => ({
-                        ...guest,
-                        firstName: cleanName(guest.firstName),
-                        lastName: cleanName(guest.lastName)
-                      })) || []
-                    }));
+                    // CRITICAL: Ensure all events have unique IDs (fixes existing events with duplicate IDs)
+                    localEvents = ensureUniqueEventIds(localEvents);
+                    
+                    // CRITICAL: Clean all guest names AND filter out deleted guests in local events
+                    // This prevents deleted guests from being restored when loading from localStorage
+                    localEvents = localEvents.map((event: Event) => {
+                      const deletedGuestIds = deletedGuests[event.id] || [];
+                      return {
+                        ...event,
+                        guests: event.guests
+                          ?.filter((guest: Guest) => {
+                            // CRITICAL: Filter out deleted guests - they should not be restored from localStorage
+                            if (deletedGuestIds.includes(guest.id)) {
+                              console.log(`🚫 Filtering out deleted guest from localStorage load: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                              return false;
+                            }
+                            return true;
+                          })
+                          .map((guest: Guest) => ({
+                            ...guest,
+                            firstName: cleanName(guest.firstName),
+                            lastName: cleanName(guest.lastName)
+                          })) || []
+                      };
+                    });
                     
                     // Log recently created events (within last 5 minutes)
                     const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
@@ -220,6 +488,9 @@ export const useEventStore = create<EventStore>()(
                   });
                 }
                 
+                // CRITICAL: Final check - ensure all events have unique IDs after merging
+                localEvents = ensureUniqueEventIds(localEvents);
+                
                 // CRITICAL: Get deletedEvents to check if event was deleted
                 const deletedEventIds = new Set(deletedEvents.map((e: any) => e.id));
                 
@@ -237,139 +508,12 @@ export const useEventStore = create<EventStore>()(
                   console.log(`🚫 Filtered out ${originalApiEventsCount - apiEvents.length} deleted event(s) from API response`);
                 }
                 
-                // Find local events that aren't in API (need to sync)
-                // CRITICAL: Don't sync events that were deleted!
-                const localOnlyEvents = localEvents.filter((e: Event) => 
-                  e.userId === userId && 
-                  !apiEvents.find(ae => ae.id === e.id) &&
-                  !deletedEventIds.has(e.id) // CRITICAL: Don't sync deleted events
-                );
-                
-                if (localOnlyEvents.length < localEvents.filter((e: Event) => 
-                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
-                ).length) {
-                  const skippedCount = localEvents.filter((e: Event) => 
-                    e.userId === userId && 
-                    !apiEvents.find(ae => ae.id === e.id) &&
-                    deletedEventIds.has(e.id)
-                  ).length;
-                  console.log(`⏭️ Skipping ${skippedCount} deleted event(s) from sync`);
-                }
-                
-                // If there are local events not in API, sync them
-                if (localOnlyEvents.length > 0) {
-                  console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing...`);
-                  try {
-                    // CRITICAL FIX: Sync each event individually to ensure all are saved
-                    // CRITICAL: Send only event details (no guests) to prevent 413 errors
-                    // Guests will be synced separately via updateGuest/addGuest endpoints
-                    let syncedCount = 0;
-                    for (const event of localOnlyEvents) {
-                      try {
-                        // Create minimal payload with only event details (no guests)
-                        const eventDetailsOnly = {
-                          id: event.id,
-                          userId: event.userId,
-                          coupleName: event.coupleName,
-                          groomName: event.groomName,
-                          brideName: event.brideName,
-                          eventDate: event.eventDate,
-                          eventTime: event.eventTime,
-                          venue: event.venue,
-                          couplePhone: event.couplePhone,
-                          coupleEmail: event.coupleEmail,
-                          eventType: event.eventType,
-                          eventTypeHebrew: event.eventTypeHebrew,
-                          invitationImageUrl: event.invitationImageUrl,
-                          createdAt: event.createdAt,
-                          updatedAt: event.updatedAt
-                          // Intentionally exclude guests to prevent 413 errors
-                        };
-                        
-                        console.log(`📤 Syncing event ${event.id} (details only, ${event.guests?.length || 0} guests will sync separately)`);
-                        
-                        const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                          body: JSON.stringify(eventDetailsOnly)
-                    });
-                    if (syncResponse.ok) {
-                          syncedCount++;
-                          console.log(`✅ Synced event ${event.id} (${event.coupleName}) to API`);
-                          
-                          // If event has guests, sync them separately via lightweight endpoint
-                          if (event.guests && event.guests.length > 0) {
-                            console.log(`📤 Syncing ${event.guests.length} guests separately for event ${event.id}...`);
-                            // Guests will be synced via normal guest update flow when accessed
-                            // Or we can sync them in batches here if needed
-                          }
-                        } else {
-                          const errorText = await syncResponse.text();
-                          console.warn(`⚠️ Failed to sync event ${event.id}:`, errorText);
-                          
-                          // If 413 error, try with even more minimal payload
-                          if (syncResponse.status === 413) {
-                            console.log(`🔄 413 error - trying minimal payload for event ${event.id}...`);
-                            const minimalPayload = {
-                              id: event.id,
-                              userId: event.userId,
-                              coupleName: event.coupleName,
-                              eventDate: event.eventDate,
-                              eventTime: event.eventTime,
-                              venue: event.venue
-                            };
-                            
-                            const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify(minimalPayload)
-                            });
-                            
-                            if (retryResponse.ok) {
-                              console.log(`✅ Synced event ${event.id} with minimal payload`);
-                              syncedCount++;
-                            }
-                          }
-                        }
-                      } catch (eventSyncError) {
-                        console.warn(`⚠️ Error syncing event ${event.id}:`, eventSyncError);
-                      }
-                    }
-                    console.log(`✅ Synced ${syncedCount}/${localOnlyEvents.length} events to API`);
-                    
-                      // Re-fetch from API to get all events
-                      const reFetchResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`);
-                      if (reFetchResponse.ok) {
-                        const reFetchData = await reFetchResponse.json();
-                        apiEvents = reFetchData.events || [];
-                        console.log(`✅ Re-fetched ${apiEvents.length} events from API after sync`);
-                    }
-                  } catch (syncError) {
-                    console.warn('⚠️ Failed to sync local events to API:', syncError);
-                  }
-                }
-                
-                // CRITICAL: Merge API events with local events, but preserve manual changes
+                // CRITICAL: SERVER IS THE SINGLE SOURCE OF TRUTH
+                // Use API events directly - they contain the latest data from all devices
+                // Only filter out deleted guests and clean names
                 const state = get();
-                const now = Date.now();
-                const MANUAL_CHANGE_PROTECTION_TIME = 10000; // 10 seconds - reduced for faster sync
                 
-                // Clean up old manual changes
-                const cleanedManualChanges = new Map<string, number>();
-                for (const [key, timestamp] of state.manualChanges.entries()) {
-                  if (now - timestamp < MANUAL_CHANGE_PROTECTION_TIME) {
-                    cleanedManualChanges.set(key, timestamp);
-                  }
-                }
-                if (cleanedManualChanges.size !== state.manualChanges.size) {
-                  set({ manualChanges: cleanedManualChanges });
-                }
-                
-                // Merge API events with local events, preserving manual changes
+                // Use API events as-is (server is source of truth)
                 const allEvents = apiEvents.map(apiEvent => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
@@ -378,265 +522,58 @@ export const useEventStore = create<EventStore>()(
                     cleanedInvitationImageUrl = undefined; // Remove local file paths
                   }
                   
-                  // Find corresponding local event
-                  const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
+                  // CRITICAL: Server is source of truth - use API data directly
+                  // Filter out deleted guests and clean names
+                  const deletedGuestIds = state.deletedGuests[apiEvent.id] || [];
                   
-                  if (!localEvent) {
-                    // Filter out deleted guests even when there's no local event
-                    const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
-                    
-                    // CRITICAL: Clean invitationImageUrl - remove local file paths
-                    let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
-                    if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
-                      console.warn('⚠️ Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
-                      cleanedInvitationImageUrl = undefined; // Remove local file paths
-                    }
-                    
-                    const filteredGuests = apiEvent.guests
-                      .filter(guest => {
-                        if (deletedGuestIds.includes(guest.id)) {
+                  return {
+                    ...apiEvent,
+                    invitationImageUrl: cleanedInvitationImageUrl,
+                    eventTypeHebrew: apiEvent.eventTypeHebrew || 'חתונה',
+                    guests: (apiEvent.guests || [])
+                      .filter((g: Guest) => {
+                        // CRITICAL: Filter out deleted guests - they should not be restored from API
+                        if (deletedGuestIds.includes(g.id)) {
+                          console.log(`🚫 Skipping deleted guest from API: ${g.firstName} ${g.lastName} (${g.id})`);
                           return false;
                         }
                         return true;
                       })
-                      .map(guest => ({
-                        ...guest,
-                        firstName: cleanName(guest.firstName),
-                        lastName: cleanName(guest.lastName)
-                      }));
-                    return { 
-                      ...apiEvent, 
-                      invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
-                      guests: filteredGuests 
-                    }; // Use API event if no local version, but filter deleted guests and clean names
-                  }
-                  
-                // Merge guests, preserving manual changes
-                  // Get deleted guests for this event to filter them out
-                  const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
-                  
-                  const mergedGuests = apiEvent.guests
-                    .filter(apiGuest => {
-                      // CRITICAL: Filter out deleted guests - they should not be restored from API
-                      if (deletedGuestIds.includes(apiGuest.id)) {
-                        console.log(`🚫 Skipping deleted guest from API: ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id})`);
-                        return false;
-                      }
-                      return true;
-                    })
-                    .map(apiGuest => {
-                    const localGuest = localEvent.guests.find((g: Guest) => g.id === apiGuest.id);
-                    
-                    if (!localGuest) {
-                      // Clean names when loading from API
-                      return {
-                        ...apiGuest,
-                        firstName: cleanName(apiGuest.firstName),
-                        lastName: cleanName(apiGuest.lastName)
-                      };
-                    }
-                    
-                    // Check if there was a manual change for this guest
-                    const guestKey = `${apiEvent.id}-${apiGuest.id}`;
-                    const lastManualChange = cleanedManualChanges.get(guestKey);
-                    const hasRecentManualChange = lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME;
-                    
-                    // Log comparison for debugging - only log mismatches in development
-                    if (process.env.NODE_ENV === 'development' && 
-                        (apiGuest.actualAttendance !== localGuest.actualAttendance ||
-                         apiGuest.guestCount !== localGuest.guestCount ||
-                         apiGuest.rsvpStatus !== localGuest.rsvpStatus)) {
-                      console.log(`🔍 Guest mismatch ${apiGuest.firstName} ${apiGuest.lastName}:`, {
-                        api_actualAttendance: apiGuest.actualAttendance,
-                        local_actualAttendance: localGuest.actualAttendance,
-                        api_guestCount: apiGuest.guestCount,
-                        local_guestCount: localGuest.guestCount,
-                        api_rsvpStatus: apiGuest.rsvpStatus,
-                        local_rsvpStatus: localGuest.rsvpStatus
-                      });
-                    }
-                    
-                    if (hasRecentManualChange) {
-                      // Preserve local guest data (manual change is recent)
-                      // CRITICAL: Clean names even when preserving local data
-                      return {
-                        ...localGuest,
-                        firstName: cleanName(localGuest.firstName),
-                        lastName: cleanName(localGuest.lastName)
-                      };
-                    }
-                    
-                    // CRITICAL: For tableId, actualAttendance, and rsvpStatus, preserve local values if they differ from API
-                    // This handles the case where we just updated locally but API hasn't synced yet
-                    // Check if local value exists and differs from API, and change was made recently (within 2x protection window)
-                    const shouldPreserveLocalField = (field: 'tableId' | 'actualAttendance' | 'rsvpStatus') => {
-                      const localValue = localGuest[field];
-                      const apiValue = apiGuest[field];
-                      
-                      if (localValue !== undefined && localValue !== apiValue) {
-                        // If there was a manual change (even if outside strict window), preserve local if values differ
-                        if (lastManualChange && (now - lastManualChange) < MANUAL_CHANGE_PROTECTION_TIME * 2) {
-                          return true;
-                        }
-                      }
-                      return false;
-                    };
-                    
-                    const preserveTableId = shouldPreserveLocalField('tableId');
-                    const preserveActualAttendance = shouldPreserveLocalField('actualAttendance');
-                    const preserveRsvpStatus = shouldPreserveLocalField('rsvpStatus');
-                    
-                    if (preserveTableId || preserveActualAttendance || preserveRsvpStatus) {
-                      return {
-                        ...apiGuest,
-                        firstName: cleanName(apiGuest.firstName),
-                        lastName: cleanName(apiGuest.lastName),
-                        tableId: preserveTableId ? localGuest.tableId : apiGuest.tableId,
-                        actualAttendance: preserveActualAttendance ? localGuest.actualAttendance : apiGuest.actualAttendance,
-                        rsvpStatus: preserveRsvpStatus ? localGuest.rsvpStatus : apiGuest.rsvpStatus
-                      };
-                    }
-                    
-                    // CRITICAL: Compare responseDate to determine which update is newer
-                    // Use the newer update, not just API data blindly
-                    // This ensures that recent manual updates are not overwritten by stale API data
-                    const localResponseDate = localGuest.responseDate 
-                      ? (localGuest.responseDate instanceof Date 
-                          ? localGuest.responseDate.getTime() 
-                          : new Date(localGuest.responseDate).getTime())
-                      : 0;
-                    const apiResponseDate = apiGuest.responseDate 
-                      ? (apiGuest.responseDate instanceof Date 
-                          ? apiGuest.responseDate.getTime() 
-                          : new Date(apiGuest.responseDate).getTime())
-                      : 0;
-                    
-                    // CRITICAL: If local has a newer responseDate OR if there was a recent manual change,
-                    // preserve local data completely to prevent overwriting manual updates
-                    // Also check if critical fields differ - if they do and local is newer or equal, preserve local
-                    const localIsNewer = localResponseDate > apiResponseDate && localResponseDate > 0;
-                    const datesAreEqual = localResponseDate === apiResponseDate && localResponseDate > 0;
-                    const criticalFieldsDiffer = (
-                      localGuest.rsvpStatus !== apiGuest.rsvpStatus ||
-                      localGuest.guestCount !== apiGuest.guestCount ||
-                      localGuest.actualAttendance !== apiGuest.actualAttendance
-                    );
-                    
-                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync),
-                    // or if there was a recent manual change, preserve local data
-                    if (localIsNewer || (datesAreEqual && criticalFieldsDiffer) || hasRecentManualChange) {
-                      const reason = localIsNewer ? 'newer responseDate' : 
-                                    (datesAreEqual && criticalFieldsDiffer) ? 'equal date but critical fields differ' :
-                                    'recent manual change';
-                      console.log(`🔄 Using local guest data (${reason}): ${localGuest.firstName} ${localGuest.lastName}`, {
-                        localResponseDate: localResponseDate > 0 ? new Date(localResponseDate).toISOString() : 'none',
-                        apiResponseDate: apiResponseDate > 0 ? new Date(apiResponseDate).toISOString() : 'none',
-                        localRsvpStatus: localGuest.rsvpStatus,
-                        apiRsvpStatus: apiGuest.rsvpStatus,
-                        hasRecentManualChange
-                      });
-                      return {
-                        ...localGuest,
-                        firstName: cleanName(localGuest.firstName),
-                        lastName: cleanName(localGuest.lastName)
-                      };
-                    }
-                    
-                    // API data is newer - use API data (it's the source of truth)
-                    // API has the latest data from all devices
-                    // CRITICAL: Clean names when using API data
-                    return {
-                      ...apiGuest,
-                      firstName: cleanName(apiGuest.firstName),
-                      lastName: cleanName(apiGuest.lastName)
-                    };
-                  });
-                  
-                  // Add any local guests that aren't in API (and aren't deleted)
-                  // CRITICAL: Clean names for local-only guests as well
-                  const localOnlyGuests = localEvent.guests
-                    .filter((lg: Guest) => 
-                      !apiEvent.guests.find((ag: Guest) => ag.id === lg.id) &&
-                      !deletedGuestIds.includes(lg.id) // Don't add deleted guests
-                    )
-                    .map((lg: Guest) => ({
-                      ...lg,
-                      firstName: cleanName(lg.firstName),
-                      lastName: cleanName(lg.lastName)
-                    }));
-                  
-                  return {
-                    ...apiEvent,
-                    invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
-                    guests: [...mergedGuests, ...localOnlyGuests],
-                    updatedAt: new Date(Math.max(
-                      new Date(apiEvent.updatedAt || 0).getTime(),
-                      new Date(localEvent.updatedAt || 0).getTime()
-                    ))
+                      .map((g: Guest) => ({
+                        ...g,
+                        firstName: cleanName(g.firstName),
+                        lastName: cleanName(g.lastName)
+                      }))
                   };
                 });
                 
-                // Add any remaining local events that aren't in API
-                const remainingLocalEvents = localEvents.filter((e: Event) => 
-                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                // CRITICAL: Find local events that aren't in API and sync them immediately to server
+                // These are new events created locally that need to be synced
+                const localOnlyEvents = localEvents.filter((e: Event) => 
+                  e.userId === userId && 
+                  !apiEvents.find(ae => ae.id === e.id) &&
+                  !deletedEventIds.has(e.id) // Don't sync deleted events
                 );
-                // CRITICAL: Create new array reference after adding remaining events
-                // This ensures React detects changes when events are added
-                const allEventsWithRemaining = remainingLocalEvents.length > 0 
-                  ? [...allEvents, ...remainingLocalEvents]
-                  : allEvents;
-                if (remainingLocalEvents.length > 0) {
-                  console.log(`🔄 Added ${remainingLocalEvents.length} remaining local events`);
-                  
-                  // Try to sync remaining events again
-                  // CRITICAL: Send only event details (no guests) to prevent 413 errors
-                  try {
-                    const eventsDetailsOnly = remainingLocalEvents.map(event => ({
-                      id: event.id,
-                      userId: event.userId,
-                      coupleName: event.coupleName,
-                      groomName: event.groomName,
-                      brideName: event.brideName,
-                      eventDate: event.eventDate,
-                      eventTime: event.eventTime,
-                      venue: event.venue,
-                      couplePhone: event.couplePhone,
-                      coupleEmail: event.coupleEmail,
-                      eventType: event.eventType,
-                      eventTypeHebrew: event.eventTypeHebrew,
-                      invitationImageUrl: event.invitationImageUrl,
-                      createdAt: event.createdAt,
-                      updatedAt: event.updatedAt
-                      // Intentionally exclude guests to prevent 413 errors
-                    }));
-                    
-                    console.log(`📤 Syncing ${remainingLocalEvents.length} remaining events (details only, no guests)`);
-                    
-                    const retrySyncResponse = await fetch(`${BACKEND_URL}/api/events/sync`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        events: eventsDetailsOnly,
-                        userId: userId
-                      })
+                
+                // Sync local-only events to server in background (fire-and-forget)
+                if (localOnlyEvents.length > 0) {
+                  console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing to server...`);
+                  localOnlyEvents.forEach(event => {
+                    syncEventToAPI(event).catch(err => {
+                      console.warn(`⚠️ Failed to sync local event ${event.id} to server:`, err);
                     });
-                    if (retrySyncResponse.ok) {
-                      console.log(`✅ Retry synced ${remainingLocalEvents.length} remaining events to API`);
-                    } else {
-                      const errorText = await retrySyncResponse.text();
-                      console.warn(`⚠️ Retry sync failed:`, retrySyncResponse.status, errorText);
-                    }
-                  } catch (retryError) {
-                    console.warn('⚠️ Retry sync failed:', retryError);
-                  }
+                  });
                 }
                 
-                // CRITICAL FIX: If API returns empty but we have local events, preserve local events
-                // This prevents data loss when API is empty or has sync issues
+                // CRITICAL: Use API events as final events (server is source of truth)
+                // Local-only events are synced in background and will appear in next fetch
+                // Only add local events temporarily if API is empty (fallback for offline scenarios)
+                let finalEvents = allEvents;
+                
+                // CRITICAL: If API returns empty but we have local events, use local events as fallback
+                // This prevents data loss when API is temporarily unavailable
                 if (apiEvents.length === 0 && localEvents.length > 0) {
-                  console.warn('⚠️ API returned empty events but local events exist - preserving local events');
+                  console.warn('⚠️ API returned empty events but local events exist - using local events as fallback');
                   // Get deletedEvents from stored data first
                   let deletedEventsForPreserve: any[] = [];
                   try {
@@ -649,7 +586,7 @@ export const useEventStore = create<EventStore>()(
                     // Ignore parsing errors
                   }
                   const deletedEventIdsForPreserve = new Set(deletedEventsForPreserve.map((e: any) => e.id));
-                  // Use local events instead of empty API response, but filter out deleted events
+                  // Use local events as fallback, but filter out deleted events
                   const localEventsForUser = localEvents.filter((e: Event) => {
                     // CRITICAL: Don't preserve deleted events
                     if (deletedEventIdsForPreserve.has(e.id)) {
@@ -675,9 +612,9 @@ export const useEventStore = create<EventStore>()(
                 }
                 
                 // CRITICAL: Before saving, check if we're about to lose any events
-                // Compare allEventsWithRemaining with localEvents to ensure we're not losing data
-                // BUT: Only preserve events that belong to the current user!
-                const eventsToSave = allEventsWithRemaining.length > 0 ? allEventsWithRemaining : localEvents;
+                // CRITICAL: Use finalEvents (from server) as source of truth
+                // Server contains the latest data from all devices
+                const eventsToSave = finalEvents.length > 0 ? finalEvents : localEvents;
                 const localEventIds = new Set(localEvents.map(e => e.id));
                 const savedEventIds = new Set(eventsToSave.map(e => e.id));
                 
@@ -754,8 +691,8 @@ export const useEventStore = create<EventStore>()(
                 // Use API events as primary source (they're synced)
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
                 // CRITICAL: Always create new array reference to ensure React detects changes
-                const finalEvents = allEventsWithRemaining.length > 0 ? [...allEventsWithRemaining] : [...localEvents];
-                // CRITICAL: Filter out deleted events before filtering by userId
+                // CRITICAL: Use finalEvents (from server) - server is source of truth
+                // Filter out deleted events before filtering by userId
                 const finalEventsWithoutDeleted = finalEvents.filter((e: Event) => !deletedEventIds.has(e.id));
                 const filteredEvents = userId ? finalEventsWithoutDeleted.filter((e: Event) => e.userId === userId) : finalEventsWithoutDeleted;
                 
@@ -1138,23 +1075,8 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date(),
               // Use WhatsApp template for first message
               templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply' as const,
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply' as const,
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1191,23 +1113,8 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date(),
               // Use WhatsApp template 'aa' for this campaign
               templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1244,23 +1151,8 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date(),
               // Use WhatsApp template 'aa' for this campaign
               templateName: 'aa', // Template name in Meta Business Manager
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 
@@ -1300,23 +1192,8 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date(),
               // Use WhatsApp template 'today' for this campaign
               templateName: 'today', // Template name in Meta is "today"
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `שלום {{first_name}}! 
 
@@ -1357,23 +1234,8 @@ export const useEventStore = create<EventStore>()(
               responseCount: 0,
               createdAt: new Date(),
               updatedAt: new Date(),
-              // WhatsApp buttons
-              whatsappButtons: [
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'confirmed',
-                    title: 'מגיע'
-                  }
-                },
-                {
-                  type: 'reply',
-                  reply: {
-                    id: 'declined',
-                    title: 'לא אוכל להגיע'
-                  }
-                }
-              ],
+              // CRITICAL: No buttons - send text-only message with links instead
+              whatsappButtons: [],
               // SMS fallback with link
               smsMessage: `🎉 שלום {{guest_name}}!
 מחר זה קורה! החתונה של {{couple_name}}!
@@ -1466,18 +1328,30 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Check for duplicate events before creating
           const currentState = get();
-          const duplicateEvent = currentState.events.find(e => 
-            e.id === newEvent.id || 
-            (e.coupleName === newEvent.coupleName && 
-             e.eventDate && newEvent.eventDate && 
-             Math.abs(new Date(e.eventDate).getTime() - newEvent.eventDate.getTime()) < 1000) // Same couple and same date (within 1 second)
+          
+          // Check for duplicate ID (should never happen with improved generateId, but safety check)
+          let finalEvent = newEvent;
+          const duplicateIdEvent = currentState.events.find(e => e.id === newEvent.id);
+          if (duplicateIdEvent) {
+            console.error(`❌ CRITICAL: Duplicate event ID detected! This should never happen.`);
+            console.error(`❌ Existing event ID: ${duplicateIdEvent.id}, New event ID: ${newEvent.id}`);
+            // Generate a new ID and retry (safety mechanism)
+            finalEvent = { ...newEvent, id: generateId() };
+            console.log(`🔄 Generated new ID for event: ${finalEvent.id}`);
+          }
+          
+          // Check for duplicate event by content (same couple and same date)
+          const duplicateContentEvent = currentState.events.find(e => 
+            e.coupleName === finalEvent.coupleName && 
+            e.eventDate && finalEvent.eventDate && 
+            Math.abs(new Date(e.eventDate).getTime() - finalEvent.eventDate.getTime()) < 1000 // Same couple and same date (within 1 second)
           );
           
-          if (duplicateEvent) {
-            console.warn(`⚠️ Duplicate event detected! Event ID: ${duplicateEvent.id}, New ID: ${newEvent.id}`);
+          if (duplicateContentEvent) {
+            console.warn(`⚠️ Duplicate event content detected! Event ID: ${duplicateContentEvent.id}, New ID: ${finalEvent.id}`);
             console.warn(`⚠️ Duplicate event details:`, {
-              existing: { id: duplicateEvent.id, coupleName: duplicateEvent.coupleName, eventDate: duplicateEvent.eventDate },
-              new: { id: newEvent.id, coupleName: newEvent.coupleName, eventDate: newEvent.eventDate }
+              existing: { id: duplicateContentEvent.id, coupleName: duplicateContentEvent.coupleName, eventDate: duplicateContentEvent.eventDate },
+              new: { id: finalEvent.id, coupleName: finalEvent.coupleName, eventDate: finalEvent.eventDate }
             });
             // Don't create duplicate - return existing event
             set({ isLoading: false, error: 'אירוע זהה כבר קיים' });
@@ -1487,21 +1361,28 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Save to state first
           set(state => {
             console.log('🔍 Before createEvent - events count:', state.events.length);
-            // CRITICAL: Double-check for duplicates before adding
-            const existingEvent = state.events.find(e => e.id === newEvent.id);
+            console.log('🔍 Creating event with unique ID:', finalEvent.id);
+            // CRITICAL: Final double-check for duplicates before adding (safety net)
+            const existingEvent = state.events.find(e => e.id === finalEvent.id);
             if (existingEvent) {
-              console.warn(`⚠️ Event with ID ${newEvent.id} already exists! Not creating duplicate.`);
-              return { isLoading: false };
+              console.error(`❌ CRITICAL: Event with ID ${finalEvent.id} already exists in state! This should never happen.`);
+              // Generate a new ID as last resort
+              const retryEvent = { ...finalEvent, id: generateId() };
+              console.log(`🔄 Generated final new ID for event: ${retryEvent.id}`);
+              const updatedEvents = [...state.events, retryEvent];
+              return {
+                events: updatedEvents,
+                isLoading: false
+              };
             }
-            const updatedEvents = [...state.events, newEvent];
+            const updatedEvents = [...state.events, finalEvent];
             console.log('🔍 After createEvent - events count:', updatedEvents.length);
-            console.log('🔍 New event created with 5 default campaigns:', newEvent);
+            console.log('🔍 New event created with 5 default campaigns:', finalEvent);
             return {
               events: updatedEvents,
               isLoading: false
             };
           });
-          
           // CRITICAL: Immediately save to localStorage to prevent data loss
           // This ensures the event is saved even if fetchEvents is called right after
           try {
@@ -1514,15 +1395,18 @@ export const useEventStore = create<EventStore>()(
                 const parsed = JSON.parse(stored);
                 allEvents = parsed.state?.events || [];
                 deletedEvents = parsed.state?.deletedEvents || [];
+                
+                // CRITICAL: Ensure all events have unique IDs before saving
+                allEvents = ensureUniqueEventIds(allEvents);
               } catch (e) {
                 console.warn('⚠️ Error parsing stored events:', e);
               }
             }
             
             // Add new event if not already present
-            if (!allEvents.find(e => e.id === newEvent.id)) {
-              allEvents.push(newEvent);
-              console.log('💾 Saved new event directly to localStorage:', newEvent.id);
+            if (!allEvents.find(e => e.id === finalEvent.id)) {
+              allEvents.push(finalEvent);
+              console.log('💾 Saved new event directly to localStorage:', finalEvent.id);
               
               // Get current state to preserve currentEvent
               const currentState = get();
@@ -1595,21 +1479,10 @@ export const useEventStore = create<EventStore>()(
           }
           
           // Sync to API (for multi-computer access) - CRITICAL for data sync
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          // CRITICAL: Use syncEventToAPI to ensure guests are included
           try {
-            const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(newEvent)
-            });
-            if (syncResponse.ok) {
-              console.log('✅ Event synced to API successfully');
-            } else {
-              const errorData = await syncResponse.json().catch(() => ({}));
-              console.error('❌ API sync failed:', errorData);
-            }
+            await syncEventToAPI(finalEvent);
+            console.log('✅ Event synced to API successfully with all guests');
           } catch (error) {
             console.error('❌ Failed to sync event to API:', error);
             // Continue - localStorage is already updated
@@ -1649,63 +1522,12 @@ export const useEventStore = create<EventStore>()(
           });
           
           // Sync to API (for multi-computer access)
-          // CRITICAL: Send only the updated fields, not the entire event with all guests
-          // This prevents 413 errors when updating event details for large events
+          // CRITICAL: Use syncEventToAPI to ensure guests are included
+          // This ensures all guests are synced to the backend
           if (updatedEvent) {
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             try {
-              // Create a minimal payload with only event details (no guests)
-              const eventUpdatePayload = {
-                id: updatedEvent.id,
-                userId: updatedEvent.userId,
-                ...cleanedUpdates, // Only the fields that were updated
-                updatedAt: updatedEvent.updatedAt
-              };
-              
-              console.log('📤 Sending event update (details only, no guests):', {
-                eventId: updatedEvent.id,
-                updatedFields: Object.keys(cleanedUpdates),
-                payloadSize: JSON.stringify(eventUpdatePayload).length
-              });
-              
-              const response = await fetch(`${BACKEND_URL}/api/events`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(eventUpdatePayload)
-              });
-              
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.warn('⚠️ API sync failed:', response.status, errorText);
-                
-                // If 413 error, try sending only the most critical fields
-                if (response.status === 413) {
-                  console.log('🔄 413 error - trying minimal payload with only critical fields...');
-                  const minimalPayload = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
-                    ...cleanedUpdates
-                  };
-                  
-                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(minimalPayload)
-                  });
-                  
-                  if (retryResponse.ok) {
-                    console.log('✅ Event update synced with minimal payload');
-                  } else {
-                    console.warn('⚠️ Minimal payload also failed:', retryResponse.status);
-                  }
-                }
-              } else {
-                console.log('✅ Event update synced to API successfully');
-              }
+              await syncEventToAPI(updatedEvent);
+              console.log('✅ Event update synced to API successfully with all guests');
             } catch (error) {
               console.warn('⚠️ Failed to sync event update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist
@@ -1862,28 +1684,7 @@ export const useEventStore = create<EventStore>()(
       updateGuest: async (eventId, guestId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: If updating guestCount, rsvpStatus, actualAttendance, tableId, firstName, lastName, or phoneNumber, mark as manual change
-          const criticalFields = ['guestCount', 'rsvpStatus', 'actualAttendance', 'tableId', 'firstName', 'lastName', 'phoneNumber'];
-          const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
-          
-          if (hasCriticalField) {
-            const guestKey = `${eventId}-${guestId}`;
-            set(state => {
-              const newManualChanges = new Map(state.manualChanges);
-              newManualChanges.set(guestKey, Date.now());
-              return { manualChanges: newManualChanges };
-            });
-            console.log(`🛡️ Marked manual change for ${guestKey} (fields: ${Object.keys(updates).join(', ')})`);
-            
-            // Also mark in webhookService to ensure protection from webhook updates
-            try {
-              const webhookModule = await import('../services/webhookService');
-              webhookModule.webhookService.markManualChange(eventId, guestId);
-              console.log(`🛡️ Marked manual change in webhookService for ${guestKey}`);
-            } catch (error) {
-              console.warn('⚠️ Could not mark manual change in webhookService:', error);
-            }
-          }
+          // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
           
           let updatedEvent: Event | null = null;
           
@@ -1900,6 +1701,10 @@ export const useEventStore = create<EventStore>()(
             const newTableId = updates.tableId;
             
             // Update guest - always add/update responseDate for timestamp-based conflict resolution
+            // Check if any critical fields are being updated
+            const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
+            const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+            
             const updatedGuests = event.guests.map(guest => {
               if (guest.id === guestId) {
                 // If updating critical fields, ensure we have a timestamp
@@ -1967,7 +1772,8 @@ export const useEventStore = create<EventStore>()(
               ? {
                   ...state.currentEvent,
                   guests: updatedGuests,
-                  tables: updatedTables
+                  tables: updatedTables,
+                  updatedAt: new Date() // CRITICAL: Update timestamp to trigger React re-render
                 }
               : state.currentEvent;
             
@@ -2102,25 +1908,8 @@ export const useEventStore = create<EventStore>()(
             newStatus: updatedGuest.rsvpStatus
           });
           
-          // CRITICAL: Mark manual change for guest_link updates to prevent webhook from overwriting them
-          // This ensures updates from guest response page are protected from being overwritten by webhook updates
-          if (updatedGuest.source === 'guest_link') {
-            const guestKey = `${eventId}-${guestId}`;
-            set(state => {
-              const newManualChanges = new Map(state.manualChanges);
-              newManualChanges.set(guestKey, Date.now());
-              return { manualChanges: newManualChanges };
-            });
-            console.log(`🛡️ Marked manual change for ${guestKey} (source: guest_link) - webhook updates will be blocked for 10s`);
-            
-            // Also mark in webhookService to ensure protection
-            try {
-              const webhookModule = await import('../services/webhookService');
-              webhookModule.webhookService.markManualChange(eventId, guestId);
-            } catch (error) {
-              console.warn('⚠️ Could not mark manual change in webhookService:', error);
-            }
-          }
+          // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
+          // All updates are processed based on timestamps and source
           
           // CRITICAL: Ensure responseDate is always current for guest_link updates
           // This ensures the update is always considered "newer" than previous updates
@@ -2236,9 +2025,22 @@ export const useEventStore = create<EventStore>()(
                       // If new update is newer (or same), use it. Otherwise keep old values for that field
                       const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
                       
-                      // CRITICAL: If this is a newer update, completely replace old values with new ones
-                      // This ensures old updates don't persist in the table
-                      if (isNewerUpdate) {
+                      // CRITICAL: For manual_update and guest_link updates, ALWAYS apply them regardless of timestamp
+                      // This ensures manual updates from status update page and guest responses are properly synced
+                      // even if they come back from backend with same or older timestamp
+                      const isManualUpdateEcho = updatedGuest.source === 'manual_update';
+                      const isGuestLinkUpdate = updatedGuest.source === 'guest_link';
+                      const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+                      
+                      // CRITICAL: Always apply updates from manual_update, guest_link, or whatsapp
+                      // These are user-initiated updates that should always be reflected
+                      const shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate;
+                      
+                      if (shouldApplyUpdate && !isNewerUpdate) {
+                        console.log(`🔄 Applying ${updatedGuest.source} update even though timestamp is older - user-initiated update must be applied`);
+                      }
+                      
+                      if (shouldApplyUpdate) {
                         // Completely replace with new update - don't merge old values
                         // Clean names if they're being updated
                         const cleanedFirstName = updatedGuest.firstName !== undefined ? cleanName(updatedGuest.firstName) : guest.firstName;
@@ -2256,7 +2058,9 @@ export const useEventStore = create<EventStore>()(
                           actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
                           // CRITICAL: Always use new responseDate to ensure backend detects it as a new update
                           // This ensures the backend adds it to pending-updates even if status didn't change
-                          responseDate: newResponseDate
+                          responseDate: newResponseDate,
+                          // CRITICAL: Preserve source from update to ensure proper tracking
+                          source: updatedGuest.source || guest.source
                         };
                       
                         console.log(`🔧 Merging guest (latest update wins - COMPLETELY REPLACING old values):`, {
@@ -2268,21 +2072,47 @@ export const useEventStore = create<EventStore>()(
                           new: { 
                             rsvpStatus: updatedGuest.rsvpStatus, 
                             guestCount: updatedGuest.guestCount,
-                            responseDate: newResponseDate.toISOString()
+                            responseDate: newResponseDate.toISOString(),
+                            source: updatedGuest.source
                           },
                           isNewer: isNewerUpdate,
+                          isManualUpdateEcho: isManualUpdateEcho,
+                          shouldApplyUpdate: shouldApplyUpdate,
                           merged: { 
                             rsvpStatus: mergedGuest.rsvpStatus, 
                             guestCount: mergedGuest.guestCount,
-                            responseDate: mergedGuest.responseDate.toISOString()
+                            responseDate: mergedGuest.responseDate.toISOString(),
+                            source: mergedGuest.source
                           }
                         });
                         
                         // CRITICAL: Always return a new object reference for the guest
                         return { ...mergedGuest };
                       } else {
-                        // Old update is newer - keep old values
-                        console.log(`⏭️ Keeping old guest values (old update is newer):`, {
+                        // Old update is newer - but CRITICAL: For manual_update, guest_link, and whatsapp, always apply the update
+                        const isManualUpdateEcho = updatedGuest.source === 'manual_update';
+                        const isGuestLinkUpdate = updatedGuest.source === 'guest_link';
+                        const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
+                        
+                        if (isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate) {
+                          // CRITICAL: Even if old update is newer, apply user-initiated updates
+                          console.log(`🔄 Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
+                          const mergedGuest = { 
+                            ...guest,
+                            ...updatedGuest,
+                            // Use new values from user-initiated update
+                            rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                            guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                            notes: updatedGuest.notes !== undefined ? updatedGuest.notes : guest.notes,
+                            actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
+                            responseDate: newResponseDate, // Use new responseDate
+                            source: updatedGuest.source || guest.source
+                          };
+                          return { ...mergedGuest };
+                        }
+                        
+                        // Old update is newer and not from user-initiated source - keep old values
+                        console.log(`⏭️ Keeping old guest values (old update is newer and not user-initiated):`, {
                           old: { 
                             rsvpStatus: guest.rsvpStatus, 
                             guestCount: guest.guestCount,
@@ -2291,7 +2121,8 @@ export const useEventStore = create<EventStore>()(
                           new: { 
                             rsvpStatus: updatedGuest.rsvpStatus, 
                             guestCount: updatedGuest.guestCount,
-                            responseDate: newResponseDate.toISOString()
+                            responseDate: newResponseDate.toISOString(),
+                            source: updatedGuest.source
                           }
                         });
                         
@@ -2307,11 +2138,6 @@ export const useEventStore = create<EventStore>()(
                           responseDate: oldResponseDate
                         };
                       
-                        // Remove manual change protection if this update is newer
-                        const manualChangeKey = `${eventId}-${guestId}`;
-                        state.manualChanges.delete(manualChangeKey);
-                        console.log(`🔄 Removed manual change protection for ${manualChangeKey} - new update is newer`);
-                        
                         // CRITICAL: Always return a new object reference for the guest
                         return { ...mergedGuest };
                       }
@@ -2366,35 +2192,53 @@ export const useEventStore = create<EventStore>()(
             
             if (state.currentEvent?.id === eventId) {
               // Update existing currentEvent - user is viewing this event, so update it
+              // CRITICAL: For manual_update, guest_link, and whatsapp updates, ALWAYS update currentEvent to ensure table refresh
+              const isManualUpdateEcho = updatedGuest.source === 'manual_update' || updatedGuest.source === 'guest_link' || updatedGuest.source === 'whatsapp';
               updatedCurrentEvent = {
                 ...state.currentEvent,
                 guests: state.currentEvent.guests.map(guest => {
                   if (guest.id === guestId) {
                     // Use timestamp-based conflict resolution - latest update wins
+                    // CRITICAL: For manual_update, guest_link, and whatsapp, always use new values to ensure update is applied
                     const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
                     const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
-                    const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime();
+                    const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime() || isManualUpdateEcho;
                     
-                    return {
+                    const updatedGuestData = {
                       ...guest,
                       ...updatedGuest,
                       // Always use new values if provided (latest update wins)
                       rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
                       guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
-                      responseDate: isNewerUpdate ? newResponseDate : oldResponseDate
+                      responseDate: isNewerUpdate ? newResponseDate : oldResponseDate,
+                      // CRITICAL: Preserve source to ensure proper tracking
+                      source: updatedGuest.source || guest.source
                     };
+                    
+                    console.log(`🔄 Updating guest in currentEvent:`, {
+                      guestId,
+                      oldStatus: guest.rsvpStatus,
+                      newStatus: updatedGuestData.rsvpStatus,
+                      isNewerUpdate,
+                      isManualUpdateEcho,
+                      source: updatedGuest.source
+                    });
+                    
+                    return updatedGuestData;
                   }
                   return guest;
                 })
               };
               // CRITICAL: Always create a new object reference with new guests array to force React re-render
+              // CRITICAL: Always update updatedAt to ensure eventsHash changes
+              const newUpdatedAt = new Date();
               updatedCurrentEvent = {
                 ...updatedCurrentEvent,
                 guests: updatedCurrentEvent.guests.map(g => ({ ...g })), // New array AND new object references
-                updatedAt: new Date() // Force timestamp update
+                updatedAt: newUpdatedAt // Force timestamp update
               };
-              console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length);
+              console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length, 'updatedAt:', newUpdatedAt.toISOString());
             } else {
               // User is viewing a different event - don't update currentEvent
               // EventManagement useEffect will update currentEvent when events array changes
@@ -2412,13 +2256,19 @@ export const useEventStore = create<EventStore>()(
             // CRITICAL: Always create new array reference for events to force React re-render
             // This ensures React detects changes even if array contents are similar
             // CRITICAL: Also ensure updatedAt is ALWAYS updated to force eventsHash change
+            // CRITICAL: For manual_update and guest_link updates, ALWAYS update updatedAt to ensure table refresh
             const finalUpdatedEvents = updatedEvents.map(e => {
               if (e.id === eventId) {
                 // CRITICAL: Always update updatedAt timestamp to ensure eventsHash changes
                 // This forces EventManagement to detect the change and re-render the table
+                // CRITICAL: Use a new Date() object to ensure timestamp is always different
+                const newUpdatedAt = new Date();
+                console.log(`🔄 Updating event ${eventId} updatedAt to force eventsHash change:`, newUpdatedAt.toISOString());
                 return {
                   ...e,
-                  updatedAt: new Date() // Always use current timestamp to force hash change
+                  updatedAt: newUpdatedAt, // Always use current timestamp to force hash change
+                  // CRITICAL: Also ensure guests array is a new reference
+                  guests: e.guests.map(g => ({ ...g }))
                 };
               }
               return e;
@@ -2485,16 +2335,25 @@ export const useEventStore = create<EventStore>()(
               // This avoids 413 errors for large events (e.g., 417 guests) and ensures the update is synced
               // CRITICAL: Only include status if it was actually updated (not undefined)
               // If only guestCount was updated, don't send status to avoid overwriting it
-              const pendingUpdatePayload: any = {
+              const pendingUpdatePayload: PendingGuestUpdate = {
                 phoneNumber: updatedGuest.phoneNumber,
                 guestId: updatedGuest.id,
                 eventId: eventId,
-                guestCount: updatedGuest.guestCount,
+                guestCount: updatedGuest.guestCount, // CRITICAL: Always include guestCount if present
                 actualAttendance: updatedGuest.actualAttendance,
                 notes: updatedGuest.notes,
                 responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
-                source: updatedGuest.source || 'guest_link'
+                source: updatedGuest.source || 'manual_update', // Default to manual_update for button clicks and other manual updates
+                timestamp: Date.now()
               };
+              
+              console.log(`📤 Syncing guest update to backend:`, {
+                guestId: pendingUpdatePayload.guestId,
+                eventId: pendingUpdatePayload.eventId,
+                guestCount: pendingUpdatePayload.guestCount,
+                rsvpStatus: updatedGuest.rsvpStatus,
+                source: pendingUpdatePayload.source
+              });
               
               // Only include status if it was explicitly updated (not undefined)
               // This ensures guestCount-only updates don't overwrite status
@@ -2502,80 +2361,58 @@ export const useEventStore = create<EventStore>()(
                 pendingUpdatePayload.status = updatedGuest.rsvpStatus;
               }
               
-              const addPendingResponse = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(pendingUpdatePayload)
-              });
-              
-              if (addPendingResponse.ok) {
-                console.log('✅ Guest update successfully added to backend pendingUpdates.');
-                console.log('✅ Update will be processed by webhook service and synced to all devices');
-                
-                // CRITICAL: Also update the event in API with minimal data (only the updated guest)
-                // This ensures the update is persisted even if webhook service fails
-                // We send only the updated guest, not the entire event, to avoid 413 errors
-                try {
-                  console.log('🔄 Also updating event in API with minimal data (only updated guest)...');
-                  const minimalEventUpdate = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
-                    guests: [updatedGuest], // Only send the updated guest
-                    updatedAt: new Date().toISOString()
-                  };
-                  
-                  const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(minimalEventUpdate)
-                  });
-                  
-                  if (apiUpdateResponse.ok) {
-                    console.log('✅ Event updated in API with minimal data (only updated guest)');
-                  } else {
-                    const apiErrorText = await apiUpdateResponse.text();
-                    console.warn('⚠️ Failed to update event in API (but pendingUpdates was successful):', apiUpdateResponse.status, apiErrorText);
-                    // Don't fail - pendingUpdates was successful, webhook service will handle it
-                  }
-                } catch (apiError) {
-                  console.warn('⚠️ Error updating event in API (but pendingUpdates was successful):', apiError);
-                  // Don't fail - pendingUpdates was successful, webhook service will handle it
-                }
-              } else {
-                const errorText = await addPendingResponse.text();
-                console.warn('⚠️ Failed to add guest update to backend pendingUpdates:', addPendingResponse.status, errorText);
-                
-                // Fallback: Try to send minimal event update (only the changed guest)
-                // This is a last resort if pendingUpdates endpoint fails
-                try {
-                  console.log('🔄 Fallback: Attempting to send minimal event update...');
-                  const minimalEventUpdate = {
-                    id: updatedEvent.id,
-                    userId: updatedEvent.userId,
-                    guests: [updatedGuest], // Only send the updated guest
-                    updatedAt: new Date().toISOString()
-                  };
-                  
-                  const fallbackResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(minimalEventUpdate)
-                  });
-                  
-                  if (fallbackResponse.ok) {
-                    console.log('✅ Minimal event update synced to API (fallback successful)');
-                  } else {
-                    const fallbackErrorText = await fallbackResponse.text();
-                    console.warn('⚠️ Fallback sync failed:', fallbackResponse.status, fallbackErrorText);
-                  }
-                } catch (fallbackError) {
-                  console.warn('⚠️ Fallback sync error:', fallbackError);
-                }
+              // CRITICAL: Verify guestCount is included in payload
+              if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== null) {
+                console.log(`✅ Guest count included in sync payload: ${updatedGuest.guestCount}`);
               }
               
-              // CRITICAL: Don't force refresh immediately - let webhook service handle it
-              // This prevents race conditions and ensures consistent updates across devices
-              // The webhook service will poll and process the update from pendingUpdates
+              // Use batch processor for better performance (queues and batches updates)
+              guestUpdateBatchProcessor.addUpdate(pendingUpdatePayload);
+              console.log('✅ Guest update added to batch queue (will be sent shortly)');
+                console.log('✅ Update will be processed by webhook service and synced to all devices');
+                
+              // CRITICAL: Update the event directly in the server via /api/events/:eventId/guests endpoint
+              // This ensures the update is persisted immediately in the server
+              // The table will then refresh from the server to get the latest data
+              try {
+                console.log('🔄 Updating event directly in server via /api/events/:eventId/guests...');
+                console.log('📤 Sending updated guest to server:', {
+                  eventId: updatedEvent.id,
+                  guestId: updatedGuest.id,
+                  rsvpStatus: updatedGuest.rsvpStatus,
+                  guestCount: updatedGuest.guestCount
+                });
+                
+                // Send only the updated guest with append=true to merge with existing guests
+                const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    guests: [updatedGuest], // Only send the updated guest
+                    append: true // Merge with existing guests (update by ID)
+                  })
+                });
+                
+                if (apiUpdateResponse.ok) {
+                  const apiResponseData = await apiUpdateResponse.json();
+                  console.log('✅ Event updated directly in server:', apiResponseData);
+                  
+                  // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+                  // The local update is already in the store and the table will update automatically
+                  // The server update is confirmed, so the data is synced
+                  // The webhook service will handle syncing to other devices
+                  console.log('✅ Server update confirmed - local update preserved in store');
+                } else {
+                  const apiErrorText = await apiUpdateResponse.text();
+                  console.warn('⚠️ Failed to update event directly in server:', apiUpdateResponse.status, apiErrorText);
+                  // Fallback: Still add to pendingUpdates for webhook service to process
+                  console.log('⚠️ Falling back to pendingUpdates mechanism');
+                }
+              } catch (apiError) {
+                console.warn('⚠️ Error updating event directly in server:', apiError);
+                // Fallback: Still add to pendingUpdates for webhook service to process
+                console.log('⚠️ Falling back to pendingUpdates mechanism');
+              }
             } catch (error) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events
@@ -2796,10 +2633,10 @@ export const useEventStore = create<EventStore>()(
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');
         if (!webhookService.pollingActive) {
-          webhookService.startPolling(10000); // Poll every 10 seconds to reduce server load
+          webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
         } else {
           webhookService.stopPolling();
-          webhookService.startPolling(10000); // Restart with reduced interval to reduce server load
+          webhookService.startPolling(8000); // Restart with optimized interval
         }
         console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
@@ -2819,13 +2656,35 @@ export const useEventStore = create<EventStore>()(
           // Check if this is the "event day reminder" campaign (contains QR code)
           const isEventDayReminder = campaign.name === 'תזכורת יום האירוע';
           
-          // CRITICAL: Send to ALL guests regardless of their status
-          // User explicitly requested that messages should be sent to all guests, even if they already confirmed or declined
-          // This allows sending reminders and other messages to all guests
-          const filteredGuests = guests;
+          // CRITICAL: Filter guests based on campaign type
+          // 1. Some campaigns (הזמנה ראשונית, תזכורת שנייה, תזכורת שבועית) should only be sent to guests with status 'pending' (לא ענה) or 'maybe' (אולי מגיע)
+          // 2. Other campaigns (תזכורת אחרונה, הודעת תודה למגיעים, תזכורת יום האירוע) should only be sent to guests who confirmed (מגיע)
+          // 3. Custom campaigns (default) should only be sent to guests with status 'pending' or 'maybe' (לא ענה ומתלבט)
+          const campaignsForNonResponded = ['הזמנה ראשונית', 'תזכורת שנייה', 'תזכורת שבועית'];
+          const campaignsForConfirmed = ['תזכורת אחרונה', 'הודעת תודה למגיעים', 'תזכורת יום האירוע'];
           
-          console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message`);
-          console.log(`✅ Sending to all guests regardless of their RSVP status`);
+          let filteredGuests;
+          if (campaignsForNonResponded.includes(campaign.name)) {
+            // Only send to guests with status 'pending' (לא ענה) or 'maybe' (אולי מגיע)
+            filteredGuests = guests.filter(guest => 
+              guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
+            );
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'pending' (לא ענה) or 'maybe' (אולי מגיע)`);
+          } else if (campaignsForConfirmed.includes(campaign.name)) {
+            // Only send to guests who confirmed (מגיע)
+            filteredGuests = guests.filter(guest => guest.rsvpStatus === 'confirmed');
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'confirmed' (מגיע)`);
+          } else {
+            // Default: send only to guests with status 'pending' or 'maybe' (לא ענה ומתלבט)
+            // This ensures custom campaigns only target guests who haven't confirmed or declined
+            filteredGuests = guests.filter(guest => 
+              guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
+            );
+            console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`✅ Filtering: Only sending to guests with status === 'pending' (לא ענה) or 'maybe' (מתלבט)`);
+          }
           
           // Determine template name based on campaign FIRST (before building templateParams)
           // CRITICAL: Override templateName based on campaign name to ensure correct template is used
@@ -2833,11 +2692,12 @@ export const useEventStore = create<EventStore>()(
           let templateNameForCampaign = campaign.templateName;
           
           // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
+          // Use template "aa" for the first three campaigns
           if (campaign.name === 'הזמנה ראשונית') {
             templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
           } else if (campaign.name === 'תזכורת שנייה') {
-            // Use template 'a' for "תזכורת שנייה"
-            templateNameForCampaign = 'a';
+            // Use template 'aa' for "תזכורת שנייה"
+            templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת שבועית') {
             templateNameForCampaign = 'aa';
           } else if (campaign.name === 'תזכורת אחרונה') {
@@ -2890,7 +2750,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -2904,7 +2764,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || 'חתונה')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -2960,24 +2820,24 @@ export const useEventStore = create<EventStore>()(
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
               // Template "aa" requires 8 parameters in order (matching the template body):
               // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-              // NOTE: guest_response_link is NOT in the body parameters - it's only used for the button
+              // NOTE: guest_response_link is kept for reference but NOT sent (template has no buttons)
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 groom_name: templateGroomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
                 bride_name: templateBrideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
                 couple_name: templateCoupleName, // Parameter 8 - at the end of the template
-                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("לעדכון סטטוס הגעה")
                 language: 'he'
               };
               
               // DEBUG: Log template parameters
-              console.log('🔍 DEBUG Template Parameters for "aa" (sendCampaign):', {
+              console.log(`🔍 DEBUG Template Parameters for "${templateNameForCampaign}" (sendCampaign):`, {
                 groom_name: templateParams.groom_name,
                 bride_name: templateParams.bride_name,
                 couple_name: templateParams.couple_name,
@@ -2995,7 +2855,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3021,7 +2881,7 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
                              'event_time', 'venue', 'table_number'],
                 first_name: guest.firstName, // Parameter 1 - note: uses first_name, not guest_name
-                event_type: event.eventTypeHebrew || '', // Parameter 2
+                event_type: event.eventTypeHebrew || 'חתונה', // Parameter 2
                 couple_name: templateCoupleName, // Parameter 3
                 event_date: formatDate(event.eventDate), // Parameter 4
                 event_time: event.eventTime || '', // Parameter 5
@@ -3035,7 +2895,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '',
+                event_type: event.eventTypeHebrew || 'חתונה',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3045,54 +2905,21 @@ export const useEventStore = create<EventStore>()(
               };
             }
             
-            // Create personalized buttons with guest-specific link
-            console.log('🔘 DEBUG: ========== CREATING BUTTONS ==========');
-            console.log('🔘 DEBUG: Campaign ID:', campaign.id);
-            console.log('🔘 DEBUG: Campaign name:', campaign.name);
-            console.log('🔘 DEBUG: Campaign whatsappButtons:', campaign.whatsappButtons);
-            console.log('🔘 DEBUG: Campaign whatsappButtons length:', campaign.whatsappButtons?.length || 0);
-            console.log('🔘 DEBUG: Guest link:', guestLink);
-            console.log('🔘 DEBUG: Guest channel:', guest.channel);
+            // CRITICAL: No buttons - send text-only message instead
+            // Add response options as text in the message instead of buttons
+            // This avoids WhatsApp button issues and works with the guest response page
+            console.log('📝 DEBUG: Creating text-only message (no buttons)');
+            console.log('📝 DEBUG: Guest link:', guestLink);
             
-            const personalizedButtons = campaign.whatsappButtons?.map(button => {
-              if (button.type === 'url' && button.url) {
-                // Replace {{guest_response_link}} placeholder with actual guest link
-                const buttonUrl = button.url.url.replace(/\{\{guest_response_link\}\}/g, guestLink);
-                return {
-                  type: 'url' as const,
-                  url: buttonUrl,
-                  title: button.url.title || 'אישור הגעה'
-                };
-              } else if (button.type === 'reply' && button.reply) {
-                // Reply button - keep as is (no personalization needed)
-                return {
-                  type: 'reply' as const,
-                  id: button.reply.id,
-                  title: button.reply.title
-                };
-              }
-              return button;
-            }) || [
-              // Default buttons
-              {
-                type: 'reply' as const,
-                id: 'מגיע',
-                title: 'מגיע'
-              },
-              {
-                type: 'url' as const,
-                url: guestLink,
-                title: 'אישור הגעה'
-              },
-              {
-                type: 'reply' as const,
-                id: 'decline_attendance',
-                title: 'לא אוכל להגיע'
-              }
-            ];
+            // Add response text to message if not already present
+            // Add at the end of the message
+            const responseText = `\n\nלהשיב:\n• מגיע - ${guestLink}\n• לא אוכל להגיע - ${guestLink}?status=declined`;
             
-            console.log('🔘 DEBUG: Personalized buttons created:', personalizedButtons);
-            console.log('🔘 DEBUG: Personalized buttons length:', personalizedButtons.length);
+            // Check if message already contains response instructions
+            const hasResponseText = message.includes('להשיב') || message.includes('מגיע') || message.includes('לא אוכל להגיע');
+            const finalMessage = hasResponseText ? message : message + responseText;
+            
+            console.log('📝 DEBUG: Final message (with response text):', finalMessage.substring(0, 200) + '...');
             
             const eventInvitationImageUrl = event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl;
             console.log('🖼️ sendCampaign - Image URL priority:', {
@@ -3107,8 +2934,8 @@ export const useEventStore = create<EventStore>()(
               firstName: guest.firstName,
               lastName: guest.lastName,
               phoneNumber: guest.phoneNumber,
-              channel: guest.channel as 'whatsapp' | 'sms',
-              message: guest.channel === 'whatsapp' ? message : smsMessage,
+              channel: 'whatsapp',
+              message: finalMessage, // Use finalMessage with response text instead of buttons
               firstMessageSent: guest.firstMessageSent || false, // Pass first message status
               eventData: {
                 coupleName: event.coupleName,
@@ -3123,18 +2950,16 @@ export const useEventStore = create<EventStore>()(
                 // Priority: event.invitationImageUrl > qrCodeImageUrl > campaign.imageUrl
                 invitationImageUrl: eventInvitationImageUrl
               },
-              templateParams: guest.channel === 'whatsapp' ? templateParams : undefined,
-              buttons: guest.channel === 'whatsapp' ? personalizedButtons : undefined
+              templateParams: templateParams,
+              buttons: undefined // CRITICAL: No buttons - send text-only message
             };
             
-            console.log('🔘 DEBUG: Recipient created with buttons:', guest.channel === 'whatsapp' ? personalizedButtons : undefined);
-            console.log('🔘 DEBUG: Recipient channel:', guest.channel);
-            console.log('🔘 DEBUG: Recipient buttons length:', guest.channel === 'whatsapp' ? personalizedButtons.length : 0);
+            console.log('📝 DEBUG: Recipient created WITHOUT buttons (text-only)');
+            console.log('📝 DEBUG: Recipient channel:', guest.channel);
           });
           
-          console.log('🔘 DEBUG: Total recipients created:', recipients.length);
-          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
-          console.log('🔘 DEBUG: Sample recipient buttons:', recipients.find(r => r.buttons && r.buttons.length > 0)?.buttons);
+          console.log('📝 DEBUG: Total recipients created:', recipients.length);
+          console.log('📝 DEBUG: All recipients are text-only (no buttons)');
 
           // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
           // Priority: event.invitationImageUrl > campaign.imageUrl
@@ -3180,19 +3005,14 @@ export const useEventStore = create<EventStore>()(
             const updatedGuests = event.guests?.map(guest => {
               const messageResult = result.results.find(r => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
-                // Update messageStatus based on channel
-                let messageStatus: 'sent' | 'delivered' | 'failed' | 'sms_sent' = 'sent';
-                if (messageResult.channel === 'sms') {
-                  messageStatus = 'sms_sent';
-                } else if (messageResult.fallbackUsed) {
-                  messageStatus = 'sms_sent'; // WhatsApp failed, SMS was sent
-                }
+                // Update messageStatus
+                let messageStatus: 'sent' | 'delivered' | 'failed' = 'sent';
                 
                 return {
                   ...guest,
                   messageStatus,
                   messageSentDate: new Date(),
-                  channel: messageResult.channel || guest.channel
+                  channel: 'whatsapp'
                 };
               } else if (messageResult && !messageResult.success) {
                 // Mark as failed if send failed
@@ -3243,7 +3063,242 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      sendTestMessage: async (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms'): Promise<boolean> => {
+      resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
+        // CRITICAL: Ensure webhookService is running to receive updates after sending messages
+        const { webhookService } = await import('../services/webhookService');
+        if (!webhookService.pollingActive) {
+          webhookService.startPolling(8000);
+        } else {
+          webhookService.stopPolling();
+          webhookService.startPolling(8000);
+        }
+        console.log('📡 Resending failed messages - System is now actively waiting for guest responses...');
+        set({ isLoading: true, error: null });
+        try {
+          const event = get().events.find(e => e.id === eventId);
+          if (!event) {
+            throw new Error('Event not found');
+          }
+
+          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          if (!campaign) {
+            throw new Error('Campaign not found');
+          }
+
+          const guests = event.guests || [];
+          
+          // CRITICAL: Filter only guests with failed message status
+          const failedGuests = guests.filter(guest => guest.messageStatus === 'failed');
+          
+          if (failedGuests.length === 0) {
+            console.log('ℹ️ No guests with failed messages found for this campaign');
+            set({ isLoading: false });
+            return {
+              totalSent: 0,
+              successful: 0,
+              failed: 0,
+              results: []
+            };
+          }
+
+          console.log(`📊 Resending campaign "${campaign.name}" to ${failedGuests.length} guests with failed messages`);
+
+          // Determine template name based on campaign (same logic as sendCampaign)
+          let templateNameForCampaign = campaign.templateName;
+          
+          if (campaign.name === 'הזמנה ראשונית') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת שנייה') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת שבועית') {
+            templateNameForCampaign = 'aa';
+          } else if (campaign.name === 'תזכורת אחרונה') {
+            templateNameForCampaign = 'today';
+          } else if (campaign.name === 'תזכורת יום האירוע') {
+            templateNameForCampaign = undefined;
+          } else if (!templateNameForCampaign) {
+            templateNameForCampaign = undefined;
+          }
+
+          // Import helper function
+          const { generateGuestResponseLink, formatDate } = await import('../utils/helpers');
+          
+          // Create personalized messages for each failed guest
+          const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
+            let personalizedMessage = campaign.message;
+            const guestLink = generateGuestResponseLink(eventId, guest.id);
+            
+            // Replace template variables
+            personalizedMessage = personalizedMessage
+              .replace(/\{\{guest_name\}\}/g, guest.firstName || '')
+              .replace(/\{\{firstName\}\}/g, guest.firstName || '')
+              .replace(/\{\{first_name\}\}/g, guest.firstName || '')
+              .replace(/\{\{coupleName\}\}/g, event.coupleName || '')
+              .replace(/\{\{groomName\}\}/g, event.groomName || '')
+              .replace(/\{\{brideName\}\}/g, event.brideName || '')
+              .replace(/\{\{eventType\}\}/g, event.eventTypeHebrew || '')
+              .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate) || '')
+              .replace(/\{\{event_time\}\}/g, event.eventTime || '')
+              .replace(/\{\{venue\}\}/g, event.venue || '')
+              .replace(/\{\{guest_response_link\}\}/g, guestLink);
+
+            // CRITICAL: No buttons - send text-only message instead
+            // Add response options as text in the message instead of buttons
+            const responseText = `\n\nלהשיב:\n• מגיע - ${guestLink}\n• לא אוכל להגיע - ${guestLink}?status=declined`;
+            const hasResponseText = personalizedMessage.includes('להשיב') || personalizedMessage.includes('מגיע') || personalizedMessage.includes('לא אוכל להגיע');
+            const finalPersonalizedMessage = hasResponseText ? personalizedMessage : personalizedMessage + responseText;
+
+            // Build template params (same logic as sendCampaign)
+            const templateCoupleName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'הזוג');
+            const templateGroomName = event.groomName || '';
+            const templateBrideName = event.brideName || '';
+            
+            let templateParams: any = undefined;
+            
+            if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "aa" requires 8 parameters in order (matching the template body):
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+              // CRITICAL: guest_response_link is required for the URL button at index 0
+              templateParams = {
+                paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                             'event_date', 'event_time', 'venue', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                groom_name: templateGroomName,
+                bride_name: templateBrideName,
+                event_date: formatDate(event.eventDate) || '',
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                couple_name: templateCoupleName,
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("לעדכון סטטוס הגעה")
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'a') {
+              templateParams = {
+                paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
+                guest_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                guest_response_link: guestLink,
+                couple_name: templateCoupleName,
+                language: 'he'
+              };
+            } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
+              const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+              const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
+              
+              templateParams = {
+                paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
+                             'event_time', 'venue', 'table_number'],
+                first_name: guest.firstName,
+                event_type: event.eventTypeHebrew || 'חתונה',
+                couple_name: templateCoupleName,
+                event_date: formatDate(event.eventDate),
+                event_time: event.eventTime || '',
+                venue: event.venue || '',
+                table_number: tableNumber,
+                language: 'he'
+              };
+            }
+
+            // Use event invitation image if available
+            const eventInvitationImageUrl = event.invitationImageUrl || campaign.imageUrl;
+
+            return {
+              id: guest.id,
+              firstName: guest.firstName,
+              lastName: guest.lastName,
+              phoneNumber: guest.phoneNumber,
+              channel: 'whatsapp',
+              message: finalPersonalizedMessage, // Use finalPersonalizedMessage with response text instead of buttons
+              firstMessageSent: guest.firstMessageSent || false,
+              eventData: {
+                coupleName: event.coupleName,
+                groomName: event.groomName,
+                brideName: event.brideName,
+                eventType: event.eventType,
+                eventTypeHebrew: event.eventTypeHebrew,
+                eventDate: formatDate(event.eventDate),
+                eventTime: event.eventTime,
+                venue: event.venue,
+                invitationImageUrl: eventInvitationImageUrl
+              },
+              templateParams: templateParams,
+              buttons: undefined // CRITICAL: No buttons - send text-only message
+            };
+          }));
+
+          // Send messages using messageService
+          const messageData: MessageData = {
+            message: campaign.message,
+            imageUrl: event.invitationImageUrl || campaign.imageUrl,
+            recipients: personalizedMessages,
+            templateName: templateNameForCampaign
+          };
+
+          const result = await messageService.sendBulkMessages(messageData);
+          
+          // Update messageStatus for each guest based on send results
+          const updatedEvents = get().events.map(event => {
+            if (event.id !== eventId) return event;
+            
+            const updatedGuests = event.guests?.map(guest => {
+              // Only update guests that were in the failed list
+              if (!failedGuests.find(fg => fg.id === guest.id)) {
+                return guest;
+              }
+              
+              const messageResult = result.results.find(r => r.recipientId === guest.id);
+              if (messageResult && messageResult.success) {
+                return {
+                  ...guest,
+                  messageStatus: 'sent' as const,
+                  messageSentDate: new Date(),
+                  channel: 'whatsapp'
+                };
+              } else if (messageResult && !messageResult.success) {
+                return {
+                  ...guest,
+                  messageStatus: 'failed' as const,
+                  messageFailedDate: new Date()
+                };
+              }
+              return guest;
+            });
+            
+            return {
+              ...event,
+              guests: updatedGuests,
+              updatedAt: new Date()
+            };
+          });
+          
+          console.log(`📤 Resend completed! ${result.successful} messages sent successfully, ${result.failed} failed`);
+          console.log(`✅ Updated messageStatus for ${result.successful} guests from "failed" to "sent"`);
+
+          set({
+            events: updatedEvents,
+            isLoading: false
+          });
+          
+          // Sync updated events to backend
+          const updatedEvent = updatedEvents.find(e => e.id === eventId);
+          if (updatedEvent) {
+            syncEventToAPI(updatedEvent).catch(err => {
+              console.warn('⚠️ Failed to sync updated event to API:', err);
+            });
+          }
+
+          return result;
+        } catch (error) {
+          set({ error: 'שגיאה בשליחה חוזרת לכשלונות', isLoading: false });
+          throw error;
+        }
+      },
+
+      sendTestMessage: async (phoneNumber: string, message: string, channel: 'whatsapp'): Promise<boolean> => {
         set({ isLoading: true, error: null });
         try {
           const recipients: MessageRecipient[] = [{
@@ -3251,7 +3306,7 @@ export const useEventStore = create<EventStore>()(
             firstName: 'Test',
             lastName: 'User',
             phoneNumber,
-            channel
+            channel: 'whatsapp'
           }];
 
           const messageData: MessageData = {
@@ -3526,21 +3581,90 @@ export const useEventStore = create<EventStore>()(
       restoreDeletedEvent: async (deletedEventId: string) => {
         set({ isLoading: true, error: null });
         try {
-          const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
-          if (deletedEvent) {
-            // Remove deletedAt property and restore the event
-            const { deletedAt, ...eventToRestore } = deletedEvent;
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          
+          // CRITICAL: First try to restore from backend (server is source of truth)
+          console.log(`🔄 Attempting to restore event ${deletedEventId} from backend...`);
+          const restoreResponse = await fetch(`${BACKEND_URL}/api/events/${deletedEventId}/restore`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (restoreResponse.ok) {
+            const restoreData = await restoreResponse.json();
+            console.log(`✅ Event restored from backend:`, restoreData.event);
+            console.log(`📊 Guests restored: ${restoreData.guestsRestored || restoreData.event.guests?.length || 0}`);
             
-            set(state => ({
-              events: [...state.events, eventToRestore],
-              deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
-              isLoading: false
-            }));
+            // CRITICAL: Log guest details to verify they were restored
+            if (restoreData.event.guests && restoreData.event.guests.length > 0) {
+              console.log(`📋 Restored guests with RSVP data:`, restoreData.event.guests.map((g: any) => ({
+                id: g.id,
+                name: `${g.firstName} ${g.lastName}`,
+                phone: g.phoneNumber,
+                rsvpStatus: g.rsvpStatus,
+                guestCount: g.guestCount,
+                responseDate: g.responseDate,
+                actualAttendance: g.actualAttendance,
+                notes: g.notes
+              })));
+            }
             
+            // Refresh events from API to get the restored event with all guests
+            await get().fetchEvents(true);
+            
+            set({ isLoading: false });
             return true;
+          } else {
+            // If backend restore fails, try local restore
+            console.warn(`⚠️ Backend restore failed, trying local restore...`);
+            const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
+            if (deletedEvent) {
+              // Remove deletedAt property and restore the event
+              // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
+              const { deletedAt, ...eventToRestore } = deletedEvent;
+              
+              // CRITICAL: Ensure guests array is preserved with all data
+              const restoredEvent = {
+                ...eventToRestore,
+                guests: deletedEvent.guests || [] // CRITICAL: Explicitly preserve guests array
+              };
+              
+              console.log(`📊 Restoring event locally with ${restoredEvent.guests.length} guests`);
+              if (restoredEvent.guests.length > 0) {
+                console.log(`📋 Guest details:`, restoredEvent.guests.map((g: any) => ({
+                  id: g.id,
+                  name: `${g.firstName} ${g.lastName}`,
+                  phone: g.phoneNumber,
+                  rsvpStatus: g.rsvpStatus,
+                  guestCount: g.guestCount,
+                  responseDate: g.responseDate,
+                  actualAttendance: g.actualAttendance,
+                  notes: g.notes
+                })));
+              }
+              
+              set(state => ({
+                events: [...state.events, restoredEvent],
+                deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
+                isLoading: false
+              }));
+              
+              // CRITICAL: Sync restored event to backend with all guests
+              await syncEventToAPI(restoredEvent);
+              
+              console.log(`✅ Event restored locally with ${restoredEvent.guests.length} guests`);
+              return true;
+            }
+            
+            const errorData = await restoreResponse.json().catch(() => ({ error: restoreResponse.statusText }));
+            console.error(`❌ Failed to restore event:`, errorData);
+            set({ error: `שגיאה בשחזור האירוע: ${errorData.error || 'האירוע לא נמצא'}`, isLoading: false });
+            return false;
           }
-          return false;
         } catch (error) {
+          console.error('❌ Error restoring event:', error);
           set({ error: 'שגיאה בשחזור האירוע', isLoading: false });
           return false;
         }
@@ -3571,26 +3695,53 @@ export const useEventStore = create<EventStore>()(
               console.log('🔄 Restoring events from localStorage:', parsed.state.events.length);
               console.log('📋 Events data:', parsed.state.events);
               
+              // CRITICAL: Log guest information for each event
+              parsed.state.events.forEach((event: any, index: number) => {
+                const guestCount = event.guests?.length || 0;
+                console.log(`📅 Event ${index + 1}:`, {
+                  id: event.id,
+                  coupleName: event.coupleName,
+                  guestsCount: guestCount,
+                  campaignsCount: event.campaigns?.length || 0,
+                  tablesCount: event.tables?.length || 0
+                });
+                
+                // Log guest details if available
+                if (guestCount > 0) {
+                  console.log(`📋 Guests for event ${event.id}:`, event.guests.map((g: any) => ({
+                    id: g.id,
+                    name: `${g.firstName} ${g.lastName}`,
+                    phone: g.phoneNumber,
+                    rsvpStatus: g.rsvpStatus,
+                    guestCount: g.guestCount,
+                    responseDate: g.responseDate,
+                    actualAttendance: g.actualAttendance,
+                    notes: g.notes
+                  })));
+                }
+              });
+              
               // Force complete restoration by updating the store directly
+              // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
               set((state) => {
                 console.log('🔄 Current state before restore:', state);
+                
+                // CRITICAL: Ensure all guests are preserved with their data
+                const restoredEvents = parsed.state.events.map((event: any) => ({
+                  ...event,
+                  guests: event.guests || [] // CRITICAL: Explicitly preserve guests array
+                }));
+                
                 return {
                   ...state,
-                  events: parsed.state.events,
+                  events: restoredEvents,
                   currentEvent: parsed.state.currentEvent || null
                 };
               });
               
-              // Log details about each event
-              parsed.state.events.forEach((event: any, index: number) => {
-                console.log(`📅 Event ${index + 1}:`, {
-                  id: event.id,
-                  coupleName: event.coupleName,
-                  guestsCount: event.guests?.length || 0,
-                  campaignsCount: event.campaigns?.length || 0,
-                  tablesCount: event.tables?.length || 0
-                });
-              });
+              console.log(`✅ Restored ${parsed.state.events.length} events from localStorage`);
+              const totalGuests = parsed.state.events.reduce((sum: number, e: any) => sum + (e.guests?.length || 0), 0);
+              console.log(`✅ Total guests restored: ${totalGuests}`);
               
               return true;
             }
@@ -3812,29 +3963,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template for first message
             templateName: 'aa', // Template name in Meta Business Manager
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{guest_name}}! 
 
 אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
@@ -3872,29 +4002,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'a' for this campaign
             templateName: 'a',
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{guest_name}}! 
 
 תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
@@ -3938,29 +4047,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'a' for this campaign
             templateName: 'a',
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `⏰ שלום {{guest_name}}!
 
 תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
@@ -4006,29 +4094,8 @@ export const useEventStore = create<EventStore>()(
             responseCount: 0,
             // Use WhatsApp template 'today' for this campaign
             templateName: 'today', // Template name in Meta is "today"
-            whatsappButtons: [
-              {
-                type: 'url',
-                url: {
-                  url: '{{guest_response_link}}',
-                  title: 'עדכון סטטוס הגעה'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'decline_attendance',
-                  title: 'לא אוכל להגיע'
-                }
-              },
-              {
-                type: 'reply',
-                reply: {
-                  id: 'confirm_attendance',
-                  title: 'מגיע'
-                }
-              }
-            ],
+            // CRITICAL: No buttons - send text-only message with links instead
+            whatsappButtons: [],
             smsMessage: `שלום {{first_name}}! 
 
 מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
@@ -4608,6 +4675,33 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
+      // CRITICAL: Sync a specific event to API (for automatic sync when event is loaded)
+      syncCurrentEventToAPI: async (eventId?: string) => {
+        try {
+          const eventToSync = eventId 
+            ? get().events.find(e => e.id === eventId)
+            : get().currentEvent;
+          
+          if (!eventToSync) {
+            console.warn('⚠️ No event to sync:', eventId || 'currentEvent');
+            return;
+          }
+          
+          // Only sync if event has guests (to avoid unnecessary syncs)
+          if (!eventToSync.guests || eventToSync.guests.length === 0) {
+            console.log(`⏭️ Skipping sync for event ${eventToSync.id} - no guests`);
+            return;
+          }
+          
+          console.log(`🔄 Auto-syncing event ${eventToSync.id} with ${eventToSync.guests.length} guests...`);
+          await syncEventToAPI(eventToSync);
+          console.log(`✅ Auto-synced event ${eventToSync.id} successfully`);
+        } catch (error) {
+          console.warn('⚠️ Failed to auto-sync event:', error);
+          // Don't throw - this is a background sync, shouldn't block UI
+        }
+      },
+
       // CRITICAL: Sync all events from localStorage to API (for multi-computer access)
       syncAllEventsToAPI: async () => {
         set({ isLoading: true, error: null });
@@ -4647,75 +4741,18 @@ export const useEventStore = create<EventStore>()(
           let failedCount = 0;
 
           // Sync each event individually
-          // CRITICAL: Send only event details (no guests) to prevent 413 errors
+          // CRITICAL: Use syncEventToAPI to send FULL event WITH guests
+          // This ensures all guests are synced to the backend
           for (const event of userEvents) {
             try {
-              // Create minimal payload with only event details (no guests)
-              const eventDetailsOnly = {
-                id: event.id,
-                userId: event.userId,
-                coupleName: event.coupleName,
-                groomName: event.groomName,
-                brideName: event.brideName,
-                eventDate: event.eventDate,
-                eventTime: event.eventTime,
-                venue: event.venue,
-                couplePhone: event.couplePhone,
-                coupleEmail: event.coupleEmail,
-                eventType: event.eventType,
-                eventTypeHebrew: event.eventTypeHebrew,
-                invitationImageUrl: event.invitationImageUrl,
-                createdAt: event.createdAt,
-                updatedAt: event.updatedAt
-                // Intentionally exclude guests to prevent 413 errors
-              };
-              
-              const syncResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(eventDetailsOnly)
-              });
-              
-              if (syncResponse.ok) {
+              // Use syncEventToAPI which sends the full event with all guests
+              await syncEventToAPI(event);
                 syncedCount++;
-                console.log(`✅ Synced event "${event.coupleName}" (${event.id}) to API`);
-              } else {
+              console.log(`✅ Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
+            } catch (error: any) {
                 failedCount++;
-                const errorText = await syncResponse.text();
-                console.error(`❌ Failed to sync event "${event.coupleName}":`, errorText);
-                
-                // If 413 error, try with minimal payload
-                if (syncResponse.status === 413) {
-                  console.log(`🔄 413 error - trying minimal payload for event "${event.coupleName}"...`);
-                  const minimalPayload = {
-                    id: event.id,
-                    userId: event.userId,
-                    coupleName: event.coupleName,
-                    eventDate: event.eventDate,
-                    eventTime: event.eventTime,
-                    venue: event.venue
-                  };
-                  
-                  const retryResponse = await fetch(`${BACKEND_URL}/api/events`, {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(minimalPayload)
-                  });
-                  
-                  if (retryResponse.ok) {
-                    console.log(`✅ Synced event "${event.coupleName}" with minimal payload`);
-                    syncedCount++;
-                    failedCount--; // Adjust counts
-                  }
-                }
-              }
-            } catch (error) {
-              failedCount++;
-              console.error(`❌ Error syncing event "${event.coupleName}":`, error);
+              console.error(`❌ Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
+              // syncEventToAPI already handles 413 errors internally, so we just log the failure
             }
           }
 
@@ -4742,8 +4779,9 @@ export const useEventStore = create<EventStore>()(
     {
       name: 'rsvp-events-storage',
       partialize: (state) => {
-        // CRITICAL FIX: Only save events that belong to current user!
-        // Get current user ID to filter events
+        // CRITICAL FIX: Preserve ALL events in localStorage, even if user is not logged in
+        // This prevents data loss after deployment when user is not authenticated
+        // Get current user ID to filter events (but don't delete if no userId)
         let currentUserId = '';
         try {
           const userStorage = localStorage.getItem('rsvp-user-storage');
@@ -4755,17 +4793,18 @@ export const useEventStore = create<EventStore>()(
           console.warn('⚠️ Could not get userId in partialize:', e);
         }
 
-        // Note: manualChanges is NOT saved to localStorage (Map cannot be serialized)
         try {
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state?.events && parsed.state.events.length > 0) {
-              // CRITICAL FIX: Only save current user's events!
-              // Filter events from storage - keep only current user's events
-              // IMPORTANT: Exclude admin events (admin-fixed-id) for regular users
+              // CRITICAL FIX: Preserve ALL events from storage, even if user is not logged in
+              // This prevents data loss after deployment
               const allEventsFromStorage = parsed.state.events;
-              const currentUserEventsFromStorage = currentUserId 
+              
+              // Only filter by userId if we have a currentUserId (user is logged in)
+              // If no userId, preserve ALL events to prevent data loss
+              const eventsToPreserve = currentUserId 
                 ? allEventsFromStorage.filter((e: Event) => {
                     // If event belongs to admin, exclude it for regular users
                     if (e.userId === 'admin-fixed-id' && currentUserId !== 'admin-fixed-id') {
@@ -4774,16 +4813,16 @@ export const useEventStore = create<EventStore>()(
                     // Keep events that belong to current user or have no userId/anonymous
                     return e.userId === currentUserId || !e.userId || e.userId === 'anonymous';
                   })
-                : allEventsFromStorage;
+                : allEventsFromStorage; // CRITICAL: Preserve ALL events if no userId (after deployment)
               
               const currentEventsFromState = state.events || [];
               
               // Create a map of events from state (these might have updates)
               const stateEventsMap = new Map(currentEventsFromState.map((e: Event) => [e.id, e]));
               
-              // Merge: use updated events from state, keep others from storage (only current user's events)
+              // Merge: use updated events from state, keep others from storage
               // CRITICAL: Clean guest names before saving
-              const mergedEvents = currentUserEventsFromStorage.map((storedEvent: Event) => {
+              const mergedEvents = eventsToPreserve.map((storedEvent: Event) => {
                 const updatedEvent = stateEventsMap.get(storedEvent.id);
                 return updatedEvent || storedEvent;
               });
@@ -4797,20 +4836,38 @@ export const useEventStore = create<EventStore>()(
                 }
               });
               
-              // CRITICAL: Clean all guest names before saving to localStorage
-              const cleanedMergedEvents = mergedEvents.map((event: Event) => ({
-                ...event,
-                guests: event.guests?.map((guest: Guest) => ({
-                  ...guest,
-                  firstName: cleanName(guest.firstName),
-                  lastName: cleanName(guest.lastName)
-                })) || []
-              }));
+              // CRITICAL: Get deletedGuests from state (most up-to-date)
+              const currentDeletedGuests = state.deletedGuests || parsed.state.deletedGuests || {};
+              
+              // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+              // This prevents deleted guests from being restored when fetching from localStorage
+              const cleanedMergedEvents = mergedEvents.map((event: Event) => {
+                const deletedGuestIds = currentDeletedGuests[event.id] || [];
+                return {
+                  ...event,
+                  guests: event.guests
+                    ?.filter((guest: Guest) => {
+                      // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                      if (deletedGuestIds.includes(guest.id)) {
+                        console.log(`🚫 Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                        return false;
+                      }
+                      return true;
+                    })
+                    .map((guest: Guest) => ({
+                      ...guest,
+                      firstName: cleanName(guest.firstName),
+                      lastName: cleanName(guest.lastName)
+                    })) || []
+                };
+              });
+              
+              console.log(`💾 Saving ${cleanedMergedEvents.length} events to localStorage (userId: ${currentUserId || 'none'})`);
               
               return {
-                events: cleanedMergedEvents, // ONLY current user's events
+                events: cleanedMergedEvents, // Preserve all events (filtered by userId only if logged in), with deleted guests removed
                 deletedEvents: state.deletedEvents || parsed.state.deletedEvents || [],
-                deletedGuests: state.deletedGuests || parsed.state.deletedGuests || {},
+                deletedGuests: currentDeletedGuests, // Use currentDeletedGuests from state
                 currentEvent: state.currentEvent || parsed.state.currentEvent || null
               };
             }
@@ -4820,20 +4877,35 @@ export const useEventStore = create<EventStore>()(
           if (state.events && state.events.length > 0) {
             console.log('💾 No storage found, saving current state events:', state.events.length);
             
-            // CRITICAL: Clean all guest names before saving to localStorage
-            const cleanedEvents = state.events.map((event: Event) => ({
-              ...event,
-              guests: event.guests?.map((guest: Guest) => ({
-                ...guest,
-                firstName: cleanName(guest.firstName),
-                lastName: cleanName(guest.lastName)
-              })) || []
-            }));
+            // CRITICAL: Get deletedGuests from state
+            const currentDeletedGuests = state.deletedGuests || {};
+            
+            // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+            const cleanedEvents = state.events.map((event: Event) => {
+              const deletedGuestIds = currentDeletedGuests[event.id] || [];
+              return {
+                ...event,
+                guests: event.guests
+                  ?.filter((guest: Guest) => {
+                    // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                    if (deletedGuestIds.includes(guest.id)) {
+                      console.log(`🚫 Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                      return false;
+                    }
+                    return true;
+                  })
+                  .map((guest: Guest) => ({
+                    ...guest,
+                    firstName: cleanName(guest.firstName),
+                    lastName: cleanName(guest.lastName)
+                  })) || []
+              };
+            });
             
             return {
               events: cleanedEvents,
               deletedEvents: state.deletedEvents || [],
-              deletedGuests: state.deletedGuests || {},
+              deletedGuests: currentDeletedGuests,
               currentEvent: state.currentEvent || null
             };
           }
@@ -4842,20 +4914,35 @@ export const useEventStore = create<EventStore>()(
         }
         
         // Fallback: if we can't merge, at least save what we have
-        // CRITICAL: Clean all guest names before saving to localStorage
-        const cleanedFallbackEvents = (state.events || []).map((event: Event) => ({
-          ...event,
-          guests: event.guests?.map((guest: Guest) => ({
-            ...guest,
-            firstName: cleanName(guest.firstName),
-            lastName: cleanName(guest.lastName)
-          })) || []
-        }));
+        // CRITICAL: Get deletedGuests from state
+        const currentDeletedGuests = state.deletedGuests || {};
+        
+        // CRITICAL: Clean all guest names AND filter out deleted guests before saving to localStorage
+        const cleanedFallbackEvents = (state.events || []).map((event: Event) => {
+          const deletedGuestIds = currentDeletedGuests[event.id] || [];
+          return {
+            ...event,
+            guests: event.guests
+              ?.filter((guest: Guest) => {
+                // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
+                if (deletedGuestIds.includes(guest.id)) {
+                  console.log(`🚫 Filtering out deleted guest from localStorage (fallback): ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                  return false;
+                }
+                return true;
+              })
+              .map((guest: Guest) => ({
+                ...guest,
+                firstName: cleanName(guest.firstName),
+                lastName: cleanName(guest.lastName)
+              })) || []
+          };
+        });
         
         return { 
           events: cleanedFallbackEvents,
           deletedEvents: state.deletedEvents || [],
-          deletedGuests: state.deletedGuests || {},
+          deletedGuests: currentDeletedGuests,
           currentEvent: state.currentEvent || null
         };
       },

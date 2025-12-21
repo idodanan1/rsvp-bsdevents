@@ -8,8 +8,8 @@ interface CacheEntry<T> {
 
 class CacheService {
   private cache = new Map<string, CacheEntry<any>>();
-  private readonly DEFAULT_TTL = 5000; // 5 seconds default cache time
-  private readonly MAX_CACHE_SIZE = 100; // Maximum number of cache entries
+  private readonly DEFAULT_TTL = 30000; // 30 seconds default cache time (optimized for performance)
+  private readonly MAX_CACHE_SIZE = 200; // Maximum number of cache entries (increased for better caching)
 
   /**
    * Get cached data if available and not expired

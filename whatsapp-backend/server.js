@@ -148,6 +148,225 @@ function sanitizeAccessToken(token) {
   return cleaned;
 }
 
+// Helper function to generate unique ID
+function generateId() {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+}
+
+// Helper function to create default campaigns for an event
+function createDefaultCampaigns(eventId, eventDate) {
+  const eventDateObj = eventDate ? (typeof eventDate === 'string' ? new Date(eventDate) : eventDate) : new Date();
+  
+  const campaigns = [
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'הזמנה ראשונית',
+      message: `🎉 שלום {{guest_name}}! 
+
+אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+
+📅 {{event_date}} | 🕐 {{event_time}}
+📍 {{venue}}
+
+{{guest_response_link}}
+
+בברכה,
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
+      smsMessage: `שלום {{guest_name}}! 
+
+אנחנו שמחים להזמין אותך ל{{event_type}} של {{groom_name}} ו{{bride_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה בקישור הבא:
+{{guest_response_link}}
+
+בברכה,
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת שנייה',
+      message: `שלום! רק שבועיים לאירוע! 🎊
+
+📅 {{event_date}}
+📍 {{venue}}
+
+אם עדיין לא אישרתם הגעה, אנא עשו זאת עכשיו!
+
+🔗 לאשר הגעה ולעדכן סטטוס: {{guest_response_link}}
+
+נרגש לראות אתכם!`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
+      smsMessage: `שלום {{guest_name}}! 
+
+תזכורת: ה{{event_type}} של {{couple_name}} מתקרב! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+
+אם עדיין לא אשרת הגעה, אנא עשה זאת בקישור:
+{{guest_response_link}}
+
+מחכים לראות אותך!`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת שבועית',
+      message: `⏰ שלום {{guest_name}}!
+
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+
+📅 תאריך: {{event_date}}
+
+🕐 שעה: {{event_time}}
+
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה עד סוף השבוע:
+
+🔗 {{guest_response_link}}
+
+בברכה,
+
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'aa',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
+      smsMessage: `⏰ שלום {{guest_name}}!
+
+תזכורת אחרונה: אתם מוזמנים אל ה{{event_type}} של {{couple_name}}  האירוע ממש בקרוב אני אשרו הגעתכם
+
+📅 תאריך: {{event_date}}
+
+🕐 שעה: {{event_time}}
+
+📍 מיקום: {{venue}}
+
+אנא אשר/י הגעה עד סוף השבוע:
+
+{{guest_response_link}}
+
+בברכה,
+
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'תזכורת אחרונה',
+      message: `🎉 שלום {{first_name}}! 
+
+מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+🪑 שולחן: {{table_number}}
+
+אנא הגיעו 15 דקות לפני הזמן.
+
+🔗 לעדכן סטטוס ההגעה לחץ
+
+לא לשכוח להביא מצב רוח טוב! 😊`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      templateName: 'today',
+      // CRITICAL: No buttons - send text-only message with links instead
+      whatsappButtons: [],
+      smsMessage: `שלום {{first_name}}! 
+
+מחר זה קורה! ה{{event_type}} של {{couple_name}}! 
+
+📅 תאריך: {{event_date}}
+🕐 שעה: {{event_time}}
+📍 מיקום: {{venue}}
+🪑 שולחן: {{table_number}}
+
+אנא הגיעו 15 דקות לפני הזמן.
+
+🔗 לעדכן סטטוס ההגעה לחץ
+
+לא לשכוח להביא מצב רוח טוב! 😊`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    },
+    {
+      id: generateId(),
+      eventId: eventId,
+      name: 'הודעת תודה למגיעים',
+      message: `🙏 שלום {{guest_name}}! 
+
+תודה רבה שהגעת ל{{event_type}} של {{couple_name}}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות! 💝
+
+תמונות מהאירוע יועלו בקרוב.
+
+באהבה,
+{{couple_name}} 💕`,
+      channel: 'whatsapp',
+      scheduledDate: new Date(eventDateObj.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      status: 'draft',
+      sentCount: 0,
+      responseCount: 0,
+      smsMessage: `שלום {{guest_name}}! 
+
+תודה רבה שהגעת ל{{event_type}} של {{couple_name}}! 
+
+היה לנו כיף לראות אותך ולהיות איתנו ביום המיוחד הזה.
+
+תודה על הברכות והמתנות!
+
+תמונות מהאירוע יועלו בקרוב.
+
+באהבה,
+{{couple_name}}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+  ];
+  
+  return campaigns;
+}
+
 // Set default API keys if not provided
 process.env.WANOTIFIER_API_KEY = process.env.WANOTIFIER_API_KEY || 'oUDrqkaOHa6wv2oWZ4SsM31RbxcKLG';
 process.env.CALLMEBOT_API_KEY = process.env.CALLMEBOT_API_KEY || '1234567890';
@@ -495,6 +714,10 @@ let eventsData = {
 
 // Load events from file on startup
 try {
+  console.log(`📂 Events file path: ${eventsFilePath}`);
+  console.log(`📂 __dirname: ${__dirname}`);
+  console.log(`📂 File exists: ${fs.existsSync(eventsFilePath)}`);
+  
   if (fs.existsSync(eventsFilePath)) {
     const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
     eventsData.events = fileData.events || [];
@@ -502,10 +725,34 @@ try {
     console.log(`✅ Loaded ${eventsData.events.length} events from file`);
   } else {
     console.log('📝 No events file found - starting with empty events');
+    // CRITICAL: Create empty events file on startup to ensure file exists
+    // This helps with Render's file system persistence
+    try {
+      const dir = path.dirname(eventsFilePath);
+      if (!fs.existsSync(dir)) {
+        console.log(`📁 Creating directory: ${dir}`);
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
+      console.log(`✅ Created empty events file at startup: ${eventsFilePath}`);
+    } catch (createError) {
+      console.error('❌ Error creating events file:', createError);
+    }
   }
 } catch (error) {
   console.error('❌ Error loading events file:', error);
   eventsData = { events: [], deletedEvents: [] };
+  // Try to create empty file as fallback
+  try {
+    const dir = path.dirname(eventsFilePath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
+    console.log(`✅ Created empty events file after error: ${eventsFilePath}`);
+  } catch (createError) {
+    console.error('❌ Error creating events file after error:', createError);
+  }
 }
 
 // Load events from file (reload from disk)
@@ -527,10 +774,47 @@ function loadEvents() {
 // Save events to file
 function saveEvents() {
   try {
+    // CRITICAL: Log what we're saving for debugging
+    const totalGuests = eventsData.events.reduce((sum, e) => sum + (e.guests?.length || 0), 0);
+    console.log(`💾 Saving ${eventsData.events.length} events to file (total ${totalGuests} guests)`);
+    
+    // Log guest counts per event
+    eventsData.events.forEach(e => {
+      const guestCount = e.guests?.length || 0;
+      if (guestCount > 0) {
+        console.log(`💾 Event ${e.id}: ${guestCount} guests`);
+      }
+    });
+    
+    console.log(`💾 File path: ${eventsFilePath}`);
+    console.log(`💾 File exists before save: ${fs.existsSync(eventsFilePath)}`);
+    
+    // CRITICAL: Ensure directory exists before writing file
+    const dir = path.dirname(eventsFilePath);
+    if (!fs.existsSync(dir)) {
+      console.log(`📁 Creating directory: ${dir}`);
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    // CRITICAL: Write file - this will create it if it doesn't exist
     fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
     console.log(`💾 Saved ${eventsData.events.length} events to file`);
+    console.log(`💾 File exists after save: ${fs.existsSync(eventsFilePath)}`);
+    
+    // CRITICAL: Verify what was saved
+    if (fs.existsSync(eventsFilePath)) {
+      const savedContent = fs.readFileSync(eventsFilePath, 'utf8');
+      const savedData = JSON.parse(savedContent);
+      const savedTotalGuests = savedData.events?.reduce((sum, e) => sum + (e.guests?.length || 0), 0) || 0;
+      console.log(`💾 Verified: Saved file contains ${savedData.events?.length || 0} events with ${savedTotalGuests} total guests`);
+    } else {
+      console.error(`❌ File was not created! Path: ${eventsFilePath}`);
+    }
   } catch (error) {
     console.error('❌ Error saving events file:', error);
+    console.error('❌ Error stack:', error.stack);
+    console.error('❌ File path:', eventsFilePath);
+    console.error('❌ __dirname:', __dirname);
   }
 }
 
@@ -590,7 +874,9 @@ const upload = multer({
 });
 
 // Middleware
-app.use(express.json()); // Parse JSON bodies
+// CRITICAL: Increase body parser limit to handle large events with many guests (417 guests = ~113KB)
+// Default limit is 100KB, we need at least 200KB for large events
+app.use(express.json({ limit: '10mb' })); // Parse JSON bodies with 10MB limit
 
 // Stripe webhook handler (must be before express.json() to get raw body)
 app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -660,8 +946,9 @@ app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), asy
   }
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// CRITICAL: Increase body parser limit to handle large events with many guests
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(uploadsDir));
@@ -1092,11 +1379,73 @@ async function handleIncomingMessage(message) {
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
     
-    if (buttonId === 'confirm_attendance' || 
+    // CRITICAL: Check for decline patterns FIRST to exclude them from confirm patterns
+    // This ensures "לא מגיע" is never matched as "מגיע"
+    // CRITICAL FIX: Check for decline patterns BEFORE confirm patterns to prevent false positives
+    const isDeclinePattern = 
+        // Exact decline matches (highest priority - check these FIRST)
+        buttonId === 'decline_attendance' || 
+        buttonId === 'לא אוכל להגיע' ||
+        buttonId === 'לא מגיע' ||
+        buttonTitle === 'לא אוכל להגיע' ||
+        buttonTitle === 'לא מגיע' ||
+        // Check if "לא" comes BEFORE "מגיע" or "אגיע" in buttonTitle
+        (buttonTitle && 
+         buttonTitle.includes('לא') && 
+         (buttonTitle.includes('מגיע') || buttonTitle.includes('אגיע')) &&
+         buttonTitle.indexOf('לא') !== -1 && 
+         ((buttonTitle.indexOf('מגיע') !== -1 && buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+          (buttonTitle.indexOf('אגיע') !== -1 && buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))));
+    
+    // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+    // This ensures "מגיע" is always recognized as confirmed, not declined
+    // CRITICAL: Must check for exact matches FIRST, then check for "מגיע" WITHOUT "לא" prefix
+    // CRITICAL: Use precise matching to avoid false positives
+    // CRITICAL: Check buttonId and buttonTitle separately and prioritize exact matches
+    // CRITICAL: Use case-sensitive checks for Hebrew text (Hebrew doesn't have case, but we want exact matches)
+    // CRITICAL: Only check for confirm patterns if it's NOT a decline pattern
+    const isConfirmButton = !isDeclinePattern && ( 
+        // Exact buttonId matches (highest priority)
+        buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
-        buttonIdLower.includes('confirm') ||
+        buttonId === 'confirmed' ||
+        // Exact buttonTitle matches (high priority) - MUST be exact match, not includes
         buttonTitle === 'מגיע' ||
-        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
+        buttonTitle === 'אגיע' ||
+        // ButtonId contains 'confirm' but NOT 'decline'
+        (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
+        // CRITICAL: Only match "מגיע" in buttonTitle if:
+        // 1. "מגיע" exists in buttonTitle
+        // 2. "לא" does NOT exist in buttonTitle OR "מגיע" comes BEFORE "לא"
+        // 3. Use exact position check to ensure "לא" doesn't come before "מגיע"
+        (buttonTitle && 
+         buttonTitle.includes('מגיע') && 
+         (!buttonTitle.includes('לא') || 
+          (buttonTitle.indexOf('מגיע') !== -1 && 
+           buttonTitle.indexOf('לא') !== -1 && 
+           buttonTitle.indexOf('מגיע') < buttonTitle.indexOf('לא')))) ||
+        // Match "אגיע" only if "לא" doesn't come before it
+        (buttonTitle && 
+         buttonTitle.includes('אגיע') && 
+         (!buttonTitle.includes('לא') || 
+          (buttonTitle.indexOf('אגיע') !== -1 && 
+           buttonTitle.indexOf('לא') !== -1 && 
+           buttonTitle.indexOf('אגיע') < buttonTitle.indexOf('לא'))))
+    );
+    
+    // CRITICAL: Log button detection for debugging
+    console.log('🔍 Button detection:', {
+      buttonId,
+      buttonTitle,
+      buttonIdLower,
+      buttonTitleLower,
+      isDeclinePattern,
+      isConfirmButton,
+      willProcessAsConfirm: isConfirmButton,
+      willProcessAsDecline: isDeclinePattern
+    });
+    
+    if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
       console.log(`📞 Phone number received: ${phoneNumber}`);
       
@@ -1131,23 +1480,39 @@ async function handleIncomingMessage(message) {
         // Guest confirmed - no automatic message sent
         console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
-    } else if (buttonId === 'decline_attendance' || 
+    } else if (
+               // CRITICAL: Check exact matches first (highest priority)
+               buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
-               buttonIdLower.includes('decline') ||
-               buttonIdLower.includes('לא אוכל') ||
-               buttonIdLower.includes('לא מגיע') ||
-               buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonId for decline keywords (but NOT confirm)
+               (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
+               buttonIdLower.includes('לא אוכל') ||
+               buttonIdLower.includes('לא אוכל להגיע') ||
+               // CRITICAL: Check buttonTitle for decline keywords
                buttonTitle?.includes('לא אוכל') ||
-               buttonTitle?.includes('לא מגיע') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
-               buttonTitleLower.includes('לא מגיע') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
-               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+               // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
+               // This ensures "מגיע" alone is NOT matched as decline
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                buttonTitle.includes('מגיע') && 
+                buttonTitle.indexOf('לא') !== -1 && 
+                buttonTitle.indexOf('מגיע') !== -1 && 
+                buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "אגיע" without "לא" prefix)
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                (buttonTitle.includes('אוכל') || 
+                 (buttonTitle.includes('אגיע') && 
+                  buttonTitle.indexOf('לא') !== -1 && 
+                  buttonTitle.indexOf('אגיע') !== -1 && 
+                  buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -1209,7 +1574,10 @@ async function handleIncomingMessage(message) {
       const isWaiting = isWaitingForResponse(normalizedPhone);
       const hasThanks = hasReceivedThanks(normalizedPhone);
       
-      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
+      // CRITICAL: Use precise matching - only match "מגיע" if "לא" doesn't come before it
+      if (buttonTitleLower.includes('כן') || 
+          (buttonTitleLower.includes('מגיע') && (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) || 
+          (buttonTitleLower.includes('אגיע') && (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')))) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
         
@@ -1236,8 +1604,12 @@ async function handleIncomingMessage(message) {
           // Guest confirmed - no automatic message sent
           console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
-                 (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+      } else if (buttonTitleLower.includes('דחה') ||
+                 // CRITICAL: Only match decline if "לא" comes BEFORE "מגיע", "אגיע", or "אוכל"
+                 (buttonTitleLower.includes('לא') && 
+                  ((buttonTitleLower.includes('אוכל') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אוכל')) ||
+                   (buttonTitleLower.includes('מגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('מגיע')) ||
+                   (buttonTitleLower.includes('אגיע') && buttonTitleLower.indexOf('לא') < buttonTitleLower.indexOf('אגיע'))))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
         console.log(`   Button Title: "${buttonTitle}"`);
@@ -1293,11 +1665,21 @@ async function handleIncomingMessage(message) {
     const buttonTitleLower = (buttonTitle || '').toLowerCase();
     const buttonIdLower = (buttonId || '').toLowerCase();
     
-    if (buttonId === 'confirm_attendance' || 
+    // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+    // Use precise matching to avoid false positives - only match "מגיע" if "לא" doesn't come before it
+    const isConfirmButton = buttonId === 'confirm_attendance' || 
         buttonId === 'מגיע' ||
-        buttonIdLower.includes('confirm') ||
         buttonTitle === 'מגיע' ||
-        (buttonTitle?.includes('מגיע') && !buttonTitle?.includes('לא'))) {
+        buttonTitle === 'אגיע' ||
+        (buttonIdLower.includes('confirm') && !buttonIdLower.includes('decline')) ||
+        // CRITICAL: Only match "מגיע" if "לא" does NOT come BEFORE "מגיע"
+        (buttonTitleLower.includes('מגיע') && 
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('מגיע') < buttonTitleLower.indexOf('לא'))) ||
+        // Match "אגיע" only if "לא" doesn't come before it
+        (buttonTitleLower.includes('אגיע') && 
+         (buttonTitleLower.indexOf('לא') === -1 || buttonTitleLower.indexOf('אגיע') < buttonTitleLower.indexOf('לא')));
+    
+    if (isConfirmButton) {
       console.log('✅ Guest confirmed attendance via button!');
       console.log(`📞 Phone number received: ${phoneNumber}`);
       
@@ -1332,23 +1714,39 @@ async function handleIncomingMessage(message) {
         // Guest confirmed - no automatic message sent
         console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
       }
-    } else if (buttonId === 'decline_attendance' || 
+    } else if (
+               // CRITICAL: Check exact matches first (highest priority)
+               buttonId === 'decline_attendance' || 
                buttonId === 'לא אוכל להגיע' ||
                buttonId === 'לא מגיע' ||
-               buttonIdLower.includes('decline') ||
-               buttonIdLower.includes('לא אוכל') ||
-               buttonIdLower.includes('לא מגיע') ||
-               buttonIdLower.includes('לא אוכל להגיע') ||
                buttonTitle === 'לא אוכל להגיע' ||
                buttonTitle === 'לא מגיע' ||
+               // CRITICAL: Check buttonId for decline keywords (but NOT confirm)
+               (buttonIdLower.includes('decline') && !buttonIdLower.includes('confirm')) ||
+               buttonIdLower.includes('לא אוכל') ||
+               buttonIdLower.includes('לא אוכל להגיע') ||
+               // CRITICAL: Check buttonTitle for decline keywords
                buttonTitle?.includes('לא אוכל') ||
-               buttonTitle?.includes('לא מגיע') ||
                buttonTitle?.includes('דחה') ||
                buttonTitleLower.includes('לא אוכל') ||
-               buttonTitleLower.includes('לא מגיע') ||
                buttonTitleLower.includes('לא אוכל להגיע') ||
                buttonTitleLower.includes('דחה') ||
-               (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
+               // CRITICAL: Only match "לא מגיע" if "לא" comes BEFORE "מגיע" in the text
+               // This ensures "מגיע" alone is NOT matched as decline
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                buttonTitle.includes('מגיע') && 
+                buttonTitle.indexOf('לא') !== -1 && 
+                buttonTitle.indexOf('מגיע') !== -1 && 
+                buttonTitle.indexOf('לא') < buttonTitle.indexOf('מגיע')) ||
+               // Match "לא אוכל" or "לא אגיע" (but NOT "אגיע" without "לא" prefix)
+               (buttonTitle && 
+                buttonTitle.includes('לא') && 
+                (buttonTitle.includes('אוכל') || 
+                 (buttonTitle.includes('אגיע') && 
+                  buttonTitle.indexOf('לא') !== -1 && 
+                  buttonTitle.indexOf('אגיע') !== -1 && 
+                  buttonTitle.indexOf('לא') < buttonTitle.indexOf('אגיע'))))) {
       console.log('❌ Guest declined attendance via button!');
       console.log(`   Button ID: "${buttonId}"`);
       console.log(`   Button Title: "${buttonTitle}"`);
@@ -1518,7 +1916,10 @@ async function handleIncomingMessage(message) {
       const isWaiting = isWaitingForResponse(normalizedPhone);
       const hasThanks = hasReceivedThanks(normalizedPhone);
       
-      if (buttonTitleLower.includes('כן') || (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || buttonTitleLower.includes('אגיע')) {
+      // CRITICAL: Check for "מגיע" FIRST before checking decline conditions
+      if (buttonTitleLower.includes('כן') || 
+          (buttonTitleLower.includes('מגיע') && !buttonTitleLower.includes('לא')) || 
+          buttonTitleLower.includes('אגיע')) {
         console.log('✅ Matched as confirmation based on text');
         console.log(`📞 Phone number received: ${phoneNumber}`);
         
@@ -1545,7 +1946,7 @@ async function handleIncomingMessage(message) {
           // Guest confirmed - no automatic message sent
           console.log(`ℹ️ Guest ${phoneNumber} confirmed`);
         }
-      } else if (buttonTitleLower.includes('לא') || buttonTitleLower.includes('דחה') ||
+      } else if (buttonTitleLower.includes('דחה') ||
                  (buttonTitleLower.includes('לא') && (buttonTitleLower.includes('אוכל') || buttonTitleLower.includes('מגיע') || buttonTitleLower.includes('אגיע')))) {
         console.log('❌ Matched as decline based on text');
         console.log(`   Button ID: "${buttonId}"`);
@@ -1615,14 +2016,11 @@ async function handleIncomingMessage(message) {
     console.log(`   hasThanks: ${hasThanks}`);
     
     // CRITICAL: When guest provides count, they are confirming attendance
-    // Update status to "confirmed" first (this creates a separate update with status only)
-    // Use source 'guest_count' for guest count updates
-    console.log(`✅ Guest provided count - updating status to "confirmed"`);
-    await updateGuestStatusByPhone(message.from, 'confirmed', 'guest_count');
-    
-    // Then update guest count (this creates a separate update with guestCount only, NO status)
-    // Frontend processes status and guestCount updates separately
-    await updateGuestCountByPhone(message.from, guestCountMatch);
+    // Update status to "confirmed" WITH guestCount included in the same update
+    // This ensures both status and guestCount are updated together, preventing conflicts
+    // Use source 'guest_count' for the update
+    console.log(`✅ Guest provided count - updating status to "confirmed" with guestCount: ${guestCountMatch}`);
+    await updateGuestStatusByPhone(message.from, 'confirmed', 'guest_count', guestCountMatch);
     
     // CRITICAL: Send update status message after guest provides count
     try {
@@ -1861,7 +2259,7 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
     
     // CRITICAL: Frontend expects separate updates for status and guestCount
     // Send guestCount update WITHOUT status so frontend can process it correctly
-    const guestCountUpdate: any = {
+    const guestCountUpdate = {
       phoneNumber: phoneWith0,
       originalPhoneNumber: formattedPhone,
       guestCount: guestCount,
@@ -2271,7 +2669,7 @@ async function sendGuestCountQuestion(phoneNumber) {
 }
 
 // Update guest status by phone number
-async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp') {
+async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp', guestCount = undefined) {
   try {
     // Format phone number (remove country code prefix if needed)
     // Keep original format too for better matching
@@ -2283,6 +2681,7 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     console.log(`🔄 Formatted phone: ${formattedPhone}`);
     console.log(`🔄 Status: ${status}`);
     console.log(`🔄 Source: ${source}`);
+    console.log(`🔄 GuestCount: ${guestCount !== undefined ? guestCount : 'not provided'}`);
     console.log(`🔄 Timestamp: ${new Date().toISOString()}`);
     
     // CRITICAL: Find guest by phone number to get guestId and eventId
@@ -2379,6 +2778,15 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
       source: source // Use provided source or default to 'whatsapp'
     };
     
+    // CRITICAL: Include guestCount if provided, or use existing guestCount from found guest
+    if (guestCount !== undefined) {
+      updateData.guestCount = guestCount;
+      console.log(`✅ Including guestCount in status update: ${guestCount}`);
+    } else if (foundGuest?.guestCount !== undefined) {
+      updateData.guestCount = foundGuest.guestCount;
+      console.log(`✅ Including existing guestCount from guest: ${foundGuest.guestCount}`);
+    }
+    
     // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
     // Keep only the latest update - delete all previous updates for this guest
     const updatesToRemove = [];
@@ -2411,6 +2819,7 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
     console.log('✅ Guest ID:', foundGuest?.id || 'not found');
     console.log('✅ Event ID:', foundEvent?.id || 'not found');
       console.log('✅ Status:', status);
+      console.log('✅ GuestCount:', updateData.guestCount !== undefined ? updateData.guestCount : 'not included');
       console.log('✅ Timestamp:', new Date(updateData.timestamp).toLocaleTimeString());
       console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
       console.log(`📋 All pending updates:`, pendingUpdates.map(u => ({
@@ -2696,7 +3105,7 @@ app.post('/api/upload/image', (req, res, next) => {
       
       // Delete local file after successful Imgur upload
       try {
-        fs.unlinkSync(filePath);
+      fs.unlinkSync(filePath);
       } catch (unlinkError) {
         console.warn('⚠️ Could not delete local file:', unlinkError.message);
       }
@@ -2792,14 +3201,19 @@ app.get('/api/guests/pending-updates', (req, res) => {
   // Return pending updates (but don't clear them immediately - let frontend process them first)
   const updates = [...pendingUpdates];
   
-  // Return new updates (not older than 5 minutes)
-  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+  // CRITICAL: Return ALL updates, not just recent ones (for manual sync)
+  // Check if client wants all updates or just recent ones
+  const includeAll = req.query.all === 'true' || req.query.all === '1';
   
-  // Filter recent updates first
-  const recentUpdates = updates.filter(u => u.timestamp > fiveMinutesAgo);
+  let updatesToReturn = updates;
+  if (!includeAll) {
+    // Return new updates (not older than 5 minutes) by default
+  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+    updatesToReturn = updates.filter(u => u.timestamp > fiveMinutesAgo);
+  }
   
   // Format updates for frontend
-  const formattedUpdates = recentUpdates.map(u => ({
+  const formattedUpdates = updatesToReturn.map(u => ({
     phoneNumber: u.phoneNumber || u.originalPhoneNumber,
     guestId: u.guestId, // CRITICAL: Include guestId to ensure correct guest is updated
     eventId: u.eventId, // CRITICAL: Include eventId to ensure correct event is used
@@ -2810,30 +3224,38 @@ app.get('/api/guests/pending-updates', (req, res) => {
     source: u.source // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses, undefined if not set (will NOT send yes message)
   }));
   
-  // Clear old updates (older than 1 hour) but keep recent ones
-  const oneHourAgo = Date.now() - (60 * 60 * 1000);
-  const filteredUpdates = pendingUpdates.filter(u => u.timestamp > oneHourAgo);
+  // CRITICAL: Don't clear old updates automatically - let process-all-updates handle them
+  // Only clear very old updates (older than 24 hours) to prevent memory leaks
+  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+  const filteredUpdates = pendingUpdates.filter(u => u.timestamp > oneDayAgo);
+  if (filteredUpdates.length < pendingUpdates.length) {
+    const removedCount = pendingUpdates.length - filteredUpdates.length;
+    console.log(`🧹 Removed ${removedCount} very old update(s) (older than 24 hours)`);
   pendingUpdates.length = 0;
   pendingUpdates.push(...filteredUpdates);
+  }
   
   // IMPORTANT: Don't remove updates here - let the DELETE endpoint handle it
   // This ensures updates are available for webhookService to process
   // Only remove very old updates (older than 1 hour) to prevent memory leaks
   
-  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length})`);
+  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length}, includeAll: ${includeAll})`);
   if (formattedUpdates.length > 0) {
     console.log('📤 Updates being returned:', formattedUpdates.map(u => ({ 
       phone: u.phoneNumber, 
       status: u.status, 
-      responseDate: u.responseDate
+      guestCount: u.guestCount,
+      responseDate: u.responseDate,
+      age: Math.round((Date.now() - (u.timestamp || Date.now())) / 1000) + ' seconds ago'
     })));
   } else {
     // Log even when no updates to help debugging
     if (pendingUpdates.length > 0) {
-      console.log(`📭 No recent updates (${pendingUpdates.length} total, but older than 5 minutes)`);
+      console.log(`📭 No ${includeAll ? '' : 'recent '}updates (${pendingUpdates.length} total${includeAll ? '' : ', but older than 5 minutes'})`);
       console.log('📋 All pending updates:', pendingUpdates.map(u => ({
         phone: u.phoneNumber,
         status: u.status,
+        guestCount: u.guestCount,
         age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
       })));
     } else {
@@ -2851,41 +3273,239 @@ app.get('/api/guests/pending-updates', (req, res) => {
 
 // DELETE endpoint to remove a specific pending update
 app.delete('/api/guests/pending-updates', (req, res) => {
+  // CRITICAL: Set CORS headers FIRST, before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
   
-  const { phoneNumber, status, responseDate, guestCount, removeAllForPhone } = req.body;
-  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone });
+  const { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId } = req.body;
+  console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId });
   
   const initialLength = pendingUpdates.length;
+  
+  // Log all pending updates before deletion for debugging
+  if (phoneNumber) {
+    const matchingUpdates = pendingUpdates.filter(u => {
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const requestPhoneNormalized = phoneNumber.replace(/[^0-9]/g, '');
+      return uPhoneNormalized === requestPhoneNormalized || 
+             uOriginalPhoneNormalized === requestPhoneNormalized ||
+             uPhoneNormalized.replace(/^972/, '0') === requestPhoneNormalized.replace(/^972/, '0') ||
+             uOriginalPhoneNormalized.replace(/^972/, '0') === requestPhoneNormalized.replace(/^972/, '0');
+    });
+    console.log(`🔍 Found ${matchingUpdates.length} pending update(s) matching phone ${phoneNumber}:`, matchingUpdates.map(u => ({
+      phoneNumber: u.phoneNumber,
+      originalPhoneNumber: u.originalPhoneNumber,
+      status: u.status,
+      guestCount: u.guestCount,
+      responseDate: u.responseDate,
+      timestamp: u.timestamp
+    })));
+  }
   
   let filtered;
   
   // If removeAllForPhone is true, remove ALL updates for this phone number (regardless of status)
   // This is useful when we want to clear all old updates for a phone number
+  // CRITICAL: Also check guestId and eventId if provided for more precise matching
   if (removeAllForPhone && phoneNumber) {
     const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
     const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const { guestId, eventId } = req.body; // Get guestId and eventId from request body
     
-    filtered = pendingUpdates.filter(u => 
-      !(u.phoneNumber === formattedPhone || u.phoneNumber === phoneNumber || 
-        u.originalPhoneNumber === originalPhone || u.originalPhoneNumber === phoneNumber)
-    );
-    console.log(`🗑️ Removing ALL updates for phone ${phoneNumber} (${initialLength - filtered.length} updates)`);
+    console.log(`🗑️ removeAllForPhone=true, phoneNumber=${phoneNumber}, guestId=${guestId}, eventId=${eventId}`);
+    
+    filtered = pendingUpdates.filter(u => {
+      // Check phone number match (normalize both sides)
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const requestPhoneNormalized = phoneNumber.replace(/[^0-9]/g, '');
+      
+      const uPhoneWith0 = uPhoneNormalized.replace(/^972/, '0');
+      const uOriginalPhoneWith0 = uOriginalPhoneNormalized.replace(/^972/, '0');
+      const requestPhoneWith0 = requestPhoneNormalized.replace(/^972/, '0');
+      
+      const phoneMatch = uPhoneNormalized === requestPhoneNormalized ||
+                         uPhoneNormalized === requestPhoneWith0 ||
+                         uOriginalPhoneNormalized === requestPhoneNormalized ||
+                         uOriginalPhoneNormalized === requestPhoneWith0 ||
+                         uPhoneWith0 === requestPhoneNormalized ||
+                         uPhoneWith0 === requestPhoneWith0;
+      
+      if (!phoneMatch) {
+        return true; // Keep updates that don't match phone number
+      }
+      
+      // Phone matches - now check guestId and eventId if provided
+      // CRITICAL: Remove updates that match by phone AND:
+      // 1. Don't have guestId/eventId (old updates without these fields) OR
+      // 2. Match guestId/eventId if provided
+      // This ensures old updates without guestId/eventId are still removed
+      
+      // If both guestId and eventId are provided, check if update matches
+      if (guestId && eventId) {
+        // If update has both guestId and eventId, only remove if both match
+        if (u.guestId && u.eventId) {
+          const shouldRemove = u.guestId === guestId && u.eventId === eventId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but guestId/eventId differ: ${u.guestId}/${u.eventId} !== ${guestId}/${eventId})`);
+          }
+          return !shouldRemove;
+        }
+        // If update doesn't have guestId or eventId, remove it (old update)
+        // This ensures old updates without these fields are removed
+        console.log(`   Removing old update (phone matches but update doesn't have guestId/eventId)`);
+        return false; // Remove
+      }
+      
+      // If only guestId is provided, check if update matches
+      if (guestId) {
+        // If update has guestId, only remove if it matches
+        if (u.guestId) {
+          const shouldRemove = u.guestId === guestId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but guestId differs: ${u.guestId} !== ${guestId})`);
+          }
+          return !shouldRemove;
+        }
+        // If update doesn't have guestId, remove it (old update)
+        console.log(`   Removing old update (phone matches but update doesn't have guestId)`);
+        return false; // Remove
+      }
+      
+      // If only eventId is provided, check if update matches
+      if (eventId) {
+        // If update has eventId, only remove if it matches
+        if (u.eventId) {
+          const shouldRemove = u.eventId === eventId;
+          if (!shouldRemove) {
+            console.log(`   Keeping update (phone matches but eventId differs: ${u.eventId} !== ${eventId})`);
+          }
+          return !shouldRemove;
+        }
+        // If update doesn't have eventId, remove it (old update)
+        console.log(`   Removing old update (phone matches but update doesn't have eventId)`);
+        return false; // Remove
+      }
+      
+      // No guestId/eventId provided - match by phone only
+      return false; // Remove all updates matching phone number
+    });
+    console.log(`🗑️ Removing ALL updates for phone ${phoneNumber}${guestId ? ` (guestId: ${guestId})` : ''}${eventId ? ` (eventId: ${eventId})` : ''} (${initialLength - filtered.length} updates removed, ${filtered.length} remaining)`);
   } else {
     // Filter out the specific update that was processed
     // Match by phone number, status, and responseDate (and guestCount if provided)
+    // CRITICAL: Also support matching by guestId and eventId for more precise matching
+    // CRITICAL: Normalize phone numbers for matching (handle different formats)
+    const normalizedRequestPhone = phoneNumber ? phoneNumber.replace(/[^0-9]/g, '') : '';
+    const normalizedRequestPhoneWith0 = normalizedRequestPhone.replace(/^972/, '0');
+    const normalizedRequestPhoneWith972 = normalizedRequestPhone.startsWith('0') ? '972' + normalizedRequestPhone.substring(1) : normalizedRequestPhone;
+    
+    // CRITICAL: If guestId and eventId are provided, prioritize matching by these (most precise)
+    const matchByGuestIdAndEventId = guestId && eventId;
+    
     filtered = pendingUpdates.filter(u => {
-      const phoneMatch = (u.phoneNumber === phoneNumber || u.originalPhoneNumber === phoneNumber);
+      // CRITICAL: If matching by guestId and eventId, use that first (most precise)
+      if (matchByGuestIdAndEventId) {
+        // If update has both guestId and eventId, match by these
+        if (u.guestId && u.eventId) {
+          const guestIdMatch = u.guestId === guestId;
+          const eventIdMatch = u.eventId === eventId;
+          if (guestIdMatch && eventIdMatch) {
+            // Both match - this is the update we want to remove
+            console.log(`   ✅ Matched update by guestId + eventId: ${u.guestId}/${u.eventId}`);
+            return false; // Remove this update
+          } else {
+            // Don't match - keep this update
+            return true; // Keep
+          }
+        }
+        // If update doesn't have guestId/eventId, fall through to phone matching
+        // This ensures old updates without these fields can still be matched
+      }
+      
+      // Normalize both phone numbers for comparison
+      const uPhoneNormalized = (u.phoneNumber || '').replace(/[^0-9]/g, '');
+      const uOriginalPhoneNormalized = (u.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+      const uPhoneWith0 = uPhoneNormalized.replace(/^972/, '0');
+      const uOriginalPhoneWith0 = uOriginalPhoneNormalized.replace(/^972/, '0');
+      const uPhoneWith972 = uPhoneNormalized.startsWith('0') ? '972' + uPhoneNormalized.substring(1) : uPhoneNormalized;
+      const uOriginalPhoneWith972 = uOriginalPhoneNormalized.startsWith('0') ? '972' + uOriginalPhoneNormalized.substring(1) : uOriginalPhoneNormalized;
+      
+      const phoneMatch = normalizedRequestPhone && (
+        uPhoneNormalized === normalizedRequestPhone ||
+        uPhoneNormalized === normalizedRequestPhoneWith0 ||
+        uPhoneNormalized === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneNormalized === normalizedRequestPhone ||
+        uOriginalPhoneNormalized === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneNormalized === normalizedRequestPhoneWith972 ||
+        uPhoneWith0 === normalizedRequestPhone ||
+        uPhoneWith0 === normalizedRequestPhoneWith0 ||
+        uPhoneWith0 === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneWith0 === normalizedRequestPhone ||
+        uOriginalPhoneWith0 === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneWith0 === normalizedRequestPhoneWith972 ||
+        uPhoneWith972 === normalizedRequestPhone ||
+        uPhoneWith972 === normalizedRequestPhoneWith0 ||
+        uPhoneWith972 === normalizedRequestPhoneWith972 ||
+        uOriginalPhoneWith972 === normalizedRequestPhone ||
+        uOriginalPhoneWith972 === normalizedRequestPhoneWith0 ||
+        uOriginalPhoneWith972 === normalizedRequestPhoneWith972
+      );
+      
+      // CRITICAL: If status is undefined, match updates with or without status
+      // If status is provided, only match updates with that exact status
       const statusMatch = !status || u.status === status;
+      
+      // CRITICAL: If responseDate is undefined, match any responseDate
+      // If responseDate is provided, match by exact date or timestamp
       const dateMatch = !responseDate || u.responseDate === responseDate || 
-                        new Date(u.responseDate || u.timestamp).toISOString() === responseDate;
+                        (u.responseDate && new Date(u.responseDate).toISOString() === responseDate) ||
+                        (u.timestamp && new Date(u.timestamp).toISOString() === responseDate);
+      
+      // CRITICAL: If guestCount is undefined, match updates with or without guestCount
+      // If guestCount is provided, only match updates with that exact guestCount
       const guestCountMatch = guestCount === undefined || u.guestCount === guestCount;
       
-      // Keep if it doesn't match all criteria
-      return !(phoneMatch && statusMatch && dateMatch && guestCountMatch);
+      // CRITICAL: Also check guestId and eventId if provided (for additional precision)
+      // If guestId/eventId are provided but update doesn't have them, still allow matching by phone/status/guestCount
+      // This ensures old updates without guestId/eventId can still be matched
+      const guestIdMatch = !guestId || !u.guestId || u.guestId === guestId;
+      const eventIdMatch = !eventId || !u.eventId || u.eventId === eventId;
+      
+      // CRITICAL: Match by phone number (required) AND other criteria
+      // If guestId and eventId are provided, they must match (if update has them)
+      // Otherwise, match by status and/or guestCount
+      if (!phoneMatch) {
+        return true; // Keep - phone doesn't match
+      }
+      
+      // Phone matches - now check other criteria
+      // CRITICAL: If guestId and eventId are provided, prioritize matching by these
+      if (guestId && eventId && u.guestId && u.eventId) {
+        // Both request and update have guestId/eventId - must match exactly
+        if (u.guestId === guestId && u.eventId === eventId) {
+          // Also check status/guestCount if provided (for additional precision)
+          const otherFieldsMatch = (!status || statusMatch) && (guestCount === undefined || guestCountMatch);
+          return !otherFieldsMatch; // Remove if matches, keep if doesn't
+        } else {
+          return true; // Keep - guestId/eventId don't match
+        }
+      }
+      
+      // No guestId/eventId matching required - match by status and/or guestCount
+      // CRITICAL: Match if status matches OR guestCount matches (flexible matching)
+      // This allows matching updates even if only one field matches
+      const matches = (statusMatch || guestCount === undefined) && 
+                     (guestCountMatch || status === undefined) &&
+                     dateMatch &&
+                     guestIdMatch &&
+                     eventIdMatch;
+      
+      return !matches; // Keep if doesn't match, remove if matches
     });
   }
   
@@ -2900,6 +3520,228 @@ app.delete('/api/guests/pending-updates', (req, res) => {
     removed: removedCount,
     totalPending: pendingUpdates.length 
   });
+});
+
+// Endpoint to process all pending updates and sync them to events
+app.post('/api/guests/process-all-updates', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    // Check if we should process only today's updates or all updates
+    const processTodayOnly = req.query.today === 'true' || req.query.today === '1';
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTimestamp = todayStart.getTime();
+    
+    console.log('🔄 POST /api/guests/process-all-updates - Processing pending updates...');
+    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+    console.log(`📅 Process today only: ${processTodayOnly}`);
+    
+    // Filter updates based on date if needed
+    let updatesToProcess = [...pendingUpdates];
+    if (processTodayOnly) {
+      updatesToProcess = pendingUpdates.filter(u => u.timestamp >= todayStartTimestamp);
+      console.log(`📅 Filtered to ${updatesToProcess.length} updates from today (out of ${pendingUpdates.length} total)`);
+    }
+    
+    // Reload events to get latest data
+    loadEvents();
+    
+    let processedCount = 0;
+    let failedCount = 0;
+    const processedUpdates = [];
+    
+    // Process each update
+    for (const update of updatesToProcess) {
+      try {
+        // Find the event and guest
+        let foundEvent = null;
+        let foundGuest = null;
+        
+        // Try to find by eventId and guestId first (most accurate)
+        if (update.eventId && update.guestId) {
+          foundEvent = eventsData.events.find(e => e.id === update.eventId);
+          if (foundEvent && foundEvent.guests) {
+            foundGuest = foundEvent.guests.find(g => g.id === update.guestId);
+          }
+        }
+        
+        // If not found, try to find by phone number
+        if (!foundGuest) {
+          const updatePhone = (update.phoneNumber || update.originalPhoneNumber || '').replace(/[^0-9]/g, '');
+          
+          for (const event of eventsData.events) {
+            if (event.guests && event.guests.length > 0) {
+              foundGuest = event.guests.find(g => {
+                if (!g.phoneNumber) return false;
+                const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
+                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
+                const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
+                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
+                const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
+                
+                return guestPhone === updatePhone ||
+                       guestPhone === updatePhoneWith0 ||
+                       guestPhone === updatePhoneWith972 ||
+                       guestPhoneWith0 === updatePhone ||
+                       guestPhoneWith0 === updatePhoneWith0 ||
+                       guestPhoneWith0 === updatePhoneWith972 ||
+                       guestPhoneWith972 === updatePhone ||
+                       guestPhoneWith972 === updatePhoneWith0 ||
+                       guestPhoneWith972 === updatePhoneWith972;
+              });
+              
+              if (foundGuest) {
+                foundEvent = event;
+                break;
+              }
+            }
+          }
+        }
+        
+        if (foundGuest && foundEvent) {
+          // Update guest data
+          let updated = false;
+          
+          if (update.status && update.status !== foundGuest.rsvpStatus) {
+            foundGuest.rsvpStatus = update.status;
+            updated = true;
+          }
+          
+          if (update.guestCount !== undefined && update.guestCount !== foundGuest.guestCount) {
+            foundGuest.guestCount = update.guestCount;
+            updated = true;
+          }
+          
+          if (update.actualAttendance && update.actualAttendance !== foundGuest.actualAttendance) {
+            foundGuest.actualAttendance = update.actualAttendance;
+            updated = true;
+          }
+          
+          if (update.responseDate) {
+            foundGuest.responseDate = new Date(update.responseDate);
+            updated = true;
+          }
+          
+          if (update.notes !== undefined && update.notes !== foundGuest.notes) {
+            foundGuest.notes = update.notes;
+            updated = true;
+          }
+          
+          if (updated) {
+            foundEvent.updatedAt = new Date().toISOString();
+            processedCount++;
+            processedUpdates.push({
+              phoneNumber: update.phoneNumber,
+              guestName: `${foundGuest.firstName} ${foundGuest.lastName}`,
+              eventId: foundEvent.id,
+              updates: {
+                status: update.status,
+                guestCount: update.guestCount,
+                actualAttendance: update.actualAttendance
+              }
+            });
+            console.log(`✅ Processed update for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
+          } else {
+            console.log(`⏭️ No changes needed for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
+          }
+        } else {
+          console.warn(`⚠️ Guest not found for update: ${update.phoneNumber}`);
+          failedCount++;
+        }
+      } catch (error) {
+        console.error(`❌ Error processing update for ${update.phoneNumber}:`, error);
+        failedCount++;
+      }
+    }
+    
+    // Save events to file
+    if (processedCount > 0) {
+      saveEvents();
+      console.log(`💾 Saved ${processedCount} updates to events file`);
+    }
+    
+    // Clear processed updates from pendingUpdates
+    // CRITICAL: Remove updates that were successfully processed
+    // Match by phone number, status, guestCount, and timestamp to avoid removing wrong updates
+    const processedPhoneNumbers = new Set(processedUpdates.map(p => {
+      const phone = (p.phoneNumber || '').replace(/[^0-9]/g, '');
+      return phone.replace(/^972/, '0');
+    }));
+    
+    const remainingUpdates = pendingUpdates.filter(u => {
+      const uPhone = (u.phoneNumber || u.originalPhoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
+      const wasProcessed = processedPhoneNumbers.has(uPhone);
+      
+      // Also check if this exact update was processed (by matching phone + status + guestCount)
+      if (wasProcessed) {
+        const matchingProcessed = processedUpdates.find(p => {
+          const pPhone = (p.phoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
+          return pPhone === uPhone;
+        });
+        
+        if (matchingProcessed) {
+          // Check if status and guestCount match
+          const statusMatch = !u.status || !matchingProcessed.updates.status || u.status === matchingProcessed.updates.status;
+          const guestCountMatch = u.guestCount === undefined || matchingProcessed.updates.guestCount === undefined || u.guestCount === matchingProcessed.updates.guestCount;
+          
+          // If both match, this update was processed
+          if (statusMatch && guestCountMatch) {
+            return false; // Remove this update
+          }
+        }
+      }
+      
+      return true; // Keep this update
+    });
+    
+    const removedCount = pendingUpdates.length - remainingUpdates.length;
+    pendingUpdates.length = 0;
+    pendingUpdates.push(...remainingUpdates);
+    
+    console.log(`🗑️ Removed ${removedCount} processed update(s) from pendingUpdates (${remainingUpdates.length} remaining)`);
+    
+    console.log(`✅ Processed ${processedCount} updates, ${failedCount} failed, ${remainingUpdates.length} remaining`);
+    
+    // Log summary of processed updates
+    console.log('\n📊 ========== PROCESSING SUMMARY ==========');
+    console.log(`✅ Successfully processed: ${processedCount} updates`);
+    console.log(`❌ Failed to process: ${failedCount} updates`);
+    console.log(`📋 Remaining in queue: ${remainingUpdates.length} updates`);
+    if (processedUpdates.length > 0) {
+      console.log('\n📝 Processed updates details:');
+      processedUpdates.slice(0, 10).forEach((update, index) => {
+        console.log(`  ${index + 1}. ${update.guestName} (${update.phoneNumber})`);
+        console.log(`     Status: ${update.updates.status || 'N/A'}, Guest Count: ${update.updates.guestCount || 'N/A'}`);
+      });
+      if (processedUpdates.length > 10) {
+        console.log(`  ... and ${processedUpdates.length - 10} more updates`);
+      }
+    }
+    console.log('==========================================\n');
+    
+    res.json({
+      success: true,
+      processed: processedCount,
+      failed: failedCount,
+      remaining: remainingUpdates.length,
+      processedUpdates: processedUpdates,
+      summary: {
+        totalProcessed: processedCount,
+        totalFailed: failedCount,
+        totalRemaining: remainingUpdates.length
+      }
+    });
+  } catch (error) {
+    console.error('❌ Error processing all updates:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // Handle OPTIONS preflight for add-pending-update endpoint
@@ -2932,7 +3774,7 @@ app.post('/api/guests/add-pending-update', (req, res) => {
   const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
   const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
 
-  const updateData: any = {
+  const updateData = {
     phoneNumber: formattedPhone,
     originalPhoneNumber: originalPhone,
     guestId: guestId,
@@ -4337,7 +5179,7 @@ app.get('/api/events/all', async (req, res) => {
   // This allows access from ANY IP address or device
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
@@ -4351,13 +5193,31 @@ app.get('/api/events/all', async (req, res) => {
   
   try {
     
-    // CRITICAL: Reload events from file first to ensure we have latest data
-    // This ensures sync between multiple server instances
+    // CRITICAL: Read directly from file to ensure we have latest data
+    // This bypasses any potential memory issues or stale data
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        events = fileData.events || [];
+        console.log(`📋 [EVENTS_ALL] Read ${events.length} events directly from file`);
+        
+        // Log guest counts for debugging
+        events.forEach(e => {
+          const guestCount = e.guests?.length || 0;
+          console.log(`📋 [EVENTS_ALL] Event ${e.id}: ${guestCount} guests`);
+        });
+      } else {
+        console.warn(`⚠️ [EVENTS_ALL] Events file does not exist, using memory fallback`);
     loadEvents();
-    
-    // CRITICAL: Use eventsData.events from memory (not from file directly)
-    // This ensures we return the most up-to-date events that may have been updated in memory
-    const events = eventsData.events || [];
+        events = eventsData.events || [];
+      }
+    } catch (error) {
+      console.error(`❌ [EVENTS_ALL] Error reading events file:`, error);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+    }
     
     console.log(`📋 Events in memory: ${events.length}`);
     console.log(`📋 Events file path: ${eventsFilePath}`);
@@ -4380,14 +5240,42 @@ app.get('/api/events/all', async (req, res) => {
       }
     }
     
-    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint, no userId filter)`);
+    // CRITICAL: Auto-create campaigns for events that don't have them
+    let eventsUpdated = false;
+    const updatedEvents = events.map(event => {
+      if (!event.campaigns || !Array.isArray(event.campaigns) || event.campaigns.length === 0) {
+        console.log(`🔄 [EVENTS_ALL] No campaigns found for event ${event.id}, creating default campaigns...`);
+        const newCampaigns = createDefaultCampaigns(event.id, event.eventDate);
+        eventsUpdated = true;
+        return {
+          ...event,
+          campaigns: newCampaigns,
+          eventTypeHebrew: event.eventTypeHebrew || 'חתונה'
+        };
+      }
+      return event;
+    });
+    
+    // Save updated events to file if campaigns were created
+    if (eventsUpdated) {
+      try {
+        const fileData = { events: updatedEvents, deletedEvents: eventsData.deletedEvents || [] };
+        fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+        eventsData.events = updatedEvents;
+        console.log(`✅ [EVENTS_ALL] Created campaigns and saved to file`);
+      } catch (error) {
+        console.error(`❌ [EVENTS_ALL] Error saving campaigns to file:`, error);
+      }
+    }
+    
+    console.log(`📋 GET /api/events/all - Returning ${updatedEvents.length} events (public endpoint, no userId filter)`);
     
     // CRITICAL: Return ALL events without filtering by userId
     // This allows guest response links to work on any device
     res.json({
       success: true,
-      events: events,
-      total: events.length
+      events: updatedEvents,
+      total: updatedEvents.length
     });
   } catch (error) {
     console.error('❌ Error loading all events:', error);
@@ -4406,7 +5294,163 @@ app.get('/api/events/all', async (req, res) => {
 app.options('/api/events/all', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.sendStatus(200);
+});
+
+// ========================================
+// CRITICAL: This route MUST come BEFORE /api/events/:eventId
+// Otherwise Express will match /api/events/:eventId first and treat "eventId/guests" as the eventId
+// ========================================
+// Get guests for a specific event (public endpoint - for client dashboard)
+// CRITICAL: This endpoint returns ONLY the guests array for an event (no truncation)
+// This is a workaround for large events that get truncated in /api/events/all
+// CRITICAL: Read DIRECTLY from file to ensure we have ALL guests
+app.get('/api/events/:eventId/guests', async (req, res) => {
+  console.log(`📋 [GUESTS_ROUTE_REGISTERED] Route /api/events/:eventId/guests is registered`);
+  // CRITICAL: Set CORS headers FIRST - before any other operations
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  try {
+    const { eventId } = req.params;
+    console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Request received`);
+    console.log(`📋 [GUESTS_ENDPOINT] Events file path: ${eventsFilePath}`);
+    console.log(`📋 [GUESTS_ENDPOINT] Events file exists: ${fs.existsSync(eventsFilePath)}`);
+    
+    // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
+    // This is CRITICAL because eventsData might be stale or incomplete
+    console.log(`📋 [GUESTS_ENDPOINT] Reading events directly from file`);
+    
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+        console.log(`📋 [GUESTS_ENDPOINT] File size: ${fileContent.length} bytes`);
+        console.log(`📋 [GUESTS_ENDPOINT] File path: ${eventsFilePath}`);
+        console.log(`📋 [GUESTS_ENDPOINT] File content preview (first 500 chars):`, fileContent.substring(0, 500));
+        
+        const fileData = JSON.parse(fileContent);
+        events = fileData.events || [];
+        console.log(`📋 [GUESTS_ENDPOINT] Read ${events.length} events directly from file`);
+        console.log(`📋 [GUESTS_ENDPOINT] File data structure:`, {
+          hasEvents: 'events' in fileData,
+          eventsType: typeof fileData.events,
+          eventsIsArray: Array.isArray(fileData.events),
+          eventsLength: fileData.events?.length || 0,
+          fileDataKeys: Object.keys(fileData)
+        });
+        
+        // Log guest counts for debugging
+        events.forEach(e => {
+          const guestCount = e.guests?.length || 0;
+          console.log(`📋 [GUESTS_ENDPOINT] Event ${e.id}: ${guestCount} guests`);
+          if (e.id === eventId) {
+            console.log(`📋 [GUESTS_ENDPOINT] Found event ${eventId} with ${guestCount} guests in file`);
+            console.log(`📋 [GUESTS_ENDPOINT] Event object keys:`, Object.keys(e));
+            console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in e);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests value:`, e.guests);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof e.guests);
+            console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(e.guests));
+          }
+        });
+      } else {
+        console.warn(`⚠️ [GUESTS_ENDPOINT] Events file does not exist: ${eventsFilePath}`);
+        // Fallback: try loadEvents() and use eventsData
+    loadEvents();
+        events = eventsData.events || [];
+        console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback: ${events.length} events`);
+      }
+    } catch (error) {
+      console.error(`❌ [GUESTS_ENDPOINT] Error reading events file:`, error);
+      console.error(`❌ [GUESTS_ENDPOINT] Error stack:`, error.stack);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+      console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback after error: ${events.length} events`);
+    }
+    
+    // CRITICAL: Ensure events is an array
+    if (!Array.isArray(events)) {
+      console.error(`❌ events is not an array!`);
+      console.error(`❌ events type:`, typeof events);
+      res.status(500).json({
+        success: false,
+        error: 'Events data not available'
+      });
+      return;
+    }
+    
+    console.log(`📋 [GUESTS_ENDPOINT] Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
+    
+    const event = events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log(`❌ [GUESTS_ENDPOINT] Event ${eventId} not found`);
+      console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
+      res.status(404).json({
+        success: false,
+        error: 'Event not found',
+        eventId: eventId,
+        availableEventIds: events.map(e => e.id)
+      });
+      return;
+    }
+    
+    const guests = event.guests || [];
+    console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
+    console.log(`📋 [GUESTS_ENDPOINT] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
+    console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in event);
+    console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof event.guests);
+    console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(event.guests));
+    console.log(`📋 [GUESTS_ENDPOINT] Event keys:`, Object.keys(event).slice(0, 10));
+    
+    if (guests.length > 0) {
+      console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (first 5):`, guests.slice(0, 5).map(g => g.id));
+      console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (last 5):`, guests.slice(-5).map(g => g.id));
+    } else {
+      console.warn(`⚠️ [GUESTS_ENDPOINT] Event has NO guests! Event object:`, JSON.stringify({
+        id: event.id,
+        coupleName: event.coupleName,
+        groomName: event.groomName,
+        brideName: event.brideName,
+        hasGuestsProperty: 'guests' in event,
+        guestsType: typeof event.guests,
+        guestsValue: event.guests
+      }, null, 2));
+    }
+    
+    res.json({
+      success: true,
+      eventId: eventId,
+      guests: guests,
+      total: guests.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching guests:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בקבלת אורחים',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/events/:eventId/guests
+// CRITICAL: This MUST come before /api/events/:eventId OPTIONS handler
+app.options('/api/events/:eventId/guests', (req, res) => {
+  console.log(`📋 [GUESTS_OPTIONS] OPTIONS /api/events/${req.params.eventId}/guests - Request received`);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   res.sendStatus(200);
@@ -4419,54 +5463,198 @@ app.get('/api/events/:eventId', async (req, res) => {
   // CRITICAL: Set CORS headers FIRST - before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   
   try {
     const { eventId } = req.params;
+    console.log(`📋 GET /api/events/${eventId} - Request received`);
+    console.log(`📋 EventId type: ${typeof eventId}, value: "${eventId}"`);
+    
+    // CRITICAL: Validate eventId
+    if (!eventId || typeof eventId !== 'string' || eventId.trim() === '') {
+      console.error(`❌ Invalid eventId: ${eventId}`);
+      res.status(400).json({
+        success: false,
+        error: 'Invalid eventId',
+        message: 'EventId is required and must be a non-empty string'
+      });
+      return;
+    }
+    
+    // CRITICAL: Reject eventIds that contain "/" - these should be handled by /api/events/:eventId/guests route
+    if (eventId.includes('/')) {
+      console.log(`❌ Invalid eventId format: contains "/" - should use /api/events/:eventId/guests instead`);
+      res.status(400).json({
+        success: false,
+        error: 'Invalid eventId format',
+        message: 'EventId cannot contain "/". Use /api/events/:eventId/guests for guests endpoint.'
+      });
+      return;
+    }
     
     // Check if eventId looks like a userId (starts with "user_")
     // If so, treat it as /api/events/:userId endpoint
-    if (eventId.startsWith('user_')) {
+    // CRITICAL: Only treat as userId if it explicitly starts with "user_"
+    if (eventId && typeof eventId === 'string' && eventId.startsWith('user_')) {
       const userId = eventId;
-      // Filter events by userId
-      const userEvents = eventsData.events.filter(e => e.userId === userId);
+      console.log(`📋 [USER_ID_BRANCH] Treating ${eventId} as userId, filtering events...`);
       
-      console.log(`📋 Fetched ${userEvents.length} events for user ${userId}`);
+      // CRITICAL: Read directly from file instead of relying on eventsData
+      let events = [];
+      let deletedEvents = [];
+      try {
+        if (fs.existsSync(eventsFilePath)) {
+          const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+          events = fileData.events || [];
+          deletedEvents = fileData.deletedEvents || [];
+          console.log(`📋 [USER_ID_BRANCH] Read ${events.length} events directly from file for userId filter`);
+        } else {
+          // Fallback: try loadEvents() and use eventsData
+    loadEvents();
+          events = eventsData.events || [];
+          deletedEvents = eventsData.deletedEvents || [];
+          console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback: ${events.length} events`);
+        }
+      } catch (error) {
+        console.error(`❌ [USER_ID_BRANCH] Error reading events file:`, error);
+        // Fallback: try loadEvents() and use eventsData
+        loadEvents();
+        events = eventsData.events || [];
+        deletedEvents = eventsData.deletedEvents || [];
+        console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback after error: ${events.length} events`);
+      }
+      
+      // Filter events by userId
+      const userEvents = events.filter(e => e.userId === userId);
+      const userDeletedEvents = deletedEvents.filter(e => e.userId === userId);
+      
+      console.log(`📋 [USER_ID_BRANCH] Fetched ${userEvents.length} events for user ${userId}`);
       
       res.json({
         success: true,
         events: userEvents,
-        deletedEvents: eventsData.deletedEvents.filter(e => e.userId === userId)
+        deletedEvents: userDeletedEvents
       });
       return;
     }
+    
+    // CRITICAL: Log that we're NOT treating as userId
+    console.log(`📋 [EVENT_ID_BRANCH] NOT treating as userId - eventId="${eventId}", startsWith("user_"): ${eventId.startsWith('user_')}`);
     
     // Otherwise, treat it as eventId and return single event
-    // CRITICAL: Reload events from file first to ensure we have latest data
-    loadEvents();
+    // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
+    console.log(`📋 [EVENT_ID_BRANCH] Treating ${eventId} as eventId, loading single event...`);
+    console.log(`📋 [EVENT_ID_BRANCH] Reading events directly from file for eventId: ${eventId}`);
     
-    const event = eventsData.events.find(e => e.id === eventId);
+    // CRITICAL: Read directly from file instead of relying on eventsData
+    let events = [];
+    try {
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        events = fileData.events || [];
+        console.log(`📋 Read ${events.length} events directly from file`);
+      } else {
+        console.warn(`⚠️ Events file does not exist: ${eventsFilePath}`);
+        // Fallback: try loadEvents() and use eventsData
+        loadEvents();
+        events = eventsData.events || [];
+        console.log(`📋 Using eventsData fallback: ${events.length} events`);
+      }
+    } catch (error) {
+      console.error(`❌ Error reading events file:`, error);
+      // Fallback: try loadEvents() and use eventsData
+      loadEvents();
+      events = eventsData.events || [];
+      console.log(`📋 Using eventsData fallback after error: ${events.length} events`);
+    }
     
-    if (!event) {
-      console.log(`❌ Event ${eventId} not found`);
-      res.status(404).json({
+    // CRITICAL: Ensure events is an array
+    if (!Array.isArray(events)) {
+      console.error(`❌ events is not an array! events:`, events);
+      console.error(`❌ events type:`, typeof events);
+      res.status(500).json({
         success: false,
-        error: 'Event not found'
+        error: 'Events data not available',
+        details: 'events is not an array'
       });
       return;
     }
     
-    console.log(`📋 GET /api/events/${eventId} - Returning event with ${event.guests?.length || 0} guests`);
+    console.log(`📋 [EVENT_ID_BRANCH] Events loaded: ${events.length} events`);
+    console.log(`📋 [EVENT_ID_BRANCH] Event IDs:`, events.map(e => e.id));
+    
+    console.log(`📋 [EVENT_ID_BRANCH] Searching for event ${eventId} in ${events.length} events`);
+    console.log(`📋 [EVENT_ID_BRANCH] Available event IDs:`, events.map(e => e.id));
+    
+    const event = events.find(e => e.id === eventId);
+    
+    if (!event) {
+      console.log(`❌ [EVENT_ID_BRANCH] Event ${eventId} not found`);
+      console.log(`📋 [EVENT_ID_BRANCH] Available event IDs:`, events.map(e => e.id));
+      res.status(404).json({
+        success: false,
+        error: 'Event not found',
+        eventId: eventId,
+        availableEventIds: events.map(e => e.id)
+      });
+      return;
+    }
+    
+    const guestsCount = event.guests?.length || 0;
+    console.log(`📋 [EVENT_ID_BRANCH] GET /api/events/${eventId} - Returning event with ${guestsCount} guests`);
+    console.log(`📋 [EVENT_ID_BRANCH] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
+    
+    // CRITICAL: Auto-create campaigns if they don't exist
+    let finalEvent = event;
+    if (!event.campaigns || !Array.isArray(event.campaigns) || event.campaigns.length === 0) {
+      console.log(`🔄 [EVENT_ID_BRANCH] No campaigns found for event ${eventId}, creating default campaigns...`);
+      const newCampaigns = createDefaultCampaigns(eventId, event.eventDate);
+      finalEvent = {
+        ...event,
+        campaigns: newCampaigns,
+        eventTypeHebrew: event.eventTypeHebrew || 'חתונה'
+      };
+      
+      // Update event in file and memory
+      try {
+        const eventIndex = events.findIndex(e => e.id === eventId);
+        if (eventIndex >= 0) {
+          events[eventIndex] = finalEvent;
+          const fileData = { events: events, deletedEvents: eventsData.deletedEvents || [] };
+          fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+          eventsData.events = events;
+          console.log(`✅ [EVENT_ID_BRANCH] Created ${newCampaigns.length} campaigns and saved to file`);
+        }
+      } catch (error) {
+        console.error(`❌ [EVENT_ID_BRANCH] Error saving campaigns to file:`, error);
+      }
+    }
     
     // CRITICAL: Return the FULL event with ALL guests (no truncation)
-    res.json({
+    // IMPORTANT: Must return {success: true, event: event} format (singular "event", not "events")
+    // CRITICAL: NEVER return {success: true, events: [...]} format - this is ONLY for userId endpoint
+    const responseData = {
       success: true,
-      event: event
-    });
+      event: finalEvent
+    };
+    
+    const responseSize = JSON.stringify(responseData).length;
+    console.log(`📋 [EVENT_ID_BRANCH] Response data size: ${responseSize} bytes (${(responseSize / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`📋 [EVENT_ID_BRANCH] Response format: {success: true, event: {...}}`);
+    console.log(`📋 [EVENT_ID_BRANCH] Response keys:`, Object.keys(responseData));
+    console.log(`📋 [EVENT_ID_BRANCH] Has event:`, !!responseData.event);
+    console.log(`📋 [EVENT_ID_BRANCH] Has events:`, !!responseData.events);
+    
+    // CRITICAL: Set response headers to handle large responses
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Length', responseSize.toString());
+    
+    res.json(responseData);
   } catch (error) {
     console.error('❌ Error fetching event:', error);
+    console.error('❌ Error stack:', error.stack);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.status(500).json({ 
       success: false,
@@ -4480,7 +5668,7 @@ app.get('/api/events/:eventId', async (req, res) => {
 app.options('/api/events/:eventId', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   res.sendStatus(200);
@@ -4515,11 +5703,92 @@ app.post('/api/events/sync', async (req, res) => {
     
     console.log(`💾 Syncing ${events.length} events for user ${userId}`);
     
-    // Remove old events for this user
+    // CRITICAL: Read events directly from file to ensure we have latest data
+    const eventsFilePath = path.join(__dirname, 'events.json');
+    let fileData;
+    
+    if (fs.existsSync(eventsFilePath)) {
+      const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+      fileData = JSON.parse(fileContent);
+    } else {
+      fileData = { events: [], deletedEvents: [] };
+    }
+    
+    // Get existing events for this user (to preserve guests)
+    const existingEventsForUser = fileData.events.filter(e => e.userId === userId);
+    console.log(`📋 Found ${existingEventsForUser.length} existing events for user ${userId}`);
+    
+    // Remove old events for this user from in-memory data
     eventsData.events = eventsData.events.filter(e => e.userId !== userId);
     
-    // Add new events
-    eventsData.events.push(...events);
+    // CRITICAL: Merge incoming events with existing events to preserve guests and campaigns
+    // For each incoming event, check if it exists and merge guests and campaigns
+    const mergedEvents = events.map(incomingEvent => {
+      const existingEvent = existingEventsForUser.find(e => e.id === incomingEvent.id);
+      
+      if (existingEvent) {
+        // CRITICAL: Preserve campaigns from existing event if incoming event doesn't have them
+        let finalCampaigns = existingEvent.campaigns || [];
+        if (incomingEvent.campaigns && Array.isArray(incomingEvent.campaigns) && incomingEvent.campaigns.length > 0) {
+          // Use incoming campaigns if provided
+          finalCampaigns = incomingEvent.campaigns;
+        } else if (!finalCampaigns || finalCampaigns.length === 0) {
+          // CRITICAL: Auto-create campaigns if they don't exist
+          console.log(`🔄 No campaigns found for event ${incomingEvent.id} during sync, creating default campaigns...`);
+          finalCampaigns = createDefaultCampaigns(incomingEvent.id, existingEvent.eventDate || incomingEvent.eventDate);
+          console.log(`✅ Created ${finalCampaigns.length} default campaigns for event ${incomingEvent.id}`);
+        }
+        
+        // Event exists - merge to preserve guests and campaigns
+        const mergedEvent = {
+          ...existingEvent,
+          ...incomingEvent,
+          // CRITICAL: Preserve important fields from existing event if not in incoming event
+          groomName: incomingEvent.groomName !== undefined ? incomingEvent.groomName : existingEvent.groomName,
+          brideName: incomingEvent.brideName !== undefined ? incomingEvent.brideName : existingEvent.brideName,
+          groomParentsName: incomingEvent.groomParentsName !== undefined ? incomingEvent.groomParentsName : existingEvent.groomParentsName,
+          brideParentsName: incomingEvent.brideParentsName !== undefined ? incomingEvent.brideParentsName : existingEvent.brideParentsName,
+          coupleName: incomingEvent.coupleName !== undefined ? incomingEvent.coupleName : existingEvent.coupleName,
+          eventDate: incomingEvent.eventDate !== undefined ? incomingEvent.eventDate : existingEvent.eventDate,
+          eventTime: incomingEvent.eventTime !== undefined ? incomingEvent.eventTime : existingEvent.eventTime,
+          venue: incomingEvent.venue !== undefined ? incomingEvent.venue : existingEvent.venue,
+          eventType: incomingEvent.eventType !== undefined ? incomingEvent.eventType : existingEvent.eventType,
+          eventTypeHebrew: incomingEvent.eventTypeHebrew !== undefined ? incomingEvent.eventTypeHebrew : (existingEvent.eventTypeHebrew || 'חתונה'),
+          invitationImageUrl: incomingEvent.invitationImageUrl !== undefined ? incomingEvent.invitationImageUrl : existingEvent.invitationImageUrl,
+          // CRITICAL: Preserve guests from existing event if incoming event doesn't have them
+          guests: incomingEvent.guests && incomingEvent.guests.length > 0 
+            ? incomingEvent.guests 
+            : (existingEvent.guests || []),
+          // CRITICAL: Preserve campaigns
+          campaigns: finalCampaigns,
+          updatedAt: new Date().toISOString()
+        };
+        
+        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.guests?.length || 0} existing guests, ${incomingEvent.guests?.length || 0} incoming guests → ${mergedEvent.guests?.length || 0} final guests`);
+        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.campaigns?.length || 0} existing campaigns, ${incomingEvent.campaigns?.length || 0} incoming campaigns → ${mergedEvent.campaigns?.length || 0} final campaigns`);
+        
+        return mergedEvent;
+      } else {
+        // New event - use as is, but create campaigns if missing
+        let finalCampaigns = incomingEvent.campaigns || [];
+        if (!finalCampaigns || finalCampaigns.length === 0) {
+          console.log(`🔄 No campaigns found for new event ${incomingEvent.id} during sync, creating default campaigns...`);
+          finalCampaigns = createDefaultCampaigns(incomingEvent.id, incomingEvent.eventDate);
+          console.log(`✅ Created ${finalCampaigns.length} default campaigns for new event ${incomingEvent.id}`);
+        }
+        
+        console.log(`➕ New event ${incomingEvent.id}: ${incomingEvent.guests?.length || 0} guests`);
+        return {
+          ...incomingEvent,
+          campaigns: finalCampaigns,
+          eventTypeHebrew: incomingEvent.eventTypeHebrew || 'חתונה',
+          updatedAt: new Date().toISOString()
+        };
+      }
+    });
+    
+    // Add merged events
+    eventsData.events.push(...mergedEvents);
     
     // Save to file
     saveEvents();
@@ -4542,6 +5811,24 @@ app.post('/api/events', async (req, res) => {
   try {
     const event = req.body;
     
+    // CRITICAL: Log the incoming request to see what we're receiving
+    console.log(`📥 POST /api/events - Request received`);
+    console.log(`📥 Event ID: ${event.id}`);
+    console.log(`📥 Event userId: ${event.userId}`);
+    console.log(`📥 Incoming event has guests property:`, 'guests' in event);
+    console.log(`📥 Incoming event guests type:`, typeof event.guests);
+    console.log(`📥 Incoming event guests is array:`, Array.isArray(event.guests));
+    console.log(`📥 Incoming event guests count: ${event.guests?.length || 0}`);
+    console.log(`📥 Incoming event keys:`, Object.keys(event));
+    if (event.guests && event.guests.length > 0) {
+      console.log(`📥 First guest sample:`, {
+        id: event.guests[0].id,
+        firstName: event.guests[0].firstName,
+        lastName: event.guests[0].lastName,
+        phoneNumber: event.guests[0].phoneNumber
+      });
+    }
+    
     if (!event.id || !event.userId) {
       return res.status(400).json({ error: 'Event id and userId are required' });
     }
@@ -4554,6 +5841,14 @@ app.post('/api/events', async (req, res) => {
       const existingEvent = eventsData.events[existingIndex];
       console.log(`🔄 Updating event ${event.id}`);
       console.log(`📤 Incoming event has ${event.guests?.length || 0} guests`);
+      console.log(`📤 Existing event has ${existingEvent.guests?.length || 0} guests`);
+      console.log(`📤 Incoming event guests type:`, typeof event.guests);
+      console.log(`📤 Incoming event guests is array:`, Array.isArray(event.guests));
+      
+      // CRITICAL: Initialize mergedGuests with existing guests first
+      // This ensures we preserve all existing guests even if incoming event has no guests
+      let mergedGuests = existingEvent.guests ? [...existingEvent.guests] : [];
+      console.log(`📤 Initial mergedGuests count: ${mergedGuests.length}`);
       
       // Check for actualAttendance updates and add to pendingUpdates if rsvpStatus or guestCount changed
       if (event.guests && event.guests.length > 0) {
@@ -4806,9 +6101,11 @@ app.post('/api/events', async (req, res) => {
       
       // Update existing event - CRITICAL: Merge guests properly to preserve all fields
       // Merge guests array: update existing guests, add new ones, keep all others
-      let mergedGuests = [...(existingEvent.guests || [])];
-      
-      if (event.guests && event.guests.length > 0) {
+      // CRITICAL: Use the mergedGuests we already initialized above (line 4897)
+      // Don't redefine it here - just update it if incoming event has guests
+      // CRITICAL: If incoming event has guests: [] (empty array), preserve existing guests
+      // Only merge if incoming event has actual guests (length > 0)
+      if (event.guests && Array.isArray(event.guests) && event.guests.length > 0) {
         // For each incoming guest, update existing or add new
         for (const incomingGuest of event.guests) {
           const existingGuestIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
@@ -4816,6 +6113,8 @@ app.post('/api/events', async (req, res) => {
           if (existingGuestIndex >= 0) {
             // Update existing guest - merge all fields, but prioritize incoming data for updated fields
             const existingGuest = mergedGuests[existingGuestIndex];
+            const oldGuestCount = existingGuest.guestCount;
+            const newGuestCount = incomingGuest.guestCount;
             mergedGuests[existingGuestIndex] = {
               ...existingGuest,
               ...incomingGuest,
@@ -4833,7 +6132,13 @@ app.post('/api/events', async (req, res) => {
                 ? { responseDate: new Date(incomingGuest.responseDate) } 
                 : {})
             };
+            const finalGuestCount = mergedGuests[existingGuestIndex].guestCount;
             console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+            if (oldGuestCount !== finalGuestCount) {
+              console.log(`📊 GUEST COUNT UPDATED: ${oldGuestCount} → ${finalGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+            } else if (newGuestCount !== undefined) {
+              console.log(`📊 Guest count preserved: ${finalGuestCount} (was ${oldGuestCount}, incoming was ${newGuestCount})`);
+            }
           } else {
             // Add new guest
             mergedGuests.push(incomingGuest);
@@ -4842,13 +6147,63 @@ app.post('/api/events', async (req, res) => {
         }
       }
       
+      // CRITICAL: If incoming event has guests: [] (empty array) but existing event has guests,
+      // preserve existing guests instead of overwriting with empty array
+      const finalGuests = (event.guests && Array.isArray(event.guests) && event.guests.length === 0 && mergedGuests.length > 0)
+        ? mergedGuests  // Preserve existing guests if incoming is empty array
+        : mergedGuests; // Use merged guests (which already preserves existing if incoming has no guests)
+      
+      // CRITICAL: Preserve campaigns from existing event if incoming event doesn't have them
+      let finalCampaigns = existingEvent.campaigns || [];
+      if (event.campaigns && Array.isArray(event.campaigns) && event.campaigns.length > 0) {
+        // Use incoming campaigns if provided
+        finalCampaigns = event.campaigns;
+      } else if (!finalCampaigns || finalCampaigns.length === 0) {
+        // CRITICAL: Auto-create campaigns if they don't exist
+        console.log(`🔄 No campaigns found for event ${event.id}, creating default campaigns...`);
+        finalCampaigns = createDefaultCampaigns(event.id, existingEvent.eventDate || event.eventDate);
+        console.log(`✅ Created ${finalCampaigns.length} default campaigns for event ${event.id}`);
+      }
+      
+      // CRITICAL: Preserve all existing event fields that might not be in incoming event
+      // This ensures groomName, brideName, eventDate, venue, etc. are not lost
       const mergedEvent = {
         ...existingEvent,
         ...event,
-        // CRITICAL: Use merged guests array that preserves all guests
-        guests: mergedGuests,
+        // CRITICAL: Preserve important fields from existing event if not in incoming event
+        groomName: event.groomName !== undefined ? event.groomName : existingEvent.groomName,
+        brideName: event.brideName !== undefined ? event.brideName : existingEvent.brideName,
+        groomParentsName: event.groomParentsName !== undefined ? event.groomParentsName : existingEvent.groomParentsName,
+        brideParentsName: event.brideParentsName !== undefined ? event.brideParentsName : existingEvent.brideParentsName,
+        coupleName: event.coupleName !== undefined ? event.coupleName : existingEvent.coupleName,
+        eventDate: event.eventDate !== undefined ? event.eventDate : existingEvent.eventDate,
+        eventTime: event.eventTime !== undefined ? event.eventTime : existingEvent.eventTime,
+        venue: event.venue !== undefined ? event.venue : existingEvent.venue,
+        eventType: event.eventType !== undefined ? event.eventType : existingEvent.eventType,
+        eventTypeHebrew: event.eventTypeHebrew !== undefined ? event.eventTypeHebrew : (existingEvent.eventTypeHebrew || 'חתונה'),
+        invitationImageUrl: event.invitationImageUrl !== undefined ? event.invitationImageUrl : existingEvent.invitationImageUrl,
+        // CRITICAL: Preserve campaigns
+        campaigns: finalCampaigns,
+        // CRITICAL: Use final guests array that preserves all guests
+        guests: finalGuests,
         updatedAt: new Date().toISOString()
       };
+      
+      // Log warning if important fields are missing
+      if (!mergedEvent.groomName && !mergedEvent.brideName && !mergedEvent.coupleName) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no couple names (groomName, brideName, or coupleName)`);
+      }
+      if (!mergedEvent.eventDate) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no eventDate`);
+      }
+      if (!mergedEvent.venue) {
+        console.warn(`⚠️ WARNING: Event ${event.id} has no venue`);
+      }
+      
+      // Log warning if we're preserving guests when incoming event had empty array
+      if (event.guests && Array.isArray(event.guests) && event.guests.length === 0 && mergedGuests.length > 0) {
+        console.warn(`⚠️ PRESERVING GUESTS: Incoming event ${event.id} had empty guests array, but preserving ${mergedGuests.length} existing guests`);
+      }
       
       eventsData.events[existingIndex] = mergedEvent;
       console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests (merged from ${existingEvent.guests?.length || 0} existing + ${event.guests?.length || 0} incoming)`);
@@ -4864,12 +6219,36 @@ app.post('/api/events', async (req, res) => {
       }
     } else {
       // Create new event
-      eventsData.events.push({
+      const newEvent = {
         ...event,
         createdAt: event.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      });
-      console.log(`✨ Created event ${event.id}`);
+      };
+      
+      // CRITICAL: Ensure guests are included in new event
+      if (event.guests && Array.isArray(event.guests)) {
+        newEvent.guests = event.guests;
+        console.log(`✨ Created event ${event.id} with ${event.guests.length} guests`);
+      } else {
+        console.log(`✨ Created event ${event.id} WITHOUT guests (guests not provided)`);
+        console.log(`📥 Event object keys:`, Object.keys(event));
+        console.log(`📥 Event has guests property:`, 'guests' in event);
+        console.log(`📥 Event.guests value:`, event.guests);
+      }
+      
+      // CRITICAL: Auto-create campaigns if they don't exist
+      if (!newEvent.campaigns || !Array.isArray(newEvent.campaigns) || newEvent.campaigns.length === 0) {
+        console.log(`🔄 No campaigns found for new event ${event.id}, creating default campaigns...`);
+        newEvent.campaigns = createDefaultCampaigns(event.id, event.eventDate);
+        console.log(`✅ Created ${newEvent.campaigns.length} default campaigns for new event ${event.id}`);
+      }
+      
+      // CRITICAL: Ensure eventTypeHebrew has default value
+      if (!newEvent.eventTypeHebrew) {
+        newEvent.eventTypeHebrew = 'חתונה';
+      }
+      
+      eventsData.events.push(newEvent);
     }
     
     // Save to file
@@ -4900,11 +6279,31 @@ app.delete('/api/events/:eventId', async (req, res) => {
     
     const event = eventsData.events[eventIndex];
     
+    // CRITICAL: Log guest information before deletion to ensure it's preserved
+    console.log(`🗑️ Deleting event ${eventId} (${event.coupleName || 'unnamed'})`);
+    console.log(`📊 Event has ${event.guests?.length || 0} guests`);
+    if (event.guests && event.guests.length > 0) {
+      console.log(`📋 Guest details before deletion:`, event.guests.map(g => ({
+        id: g.id,
+        name: `${g.firstName} ${g.lastName}`,
+        phone: g.phoneNumber,
+        rsvpStatus: g.rsvpStatus,
+        guestCount: g.guestCount,
+        responseDate: g.responseDate,
+        actualAttendance: g.actualAttendance,
+        notes: g.notes
+      })));
+    }
+    
     // Move to deletedEvents
-    eventsData.deletedEvents.push({
+    // CRITICAL: Preserve ALL event data including guests array with all guest properties
+    const eventToDelete = {
       ...event,
+      guests: event.guests || [], // CRITICAL: Explicitly preserve guests array
       deletedAt: new Date().toISOString()
-    });
+    };
+    
+    eventsData.deletedEvents.push(eventToDelete);
     
     // Remove from events
     eventsData.events.splice(eventIndex, 1);
@@ -4912,7 +6311,7 @@ app.delete('/api/events/:eventId', async (req, res) => {
     // Save to file
     saveEvents();
     
-    console.log(`🗑️ Deleted event ${eventId}`);
+    console.log(`🗑️ Deleted event ${eventId} - preserved ${eventToDelete.guests.length} guests in deletedEvents`);
     
     res.json({
       success: true,
@@ -4922,6 +6321,110 @@ app.delete('/api/events/:eventId', async (req, res) => {
     console.error('❌ Error deleting event:', error);
     res.status(500).json({ error: 'שגיאה במחיקת אירוע' });
   }
+});
+
+// CRITICAL: Endpoint to update guests array directly (for fixing empty guests issue)
+// This allows sending all guests to the server even if regular update fails
+app.post('/api/events/:eventId/guests', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  try {
+    const { eventId } = req.params;
+    const { guests, append } = req.body;
+    
+    console.log(`📥 POST /api/events/${eventId}/guests - Request received`);
+    console.log(`📥 Incoming guests count: ${guests?.length || 0}`);
+    console.log(`📥 Append mode: ${append ? 'true (merge with existing)' : 'false (replace)'}`);
+    
+    if (!eventId) {
+      return res.status(400).json({ error: 'Event ID is required' });
+    }
+    
+    if (!Array.isArray(guests)) {
+      return res.status(400).json({ error: 'Guests must be an array' });
+    }
+    
+    // Read events directly from file to ensure we have latest data
+    const eventsFilePath = path.join(__dirname, 'events.json');
+    let fileData;
+    
+    if (fs.existsSync(eventsFilePath)) {
+      const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
+      fileData = JSON.parse(fileContent);
+    } else {
+      return res.status(404).json({ error: 'Events file not found' });
+    }
+    
+    // Find event
+    const eventIndex = fileData.events.findIndex(e => e.id === eventId);
+    
+    if (eventIndex === -1) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    const existingEvent = fileData.events[eventIndex];
+    let finalGuests;
+    
+    if (append && existingEvent.guests && Array.isArray(existingEvent.guests)) {
+      // Merge guests: update existing by ID, add new ones
+      const mergedGuests = [...existingEvent.guests];
+      
+      for (const incomingGuest of guests) {
+        const existingIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
+        if (existingIndex >= 0) {
+          // Update existing guest
+          mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
+        } else {
+          // Add new guest
+          mergedGuests.push(incomingGuest);
+        }
+      }
+      
+      finalGuests = mergedGuests;
+      console.log(`📥 Merged ${guests.length} incoming guests with ${existingEvent.guests.length} existing = ${finalGuests.length} total`);
+    } else {
+      // Replace guests array
+      finalGuests = guests;
+      console.log(`📥 Replacing guests array with ${guests.length} guests`);
+    }
+    
+    // Update guests array
+    fileData.events[eventIndex].guests = finalGuests;
+    fileData.events[eventIndex].updatedAt = new Date().toISOString();
+    
+    // Save to file
+    fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
+    
+    // Update in-memory data
+    eventsData.events = fileData.events;
+    eventsData.deletedEvents = fileData.deletedEvents || [];
+    
+    console.log(`✅ Updated event ${eventId} with ${finalGuests.length} guests`);
+    
+    res.json({
+      success: true,
+      message: `Updated event with ${finalGuests.length} guests`,
+      guestsCount: finalGuests.length
+    });
+  } catch (error) {
+    console.error('❌ Error updating guests:', error);
+    res.status(500).json({ error: 'שגיאה בעדכון אורחים' });
+  }
+});
+
+// Handle OPTIONS request for guests endpoint
+app.options('/api/events/:eventId/guests', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  res.sendStatus(200);
 });
 
 // Restore a deleted event
@@ -4950,12 +6453,32 @@ app.post('/api/events/:eventId/restore', async (req, res) => {
       });
     }
     
+    // CRITICAL: Log guest information before restore
+    console.log(`📊 Restoring event ${eventId} with ${deletedEvent.guests?.length || 0} guests`);
+    if (deletedEvent.guests && deletedEvent.guests.length > 0) {
+      console.log(`📋 Guest details:`, deletedEvent.guests.map(g => ({
+        id: g.id,
+        name: `${g.firstName} ${g.lastName}`,
+        phone: g.phoneNumber,
+        rsvpStatus: g.rsvpStatus,
+        guestCount: g.guestCount,
+        responseDate: g.responseDate,
+        actualAttendance: g.actualAttendance
+      })));
+    }
+    
     // Remove deletedAt field and restore to events
+    // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
     const { deletedAt, ...eventToRestore } = deletedEvent;
-    eventsData.events.push({
+    
+    // CRITICAL: Ensure guests array is preserved with all data
+    const restoredEvent = {
       ...eventToRestore,
+      guests: deletedEvent.guests || [], // CRITICAL: Preserve all guests with their data
       updatedAt: new Date().toISOString()
-    });
+    };
+    
+    eventsData.events.push(restoredEvent);
     
     // Remove from deletedEvents
     eventsData.deletedEvents.splice(deletedIndex, 1);
@@ -4963,12 +6486,19 @@ app.post('/api/events/:eventId/restore', async (req, res) => {
     // Save to file
     saveEvents();
     
-    console.log(`✅ Restored event ${eventId} (${deletedEvent.coupleName || 'unnamed'})`);
+    console.log(`✅ Restored event ${eventId} (${deletedEvent.coupleName || 'unnamed'}) with ${restoredEvent.guests.length} guests`);
+    console.log(`📊 Guest RSVP summary:`, {
+      confirmed: restoredEvent.guests.filter(g => g.rsvpStatus === 'confirmed').length,
+      declined: restoredEvent.guests.filter(g => g.rsvpStatus === 'declined').length,
+      maybe: restoredEvent.guests.filter(g => g.rsvpStatus === 'maybe').length,
+      pending: restoredEvent.guests.filter(g => g.rsvpStatus === 'pending' || !g.rsvpStatus).length
+    });
     
     res.json({
       success: true,
       message: 'Event restored successfully',
-      event: eventToRestore
+      event: restoredEvent,
+      guestsRestored: restoredEvent.guests.length
     });
   } catch (error) {
     console.error('❌ Error restoring event:', error);

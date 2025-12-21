@@ -27,8 +27,8 @@ export interface Guest {
 
 export type RSVPStatus = 'pending' | 'confirmed' | 'declined' | 'maybe';
 export type AttendanceStatus = 'attended' | 'not_attended' | 'not_marked';
-export type MessageChannel = 'whatsapp' | 'sms' | 'manual';
-export type MessageStatus = 'not_sent' | 'sent' | 'delivered' | 'failed' | 'sms_sent';
+export type MessageChannel = 'whatsapp' | 'manual';
+export type MessageStatus = 'not_sent' | 'sent' | 'delivered' | 'failed';
 
 export interface Table {
   id: string;
@@ -73,6 +73,8 @@ export interface Event {
   coupleName: string;
   groomName: string;
   brideName: string;
+  groomParentsName?: string; // שם הורי החתן
+  brideParentsName?: string; // שם הורי הכלה
   eventDate: Date;
   eventTime: string;
   venue: string;
@@ -112,8 +114,6 @@ export interface Campaign {
   updatedAt: Date;
   // WhatsApp buttons
   whatsappButtons?: WhatsAppButton[];
-  // SMS fallback message
-  smsMessage?: string;
   // WhatsApp template name (for first messages)
   templateName?: string;
 }
@@ -187,11 +187,6 @@ export interface WhatsAppMessage {
   templateId?: string;
 }
 
-export interface SMSMessage {
-  to: string;
-  message: string;
-  senderId?: string;
-}
 
 export interface APIResponse<T> {
   success: boolean;
@@ -203,6 +198,7 @@ export interface APIResponse<T> {
 // סוגי Store (Zustand)
 export interface EventStore {
   cleanupOtherUsersEvents: () => void;
+  syncCurrentEventToAPI: (eventId?: string) => Promise<void>;
   syncAllEventsToAPI: () => Promise<{ synced: number; failed: number }>;
   events: Event[];
   deletedEvents: (Event & { deletedAt: Date })[];
@@ -210,7 +206,6 @@ export interface EventStore {
   currentEvent: Event | null;
   isLoading: boolean;
   error: string | null;
-  manualChanges: Map<string, number>; // Track manual changes: "eventId-guestId" -> timestamp
   
   // Actions
   fetchEvents: (forceRefresh?: boolean, silent?: boolean) => Promise<void>;
@@ -229,7 +224,8 @@ export interface EventStore {
   createCampaign: (campaign: Omit<Campaign, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   scheduleCampaign: (eventId: string, campaignId: string, scheduledDate: Date) => Promise<void>;
   sendCampaign: (eventId: string, campaignId: string) => Promise<any>;
-  sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp' | 'sms') => Promise<boolean>;
+  resendFailedMessages: (eventId: string, campaignId: string) => Promise<any>;
+  sendTestMessage: (phoneNumber: string, message: string, channel: 'whatsapp') => Promise<boolean>;
   updateExistingEventsCampaigns: () => void;
   recreateCampaigns: (eventId: string) => Promise<void>;
   
