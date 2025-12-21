@@ -858,6 +858,23 @@ class WhatsAppService {
           console.error(`❌ This payload will be REJECTED by Meta API`);
           console.error(`❌ Expected parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name`);
         }
+        
+        // CRITICAL: Log detailed payload structure for template "aa" before sending
+        console.log('📋 DETAILED PAYLOAD STRUCTURE FOR TEMPLATE "aa" (BEFORE SENDING):');
+        console.log('📋 Body Parameters:', bodyParams.map((p: any, i: number) => ({
+          position: i + 1,
+          type: p.type,
+          text: p.text ? `${p.text.substring(0, 50)}${p.text.length > 50 ? '...' : ''}` : 'MISSING',
+          textLength: p.text ? p.text.length : 0,
+          isEmpty: !p.text || p.text.trim().length === 0,
+          hasParameterName: !!p.parameter_name
+        })));
+        console.log('📋 Button Components:', buttonComponents.map((btn: any) => ({
+          type: btn.type,
+          sub_type: btn.sub_type,
+          index: btn.index,
+          parameters: btn.parameters
+        })));
       }
 
       // Log the FULL payload being sent to Meta API
