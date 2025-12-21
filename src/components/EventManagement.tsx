@@ -2497,8 +2497,8 @@ const EventManagement: React.FC = () => {
         ? customMessage.replace('{{guest_link}}', guestLink)
         : `${baseMessage}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}`;
       
-      // CRITICAL: Prepare template parameters for template "aa" (8 parameters + guest_response_link)
-      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+      // CRITICAL: Prepare template parameters for template "new" (8 parameters + guest_response_link)
+      // Template "new" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
       // Plus guest_response_link for the URL button at index 0
       const coupleName = currentEvent.coupleName || 
         (currentEvent.groomName && currentEvent.brideName 
@@ -2507,7 +2507,7 @@ const EventManagement: React.FC = () => {
       const groomName = currentEvent.groomName || '';
       const brideName = currentEvent.brideName || '';
       
-      const templateParamsForAA = {
+      const templateParamsForNew = {
         paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                      'event_date', 'event_time', 'venue', 'couple_name'],
         guest_name: guest.firstName,
@@ -2518,7 +2518,7 @@ const EventManagement: React.FC = () => {
         event_time: currentEvent.eventTime || '',
         venue: currentEvent.venue || '',
         couple_name: coupleName,
-        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
+        guest_response_link: guestLink, // CRITICAL: Required for template "new" URL button at index 0
         language: 'he'
       };
         
@@ -2541,8 +2541,8 @@ const EventManagement: React.FC = () => {
             venue: currentEvent.venue,
             invitationImageUrl: currentEvent.invitationImageUrl
           },
-          // CRITICAL: Pass template params for template "aa" so it can be used if needed (first message or retry)
-          templateParams: templateParamsForAA
+          // CRITICAL: Pass template params for template "new" so it can be used if needed (first message or retry)
+          templateParams: templateParamsForNew
         };
       });
 
@@ -2761,7 +2761,7 @@ const EventManagement: React.FC = () => {
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
-      console.log('📋 Template params:', templateParamsForAA);
+      console.log('📋 Template params:', templateParamsForNew);
       
       let result;
       try {
