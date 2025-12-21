@@ -2397,46 +2397,11 @@ export const useEventStore = create<EventStore>()(
                   const apiResponseData = await apiUpdateResponse.json();
                   console.log('✅ Event updated directly in server:', apiResponseData);
                   
-                  // CRITICAL: After successful server update, refresh events from server
-                  // This ensures the table shows the latest data from the server
-                  // The table will update from the server, not from local store
-                  // CRITICAL: Increased delay to ensure server has fully processed and saved the update
-                  setTimeout(async () => {
-                    try {
-                      console.log('🔄 Refreshing events from server after direct update...');
-                      const { fetchEvents } = get();
-                      await fetchEvents(false, true); // Force refresh from API
-                      console.log('✅ Events refreshed from server after direct update');
-                      
-                      // CRITICAL: Verify the update was persisted correctly
-                      const verifyState = get();
-                      const verifyEvent = verifyState.events.find(e => e.id === eventId);
-                      const verifyGuest = verifyEvent?.guests?.find(g => g.id === updatedGuest.id);
-                      if (verifyGuest) {
-                        console.log('🔍 Verification after refresh:', {
-                          expectedStatus: updatedGuest.rsvpStatus,
-                          actualStatus: verifyGuest.rsvpStatus,
-                          expectedGuestCount: updatedGuest.guestCount,
-                          actualGuestCount: verifyGuest.guestCount,
-                          match: verifyGuest.rsvpStatus === updatedGuest.rsvpStatus && verifyGuest.guestCount === updatedGuest.guestCount
-                        });
-                        if (verifyGuest.rsvpStatus !== updatedGuest.rsvpStatus || verifyGuest.guestCount !== updatedGuest.guestCount) {
-                          console.error('❌ UPDATE MISMATCH AFTER REFRESH! Retrying refresh...');
-                          // Retry refresh once more
-                          setTimeout(async () => {
-                            try {
-                              await fetchEvents(false, true);
-                              console.log('✅ Retry refresh completed');
-                            } catch (retryError) {
-                              console.warn('⚠️ Retry refresh failed:', retryError);
-                            }
-                          }, 500);
-                        }
-                      }
-                    } catch (refreshError) {
-                      console.warn('⚠️ Failed to refresh events from server after direct update:', refreshError);
-                    }
-                  }, 500); // CRITICAL: Increased delay to 500ms to ensure server has finished processing and saving
+                  // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+                  // The local update is already in the store and the table will update automatically
+                  // The server update is confirmed, so the data is synced
+                  // The webhook service will handle syncing to other devices
+                  console.log('✅ Server update confirmed - local update preserved in store');
                 } else {
                   const apiErrorText = await apiUpdateResponse.text();
                   console.warn('⚠️ Failed to update event directly in server:', apiUpdateResponse.status, apiErrorText);

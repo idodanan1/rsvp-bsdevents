@@ -952,61 +952,32 @@ const EventManagement: React.FC = () => {
       console.log('🔄 Updating guest via updateGuestResponse:', { guestId, status });
       await updateGuestResponse(event.id, guestId, updatedGuest);
       
-      // CRITICAL: Wait for server to save the update, then refresh from server
-      // The table will update from the server data, not from local store
-      // This ensures all clients see the same data from the server
-      // CRITICAL: Increased delay to ensure server has fully processed and saved the update
-      setTimeout(async () => {
-        try {
-          console.log('🔄 Refreshing events from server after guest status update...');
-          await fetchEvents(false, true); // Force refresh from API
-          console.log('✅ Events refreshed from server - table will update automatically');
-          
-          // CRITICAL: Update currentEvent from the refreshed events array
-          // This ensures the table shows the latest data from the server
-          const refreshedState = useEventStore.getState();
-          const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
-          if (refreshedEvent) {
-            const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestId);
-            setCurrentEvent({
-              ...refreshedEvent,
-              guests: refreshedEvent.guests.map(g => ({ ...g }))
-            });
-            console.log('✅ CurrentEvent updated from server data');
-            
-            // CRITICAL: Verify the update was persisted correctly
-            if (refreshedGuest) {
-              console.log('🔍 Verification after refresh:', {
-                expectedStatus: status,
-                actualStatus: refreshedGuest.rsvpStatus,
-                match: refreshedGuest.rsvpStatus === status
-              });
-              if (refreshedGuest.rsvpStatus !== status) {
-                console.error('❌ STATUS MISMATCH AFTER REFRESH! Retrying refresh...');
-                // Retry refresh once more
-                setTimeout(async () => {
-                  try {
-                    await fetchEvents(false, true);
-                    const retryState = useEventStore.getState();
-                    const retryEvent = retryState.events.find(e => e.id === event.id);
-                    if (retryEvent) {
-                      setCurrentEvent({
-                        ...retryEvent,
-                        guests: retryEvent.guests.map(g => ({ ...g }))
-                      });
-                      console.log('✅ Retry refresh completed - CurrentEvent updated');
-                    }
-                  } catch (retryError) {
-                    console.warn('⚠️ Retry refresh failed:', retryError);
-                  }
-                }, 500);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ Failed to refresh events from server after guest status update:', error);
+      // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+      // The updateGuestResponse function already syncs to the server and will refresh when ready
+      // The table will update automatically from the store state change
+      console.log('✅ Guest status updated - table will update automatically from store state');
+      
+      // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
+      // This ensures the UI reflects the change without waiting for server refresh
+      const updatedState = useEventStore.getState();
+      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      if (updatedEvent) {
+        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        if (updatedGuest && updatedGuest.rsvpStatus === status) {
+          // Update currentEvent to reflect the change immediately
+          setCurrentEvent({
+            ...updatedEvent,
+            guests: updatedEvent.guests.map(g => ({ ...g }))
+          });
+          console.log('✅ CurrentEvent updated from store - table will show updated status');
+        } else {
+          console.warn('⚠️ Updated guest not found in store or status mismatch:', {
+            found: !!updatedGuest,
+            expectedStatus: status,
+            actualStatus: updatedGuest?.rsvpStatus
+          });
         }
-      }, 500); // CRITICAL: Increased delay to 500ms to ensure server has finished processing and saving
+      }
     } catch (error) {
       console.error('❌ Error updating guest:', error);
     }
@@ -1041,59 +1012,32 @@ const EventManagement: React.FC = () => {
       console.log('🔄 Updating attendance via updateGuestResponse:', { guestId, attendance });
       await updateGuestResponse(event.id, guestId, updatedGuest);
       
-      // CRITICAL: Wait for server to save the update, then refresh from server
-      // The table will update from the server data, not from local store
-      // CRITICAL: Increased delay to ensure server has fully processed and saved the update
-      setTimeout(async () => {
-        try {
-          console.log('🔄 Refreshing events from server after attendance update...');
-          await fetchEvents(false, true); // Force refresh from API
-          console.log('✅ Events refreshed from server - table will update automatically');
-          
-          // CRITICAL: Update currentEvent from the refreshed events array
-          const refreshedState = useEventStore.getState();
-          const refreshedEvent = refreshedState.events.find(e => e.id === event.id);
-          if (refreshedEvent) {
-            const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestId);
-            setCurrentEvent({
-              ...refreshedEvent,
-              guests: refreshedEvent.guests.map(g => ({ ...g }))
-            });
-            console.log('✅ CurrentEvent updated from server data');
-            
-            // CRITICAL: Verify the update was persisted correctly
-            if (refreshedGuest) {
-              console.log('🔍 Verification after refresh:', {
-                expectedAttendance: attendance,
-                actualAttendance: refreshedGuest.actualAttendance,
-                match: refreshedGuest.actualAttendance === attendance
-              });
-              if (refreshedGuest.actualAttendance !== attendance) {
-                console.error('❌ ATTENDANCE MISMATCH AFTER REFRESH! Retrying refresh...');
-                // Retry refresh once more
-                setTimeout(async () => {
-                  try {
-                    await fetchEvents(false, true);
-                    const retryState = useEventStore.getState();
-                    const retryEvent = retryState.events.find(e => e.id === event.id);
-                    if (retryEvent) {
-                      setCurrentEvent({
-                        ...retryEvent,
-                        guests: retryEvent.guests.map(g => ({ ...g }))
-                      });
-                      console.log('✅ Retry refresh completed - CurrentEvent updated');
-                    }
-                  } catch (retryError) {
-                    console.warn('⚠️ Retry refresh failed:', retryError);
-                  }
-                }, 500);
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('⚠️ Failed to refresh events from server after attendance update:', error);
+      // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
+      // The updateGuestResponse function already syncs to the server and will refresh when ready
+      // The table will update automatically from the store state change
+      console.log('✅ Guest attendance updated - table will update automatically from store state');
+      
+      // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
+      // This ensures the UI reflects the change without waiting for server refresh
+      const updatedState = useEventStore.getState();
+      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      if (updatedEvent) {
+        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        if (updatedGuest && updatedGuest.actualAttendance === attendance) {
+          // Update currentEvent to reflect the change immediately
+          setCurrentEvent({
+            ...updatedEvent,
+            guests: updatedEvent.guests.map(g => ({ ...g }))
+          });
+          console.log('✅ CurrentEvent updated from store - table will show updated attendance');
+        } else {
+          console.warn('⚠️ Updated guest not found in store or attendance mismatch:', {
+            found: !!updatedGuest,
+            expectedAttendance: attendance,
+            actualAttendance: updatedGuest?.actualAttendance
+          });
         }
-      }, 500); // CRITICAL: Increased delay to 500ms to ensure server has finished processing and saving
+      }
       
       console.log('✅ handleUpdateAttendance completed successfully');
     } catch (error) {

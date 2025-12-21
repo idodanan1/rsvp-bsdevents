@@ -84,6 +84,9 @@ class WhatsAppService {
 
       // CRITICAL: Declare templateName at outer scope so it's accessible throughout all blocks (including error handling)
       const templateName = (messageData.templateName || '').toLowerCase();
+      
+      // CRITICAL: Save reference to original templateParams for rebuilding components later
+      const originalTemplateParams = messageData.templateParams ? { ...messageData.templateParams } : undefined;
 
       // If template is provided, send template message (for first messages)
       // CRITICAL: Validate templateName before using it
@@ -813,93 +816,50 @@ class WhatsAppService {
       }
       
       // CRITICAL: Final validation before sending - ensure components array structure is correct
-      // CRITICAL: For template "aa", rebuild components array from scratch to ensure perfect structure
+      // CRITICAL: For template "aa", rebuild components array from scratch using original templateParams
       if (messagePayload.type === 'template' && messagePayload.template?.components) {
         if (templateName === 'aa' || templateName === 'AA') {
-          // CRITICAL: For template "aa", rebuild components array from scratch
+          // CRITICAL: For template "aa", rebuild components array from scratch using original templateParams
           // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters
-          const bodyComponent = messagePayload.template.components.find((c: any) => c.type === 'body');
+          console.log('🔄 Rebuilding components array for template "aa" from original templateParams...');
           
-          if (!bodyComponent || !bodyComponent.parameters || bodyComponent.parameters.length !== 8) {
-            console.error(`❌ CRITICAL: Template "aa" requires exactly 8 body parameters!`);
-            console.error(`❌ Actual count: ${bodyComponent?.parameters?.length || 0}`);
-            console.error(`❌ Body component:`, JSON.stringify(bodyComponent, null, 2));
+          // Rebuild from original templateParams to ensure correctness
+          const expectedParams = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                                 'event_date', 'event_time', 'venue', 'couple_name'];
+          
+          // Build parameters array from original templateParams
+          const rebuiltParams: any[] = [];
+          for (let i = 0; i < 8; i++) {
+            const paramKey = expectedParams[i];
+            let paramValue: string;
             
-            // Try to fix by ensuring we have 8 parameters
-            if (bodyComponent && bodyComponent.parameters) {
-              const currentParams = bodyComponent.parameters;
-              const expectedParams = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                                     'event_date', 'event_time', 'venue', 'couple_name'];
-              
-              // Rebuild parameters array ensuring we have exactly 8
-              const fixedParams: any[] = [];
-              for (let i = 0; i < 8; i++) {
-                const paramKey = expectedParams[i];
-                const existingParam = currentParams[i];
-                
-                if (existingParam && existingParam.type === 'text' && existingParam.text && typeof existingParam.text === 'string' && existingParam.text.trim().length > 0) {
-                  fixedParams.push({
-                    type: 'text',
-                    text: existingParam.text.trim()
-                  });
-                } else {
-                  // Use placeholder for missing/invalid parameter
-                  const placeholder = this.getPlaceholderForParameter(paramKey);
-                  console.warn(`⚠️ Parameter ${i + 1} (${paramKey}) is missing or invalid, using placeholder: "${placeholder}"`);
-                  fixedParams.push({
-                    type: 'text',
-                    text: placeholder
-                  });
-                }
+            if (originalTemplateParams && paramKey in originalTemplateParams) {
+              const rawValue = originalTemplateParams[paramKey];
+              if (rawValue !== undefined && rawValue !== null) {
+                const strValue = String(rawValue).trim();
+                paramValue = strValue.length > 0 ? strValue : this.getPlaceholderForParameter(paramKey);
+              } else {
+                paramValue = this.getPlaceholderForParameter(paramKey);
               }
-              
-              // Rebuild components array with ONLY body component
-              messagePayload.template.components = [{
-                type: 'body',
-                parameters: fixedParams
-              }];
-              
-              console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters`);
             } else {
-              console.error(`❌ CRITICAL: Cannot fix - body component is missing or invalid!`);
+              paramValue = this.getPlaceholderForParameter(paramKey);
             }
-          } else {
-            // Body component exists and has 8 parameters - validate and rebuild cleanly
-            const cleanParams = bodyComponent.parameters.map((param: any, index: number) => {
-              // Ensure parameter has correct structure
-              if (!param || typeof param !== 'object' || param.type !== 'text') {
-                const paramKey = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                                 'event_date', 'event_time', 'venue', 'couple_name'][index];
-                const placeholder = this.getPlaceholderForParameter(paramKey);
-                console.warn(`⚠️ Parameter ${index + 1} has invalid structure, using placeholder: "${placeholder}"`);
-                return { type: 'text', text: placeholder };
-              }
-              
-              // Ensure text is not empty
-              const textValue = typeof param.text === 'string' ? param.text.trim() : String(param.text || '').trim();
-              if (textValue.length === 0) {
-                const paramKey = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                                 'event_date', 'event_time', 'venue', 'couple_name'][index];
-                const placeholder = this.getPlaceholderForParameter(paramKey);
-                console.warn(`⚠️ Parameter ${index + 1} is empty, using placeholder: "${placeholder}"`);
-                return { type: 'text', text: placeholder };
-              }
-              
-              // Remove any extra fields (like parameter_name) that shouldn't be in body parameters
-              return {
-                type: 'text',
-                text: textValue
-              };
+            
+            rebuiltParams.push({
+              type: 'text',
+              text: paramValue
             });
             
-            // Rebuild components array with ONLY body component (no header, no buttons)
-            messagePayload.template.components = [{
-              type: 'body',
-              parameters: cleanParams
-            }];
-            
-            console.log(`✅ Rebuilt clean components array for template "aa" with exactly 8 validated body parameters`);
+            console.log(`📋 Rebuilt parameter ${i + 1}/${8} [${paramKey}]: "${paramValue.substring(0, 50)}${paramValue.length > 50 ? '...' : ''}"`);
           }
+          
+          // Rebuild components array with ONLY body component (no header, no buttons)
+          messagePayload.template.components = [{
+            type: 'body',
+            parameters: rebuiltParams
+          }];
+          
+          console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters from original templateParams`);
         } else {
           // For other templates, validate and fix structure
           messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
