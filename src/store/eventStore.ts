@@ -2053,7 +2053,9 @@ export const useEventStore = create<EventStore>()(
                           lastName: cleanedLastName,
                           // Always use new values if provided (latest update completely replaces old one)
                           rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                          guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                          // CRITICAL: If guestCount is explicitly provided (even if 0 or null), use it. Otherwise keep existing value
+                          // Don't default to 1 - this prevents reverting from 2 back to 1 when old update arrives
+                          guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
                           notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                           actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
                           // CRITICAL: Always use new responseDate to ensure backend detects it as a new update
@@ -2209,7 +2211,9 @@ export const useEventStore = create<EventStore>()(
                       ...updatedGuest,
                       // Always use new values if provided (latest update wins)
                       rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                      guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : (guest.guestCount || 1),
+                      // CRITICAL: If guestCount is explicitly provided (even if 0 or null), use it. Otherwise keep existing value
+                      // Don't default to 1 - this prevents reverting from 2 back to 1 when old update arrives
+                      guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                       responseDate: isNewerUpdate ? newResponseDate : oldResponseDate,
                       // CRITICAL: Preserve source to ensure proper tracking
