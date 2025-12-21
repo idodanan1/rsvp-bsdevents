@@ -2766,9 +2766,9 @@ const EventManagement: React.FC = () => {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "aa" for manual messages from table
-          templateName: 'aa',
-          templateParams: templateParamsForAA,
+          // CRITICAL: Use template "hello_world" for testing (no parameters needed)
+          templateName: 'hello_world',
+          templateParams: { language: 'he' },
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
