@@ -2736,39 +2736,28 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, use template "aa"
-      console.log('📝 Sending manual message with template "aa"');
+      // CRITICAL: For manual messages from table, use template "hello_world" for testing
+      console.log('📝 Sending manual message with template "hello_world"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Prepare template parameters for template "aa" (8 parameters)
-      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-      const templateParamsForAA = {
-        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                     'event_date', 'event_time', 'venue', 'couple_name'],
-        guest_name: guest.firstName,
-        event_type: event.eventTypeHebrew || 'חתונה',
-        groom_name: event.groomName || '',
-        bride_name: event.brideName || '',
-        event_date: formatDate(event.eventDate) || '',
-        event_time: event.eventTime || '',
-        venue: event.venue || '',
-        couple_name: coupleName || '',
-        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
-        language: 'he'
+      // Template "hello_world" doesn't need parameters - it's a simple test template
+      // Use English language (en) for hello_world template
+      const templateParamsForHelloWorld = {
+        language: 'en' // hello_world template exists in English, not Hebrew
       };
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
-      console.log('📋 Template params:', templateParamsForAA);
+      console.log('📋 Template params:', templateParamsForHelloWorld);
       
       let result;
       try {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "hello_world" for testing (no parameters needed)
+          // CRITICAL: Use template "hello_world" for testing (English language)
           templateName: 'hello_world',
-          templateParams: { language: 'he' },
+          templateParams: templateParamsForHelloWorld,
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
