@@ -113,16 +113,16 @@ class WhatsAppService {
           };
           // No components needed for hello_world - it's that simple!
           // Skip all the complex logic below and go directly to sending
-        } else if (templateName === 'aa') {
+        } else if (templateName === 'new' || templateName === 'aa') {
           messagePayload.type = 'template';
           messagePayload.template = {
-            name: 'aa',
+            name: 'new', // Use "new" template name
             language: {
               code: 'he'
             }
           };
           
-          // SIMPLE: Build components for template "aa" - 8 body params + 1 URL button
+          // SIMPLE: Build components for template "new" - 8 body params + 1 URL button
           // Get data from templateParams (eventData, guestName, guest_response_link)
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';

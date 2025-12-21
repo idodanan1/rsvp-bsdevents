@@ -2736,14 +2736,14 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, use template "aa" (simple like curl)
-      console.log('📝 Sending manual message with template "aa"');
+      // CRITICAL: For manual messages from table, use template "new" (simple like curl)
+      console.log('📝 Sending manual message with template "new"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Template "aa" - needs 8 body parameters + URL button
-      // Use Hebrew language (he) for aa template
-      const templateParamsForAA = {
-        language: 'he', // aa template exists in Hebrew
+      // Template "new" - needs 8 body parameters + URL button
+      // Use Hebrew language (he) for new template
+      const templateParamsForNew = {
+        language: 'he', // new template exists in Hebrew
         guest_response_link: guestLink, // CRITICAL: Required for URL button
         guestName: guest.firstName, // For body parameter 1
         eventData: {
@@ -2768,9 +2768,9 @@ const EventManagement: React.FC = () => {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "aa" (simple like curl - no components)
-          templateName: 'aa',
-          templateParams: templateParamsForAA,
+          // CRITICAL: Use template "new" (simple like curl - no components)
+          templateName: 'new',
+          templateParams: templateParamsForNew,
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
@@ -2790,8 +2790,8 @@ const EventManagement: React.FC = () => {
               venue: event.venue || '',
               invitationImageUrl: finalImageUrl // Use event image first, then campaign image
             },
-            // CRITICAL: Pass template params for template "aa"
-            templateParams: templateParamsForAA
+            // CRITICAL: Pass template params for template "new"
+            templateParams: templateParamsForNew
           }]
         });
         
