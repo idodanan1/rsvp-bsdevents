@@ -19,6 +19,19 @@ const Login: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const login = useUserStore(state => state.login);
+  const { user, isAuthenticated } = useUserStore();
+  
+  // CRITICAL: If user is already logged in, redirect to last location or dashboard
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      const lastLocation = localStorage.getItem('rsvp-last-location');
+      if (lastLocation && lastLocation !== '/login' && lastLocation !== '/signup') {
+        navigate(lastLocation, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +70,14 @@ const Login: React.FC = () => {
       }
       
       toast.success('התחברת בהצלחה!');
-      navigate('/');
+      
+      // CRITICAL: Redirect to last location if exists, otherwise go to dashboard
+      const lastLocation = localStorage.getItem('rsvp-last-location');
+      if (lastLocation && lastLocation !== '/login' && lastLocation !== '/signup') {
+        navigate(lastLocation);
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('❌ Login error:', error);
       const errorMessage = error.message || 'שגיאה בהתחברות';

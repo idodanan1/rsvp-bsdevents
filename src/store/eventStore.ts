@@ -628,11 +628,12 @@ export const useEventStore = create<EventStore>()(
                   }
                 }
                 
-                // CRITICAL: Merge API events with local events
-                // Use timestamp-based conflict resolution - newer update wins
+                // CRITICAL: SERVER IS THE SINGLE SOURCE OF TRUTH
+                // Use API events directly - they contain the latest data from all devices
+                // Only filter out deleted guests and clean names
                 const state = get();
                 
-                // Merge API events with local events
+                // Use API events as-is (server is source of truth)
                 const allEvents = apiEvents.map(apiEvent => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
@@ -641,229 +642,58 @@ export const useEventStore = create<EventStore>()(
                     cleanedInvitationImageUrl = undefined; // Remove local file paths
                   }
                   
-                  // Find corresponding local event
-                  const localEvent = localEvents.find((e: Event) => e.id === apiEvent.id && e.userId === userId);
+                  // CRITICAL: Server is source of truth - use API data directly
+                  // Filter out deleted guests and clean names
+                  const deletedGuestIds = state.deletedGuests[apiEvent.id] || [];
                   
-                  if (!localEvent) {
-                    // Filter out deleted guests even when there's no local event
-                    const deletedGuestIds = get().deletedGuests[apiEvent.id] || [];
-                    
-                    // CRITICAL: Clean invitationImageUrl - remove local file paths
-                    let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
-                    if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
-                      console.warn('⚠️ Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
-                      cleanedInvitationImageUrl = undefined; // Remove local file paths
-                    }
-                    
-                    const filteredGuests = (apiEvent.guests || [])
-                      .filter(guest => {
-                        if (deletedGuestIds.includes(guest.id)) {
+                  return {
+                    ...apiEvent,
+                    invitationImageUrl: cleanedInvitationImageUrl,
+                    eventTypeHebrew: apiEvent.eventTypeHebrew || 'חתונה',
+                    guests: (apiEvent.guests || [])
+                      .filter((g: Guest) => {
+                        // CRITICAL: Filter out deleted guests - they should not be restored from API
+                        if (deletedGuestIds.includes(g.id)) {
+                          console.log(`🚫 Skipping deleted guest from API: ${g.firstName} ${g.lastName} (${g.id})`);
                           return false;
                         }
                         return true;
                       })
-                      .map(guest => ({
-                        ...guest,
-                        firstName: cleanName(guest.firstName),
-                        lastName: cleanName(guest.lastName)
-                      }));
-                    return { 
-                      ...apiEvent, 
-                      invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
-                      eventTypeHebrew: apiEvent.eventTypeHebrew || 'חתונה', // Ensure eventTypeHebrew is always defined
-                      guests: filteredGuests 
-                    }; // Use API event if no local version, but filter deleted guests and clean names
-                  }
-                  
-                // Merge guests, preserving manual changes
-                  // CRITICAL: Get deleted guests from current state (most up-to-date)
-                  // This ensures deleted guests are filtered out even if they exist in API or localStorage
-                  const currentState = get();
-                  const deletedGuestIds = currentState.deletedGuests[apiEvent.id] || [];
-                  
-                  const mergedGuests = (apiEvent.guests || [])
-                    .filter(apiGuest => {
-                      // CRITICAL: Filter out deleted guests - they should not be restored from API
-                      if (deletedGuestIds.includes(apiGuest.id)) {
-                        console.log(`🚫 Skipping deleted guest from API: ${apiGuest.firstName} ${apiGuest.lastName} (${apiGuest.id})`);
-                        return false;
-                      }
-                      return true;
-                    })
-                    .map(apiGuest => {
-                    const localGuest = (localEvent.guests || []).find((g: Guest) => g.id === apiGuest.id);
-                    
-                    if (!localGuest) {
-                      // Clean names when loading from API
-                      return {
-                        ...apiGuest,
-                        firstName: cleanName(apiGuest.firstName),
-                        lastName: cleanName(apiGuest.lastName)
-                      };
-                    }
-                    
-                    // CRITICAL: Compare responseDate to determine which update is newer
-                    // Use the newer update, not just API data blindly
-                    // This ensures that recent manual updates are not overwritten by stale API data
-                    const localResponseDate = localGuest.responseDate 
-                      ? (localGuest.responseDate instanceof Date 
-                          ? localGuest.responseDate.getTime() 
-                          : new Date(localGuest.responseDate).getTime())
-                      : 0;
-                    const apiResponseDate = apiGuest.responseDate 
-                      ? (apiGuest.responseDate instanceof Date 
-                          ? apiGuest.responseDate.getTime() 
-                          : new Date(apiGuest.responseDate).getTime())
-                      : 0;
-                    
-                    // CRITICAL: If local has a newer responseDate, preserve local data AND sync it to API
-                    // Also check if critical fields differ - if they do and local is newer or equal, preserve local AND sync
-                    const localIsNewer = localResponseDate > apiResponseDate && localResponseDate > 0;
-                    const datesAreEqual = localResponseDate === apiResponseDate && localResponseDate > 0;
-                    const criticalFieldsDiffer = (
-                      localGuest.rsvpStatus !== apiGuest.rsvpStatus ||
-                      localGuest.guestCount !== apiGuest.guestCount ||
-                      localGuest.actualAttendance !== apiGuest.actualAttendance
-                    );
-                    
-                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync), preserve local data AND sync it
-                    if (localIsNewer || (datesAreEqual && criticalFieldsDiffer)) {
-                      const reason = localIsNewer ? 'newer responseDate' : 'equal date but critical fields differ';
-                      console.log(`🔄 Using local guest data (${reason}): ${localGuest.firstName} ${localGuest.lastName}`, {
-                        localResponseDate: localResponseDate > 0 ? new Date(localResponseDate).toISOString() : 'none',
-                        apiResponseDate: apiResponseDate > 0 ? new Date(apiResponseDate).toISOString() : 'none',
-                        localRsvpStatus: localGuest.rsvpStatus,
-                        apiRsvpStatus: apiGuest.rsvpStatus
-                      });
-                      
-                      // CRITICAL: Sync local update to API to ensure it's available on other devices
-                      // Use fire-and-forget to avoid blocking
-                      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
-                      const pendingUpdatePayload = {
-                        phoneNumber: localGuest.phoneNumber,
-                        guestId: localGuest.id,
-                        eventId: apiEvent.id,
-                        status: localGuest.rsvpStatus,
-                        guestCount: localGuest.guestCount,
-                        actualAttendance: localGuest.actualAttendance,
-                        notes: localGuest.notes,
-                        responseDate: localGuest.responseDate ? (localGuest.responseDate instanceof Date ? localGuest.responseDate.toISOString() : localGuest.responseDate) : new Date().toISOString(),
-                        source: localGuest.source || 'manual_update',
-                        timestamp: Date.now()
-                      };
-                      
-                      // Send update to API in background (don't await)
-                      fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(pendingUpdatePayload)
-                      }).catch(err => {
-                        console.warn('⚠️ Failed to sync local update to API:', err);
-                      });
-                      
-                      return {
-                        ...localGuest,
-                        firstName: cleanName(localGuest.firstName),
-                        lastName: cleanName(localGuest.lastName)
-                      };
-                    }
-                    
-                    // API data is newer - use API data (it's the source of truth)
-                    // API has the latest data from all devices
-                    // CRITICAL: Clean names when using API data
-                    return {
-                      ...apiGuest,
-                      firstName: cleanName(apiGuest.firstName),
-                      lastName: cleanName(apiGuest.lastName)
-                    };
-                  });
-                  
-                  // Add any local guests that aren't in API (and aren't deleted)
-                  // CRITICAL: Clean names for local-only guests as well
-                  const localOnlyGuests = (localEvent.guests || [])
-                    .filter((lg: Guest) => 
-                      !(apiEvent.guests || []).find((ag: Guest) => ag.id === lg.id) &&
-                      !deletedGuestIds.includes(lg.id) // Don't add deleted guests
-                    )
-                    .map((lg: Guest) => ({
-                      ...lg,
-                      firstName: cleanName(lg.firstName),
-                      lastName: cleanName(lg.lastName)
-                    }));
-                  
-                  return {
-                    ...apiEvent,
-                    invitationImageUrl: cleanedInvitationImageUrl, // Use cleaned image URL
-                    eventTypeHebrew: apiEvent.eventTypeHebrew || localEvent.eventTypeHebrew || 'חתונה', // Ensure eventTypeHebrew is always defined
-                    guests: [...mergedGuests, ...localOnlyGuests],
-                    updatedAt: new Date(Math.max(
-                      new Date(apiEvent.updatedAt || 0).getTime(),
-                      new Date(localEvent.updatedAt || 0).getTime()
-                    ))
+                      .map((g: Guest) => ({
+                        ...g,
+                        firstName: cleanName(g.firstName),
+                        lastName: cleanName(g.lastName)
+                      }))
                   };
                 });
                 
-                // Add any remaining local events that aren't in API
-                const remainingLocalEvents = localEvents.filter((e: Event) => 
-                  e.userId === userId && !apiEvents.find(ae => ae.id === e.id)
+                // CRITICAL: Find local events that aren't in API and sync them immediately to server
+                // These are new events created locally that need to be synced
+                const localOnlyEvents = localEvents.filter((e: Event) => 
+                  e.userId === userId && 
+                  !apiEvents.find(ae => ae.id === e.id) &&
+                  !deletedEventIds.has(e.id) // Don't sync deleted events
                 );
-                // CRITICAL: Create new array reference after adding remaining events
-                // This ensures React detects changes when events are added
-                const allEventsWithRemaining = remainingLocalEvents.length > 0 
-                  ? [...allEvents, ...remainingLocalEvents]
-                  : allEvents;
-                if (remainingLocalEvents.length > 0) {
-                  console.log(`🔄 Added ${remainingLocalEvents.length} remaining local events`);
-                  
-                  // Try to sync remaining events again
-                  // CRITICAL: Send only event details (no guests) to prevent 413 errors
-                  try {
-                    const eventsDetailsOnly = remainingLocalEvents.map(event => ({
-                      id: event.id,
-                      userId: event.userId,
-                      coupleName: event.coupleName,
-                      groomName: event.groomName,
-                      brideName: event.brideName,
-                      eventDate: event.eventDate,
-                      eventTime: event.eventTime,
-                      venue: event.venue,
-                      couplePhone: event.couplePhone,
-                      coupleEmail: event.coupleEmail,
-                      eventType: event.eventType,
-                      eventTypeHebrew: event.eventTypeHebrew,
-                      invitationImageUrl: event.invitationImageUrl,
-                      createdAt: event.createdAt,
-                      updatedAt: event.updatedAt
-                      // Intentionally exclude guests to prevent 413 errors
-                    }));
-                    
-                    console.log(`📤 Syncing ${remainingLocalEvents.length} remaining events (details only, no guests)`);
-                    
-                    const retrySyncResponse = await fetch(`${BACKEND_URL}/api/events/sync`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        events: eventsDetailsOnly,
-                        userId: userId
-                      })
+                
+                // Sync local-only events to server in background (fire-and-forget)
+                if (localOnlyEvents.length > 0) {
+                  console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing to server...`);
+                  localOnlyEvents.forEach(event => {
+                    syncEventToAPI(event).catch(err => {
+                      console.warn(`⚠️ Failed to sync local event ${event.id} to server:`, err);
                     });
-                    if (retrySyncResponse.ok) {
-                      console.log(`✅ Retry synced ${remainingLocalEvents.length} remaining events to API`);
-                    } else {
-                      const errorText = await retrySyncResponse.text();
-                      console.warn(`⚠️ Retry sync failed:`, retrySyncResponse.status, errorText);
-                    }
-                  } catch (retryError) {
-                    console.warn('⚠️ Retry sync failed:', retryError);
-                  }
+                  });
                 }
                 
-                // CRITICAL FIX: If API returns empty but we have local events, preserve local events
-                // This prevents data loss when API is empty or has sync issues
+                // CRITICAL: Use API events as final events (server is source of truth)
+                // Local-only events are synced in background and will appear in next fetch
+                // Only add local events temporarily if API is empty (fallback for offline scenarios)
+                let finalEvents = allEvents;
+                
+                // CRITICAL: If API returns empty but we have local events, use local events as fallback
+                // This prevents data loss when API is temporarily unavailable
                 if (apiEvents.length === 0 && localEvents.length > 0) {
-                  console.warn('⚠️ API returned empty events but local events exist - preserving local events');
+                  console.warn('⚠️ API returned empty events but local events exist - using local events as fallback');
                   // Get deletedEvents from stored data first
                   let deletedEventsForPreserve: any[] = [];
                   try {
@@ -876,7 +706,7 @@ export const useEventStore = create<EventStore>()(
                     // Ignore parsing errors
                   }
                   const deletedEventIdsForPreserve = new Set(deletedEventsForPreserve.map((e: any) => e.id));
-                  // Use local events instead of empty API response, but filter out deleted events
+                  // Use local events as fallback, but filter out deleted events
                   const localEventsForUser = localEvents.filter((e: Event) => {
                     // CRITICAL: Don't preserve deleted events
                     if (deletedEventIdsForPreserve.has(e.id)) {
@@ -902,9 +732,9 @@ export const useEventStore = create<EventStore>()(
                 }
                 
                 // CRITICAL: Before saving, check if we're about to lose any events
-                // Compare allEventsWithRemaining with localEvents to ensure we're not losing data
-                // BUT: Only preserve events that belong to the current user!
-                const eventsToSave = allEventsWithRemaining.length > 0 ? allEventsWithRemaining : localEvents;
+                // CRITICAL: Use finalEvents (from server) as source of truth
+                // Server contains the latest data from all devices
+                const eventsToSave = finalEvents.length > 0 ? finalEvents : localEvents;
                 const localEventIds = new Set(localEvents.map(e => e.id));
                 const savedEventIds = new Set(eventsToSave.map(e => e.id));
                 
@@ -981,8 +811,8 @@ export const useEventStore = create<EventStore>()(
                 // Use API events as primary source (they're synced)
                 // CRITICAL: If allEvents is empty but localEvents exist, use localEvents
                 // CRITICAL: Always create new array reference to ensure React detects changes
-                const finalEvents = allEventsWithRemaining.length > 0 ? [...allEventsWithRemaining] : [...localEvents];
-                // CRITICAL: Filter out deleted events before filtering by userId
+                // CRITICAL: Use finalEvents (from server) - server is source of truth
+                // Filter out deleted events before filtering by userId
                 const finalEventsWithoutDeleted = finalEvents.filter((e: Event) => !deletedEventIds.has(e.id));
                 const filteredEvents = userId ? finalEventsWithoutDeleted.filter((e: Event) => e.userId === userId) : finalEventsWithoutDeleted;
                 
