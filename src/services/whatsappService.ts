@@ -542,10 +542,11 @@ class WhatsAppService {
           // CRITICAL: For template "aa", ensure body component has exactly 8 parameters
           if (components.length > 0) {
             // CRITICAL: Final validation - ensure body component has valid parameters
-            const bodyComponent = components.find((c: any) => c.type === 'body');
+            let bodyComponent = components.find((c: any) => c.type === 'body');
             if (bodyComponent && bodyComponent.parameters) {
-              // Filter out any invalid parameters (null, undefined, or empty)
-              bodyComponent.parameters = bodyComponent.parameters.filter((param: any) => {
+              // CRITICAL: Create a new array with only valid parameters
+              // This ensures we don't mutate the original array incorrectly
+              const validParameters = bodyComponent.parameters.filter((param: any) => {
                 if (!param || typeof param !== 'object') {
                   console.error('❌ CRITICAL: Invalid parameter structure:', param);
                   return false;
@@ -561,15 +562,27 @@ class WhatsAppService {
                 return true;
               });
               
+              // CRITICAL: Replace the parameters array with the filtered valid parameters
+              bodyComponent.parameters = validParameters;
+              
               // If we filtered out parameters, log warning
               const originalCount = bodyParams.length;
-              const filteredCount = bodyComponent.parameters.length;
+              const filteredCount = validParameters.length;
               if (filteredCount !== originalCount) {
                 console.error(`❌ CRITICAL: Filtered out ${originalCount - filteredCount} invalid parameter(s)!`);
                 console.error(`❌ Original count: ${originalCount}, Filtered count: ${filteredCount}`);
               }
+              
+              // CRITICAL: Ensure body component has parameters array (not undefined/null)
+              if (!bodyComponent.parameters || bodyComponent.parameters.length === 0) {
+                console.error('❌ CRITICAL: Body component has no valid parameters after filtering!');
+                console.error('❌ This will cause Meta API error 100');
+              }
             }
             
+            // CRITICAL: Always set components if we have body parameters
+            // Meta API requires components array when template has dynamic parameters
+            // CRITICAL: Ensure components array is properly structured
             messagePayload.template.components = components;
             
             // CRITICAL: Log the full components structure being sent
@@ -797,6 +810,31 @@ class WhatsAppService {
           success: false,
           error: 'Recipient phone number is missing.'
         };
+      }
+      
+      // CRITICAL: Final validation before sending - ensure components array structure is correct
+      if (messagePayload.type === 'template' && messagePayload.template?.components) {
+        // Ensure each component has the correct structure
+        messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
+          if (comp.type === 'body' && comp.parameters) {
+            // Ensure all body parameters have correct structure
+            comp.parameters = comp.parameters.map((param: any) => {
+              if (!param.type || param.type !== 'text') {
+                console.error('❌ CRITICAL: Invalid parameter type:', param);
+                return { type: 'text', text: param.text || ' ' };
+              }
+              if (!param.text || typeof param.text !== 'string') {
+                console.error('❌ CRITICAL: Invalid parameter text:', param);
+                return { type: 'text', text: String(param.text || ' ') };
+              }
+              return {
+                type: 'text',
+                text: param.text.trim() || ' '
+              };
+            });
+          }
+          return comp;
+        });
       }
       
       // Try sending with current payload (may include header image)
