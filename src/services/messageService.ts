@@ -419,13 +419,18 @@ class MessageService {
       } as any;
     }
     
+    // CRITICAL: Only include buttons if we're using a template
+    // For free-form messages (templateName === undefined), buttons should NOT be included
+    // Meta API rejects regular text messages with buttons
+    const shouldIncludeButtons = templateName && templateName.trim().length > 0;
+    
     const whatsappMessage: WhatsAppMessage = {
       to: recipient.phoneNumber,
       message: processedMessage,
       imageUrl: imageUrl, // This is already set to event.invitationImageUrl || campaign.imageUrl
       templateName: templateName, // This should never be undefined for first messages
       templateParams: finalTemplateParams,
-      buttons: recipient.buttons // Add buttons from recipient
+      buttons: shouldIncludeButtons ? recipient.buttons : undefined // Only include buttons for templates
     };
     
     // Final validation log

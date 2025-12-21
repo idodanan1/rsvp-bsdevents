@@ -643,6 +643,14 @@ class WhatsAppService {
         }
       } else {
         // Regular text message
+        // CRITICAL: For regular text messages, NEVER include buttons
+        // Meta API rejects regular text messages with buttons
+        if (messageData.buttons && messageData.buttons.length > 0) {
+          console.warn('⚠️ WARNING: Buttons provided for regular text message - ignoring buttons');
+          console.warn('⚠️ Meta API does not support buttons in regular text messages');
+          console.warn('⚠️ Buttons will be ignored and message will be sent as plain text');
+        }
+        
         messagePayload.type = 'text';
         messagePayload.text = {
           body: messageData.message
