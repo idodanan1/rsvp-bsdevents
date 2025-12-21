@@ -138,12 +138,19 @@ class WhatsAppService {
               paramValue = this.getPlaceholderForParameter(paramKey);
             }
             
+            // CRITICAL: Ensure paramValue is never empty - Meta rejects empty parameters
+            const finalParamValue = paramValue.trim().length > 0 ? paramValue.trim() : this.getPlaceholderForParameter(paramKey);
+            
+            if (paramValue.trim().length === 0) {
+              console.warn(`⚠️ Parameter ${i + 1}/8 [${paramKey}] is empty, using placeholder: "${finalParamValue}"`);
+            }
+            
             rebuiltParams.push({
               type: 'text',
-              text: paramValue
+              text: finalParamValue
             });
             
-            console.log(`📋 Parameter ${i + 1}/8 [${paramKey}]: "${paramValue.substring(0, 50)}${paramValue.length > 50 ? '...' : ''}"`);
+            console.log(`📋 Parameter ${i + 1}/8 [${paramKey}]: "${finalParamValue.substring(0, 50)}${finalParamValue.length > 50 ? '...' : ''}"`);
           }
           
           // Build components array with body component AND URL button component
