@@ -473,66 +473,12 @@ const EventManagement: React.FC = () => {
   // This ensures the table updates immediately after guest status changes via GuestResponse page
   // Use a more efficient approach: check for updates periodically, but also listen to store changes
   const lastRefreshTimeRef = useRef<number>(0);
+  // REMOVED: Auto-refresh polling - user will use manual refresh button instead
+  // This prevents 404 errors when event doesn't exist and reduces server load
+  // Manual refresh is available via the "רענן" button in the header
   useEffect(() => {
     if (!id) return;
-
-    // Set up a polling mechanism to check for guest status updates
-    // This ensures we detect updates even if the events array doesn't change reference
-    const checkForUpdates = async () => {
-      try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
-        
-        // Fetch the specific event from backend to get latest guest data
-        const response = await fetch(`${BACKEND_URL}/api/events/${id}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.event) {
-            const backendEvent = data.event;
-            const currentEventFromStore = useEventStore.getState().events.find(e => e.id === id);
-            
-            // Compare guest statuses to detect changes
-            if (currentEventFromStore && backendEvent.guests) {
-              const hasChanges = backendEvent.guests.some((backendGuest: any) => {
-                const localGuest = currentEventFromStore.guests?.find(g => g.id === backendGuest.id);
-                if (!localGuest) return false;
-                
-                // Check if status, guestCount, or responseDate changed
-                return backendGuest.rsvpStatus !== localGuest.rsvpStatus ||
-                       backendGuest.guestCount !== localGuest.guestCount ||
-                       (backendGuest.responseDate && 
-                        (!localGuest.responseDate || 
-                         new Date(backendGuest.responseDate).getTime() !== 
-                         (localGuest.responseDate instanceof Date ? localGuest.responseDate.getTime() : new Date(localGuest.responseDate).getTime())));
-              });
-              
-              if (hasChanges) {
-                const now = Date.now();
-                // Throttle refreshes to avoid too frequent updates
-                if (now - lastRefreshTimeRef.current > 1000) {
-                  console.log('🔄 Detected guest status changes from backend, refreshing events...');
-                  lastRefreshTimeRef.current = now;
-                  // Trigger fetchEvents to refresh from backend
-                  const { fetchEvents } = useEventStore.getState();
-                  await fetchEvents(false, true);
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        // Silently fail - this is a background check
-        console.debug('Background update check failed:', error);
-      }
-    };
-
-    // Check for updates every 5 seconds (less aggressive to avoid performance issues)
-    // This ensures we catch updates from GuestResponse page even if fetchEvents didn't trigger properly
-    const intervalId = setInterval(checkForUpdates, 5000);
-    
-    // Also check immediately on mount
-    checkForUpdates();
-    
-    return () => clearInterval(intervalId);
+    // No auto-polling - user will use manual refresh button
   }, [id]);
 
   // CRITICAL: Track the event's guests key to detect changes without depending on entire events array
