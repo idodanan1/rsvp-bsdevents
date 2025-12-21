@@ -175,7 +175,10 @@ class WhatsAppService {
               index: '0',
               parameters: [{
                 type: 'text',
-                text: guestResponseLink
+                text: guestResponseLink,
+                // CRITICAL: For URL button parameters, Meta may require parameter_name
+                // Try with parameter_name matching the variable name in the template
+                parameter_name: 'url' // Try standard name first
               }]
             });
             console.log(`✅ Added URL button component at index 0 with URL: ${guestResponseLink}`);
@@ -562,10 +565,10 @@ class WhatsAppService {
                   index: templateButtonIndex,
                   parameters: [{
                     type: 'text',
-                    text: btn.url,
-                    // CRITICAL: URL button parameters MUST include parameter_name
-                    // This is required by Meta API for URL button components
-                    parameter_name: 'url' // Standard name for URL button parameter
+                    text: btn.url
+                    // CRITICAL: URL button parameters do NOT need parameter_name for predefined buttons
+                    // parameter_name is only needed for dynamic buttons, not for template-defined buttons
+                    // Template "aa" has a predefined URL button - we just send the URL value
                   }]
                 });
                 console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
@@ -595,6 +598,9 @@ class WhatsAppService {
                 parameters: [{
                   type: 'text',
                   text: messageData.templateParams.guest_response_link
+                  // CRITICAL: URL button parameters do NOT need parameter_name for predefined buttons
+                  // parameter_name is only needed for dynamic buttons, not for template-defined buttons
+                  // Template "aa" has a predefined URL button - we just send the URL value
                 }]
               };
               
@@ -614,10 +620,10 @@ class WhatsAppService {
                 index: '0', // First button (index 0) is the URL button
                 parameters: [{
                   type: 'text',
-                  text: messageData.templateParams.guest_response_link,
-                  // CRITICAL: URL button parameters MUST include parameter_name
-                  // This is required by Meta API for URL button components
-                  parameter_name: 'url' // Standard name for URL button parameter
+                  text: messageData.templateParams.guest_response_link
+                  // CRITICAL: URL button parameters do NOT need parameter_name for predefined buttons
+                  // parameter_name is only needed for dynamic buttons, not for template-defined buttons
+                  // Template "aa" has a predefined URL button - we just send the URL value
                 }]
               };
             
@@ -1792,10 +1798,10 @@ class WhatsAppService {
                     index: '0', // Template "aa" has URL button at index 0
                     parameters: [{
                       type: 'text',
-                      text: guestResponseLink,
-                      // CRITICAL: URL button parameters MUST include parameter_name
-                      // This is required by Meta API for URL button components
-                      parameter_name: 'url' // Standard name for URL button parameter
+                      text: guestResponseLink
+                      // CRITICAL: URL button parameters do NOT need parameter_name for predefined buttons
+                      // parameter_name is only needed for dynamic buttons, not for template-defined buttons
+                      // Template "aa" has a predefined URL button - we just send the URL value
                     }]
                   });
                   console.log(`🔘 Added URL button component for template "aa" retry at index 0 with URL: ${guestResponseLink}`);
