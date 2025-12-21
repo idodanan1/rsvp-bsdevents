@@ -3627,21 +3627,90 @@ export const useEventStore = create<EventStore>()(
       restoreDeletedEvent: async (deletedEventId: string) => {
         set({ isLoading: true, error: null });
         try {
-          const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
-          if (deletedEvent) {
-            // Remove deletedAt property and restore the event
-            const { deletedAt, ...eventToRestore } = deletedEvent;
+          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          
+          // CRITICAL: First try to restore from backend (server is source of truth)
+          console.log(`🔄 Attempting to restore event ${deletedEventId} from backend...`);
+          const restoreResponse = await fetch(`${BACKEND_URL}/api/events/${deletedEventId}/restore`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (restoreResponse.ok) {
+            const restoreData = await restoreResponse.json();
+            console.log(`✅ Event restored from backend:`, restoreData.event);
+            console.log(`📊 Guests restored: ${restoreData.guestsRestored || restoreData.event.guests?.length || 0}`);
             
-            set(state => ({
-              events: [...state.events, eventToRestore],
-              deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
-              isLoading: false
-            }));
+            // CRITICAL: Log guest details to verify they were restored
+            if (restoreData.event.guests && restoreData.event.guests.length > 0) {
+              console.log(`📋 Restored guests with RSVP data:`, restoreData.event.guests.map((g: any) => ({
+                id: g.id,
+                name: `${g.firstName} ${g.lastName}`,
+                phone: g.phoneNumber,
+                rsvpStatus: g.rsvpStatus,
+                guestCount: g.guestCount,
+                responseDate: g.responseDate,
+                actualAttendance: g.actualAttendance,
+                notes: g.notes
+              })));
+            }
             
+            // Refresh events from API to get the restored event with all guests
+            await get().fetchEvents(true);
+            
+            set({ isLoading: false });
             return true;
+          } else {
+            // If backend restore fails, try local restore
+            console.warn(`⚠️ Backend restore failed, trying local restore...`);
+            const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
+            if (deletedEvent) {
+              // Remove deletedAt property and restore the event
+              // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
+              const { deletedAt, ...eventToRestore } = deletedEvent;
+              
+              // CRITICAL: Ensure guests array is preserved with all data
+              const restoredEvent = {
+                ...eventToRestore,
+                guests: deletedEvent.guests || [] // CRITICAL: Explicitly preserve guests array
+              };
+              
+              console.log(`📊 Restoring event locally with ${restoredEvent.guests.length} guests`);
+              if (restoredEvent.guests.length > 0) {
+                console.log(`📋 Guest details:`, restoredEvent.guests.map((g: any) => ({
+                  id: g.id,
+                  name: `${g.firstName} ${g.lastName}`,
+                  phone: g.phoneNumber,
+                  rsvpStatus: g.rsvpStatus,
+                  guestCount: g.guestCount,
+                  responseDate: g.responseDate,
+                  actualAttendance: g.actualAttendance,
+                  notes: g.notes
+                })));
+              }
+              
+              set(state => ({
+                events: [...state.events, restoredEvent],
+                deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
+                isLoading: false
+              }));
+              
+              // CRITICAL: Sync restored event to backend with all guests
+              await syncEventToAPI(restoredEvent);
+              
+              console.log(`✅ Event restored locally with ${restoredEvent.guests.length} guests`);
+              return true;
+            }
+            
+            const errorData = await restoreResponse.json().catch(() => ({ error: restoreResponse.statusText }));
+            console.error(`❌ Failed to restore event:`, errorData);
+            set({ error: `שגיאה בשחזור האירוע: ${errorData.error || 'האירוע לא נמצא'}`, isLoading: false });
+            return false;
           }
-          return false;
         } catch (error) {
+          console.error('❌ Error restoring event:', error);
           set({ error: 'שגיאה בשחזור האירוע', isLoading: false });
           return false;
         }
@@ -3672,26 +3741,53 @@ export const useEventStore = create<EventStore>()(
               console.log('🔄 Restoring events from localStorage:', parsed.state.events.length);
               console.log('📋 Events data:', parsed.state.events);
               
+              // CRITICAL: Log guest information for each event
+              parsed.state.events.forEach((event: any, index: number) => {
+                const guestCount = event.guests?.length || 0;
+                console.log(`📅 Event ${index + 1}:`, {
+                  id: event.id,
+                  coupleName: event.coupleName,
+                  guestsCount: guestCount,
+                  campaignsCount: event.campaigns?.length || 0,
+                  tablesCount: event.tables?.length || 0
+                });
+                
+                // Log guest details if available
+                if (guestCount > 0) {
+                  console.log(`📋 Guests for event ${event.id}:`, event.guests.map((g: any) => ({
+                    id: g.id,
+                    name: `${g.firstName} ${g.lastName}`,
+                    phone: g.phoneNumber,
+                    rsvpStatus: g.rsvpStatus,
+                    guestCount: g.guestCount,
+                    responseDate: g.responseDate,
+                    actualAttendance: g.actualAttendance,
+                    notes: g.notes
+                  })));
+                }
+              });
+              
               // Force complete restoration by updating the store directly
+              // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
               set((state) => {
                 console.log('🔄 Current state before restore:', state);
+                
+                // CRITICAL: Ensure all guests are preserved with their data
+                const restoredEvents = parsed.state.events.map((event: any) => ({
+                  ...event,
+                  guests: event.guests || [] // CRITICAL: Explicitly preserve guests array
+                }));
+                
                 return {
                   ...state,
-                  events: parsed.state.events,
+                  events: restoredEvents,
                   currentEvent: parsed.state.currentEvent || null
                 };
               });
               
-              // Log details about each event
-              parsed.state.events.forEach((event: any, index: number) => {
-                console.log(`📅 Event ${index + 1}:`, {
-                  id: event.id,
-                  coupleName: event.coupleName,
-                  guestsCount: event.guests?.length || 0,
-                  campaignsCount: event.campaigns?.length || 0,
-                  tablesCount: event.tables?.length || 0
-                });
-              });
+              console.log(`✅ Restored ${parsed.state.events.length} events from localStorage`);
+              const totalGuests = parsed.state.events.reduce((sum: number, e: any) => sum + (e.guests?.length || 0), 0);
+              console.log(`✅ Total guests restored: ${totalGuests}`);
               
               return true;
             }

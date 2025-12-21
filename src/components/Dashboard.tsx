@@ -209,6 +209,67 @@ const Dashboard: React.FC = () => {
           <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
         </div>
         <div className="flex space-x-3">
+          {/* Quick restore button for specific event */}
+          <button
+            onClick={async () => {
+              const eventId = prompt('הזן את מזהה האירוע לשחזור:');
+              if (eventId && eventId.trim()) {
+                try {
+                  const success = await restoreDeletedEvent(eventId.trim());
+                  if (success) {
+                    alert('✅ האירוע שוחזר בהצלחה!');
+                    await fetchEvents(true);
+                  } else {
+                    alert('❌ שגיאה בשחזור האירוע. נסה לבדוק את המזהה או לפתוח את חלון האירועים שנמחקו.');
+                  }
+                } catch (error: any) {
+                  console.error('❌ Error restoring event:', error);
+                  alert(`❌ שגיאה בשחזור האירוע: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }
+            }}
+            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-green-100 text-green-700 hover:bg-green-200 border-green-300"
+            title="שחזר אירוע לפי מזהה"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>שחזר אירוע לפי מזהה</span>
+          </button>
+          {/* Restore from localStorage button */}
+          <button
+            onClick={async () => {
+              const confirmed = window.confirm(
+                'האם אתה בטוח שברצונך לשחזר את כל האירועים מ-localStorage?\n\n' +
+                'זה יחליף את כל האירועים הנוכחיים בנתונים מ-localStorage.\n\n' +
+                '⚠️ שים לב: זה יכול לגרום לאובדן נתונים אם localStorage לא מעודכן.'
+              );
+              
+              if (confirmed) {
+                try {
+                  const { restoreEvents } = useEventStore.getState();
+                  const success = restoreEvents();
+                  
+                  if (success) {
+                    // Sync restored events to backend
+                    const { syncAllEventsToAPI, fetchEvents } = useEventStore.getState();
+                    await syncAllEventsToAPI();
+                    await fetchEvents(true);
+                    
+                    alert('✅ האירועים שוחזרו מ-localStorage בהצלחה!\n\nכל האירועים נשלחו לשרת.');
+                  } else {
+                    alert('❌ לא נמצאו נתונים ב-localStorage לשחזור.');
+                  }
+                } catch (error: any) {
+                  console.error('❌ Error restoring from localStorage:', error);
+                  alert(`❌ שגיאה בשחזור מ-localStorage: ${error?.message || 'שגיאה לא ידועה'}`);
+                }
+              }
+            }}
+            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-300"
+            title="שחזר אירועים מ-localStorage (גיבוי מקומי)"
+          >
+            <RotateCcw className="w-5 h-5" />
+            <span>שחזר מ-localStorage</span>
+          </button>
           {deletedEvents.length > 0 && (
             <button
               onClick={() => setShowDeletedEventsModal(true)}

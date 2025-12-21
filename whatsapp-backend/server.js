@@ -6279,11 +6279,31 @@ app.delete('/api/events/:eventId', async (req, res) => {
     
     const event = eventsData.events[eventIndex];
     
+    // CRITICAL: Log guest information before deletion to ensure it's preserved
+    console.log(`🗑️ Deleting event ${eventId} (${event.coupleName || 'unnamed'})`);
+    console.log(`📊 Event has ${event.guests?.length || 0} guests`);
+    if (event.guests && event.guests.length > 0) {
+      console.log(`📋 Guest details before deletion:`, event.guests.map(g => ({
+        id: g.id,
+        name: `${g.firstName} ${g.lastName}`,
+        phone: g.phoneNumber,
+        rsvpStatus: g.rsvpStatus,
+        guestCount: g.guestCount,
+        responseDate: g.responseDate,
+        actualAttendance: g.actualAttendance,
+        notes: g.notes
+      })));
+    }
+    
     // Move to deletedEvents
-    eventsData.deletedEvents.push({
+    // CRITICAL: Preserve ALL event data including guests array with all guest properties
+    const eventToDelete = {
       ...event,
+      guests: event.guests || [], // CRITICAL: Explicitly preserve guests array
       deletedAt: new Date().toISOString()
-    });
+    };
+    
+    eventsData.deletedEvents.push(eventToDelete);
     
     // Remove from events
     eventsData.events.splice(eventIndex, 1);
@@ -6291,7 +6311,7 @@ app.delete('/api/events/:eventId', async (req, res) => {
     // Save to file
     saveEvents();
     
-    console.log(`🗑️ Deleted event ${eventId}`);
+    console.log(`🗑️ Deleted event ${eventId} - preserved ${eventToDelete.guests.length} guests in deletedEvents`);
     
     res.json({
       success: true,
@@ -6433,12 +6453,32 @@ app.post('/api/events/:eventId/restore', async (req, res) => {
       });
     }
     
+    // CRITICAL: Log guest information before restore
+    console.log(`📊 Restoring event ${eventId} with ${deletedEvent.guests?.length || 0} guests`);
+    if (deletedEvent.guests && deletedEvent.guests.length > 0) {
+      console.log(`📋 Guest details:`, deletedEvent.guests.map(g => ({
+        id: g.id,
+        name: `${g.firstName} ${g.lastName}`,
+        phone: g.phoneNumber,
+        rsvpStatus: g.rsvpStatus,
+        guestCount: g.guestCount,
+        responseDate: g.responseDate,
+        actualAttendance: g.actualAttendance
+      })));
+    }
+    
     // Remove deletedAt field and restore to events
+    // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
     const { deletedAt, ...eventToRestore } = deletedEvent;
-    eventsData.events.push({
+    
+    // CRITICAL: Ensure guests array is preserved with all data
+    const restoredEvent = {
       ...eventToRestore,
+      guests: deletedEvent.guests || [], // CRITICAL: Preserve all guests with their data
       updatedAt: new Date().toISOString()
-    });
+    };
+    
+    eventsData.events.push(restoredEvent);
     
     // Remove from deletedEvents
     eventsData.deletedEvents.splice(deletedIndex, 1);
@@ -6446,12 +6486,19 @@ app.post('/api/events/:eventId/restore', async (req, res) => {
     // Save to file
     saveEvents();
     
-    console.log(`✅ Restored event ${eventId} (${deletedEvent.coupleName || 'unnamed'})`);
+    console.log(`✅ Restored event ${eventId} (${deletedEvent.coupleName || 'unnamed'}) with ${restoredEvent.guests.length} guests`);
+    console.log(`📊 Guest RSVP summary:`, {
+      confirmed: restoredEvent.guests.filter(g => g.rsvpStatus === 'confirmed').length,
+      declined: restoredEvent.guests.filter(g => g.rsvpStatus === 'declined').length,
+      maybe: restoredEvent.guests.filter(g => g.rsvpStatus === 'maybe').length,
+      pending: restoredEvent.guests.filter(g => g.rsvpStatus === 'pending' || !g.rsvpStatus).length
+    });
     
     res.json({
       success: true,
       message: 'Event restored successfully',
-      event: eventToRestore
+      event: restoredEvent,
+      guestsRestored: restoredEvent.guests.length
     });
   } catch (error) {
     console.error('❌ Error restoring event:', error);
