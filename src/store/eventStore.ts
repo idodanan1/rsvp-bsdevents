@@ -2046,16 +2046,31 @@ export const useEventStore = create<EventStore>()(
                         const cleanedFirstName = updatedGuest.firstName !== undefined ? cleanName(updatedGuest.firstName) : guest.firstName;
                         const cleanedLastName = updatedGuest.lastName !== undefined ? cleanName(updatedGuest.lastName) : guest.lastName;
                         
+                        // CRITICAL: For manual_update, always preserve the current guestCount if the update doesn't include it
+                        // This prevents old updates from backend (without guestCount) from reverting manual changes
+                        // For other sources, use the update's guestCount if provided, otherwise keep existing
+                        const shouldPreserveGuestCount = isManualUpdateEcho && updatedGuest.guestCount === undefined;
+                        const finalGuestCount = shouldPreserveGuestCount 
+                          ? guest.guestCount 
+                          : (updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount);
+                        
+                        // CRITICAL: Create updatedGuest without guestCount if we need to preserve it, then add it back
+                        const updatedGuestWithoutCount = { ...updatedGuest };
+                        if (shouldPreserveGuestCount) {
+                          delete updatedGuestWithoutCount.guestCount;
+                        }
+                        
                         const mergedGuest = { 
                           ...guest, // Keep base guest properties (id, firstName, lastName, etc.)
-                          ...updatedGuest, // Override with ALL new values from updatedGuest
+                          ...updatedGuestWithoutCount, // Override with new values BUT preserve guestCount if needed
                           firstName: cleanedFirstName,
                           lastName: cleanedLastName,
                           // Always use new values if provided (latest update completely replaces old one)
                           rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
                           // CRITICAL: If guestCount is explicitly provided (even if 0 or null), use it. Otherwise keep existing value
                           // Don't default to 1 - this prevents reverting from 2 back to 1 when old update arrives
-                          guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                          // For manual_update without guestCount, preserve existing value to prevent old updates from reverting changes
+                          guestCount: finalGuestCount,
                           notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                           actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
                           // CRITICAL: Always use new responseDate to ensure backend detects it as a new update
@@ -2099,12 +2114,26 @@ export const useEventStore = create<EventStore>()(
                         if (isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate) {
                           // CRITICAL: Even if old update is newer, apply user-initiated updates
                           console.log(`🔄 Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
+                          
+                          // CRITICAL: For manual_update, preserve guestCount if update doesn't include it
+                          // This prevents old updates from backend from reverting manual guestCount changes
+                          const shouldPreserveGuestCount = isManualUpdateEcho && updatedGuest.guestCount === undefined;
+                          const finalGuestCount = shouldPreserveGuestCount 
+                            ? guest.guestCount 
+                            : (updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount);
+                          
+                          // CRITICAL: Create updatedGuest without guestCount if we need to preserve it, then add it back
+                          const updatedGuestWithoutCount = { ...updatedGuest };
+                          if (shouldPreserveGuestCount) {
+                            delete updatedGuestWithoutCount.guestCount;
+                          }
+                          
                           const mergedGuest = { 
                             ...guest,
-                            ...updatedGuest,
+                            ...updatedGuestWithoutCount, // Override with new values BUT preserve guestCount if needed
                             // Use new values from user-initiated update
                             rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                            guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                            guestCount: finalGuestCount,
                             notes: updatedGuest.notes !== undefined ? updatedGuest.notes : guest.notes,
                             actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
                             responseDate: newResponseDate, // Use new responseDate
