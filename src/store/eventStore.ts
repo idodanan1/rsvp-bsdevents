@@ -2832,7 +2832,7 @@ export const useEventStore = create<EventStore>()(
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
                 couple_name: templateCoupleName, // Parameter 8 - at the end of the template
-                guest_response_link: guestLink, // Keep for button, but NOT in paramsOrder
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("לעדכון סטטוס הגעה")
                 language: 'he'
               };
               
@@ -3156,20 +3156,9 @@ export const useEventStore = create<EventStore>()(
             let templateParams: any = undefined;
             
             if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
-              // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-              templateParams = {
-                paramsOrder: ['guest_name', 'event_type', 'couple_name', 
-                             'event_date', 'event_time', 'venue'],
-                guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || 'חתונה',
-                couple_name: templateCoupleName,
-                event_date: formatDate(event.eventDate) || '',
-                event_time: event.eventTime || '',
-                venue: event.venue || '',
-                guest_response_link: guestLink,
-                language: 'he'
-              };
-            } else if (templateNameForCampaign === 'aa' || templateNameForCampaign === 'AA') {
+              // Template "aa" requires 8 parameters in order (matching the template body):
+              // IMPORTANT: Order must match Meta template exactly: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+              // CRITICAL: guest_response_link is required for the URL button at index 0
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
@@ -3181,7 +3170,7 @@ export const useEventStore = create<EventStore>()(
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
                 couple_name: templateCoupleName,
-                guest_response_link: guestLink,
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("לעדכון סטטוס הגעה")
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'a') {

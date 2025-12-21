@@ -2764,7 +2764,7 @@ const EventManagement: React.FC = () => {
         event_time: event.eventTime || '',
         venue: event.venue || '',
         couple_name: coupleName || '',
-        guest_response_link: guestLink, // Keep for reference but NOT sent (template has no buttons)
+        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
         language: 'he'
       };
       

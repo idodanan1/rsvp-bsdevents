@@ -386,20 +386,19 @@ class WhatsAppService {
           const shouldSkipReplyButtons = templatesWithPredefinedButtons.includes((messageData.templateName || '').toLowerCase());
           const templateNameLower = (messageData.templateName || '').toLowerCase();
           
-          // CRITICAL: Template "aa" does NOT have buttons - skip all button processing
-          // The template "aa" in Meta Business Manager does not include buttons (user removed them)
-          if (templateNameLower !== 'aa') {
+          // CRITICAL: Template "aa" has ONE URL button at index 0 - we MUST send the URL parameter!
+          // The template "aa" in Meta Business Manager has a URL button "לעדכון סטטוס הגעה" at index 0
           // Always add URL button parameters if provided (they are required even for predefined buttons)
           // Only skip Reply buttons for predefined templates (they don't need parameters)
+          const buttonComponents: any[] = [];
+          
           if (messageData.buttons && messageData.buttons.length > 0) {
-            const buttonComponents: any[] = [];
-            
             // Find URL button in the buttons array
             const urlButton = messageData.buttons.find(btn => btn.type === 'url' && btn.url);
             const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
             
             // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
-            // Template 'aa' has: URL button at index 0, Reply buttons at index 1, 2
+            // Template 'aa' has: URL button at index 0
             // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
             // We need to find the actual URL button and send its parameter to the correct template index
             
@@ -410,7 +409,7 @@ class WhatsAppService {
                 // URL button - ALWAYS needs parameters, even for predefined templates
                 // For template 'aa', URL button is at index 0 in the template
                 // But in messageData.buttons it might be at a different index
-                  const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'aa')
+                const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'aa')
                   ? '0' // Template 'aa' has URL button at index 0
                   : index.toString(); // For other templates, use the array index
                 
@@ -438,7 +437,7 @@ class WhatsAppService {
               }
             });
             
-              // CRITICAL: Add URL button parameter if template has predefined URL button but no URL in buttons array
+            // CRITICAL: Add URL button parameter if template has predefined URL button but no URL in buttons array
             if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
               console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
               console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
@@ -446,7 +445,7 @@ class WhatsAppService {
               const urlButtonComponent = {
                 type: 'button',
                 sub_type: 'url',
-                  index: '0', // Template 'aa' and 'a' have URL button at index 0
+                index: '0', // Template 'aa' and 'a' have URL button at index 0
                 parameters: [{
                   type: 'text',
                   text: messageData.templateParams.guest_response_link
@@ -456,20 +455,8 @@ class WhatsAppService {
               buttonComponents.push(urlButtonComponent);
               console.log(`🔘 Added URL button parameter for predefined template button at index 0`);
             }
-            
-            // Add all button components
-            buttonComponents.forEach(btnComponent => {
-              components.push(btnComponent);
-            });
-            
-            if (buttonComponents.length > 0) {
-              console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
-            } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
-              console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
-              console.log('ℹ️ URL button parameters will be added if provided');
-            }
           } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
-              // CRITICAL FIX: Template 'aa' and 'a' have a URL button that requires a parameter
+            // CRITICAL FIX: Template 'aa' and 'a' have a URL button that requires a parameter
             // Even if no buttons are provided in messageData, we need to send the URL parameter
             // The template has a URL button at index 0 that needs the guest_response_link parameter
             console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
@@ -485,17 +472,28 @@ class WhatsAppService {
               }]
             };
             
-            // Add button component to components array
-            components.push(urlButtonComponent);
+            buttonComponents.push(urlButtonComponent);
             console.log(`🔘 Added URL button parameter for predefined template button`);
-            }
-          } else {
-            // Template "aa" - skip all button processing (template has no buttons)
-            console.log('ℹ️ Template "aa" - skipping all button processing (template does not include buttons in Meta Business Manager)');
+          }
+          
+          // Add all button components
+          buttonComponents.forEach(btnComponent => {
+            components.push(btnComponent);
+          });
+          
+          if (buttonComponents.length > 0) {
+            console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
+          } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
+            console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
+            console.log('ℹ️ URL button parameters will be added if provided');
+          } else if (templateNameLower === 'aa') {
+            console.warn('⚠️ WARNING: Template "aa" requires a URL button parameter but none was provided!');
+            console.warn('⚠️ The template has a URL button "לעדכון סטטוס הגעה" at index 0 that requires a URL parameter');
+            console.warn('⚠️ This may cause Meta API error 100 or 132018');
           }
           
           // CRITICAL: Final validation before adding components
-          // For template "aa", ensure we have exactly 8 body parameters and NO header/button components (template has no buttons)
+          // For template "aa", ensure we have exactly 8 body parameters, NO header component, and 1 URL button component at index 0
           if (templateName === 'aa' || templateName === 'AA') {
             const bodyComponent = components.find((c: any) => c.type === 'body');
             const headerComponent = components.find((c: any) => c.type === 'header');
@@ -521,22 +519,41 @@ class WhatsAppService {
               }
             }
             
-            if (buttonComponents.length > 0) {
-              console.error(`❌ CRITICAL ERROR: Template "aa" should NOT have button components!`);
-              console.error(`❌ Buttons are STATIC in Meta Business Manager and do not require parameters`);
-              console.error(`❌ Removing button components to prevent error...`);
-              // Remove button components
-              const buttonIndices: number[] = [];
-              components.forEach((c: any, index: number) => {
-                if (c.type === 'button') {
-                  buttonIndices.push(index);
-                }
-              });
-              // Remove in reverse order to maintain indices
-              buttonIndices.reverse().forEach(index => {
-                components.splice(index, 1);
-              });
-              console.log(`✅ Removed ${buttonIndices.length} button component(s)`);
+            // CRITICAL: Template "aa" has ONE URL button at index 0 - validate we have exactly 1 button component
+            if (buttonComponents.length === 0 && templateNameLower === 'aa') {
+              console.error(`❌ CRITICAL ERROR: Template "aa" requires ONE URL button parameter at index 0!`);
+              console.error(`❌ The template has a URL button "לעדכון סטטוס הגעה" that requires a URL parameter`);
+              console.error(`❌ This will cause Meta API error 100 or 132018`);
+            } else if (buttonComponents.length > 1 && templateNameLower === 'aa') {
+              console.error(`❌ CRITICAL ERROR: Template "aa" should have exactly ONE button component (URL at index 0)!`);
+              console.error(`❌ Found ${buttonComponents.length} button components - removing extra buttons...`);
+              // Keep only the first button (URL button at index 0)
+              const urlButtonComponent = buttonComponents.find((btn: any) => btn.sub_type === 'url' && btn.index === '0');
+              if (urlButtonComponent) {
+                // Remove all buttons and add only the URL button
+                const buttonIndices: number[] = [];
+                components.forEach((c: any, index: number) => {
+                  if (c.type === 'button') {
+                    buttonIndices.push(index);
+                  }
+                });
+                // Remove in reverse order to maintain indices
+                buttonIndices.reverse().forEach(index => {
+                  components.splice(index, 1);
+                });
+                // Add back only the URL button
+                components.push(urlButtonComponent);
+                console.log(`✅ Kept only URL button at index 0, removed ${buttonComponents.length - 1} extra button(s)`);
+              }
+            } else if (buttonComponents.length === 1 && templateNameLower === 'aa') {
+              const urlButton = buttonComponents[0];
+              if (urlButton.sub_type === 'url' && urlButton.index === '0') {
+                console.log(`✅ Template "aa" - correctly configured with ONE URL button at index 0`);
+              } else {
+                console.error(`❌ CRITICAL ERROR: Template "aa" button component is incorrect!`);
+                console.error(`❌ Expected: { type: 'button', sub_type: 'url', index: '0' }`);
+                console.error(`❌ Actual:`, urlButton);
+              }
             }
           }
           
@@ -613,11 +630,12 @@ class WhatsAppService {
               console.log('📋 Template "aa" requirements:');
               console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
               console.log('  - 8 body parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name');
-              console.log('  - 0 button components (template has no buttons in Meta)');
+              console.log('  - 1 button component (URL button at index 0: "לעדכון סטטוס הגעה")');
               const finalBodyParamsCount = bodyComponent?.parameters?.length || 0;
               const finalHeaderCount = headerComponent ? 1 : 0;
               const finalButtonCount = buttonComponents.length;
-              console.log(`📊 FINAL VALIDATION: ${finalHeaderCount === 0 ? '✅' : '❌'} ${finalHeaderCount} header (should be 0), ${finalBodyParamsCount === 8 ? '✅' : '❌'} ${finalBodyParamsCount} body params (should be 8), ${finalButtonCount === 0 ? '✅' : '❌'} ${finalButtonCount} buttons (should be 0)`);
+              const urlButton = buttonComponents.find((btn: any) => btn.sub_type === 'url' && btn.index === '0');
+              console.log(`📊 FINAL VALIDATION: ${finalHeaderCount === 0 ? '✅' : '❌'} ${finalHeaderCount} header (should be 0), ${finalBodyParamsCount === 8 ? '✅' : '❌'} ${finalBodyParamsCount} body params (should be 8), ${finalButtonCount === 1 ? '✅' : '❌'} ${finalButtonCount} buttons (should be 1), ${urlButton ? '✅' : '❌'} URL button at index 0`);
               
               if (finalBodyParamsCount !== 8) {
                 console.error(`❌ VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
@@ -627,9 +645,15 @@ class WhatsAppService {
                 console.error(`❌ VALIDATION FAILED: Template "aa" should NOT have header components!`);
                 console.error(`❌ This payload will be rejected by Meta API with error 100 or 132012`);
               }
-              if (finalButtonCount > 0) {
-                console.error(`❌ VALIDATION FAILED: Template "aa" should NOT have button components!`);
-                console.error(`❌ This payload will be rejected by Meta API with error 132018`);
+              if (finalButtonCount !== 1) {
+                console.error(`❌ VALIDATION FAILED: Template "aa" requires exactly 1 button component (URL at index 0)!`);
+                console.error(`❌ Found ${finalButtonCount} button components`);
+                console.error(`❌ This payload will be rejected by Meta API with error 100 or 132018`);
+              }
+              if (!urlButton) {
+                console.error(`❌ VALIDATION FAILED: Template "aa" requires a URL button at index 0!`);
+                console.error(`❌ The template has a URL button "לעדכון סטטוס הגעה" that requires a URL parameter`);
+                console.error(`❌ This payload will be rejected by Meta API with error 100 or 132018`);
               }
             }
           } else {
@@ -718,13 +742,25 @@ class WhatsAppService {
           console.error(`❌ This will cause Meta API error 100 or 132012`);
         }
         
-        // Validate button components (should NOT exist for "aa")
-        if (buttonComponents.length > 0) {
-          console.error(`❌ CRITICAL: Template "aa" payload includes ${buttonComponents.length} button component(s) but should NOT!`);
+        // CRITICAL: Template "aa" requires exactly 1 URL button component at index 0
+        if (buttonComponents.length === 0) {
+          console.error(`❌ CRITICAL: Template "aa" requires ONE URL button component at index 0!`);
+          console.error(`❌ The template has a URL button "לעדכון סטטוס הגעה" that requires a URL parameter`);
+          console.error(`❌ This will cause Meta API error 100 or 132018`);
+        } else if (buttonComponents.length > 1) {
+          console.error(`❌ CRITICAL: Template "aa" should have exactly ONE button component, but ${buttonComponents.length} are being sent!`);
           buttonComponents.forEach((btn: any, index: number) => {
             console.error(`❌ Button component ${index + 1}:`, btn);
           });
           console.error(`❌ This will cause Meta API error 132018`);
+        } else {
+          const urlButton = buttonComponents[0];
+          if (urlButton.sub_type !== 'url' || urlButton.index !== '0') {
+            console.error(`❌ CRITICAL: Template "aa" button component is incorrect!`);
+            console.error(`❌ Expected: { type: 'button', sub_type: 'url', index: '0' }`);
+            console.error(`❌ Actual:`, urlButton);
+            console.error(`❌ This will cause Meta API error 132018`);
+          }
         }
         
         // Final count validation
@@ -758,13 +794,14 @@ class WhatsAppService {
               console.log('📋 Template "aa" requirements:');
               console.log('  - MUST NOT have header image component (header image is STATIC in Meta Business Manager)');
               console.log('  - MUST have 8 body parameters');
-              console.log('  - MUST have 0 button components (template has no buttons in Meta)');
+              console.log('  - MUST have 1 URL button component at index 0 (template has URL button "לעדכון סטטוס הגעה")');
           console.log('  - Language code MUST be set (default: "he")');
           const actualBodyCount = bodyParams.length;
           const actualHeaderCount = headerComponent ? 1 : 0;
           const actualButtonCount = buttonComponents.length;
           const hasLanguage = !!messagePayload.template?.language?.code;
-          console.log(`📊 ACTUAL PAYLOAD: ${actualHeaderCount === 0 ? '✅' : '❌'} header (${actualHeaderCount}, should be 0), ${actualBodyCount === 8 ? '✅' : '❌'} ${actualBodyCount} body params (should be 8), ${actualButtonCount === 0 ? '✅' : '❌'} ${actualButtonCount} buttons (should be 0), ${hasLanguage ? '✅' : '❌'} language code`);
+          const urlButton = buttonComponents.find((btn: any) => btn.sub_type === 'url' && btn.index === '0');
+          console.log(`📊 ACTUAL PAYLOAD: ${actualHeaderCount === 0 ? '✅' : '❌'} header (${actualHeaderCount}, should be 0), ${actualBodyCount === 8 ? '✅' : '❌'} ${actualBodyCount} body params (should be 8), ${actualButtonCount === 1 ? '✅' : '❌'} ${actualButtonCount} buttons (should be 1), ${urlButton ? '✅' : '❌'} URL button at index 0, ${hasLanguage ? '✅' : '❌'} language code`);
           
           if (actualBodyCount !== 8) {
             console.error(`❌ ERROR: Template "aa" expects 8 body parameters, but ${actualBodyCount} are being sent!`);
@@ -781,9 +818,13 @@ class WhatsAppService {
             console.error('❌ The header image is defined in the template itself, not as a dynamic parameter');
           }
           
-          if (buttonComponents.length > 0) {
-            console.warn(`⚠️ WARNING: Template "aa" has no buttons in Meta, but ${buttonComponents.length} button components are being sent!`);
-            console.warn('⚠️ This may cause Meta API error 132018');
+          if (actualButtonCount !== 1) {
+            console.error(`❌ ERROR: Template "aa" requires exactly 1 button component (URL at index 0), but ${actualButtonCount} are being sent!`);
+            console.error('❌ This will cause Meta API error 100 or 132018');
+          } else if (!urlButton) {
+            console.error(`❌ ERROR: Template "aa" requires a URL button at index 0, but it was not found!`);
+            console.error('❌ The template has a URL button "לעדכון סטטוס הגעה" that requires a URL parameter');
+            console.error('❌ This will cause Meta API error 100 or 132018');
           }
           
           if (!hasLanguage) {
@@ -861,13 +902,34 @@ class WhatsAppService {
             console.log(`📋 Rebuilt parameter ${i + 1}/${8} [${paramKey}]: "${paramValue.substring(0, 50)}${paramValue.length > 50 ? '...' : ''}"`);
           }
           
-          // Rebuild components array with ONLY body component (no header, no buttons)
-          messagePayload.template.components = [{
+          // Rebuild components array with body component AND URL button component
+          // Template "aa" requires: 8 body parameters + 1 URL button at index 0
+          const rebuiltComponents: any[] = [{
             type: 'body',
             parameters: rebuiltParams
           }];
           
-          console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters from original templateParams`);
+          // CRITICAL: Add URL button component if guest_response_link is available
+          if (originalTemplateParams?.guest_response_link) {
+            rebuiltComponents.push({
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [{
+                type: 'text',
+                text: originalTemplateParams.guest_response_link
+              }]
+            });
+            console.log(`✅ Added URL button component at index 0 with URL: ${originalTemplateParams.guest_response_link}`);
+          } else {
+            console.warn('⚠️ WARNING: Template "aa" requires a URL button parameter but guest_response_link is missing!');
+            console.warn('⚠️ The template has a URL button "לעדכון סטטוס הגעה" at index 0 that requires a URL parameter');
+            console.warn('⚠️ This may cause Meta API error 100 or 132018');
+          }
+          
+          messagePayload.template.components = rebuiltComponents;
+          
+          console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters + 1 URL button from original templateParams`);
         } else {
           // For other templates, validate and fix structure
           messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
@@ -1423,6 +1485,9 @@ class WhatsAppService {
                   guestName = 'אורח';
                 }
                 
+                // CRITICAL: Get guest_response_link from original templateParams or messageData
+                const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+                
                 const templateParamsForAA = {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                                'event_date', 'event_time', 'venue', 'couple_name'],
@@ -1434,12 +1499,14 @@ class WhatsAppService {
                   event_time: eventData?.eventTime || '',
                   venue: eventData?.venue || '',
                   couple_name: eventData?.coupleName || 'הזוג',
+                  guest_response_link: guestResponseLink, // CRITICAL: Include guest_response_link for URL button
                   language: 'he'
                 };
                 
                 console.log('📋 Template params for retry:', templateParamsForAA);
                 
                 // Retry with template "aa"
+                // CRITICAL: Template "aa" requires: 8 body parameters + 1 URL button at index 0
                 const retryPayload: any = {
                   messaging_product: 'whatsapp',
                   recipient_type: 'individual',
@@ -1463,6 +1530,24 @@ class WhatsAppService {
                     }]
                   }
                 };
+                
+                // CRITICAL: Add URL button component for template "aa" if guest_response_link is available
+                if (guestResponseLink) {
+                  retryPayload.template.components.push({
+                    type: 'button',
+                    sub_type: 'url',
+                    index: '0', // Template "aa" has URL button at index 0
+                    parameters: [{
+                      type: 'text',
+                      text: guestResponseLink
+                    }]
+                  });
+                  console.log(`🔘 Added URL button component for template "aa" retry at index 0 with URL: ${guestResponseLink}`);
+                } else {
+                  console.warn('⚠️ WARNING: Template "aa" requires a URL button parameter but guest_response_link is missing in retry!');
+                  console.warn('⚠️ The template has a URL button "לעדכון סטטוס הגעה" at index 0 that requires a URL parameter');
+                  console.warn('⚠️ This may cause Meta API error 100 or 132018');
+                }
                 
                 console.log('📤 Retrying with template "aa":', JSON.stringify(retryPayload, null, 2));
                 
