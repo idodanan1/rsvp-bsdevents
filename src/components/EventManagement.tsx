@@ -1068,10 +1068,14 @@ const EventManagement: React.FC = () => {
         }
       } else {
         // Update other fields normally - always include responseDate for timestamp-based conflict resolution
-        // If updating guestCount, always use current timestamp
+        // If updating guestCount, always use current timestamp and ensure source is manual_update
         const updatesWithTimestamp = updates.guestCount !== undefined 
-          ? { ...updates, responseDate: new Date() }
-          : updates;
+          ? { 
+              ...updates, 
+              responseDate: new Date(),
+              source: 'manual_update' // CRITICAL: Mark as manual_update to prevent old updates from overwriting
+            }
+          : { ...updates, source: updates.source || 'manual_update' };
         await updateGuest(event.id, guestId, updatesWithTimestamp);
       }
       
@@ -1082,6 +1086,23 @@ const EventManagement: React.FC = () => {
       const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
       
       if (hasCriticalField) {
+        // CRITICAL: For guestCount updates, immediately update local state to prevent reversion
+        if (updates.guestCount !== undefined) {
+          setCurrentEvent(prev => {
+            if (!prev || prev.id !== event.id) return prev;
+            return {
+              ...prev,
+              guests: prev.guests?.map(g => 
+                g.id === guestId 
+                  ? { ...g, guestCount: updates.guestCount }
+                  : g
+              ) || []
+            };
+          });
+          console.log(`✅ Immediately updated local state for guestCount: ${updates.guestCount}`);
+        }
+        
+        // Also get from store to ensure consistency
         const storeState = useEventStore.getState();
         const updatedEvent = storeState.currentEvent;
         if (updatedEvent && updatedEvent.id === event.id) {
@@ -3592,8 +3613,35 @@ const EventManagement: React.FC = () => {
                   <td className="px-3 py-4 text-sm text-gray-900 w-24 min-w-[100px]">
                     <input
                       type="number"
-                      value={guest.guestCount}
-                      onChange={(e) => handleUpdateGuestField(guest.id, { guestCount: parseInt(e.target.value) || 1 })}
+                      value={guest.guestCount ?? 1}
+                      onChange={async (e) => {
+                        const inputValue = e.target.value;
+                        // Allow empty string while typing
+                        if (inputValue === '') {
+                          return;
+                        }
+                        const newValue = parseInt(inputValue);
+                        if (!isNaN(newValue) && newValue >= 1) {
+                          // CRITICAL: Update immediately with the new value to prevent reversion
+                          // Use await to ensure the update completes before continuing
+                          await handleUpdateGuestField(guest.id, { 
+                            guestCount: newValue,
+                            source: 'manual_update',
+                            responseDate: new Date()
+                          });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Ensure value is at least 1 when field loses focus
+                        const value = parseInt(e.target.value);
+                        if (isNaN(value) || value < 1) {
+                          handleUpdateGuestField(guest.id, { 
+                            guestCount: 1,
+                            source: 'manual_update',
+                            responseDate: new Date()
+                          });
+                        }
+                      }}
                       className="w-full text-center border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
                       min="1"
                     />

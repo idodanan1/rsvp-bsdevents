@@ -1730,7 +1730,9 @@ export const useEventStore = create<EventStore>()(
                   ...guest, 
                   ...cleanedUpdates,
                   // Always update responseDate when critical fields change
-                  responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now)
+                  responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now),
+                  // CRITICAL: Preserve source for manual updates to ensure they're not overwritten
+                  source: updates.source || guest.source || 'manual_update'
                 };
               }
               return guest;
@@ -2046,17 +2048,45 @@ export const useEventStore = create<EventStore>()(
                         const cleanedFirstName = updatedGuest.firstName !== undefined ? cleanName(updatedGuest.firstName) : guest.firstName;
                         const cleanedLastName = updatedGuest.lastName !== undefined ? cleanName(updatedGuest.lastName) : guest.lastName;
                         
-                        // CRITICAL: For manual_update, always preserve the current guestCount if the update doesn't include it
-                        // This prevents old updates from backend (without guestCount) from reverting manual changes
+                        // CRITICAL: For manual_update, always preserve the current guestCount if it's different from the update
+                        // This prevents old updates from backend from reverting manual changes
                         // For other sources, use the update's guestCount if provided, otherwise keep existing
-                        const shouldPreserveGuestCount = isManualUpdateEcho && updatedGuest.guestCount === undefined;
-                        const finalGuestCount = shouldPreserveGuestCount 
-                          ? guest.guestCount 
-                          : (updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount);
+                        let finalGuestCount: number | undefined;
+                        
+                        if (isManualUpdateEcho) {
+                          // For manual_update: if update has guestCount, use it (it's the new manual value)
+                          // If update doesn't have guestCount, preserve existing value
+                          if (updatedGuest.guestCount !== undefined) {
+                            finalGuestCount = updatedGuest.guestCount; // Use the new manual value
+                          } else {
+                            finalGuestCount = guest.guestCount; // Preserve existing if not in update
+                          }
+                        } else {
+                          // For non-manual updates: check if current value is from manual_update and is newer
+                          // If so, preserve it to prevent old backend updates from reverting manual changes
+                          const currentGuestSource = guest.source || '';
+                          const isCurrentFromManual = currentGuestSource === 'manual_update';
+                          const currentResponseDate = guest.responseDate ? new Date(guest.responseDate).getTime() : 0;
+                          const updateResponseDate = newResponseDate.getTime();
+                          
+                          // If current value is from manual_update and is newer or same, preserve it
+                          if (isCurrentFromManual && currentResponseDate >= updateResponseDate && updatedGuest.guestCount !== undefined) {
+                            // Current manual value is newer - preserve it instead of using old backend value
+                            console.log(`🛡️ Preserving manual guestCount ${guest.guestCount} (newer than backend update ${updatedGuest.guestCount})`);
+                            finalGuestCount = guest.guestCount;
+                          } else {
+                            // Use update's value if provided, otherwise keep existing
+                            finalGuestCount = updatedGuest.guestCount !== undefined 
+                              ? updatedGuest.guestCount 
+                              : guest.guestCount;
+                          }
+                        }
                         
                         // CRITICAL: Create updatedGuest without guestCount if we need to preserve it, then add it back
+                        // This prevents ...updatedGuest from overriding our finalGuestCount
                         const updatedGuestWithoutCount = { ...updatedGuest };
-                        if (shouldPreserveGuestCount) {
+                        // Remove guestCount from spread if we're preserving a different value
+                        if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== finalGuestCount) {
                           delete updatedGuestWithoutCount.guestCount;
                         }
                         
@@ -2115,16 +2145,17 @@ export const useEventStore = create<EventStore>()(
                           // CRITICAL: Even if old update is newer, apply user-initiated updates
                           console.log(`🔄 Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
                           
-                          // CRITICAL: For manual_update, preserve guestCount if update doesn't include it
-                          // This prevents old updates from backend from reverting manual guestCount changes
-                          const shouldPreserveGuestCount = isManualUpdateEcho && updatedGuest.guestCount === undefined;
-                          const finalGuestCount = shouldPreserveGuestCount 
-                            ? guest.guestCount 
-                            : (updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount);
+                          // CRITICAL: If guestCount is explicitly provided in the update, ALWAYS use it
+                          // This ensures new manual changes are preserved when they come back from backend
+                          // Only if guestCount is undefined should we preserve the existing value
+                          const finalGuestCount = updatedGuest.guestCount !== undefined 
+                            ? updatedGuest.guestCount // Use new value if explicitly provided
+                            : guest.guestCount; // Only preserve existing if update doesn't include guestCount
                           
                           // CRITICAL: Create updatedGuest without guestCount if we need to preserve it, then add it back
+                          // This prevents ...updatedGuest from overriding our finalGuestCount
                           const updatedGuestWithoutCount = { ...updatedGuest };
-                          if (shouldPreserveGuestCount) {
+                          if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== finalGuestCount) {
                             delete updatedGuestWithoutCount.guestCount;
                           }
                           
@@ -2235,14 +2266,21 @@ export const useEventStore = create<EventStore>()(
                     const oldResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
                     const isNewerUpdate = newResponseDate.getTime() >= oldResponseDate.getTime() || isManualUpdateEcho;
                     
+                    // CRITICAL: If guestCount is explicitly provided in the update, ALWAYS use it
+                    // This ensures new manual changes are preserved when they come back from backend
+                    // Only if guestCount is undefined should we preserve the existing value
+                    const finalGuestCount = updatedGuest.guestCount !== undefined 
+                      ? updatedGuest.guestCount // Use new value if explicitly provided
+                      : guest.guestCount; // Only preserve existing if update doesn't include guestCount
+                    
                     const updatedGuestData = {
                       ...guest,
                       ...updatedGuest,
                       // Always use new values if provided (latest update wins)
                       rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
-                      // CRITICAL: If guestCount is explicitly provided (even if 0 or null), use it. Otherwise keep existing value
-                      // Don't default to 1 - this prevents reverting from 2 back to 1 when old update arrives
-                      guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                      // CRITICAL: For manual_update with guestCount, always preserve the new value
+                      // This prevents old updates from reverting manual changes
+                      guestCount: finalGuestCount,
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
                       responseDate: isNewerUpdate ? newResponseDate : oldResponseDate,
                       // CRITICAL: Preserve source to ensure proper tracking
