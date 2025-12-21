@@ -2736,28 +2736,28 @@ const EventManagement: React.FC = () => {
         finalImageUrl: finalImageUrl
       });
       
-      // CRITICAL: For manual messages from table, use template "hello_world" for testing
-      console.log('📝 Sending manual message with template "hello_world"');
+      // CRITICAL: For manual messages from table, use template "aa" (simple like curl)
+      console.log('📝 Sending manual message with template "aa"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Template "hello_world" doesn't need parameters - it's a simple test template
-      // Use English language (en) for hello_world template
-      const templateParamsForHelloWorld = {
-        language: 'en' // hello_world template exists in English, not Hebrew
+      // Template "aa" - simple payload like curl (no components needed)
+      // Use Hebrew language (he) for aa template
+      const templateParamsForAA = {
+        language: 'he' // aa template exists in Hebrew
       };
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
-      console.log('📋 Template params:', templateParamsForHelloWorld);
+      console.log('📋 Template params:', templateParamsForAA);
       
       let result;
       try {
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
-          // CRITICAL: Use template "hello_world" for testing (English language)
-          templateName: 'hello_world',
-          templateParams: templateParamsForHelloWorld,
+          // CRITICAL: Use template "aa" (simple like curl - no components)
+          templateName: 'aa',
+          templateParams: templateParamsForAA,
           recipients: [{
             id: guest.id,
             firstName: guest.firstName,
@@ -2777,8 +2777,8 @@ const EventManagement: React.FC = () => {
               venue: event.venue || '',
               invitationImageUrl: finalImageUrl // Use event image first, then campaign image
             },
-            // CRITICAL: Pass template params for template "hello_world"
-            templateParams: templateParamsForHelloWorld
+            // CRITICAL: Pass template params for template "aa"
+            templateParams: templateParamsForAA
           }]
         });
         

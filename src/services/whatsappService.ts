@@ -102,7 +102,7 @@ class WhatsAppService {
       if (messageData.templateName && typeof messageData.templateName === 'string' && messageData.templateName.trim().length > 0) {
         console.log('📋 Sending template message:', messageData.templateName);
         
-        // SIMPLE: For hello_world template, use simple payload like curl
+        // SIMPLE: For hello_world and aa templates, use simple payload like curl
         if (templateName === 'hello_world') {
           messagePayload.type = 'template';
           messagePayload.template = {
@@ -112,6 +112,17 @@ class WhatsAppService {
             }
           };
           // No components needed for hello_world - it's that simple!
+          // Skip all the complex logic below and go directly to sending
+        } else if (templateName === 'aa') {
+          messagePayload.type = 'template';
+          messagePayload.template = {
+            name: 'aa',
+            language: {
+              code: 'he'
+            }
+          };
+          // SIMPLE: Send aa template without components first (like curl)
+          // If Meta needs components, it will tell us in the error
           // Skip all the complex logic below and go directly to sending
         } else {
           // For other templates, use the complex logic
