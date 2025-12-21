@@ -262,10 +262,36 @@ class WhatsAppService {
               console.log(`📋 Total keys in templateParams:`, Object.keys(messageData.templateParams || {}).length);
               console.log(`📋 Keys in templateParams:`, Object.keys(messageData.templateParams || {}));
               
-              components.push({
-                type: 'body',
-                parameters: bodyParams
+              // CRITICAL: Ensure bodyParams is a valid array with valid parameters
+              const validBodyParams = bodyParams.filter((param: any) => {
+                if (!param || typeof param !== 'object') {
+                  console.error('❌ CRITICAL: Invalid parameter structure in bodyParams:', param);
+                  return false;
+                }
+                if (!param.type || param.type !== 'text') {
+                  console.error('❌ CRITICAL: Parameter missing type or invalid type:', param);
+                  return false;
+                }
+                if (!param.text || typeof param.text !== 'string' || param.text.trim().length === 0) {
+                  console.error('❌ CRITICAL: Parameter missing text or text is empty:', param);
+                  return false;
+                }
+                return true;
               });
+              
+              if (validBodyParams.length !== bodyParams.length) {
+                console.error(`❌ CRITICAL: Filtered out ${bodyParams.length - validBodyParams.length} invalid parameter(s) from bodyParams!`);
+                console.error(`❌ Original count: ${bodyParams.length}, Valid count: ${validBodyParams.length}`);
+              }
+              
+              if (validBodyParams.length > 0) {
+                components.push({
+                  type: 'body',
+                  parameters: validBodyParams
+                });
+              } else {
+                console.error('❌ CRITICAL: No valid body parameters to send! This will cause Meta API error 100.');
+              }
             }
           
           // Always send image as header component if we have a valid HTTPS image URL
@@ -513,7 +539,37 @@ class WhatsAppService {
           
           // Only add components if we have parameters (Meta requirement)
           // Empty components array is not allowed
+          // CRITICAL: For template "aa", ensure body component has exactly 8 parameters
           if (components.length > 0) {
+            // CRITICAL: Final validation - ensure body component has valid parameters
+            const bodyComponent = components.find((c: any) => c.type === 'body');
+            if (bodyComponent && bodyComponent.parameters) {
+              // Filter out any invalid parameters (null, undefined, or empty)
+              bodyComponent.parameters = bodyComponent.parameters.filter((param: any) => {
+                if (!param || typeof param !== 'object') {
+                  console.error('❌ CRITICAL: Invalid parameter structure:', param);
+                  return false;
+                }
+                if (!param.type || param.type !== 'text') {
+                  console.error('❌ CRITICAL: Parameter missing type or invalid type:', param);
+                  return false;
+                }
+                if (!param.text || typeof param.text !== 'string' || param.text.trim().length === 0) {
+                  console.error('❌ CRITICAL: Parameter missing text or text is empty:', param);
+                  return false;
+                }
+                return true;
+              });
+              
+              // If we filtered out parameters, log warning
+              const originalCount = bodyParams.length;
+              const filteredCount = bodyComponent.parameters.length;
+              if (filteredCount !== originalCount) {
+                console.error(`❌ CRITICAL: Filtered out ${originalCount - filteredCount} invalid parameter(s)!`);
+                console.error(`❌ Original count: ${originalCount}, Filtered count: ${filteredCount}`);
+              }
+            }
+            
             messagePayload.template.components = components;
             
             // CRITICAL: Log the full components structure being sent
@@ -612,6 +668,14 @@ class WhatsAppService {
             const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
             param.text = placeholder;
             console.warn(`⚠️ Replaced empty parameter ${index + 1} with placeholder: "${placeholder}"`);
+          }
+          // CRITICAL: Check for null or undefined text values
+          if (param.text === null || param.text === undefined) {
+            console.error(`❌ CRITICAL: Body parameter ${index + 1} has null or undefined text value!`);
+            console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
+            const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+            param.text = placeholder;
+            console.warn(`⚠️ Replaced null/undefined parameter ${index + 1} with placeholder: "${placeholder}"`);
           }
           if (param.parameter_name) {
             console.error(`❌ CRITICAL: Body parameter ${index + 1} incorrectly includes 'parameter_name' field!`);
