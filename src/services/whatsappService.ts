@@ -1486,7 +1486,9 @@ class WhatsAppService {
                 }
                 
                 // CRITICAL: Get guest_response_link from original templateParams or messageData
-                const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+                // Priority: originalTemplateParams > messageData.templateParams
+                const guestResponseLink = (originalTemplateParams as any)?.guest_response_link || 
+                                         (messageData.templateParams as any)?.guest_response_link || '';
                 
                 const templateParamsForAA = {
                   paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 

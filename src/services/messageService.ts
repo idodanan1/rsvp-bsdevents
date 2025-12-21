@@ -264,10 +264,13 @@ class MessageService {
         console.log('⚠️ User requested free-form message, but this is a FIRST MESSAGE');
         console.log('⚠️ Meta requires template for first messages - sending as regular text message anyway');
         console.log('⚠️ If Meta rejects, we will fallback to template "aa"');
+        console.log('⚠️ Keeping templateParams from recipient for retry:', recipient.templateParams);
         // Try sending as regular message first - Meta will reject if it's a first message
         // The whatsappService will handle the rejection and retry with template if needed
+        // CRITICAL: Keep templateParams from recipient so whatsappService can use them for retry
         templateName = undefined;
-        templateParams = undefined;
+        // Keep templateParams from recipient if available (for retry with template "aa")
+        templateParams = recipient.templateParams || templateParams;
       } else {
         // NOT a first message - can send free-form message as requested
         console.log('📝 Explicitly no template requested - sending as regular text message (free-form)');
@@ -282,27 +285,38 @@ class MessageService {
       console.log('⚠️ Debug: templateName was:', templateName, 'type:', typeof templateName);
       // CRITICAL: Always set templateName to 'aa' for first messages (Meta requirement)
       templateName = 'aa';
-      // Prepare template parameters for template "aa" (8 parameters)
+      // CRITICAL: Use templateParams from recipient if available (they already have all 8 parameters + guest_response_link)
+      // Otherwise, prepare template parameters for template "aa" (8 parameters)
       // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-      const eventData = recipient.eventData;
-      if (eventData) {
-        templateParams = {
-          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                       'event_date', 'event_time', 'venue', 'couple_name'],
-          guest_name: recipient.firstName,
-          event_type: eventData.eventTypeHebrew || 'חתונה',
-          groom_name: eventData.groomName || '',
-          bride_name: eventData.brideName || '',
-          event_date: eventData.eventDate || '',
-          event_time: eventData.eventTime || '',
-          venue: eventData.venue || '',
-          couple_name: eventData.coupleName || '',
-          language: 'he'
-        };
+      if (recipient.templateParams && recipient.templateParams.paramsOrder) {
+        // Use templateParams from recipient (already prepared with all 8 parameters + guest_response_link)
+        console.log('✅ Using templateParams from recipient:', recipient.templateParams);
+        templateParams = recipient.templateParams;
       } else {
-        templateParams = {
-          language: 'he'
-        };
+        // Fallback: Create templateParams from eventData
+        const eventData = recipient.eventData;
+        if (eventData) {
+          // CRITICAL: Need to get guest_response_link from somewhere - try to extract from message or use empty
+          const guestResponseLink = (recipient.templateParams as any)?.guest_response_link || '';
+          templateParams = {
+            paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                         'event_date', 'event_time', 'venue', 'couple_name'],
+            guest_name: recipient.firstName,
+            event_type: eventData.eventTypeHebrew || 'חתונה',
+            groom_name: eventData.groomName || '',
+            bride_name: eventData.brideName || '',
+            event_date: eventData.eventDate || '',
+            event_time: eventData.eventTime || '',
+            venue: eventData.venue || '',
+            couple_name: eventData.coupleName || '',
+            guest_response_link: guestResponseLink, // CRITICAL: Include guest_response_link for URL button
+            language: 'he'
+          };
+        } else {
+          templateParams = {
+            language: 'he'
+          };
+        }
       }
       // CRITICAL: Verify templateName is set correctly
       if (!templateName || templateName !== 'aa') {
@@ -333,26 +347,39 @@ class MessageService {
       console.error('❌ Forcing templateName to "aa" for first message');
       templateName = 'aa';
       // Ensure templateParams are set for "aa" template
+      // CRITICAL: Use templateParams from recipient if available (they already have all 8 parameters + guest_response_link)
       // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
-      const eventData = recipient.eventData;
-      if (eventData && !templateParams) {
-        templateParams = {
-          paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                       'event_date', 'event_time', 'venue', 'couple_name'],
-          guest_name: recipient.firstName,
-          event_type: eventData.eventTypeHebrew || 'חתונה',
-          groom_name: eventData.groomName || '',
-          bride_name: eventData.brideName || '',
-          event_date: eventData.eventDate || '',
-          event_time: eventData.eventTime || '',
-          venue: eventData.venue || '',
-          couple_name: eventData.coupleName || '',
-          language: 'he'
-        };
-      } else if (!templateParams) {
-        templateParams = {
-          language: 'he'
-        };
+      if (!templateParams) {
+        if (recipient.templateParams && recipient.templateParams.paramsOrder) {
+          // Use templateParams from recipient (already prepared with all 8 parameters + guest_response_link)
+          console.log('✅ Using templateParams from recipient in final safety check:', recipient.templateParams);
+          templateParams = recipient.templateParams;
+        } else {
+          // Fallback: Create templateParams from eventData
+          const eventData = recipient.eventData;
+          if (eventData) {
+            // CRITICAL: Need to get guest_response_link from somewhere - try to extract from message or use empty
+            const guestResponseLink = (recipient.templateParams as any)?.guest_response_link || '';
+            templateParams = {
+              paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                           'event_date', 'event_time', 'venue', 'couple_name'],
+              guest_name: recipient.firstName,
+              event_type: eventData.eventTypeHebrew || 'חתונה',
+              groom_name: eventData.groomName || '',
+              bride_name: eventData.brideName || '',
+              event_date: eventData.eventDate || '',
+              event_time: eventData.eventTime || '',
+              venue: eventData.venue || '',
+              couple_name: eventData.coupleName || '',
+              guest_response_link: guestResponseLink, // CRITICAL: Include guest_response_link for URL button
+              language: 'he'
+            };
+          } else {
+            templateParams = {
+              language: 'he'
+            };
+          }
+        }
       }
     }
     
@@ -402,18 +429,19 @@ class MessageService {
     
     // CRITICAL: For free-form messages, pass eventData and guest name in templateParams so whatsappService can use it for retry
     // This ensures that if Meta rejects the free-form message (error 131047), whatsappService can retry with template "aa"
-    let finalTemplateParams = templateParams;
-    if (!templateParams && recipient.eventData) {
+    // CRITICAL: If recipient.templateParams exists, use it (it already has all 8 parameters + guest_response_link)
+    let finalTemplateParams = templateParams || recipient.templateParams;
+    if (!finalTemplateParams && recipient.eventData) {
       // Pass eventData and guest name in templateParams even for free-form messages so retry can use it
       finalTemplateParams = {
         eventData: recipient.eventData,
         guestName: recipient.firstName, // Pass guest name for retry with template "aa"
         language: 'he'
       } as any;
-    } else if (templateParams && recipient.eventData) {
-      // Add eventData and guest name to existing templateParams
+    } else if (finalTemplateParams && recipient.eventData) {
+      // Add eventData and guest name to existing templateParams (preserve all existing params including guest_response_link)
       finalTemplateParams = {
-        ...templateParams,
+        ...finalTemplateParams,
         eventData: recipient.eventData,
         guestName: recipient.firstName // Pass guest name for retry with template "aa"
       } as any;

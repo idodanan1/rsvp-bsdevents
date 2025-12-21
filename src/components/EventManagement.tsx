@@ -2521,6 +2521,31 @@ const EventManagement: React.FC = () => {
       const personalizedMessage = customMessage 
         ? customMessage.replace('{{guest_link}}', guestLink)
         : `${baseMessage}\n\n🔗 לאשר הגעה ולעדכן סטטוס: ${guestLink}`;
+      
+      // CRITICAL: Prepare template parameters for template "aa" (8 parameters + guest_response_link)
+      // Template "aa" expects: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
+      // Plus guest_response_link for the URL button at index 0
+      const coupleName = currentEvent.coupleName || 
+        (currentEvent.groomName && currentEvent.brideName 
+          ? `${currentEvent.groomName} ו${currentEvent.brideName}` 
+          : 'הזוג');
+      const groomName = currentEvent.groomName || '';
+      const brideName = currentEvent.brideName || '';
+      
+      const templateParamsForAA = {
+        paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                     'event_date', 'event_time', 'venue', 'couple_name'],
+        guest_name: guest.firstName,
+        event_type: currentEvent.eventTypeHebrew || 'חתונה',
+        groom_name: groomName,
+        bride_name: brideName,
+        event_date: formatDate(currentEvent.eventDate) || '',
+        event_time: currentEvent.eventTime || '',
+        venue: currentEvent.venue || '',
+        couple_name: coupleName,
+        guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0
+        language: 'he'
+      };
         
         return {
           id: guest.id,
@@ -2540,7 +2565,9 @@ const EventManagement: React.FC = () => {
             eventTime: currentEvent.eventTime,
             venue: currentEvent.venue,
             invitationImageUrl: currentEvent.invitationImageUrl
-          }
+          },
+          // CRITICAL: Pass template params for template "aa" so it can be used if needed (first message or retry)
+          templateParams: templateParamsForAA
         };
       });
 
@@ -2559,27 +2586,14 @@ const EventManagement: React.FC = () => {
         // But we also need to pass a base message for messageService to use
         const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
         
-        // CRITICAL: Pass eventData in templateParams even for free-form messages
-        // This allows whatsappService to retry with template "aa" if Meta rejects (error 131047)
-        const eventDataForRetry = {
-          eventData: {
-            coupleName: currentEvent.coupleName,
-            groomName: currentEvent.groomName,
-            brideName: currentEvent.brideName,
-            eventType: currentEvent.eventType,
-            eventTypeHebrew: currentEvent.eventTypeHebrew,
-            eventDate: formatDate(currentEvent.eventDate),
-            eventTime: currentEvent.eventTime,
-            venue: currentEvent.venue,
-            invitationImageUrl: currentEvent.invitationImageUrl
-          },
-          language: 'he'
-        };
+        // CRITICAL: Each recipient already has templateParams with all 8 parameters + guest_response_link
+        // This allows whatsappService to use template "aa" if needed (first message or retry after error 131047)
+        // The templateParams are already set in the recipients array above
         
         result = await messageService.sendBulkMessages({
           message: baseMessage, // Base message for free-form messages
-          templateName: undefined, // CRITICAL: No template - send as regular text message
-          templateParams: eventDataForRetry as any, // CRITICAL: Pass eventData for retry with template "aa"
+          templateName: undefined, // CRITICAL: No template - send as regular text message (will use template "aa" if first message)
+          templateParams: undefined, // CRITICAL: Template params are already in each recipient.templateParams
           recipients
         });
         
