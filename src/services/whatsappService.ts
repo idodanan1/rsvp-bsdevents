@@ -353,36 +353,47 @@ class WhatsAppService {
               console.log(`📋 Total keys in templateParams:`, Object.keys(messageData.templateParams || {}).length);
               console.log(`📋 Keys in templateParams:`, Object.keys(messageData.templateParams || {}));
               
-              // CRITICAL: Ensure bodyParams is a valid array with valid parameters
-              const validBodyParams = bodyParams.filter((param: any) => {
+              // CRITICAL: Fix invalid parameters instead of filtering them out
+              // This ensures we send the message even if some parameters are empty
+              const fixedBodyParams = bodyParams.map((param: any, index: number) => {
+                // Fix invalid parameter structure
                 if (!param || typeof param !== 'object') {
-                  console.error('❌ CRITICAL: Invalid parameter structure in bodyParams:', param);
-                  return false;
+                  console.warn(`⚠️ Parameter ${index + 1} has invalid structure, fixing it...`);
+                  return {
+                    type: 'text',
+                    text: this.getPlaceholderForParameter(`param_${index + 1}`)
+                  };
                 }
+                
+                // Fix missing or invalid type
                 if (!param.type || param.type !== 'text') {
-                  console.error('❌ CRITICAL: Parameter missing type or invalid type:', param);
-                  return false;
+                  console.warn(`⚠️ Parameter ${index + 1} has invalid type, fixing it...`);
+                  return {
+                    type: 'text',
+                    text: param.text || this.getPlaceholderForParameter(`param_${index + 1}`)
+                  };
                 }
+                
+                // Fix empty text - use placeholder instead of filtering out
                 if (!param.text || typeof param.text !== 'string' || param.text.trim().length === 0) {
-                  console.error('❌ CRITICAL: Parameter missing text or text is empty:', param);
-                  return false;
+                  const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+                  console.warn(`⚠️ Parameter ${index + 1} is empty, using placeholder: "${placeholder}"`);
+                  return {
+                    type: 'text',
+                    text: placeholder
+                  };
                 }
-                return true;
+                
+                return param;
               });
               
-              if (validBodyParams.length !== bodyParams.length) {
-                console.error(`❌ CRITICAL: Filtered out ${bodyParams.length - validBodyParams.length} invalid parameter(s) from bodyParams!`);
-                console.error(`❌ Original count: ${bodyParams.length}, Valid count: ${validBodyParams.length}`);
-              }
+              // Always add body component with fixed parameters (even if some were empty)
+              components.push({
+                type: 'body',
+                parameters: fixedBodyParams
+              });
               
-              if (validBodyParams.length > 0) {
-            components.push({
-              type: 'body',
-                  parameters: validBodyParams
-            });
-              } else {
-                console.error('❌ CRITICAL: No valid body parameters to send! This will cause Meta API error 100.');
-              }
+              console.log(`✅ Prepared ${fixedBodyParams.length} body parameters (some may be placeholders for empty values)`);
           }
           
           // Always send image as header component if we have a valid HTTPS image URL
@@ -652,40 +663,44 @@ class WhatsAppService {
             // CRITICAL: Final validation - ensure body component has valid parameters
             let bodyComponent = components.find((c: any) => c.type === 'body');
             if (bodyComponent && bodyComponent.parameters) {
-              // CRITICAL: Create a new array with only valid parameters
-              // This ensures we don't mutate the original array incorrectly
-              const validParameters = bodyComponent.parameters.filter((param: any) => {
+              // CRITICAL: Fix invalid parameters instead of filtering them out
+              // This ensures we send the message even if some parameters are empty
+              const fixedParameters = bodyComponent.parameters.map((param: any, index: number) => {
+                // Fix invalid parameter structure
                 if (!param || typeof param !== 'object') {
-                  console.error('❌ CRITICAL: Invalid parameter structure:', param);
-                  return false;
+                  console.warn(`⚠️ Body parameter ${index + 1} has invalid structure, fixing it...`);
+                  return {
+                    type: 'text',
+                    text: this.getPlaceholderForParameter(`param_${index + 1}`)
+                  };
                 }
+                
+                // Fix missing or invalid type
                 if (!param.type || param.type !== 'text') {
-                  console.error('❌ CRITICAL: Parameter missing type or invalid type:', param);
-                  return false;
+                  console.warn(`⚠️ Body parameter ${index + 1} has invalid type, fixing it...`);
+                  return {
+                    type: 'text',
+                    text: param.text || this.getPlaceholderForParameter(`param_${index + 1}`)
+                  };
                 }
+                
+                // Fix empty text - use placeholder instead of filtering out
                 if (!param.text || typeof param.text !== 'string' || param.text.trim().length === 0) {
-                  console.error('❌ CRITICAL: Parameter missing text or text is empty:', param);
-                  return false;
+                  const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+                  console.warn(`⚠️ Body parameter ${index + 1} is empty, using placeholder: "${placeholder}"`);
+                  return {
+                    type: 'text',
+                    text: placeholder
+                  };
                 }
-                return true;
+                
+                return param;
               });
               
-              // CRITICAL: Replace the parameters array with the filtered valid parameters
-              bodyComponent.parameters = validParameters;
+              // CRITICAL: Replace the parameters array with the fixed parameters
+              bodyComponent.parameters = fixedParameters;
               
-              // If we filtered out parameters, log warning
-              const originalCount = bodyParams.length;
-              const filteredCount = validParameters.length;
-              if (filteredCount !== originalCount) {
-                console.error(`❌ CRITICAL: Filtered out ${originalCount - filteredCount} invalid parameter(s)!`);
-                console.error(`❌ Original count: ${originalCount}, Filtered count: ${filteredCount}`);
-              }
-              
-              // CRITICAL: Ensure body component has parameters array (not undefined/null)
-              if (!bodyComponent.parameters || bodyComponent.parameters.length === 0) {
-                console.error('❌ CRITICAL: Body component has no valid parameters after filtering!');
-                console.error('❌ This will cause Meta API error 100');
-              }
+              console.log(`✅ Fixed ${fixedParameters.length} body parameters (some may be placeholders for empty values)`);
             }
             
             // CRITICAL: Always set components if we have body parameters
@@ -867,14 +882,42 @@ class WhatsAppService {
           text: p.text ? `${p.text.substring(0, 50)}${p.text.length > 50 ? '...' : ''}` : 'MISSING',
           textLength: p.text ? p.text.length : 0,
           isEmpty: !p.text || p.text.trim().length === 0,
-          hasParameterName: !!p.parameter_name
+          hasParameterName: !!p.parameter_name,
+          fullStructure: p // Log full structure for debugging
         })));
         console.log('📋 Button Components:', buttonComponents.map((btn: any) => ({
           type: btn.type,
           sub_type: btn.sub_type,
           index: btn.index,
-          parameters: btn.parameters
+          parameters: btn.parameters?.map((p: any) => ({
+            type: p.type,
+            text: p.text ? `${p.text.substring(0, 50)}${p.text.length > 50 ? '...' : ''}` : 'MISSING',
+            hasParameterName: !!p.parameter_name,
+            fullStructure: p // Log full structure for debugging
+          }))
         })));
+        
+        // CRITICAL: Final validation - ensure all parameters are valid
+        const invalidParams: any[] = [];
+        bodyParams.forEach((param: any, index: number) => {
+          if (!param || typeof param !== 'object') {
+            invalidParams.push({ position: index + 1, error: 'Invalid object structure', param });
+          } else if (!param.type || param.type !== 'text') {
+            invalidParams.push({ position: index + 1, error: 'Missing or invalid type', param });
+          } else if (!param.text || typeof param.text !== 'string' || param.text.trim().length === 0) {
+            invalidParams.push({ position: index + 1, error: 'Missing or empty text', param });
+          } else if (param.parameter_name) {
+            invalidParams.push({ position: index + 1, error: 'Has parameter_name (should not)', param });
+          }
+        });
+        
+        if (invalidParams.length > 0) {
+          console.error(`❌ CRITICAL: Found ${invalidParams.length} invalid body parameter(s):`);
+          invalidParams.forEach(invalid => {
+            console.error(`  - Position ${invalid.position}: ${invalid.error}`, invalid.param);
+          });
+          console.error(`❌ This will cause Meta API error 100: "Invalid parameter"`);
+        }
       }
 
       // Log the FULL payload being sent to Meta API
