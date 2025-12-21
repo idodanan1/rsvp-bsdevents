@@ -2777,8 +2777,8 @@ const EventManagement: React.FC = () => {
               venue: event.venue || '',
               invitationImageUrl: finalImageUrl // Use event image first, then campaign image
             },
-            // CRITICAL: Pass template params for template "aa"
-            templateParams: templateParamsForAA
+            // CRITICAL: Pass template params for template "hello_world"
+            templateParams: templateParamsForHelloWorld
           }]
         });
         
