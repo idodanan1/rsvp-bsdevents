@@ -121,8 +121,48 @@ class WhatsAppService {
               code: 'he'
             }
           };
-          // SIMPLE: Send aa template without components first (like curl)
-          // If Meta needs components, it will tell us in the error
+          
+          // SIMPLE: Build components for template "aa" - 8 body params + 1 URL button
+          // Get data from templateParams (eventData, guestName, guest_response_link)
+          const eventData = (messageData.templateParams as any)?.eventData || {};
+          const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
+          const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          
+          // Build 8 body parameters (in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name)
+          const bodyParams = [
+            { type: 'text', text: guestName || 'אורח' },
+            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה' },
+            { type: 'text', text: eventData.groomName || '' },
+            { type: 'text', text: eventData.brideName || '' },
+            { type: 'text', text: eventData.eventDate || '' },
+            { type: 'text', text: eventData.eventTime || '' },
+            { type: 'text', text: eventData.venue || '' },
+            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג') }
+          ];
+          
+          // Build components array
+          const components: any[] = [
+            {
+              type: 'body',
+              parameters: bodyParams
+            }
+          ];
+          
+          // Add URL button if guest_response_link is available
+          if (guestResponseLink) {
+            components.push({
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [{
+                type: 'text',
+                text: guestResponseLink
+              }]
+            });
+          }
+          
+          messagePayload.template.components = components;
+          
           // Skip all the complex logic below and go directly to sending
         } else {
           // For other templates, use the complex logic

@@ -2740,10 +2740,23 @@ const EventManagement: React.FC = () => {
       console.log('📝 Sending manual message with template "aa"');
       console.log('📝 Message:', message.substring(0, 100) + '...');
       
-      // Template "aa" - simple payload like curl (no components needed)
+      // Template "aa" - needs 8 body parameters + URL button
       // Use Hebrew language (he) for aa template
       const templateParamsForAA = {
-        language: 'he' // aa template exists in Hebrew
+        language: 'he', // aa template exists in Hebrew
+        guest_response_link: guestLink, // CRITICAL: Required for URL button
+        guestName: guest.firstName, // For body parameter 1
+        eventData: {
+          coupleName: event.coupleName || coupleName,
+          groomName: event.groomName || groomName,
+          brideName: event.brideName || brideName,
+          eventType: event.eventType,
+          eventTypeHebrew: event.eventTypeHebrew || 'חתונה',
+          eventDate: formatDate(event.eventDate),
+          eventTime: event.eventTime || '',
+          venue: event.venue || '',
+          invitationImageUrl: finalImageUrl
+        }
       };
       
       console.log('📤 About to call messageService.sendBulkMessages for single guest');
