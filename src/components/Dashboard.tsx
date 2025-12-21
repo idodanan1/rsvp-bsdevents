@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
       console.error('❌ Error initial fetch:', error);
     });
     
-    // Set up auto-refresh interval - fetch every 15 seconds to reduce server load
+    // Set up auto-refresh interval - fetch every 10 seconds for better cross-device sync
     // Using startTransition and silent mode to make updates smooth and non-blocking
     const dataInterval = setInterval(() => {
       startTransition(() => {
@@ -123,7 +123,7 @@ const Dashboard: React.FC = () => {
         console.error('❌ Error auto-refreshing events:', error);
       });
       });
-    }, 20000); // 20 seconds (optimized: balanced between freshness and performance)
+    }, 10000); // 10 seconds (optimized for better cross-device synchronization)
 
     return () => clearInterval(dataInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps

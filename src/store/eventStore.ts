@@ -716,8 +716,8 @@ export const useEventStore = create<EventStore>()(
                           : new Date(apiGuest.responseDate).getTime())
                       : 0;
                     
-                    // CRITICAL: If local has a newer responseDate, preserve local data
-                    // Also check if critical fields differ - if they do and local is newer or equal, preserve local
+                    // CRITICAL: If local has a newer responseDate, preserve local data AND sync it to API
+                    // Also check if critical fields differ - if they do and local is newer or equal, preserve local AND sync
                     const localIsNewer = localResponseDate > apiResponseDate && localResponseDate > 0;
                     const datesAreEqual = localResponseDate === apiResponseDate && localResponseDate > 0;
                     const criticalFieldsDiffer = (
@@ -726,7 +726,7 @@ export const useEventStore = create<EventStore>()(
                       localGuest.actualAttendance !== apiGuest.actualAttendance
                     );
                     
-                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync), preserve local data
+                    // If local is newer, or if dates are equal but critical fields differ (local might have pending sync), preserve local data AND sync it
                     if (localIsNewer || (datesAreEqual && criticalFieldsDiffer)) {
                       const reason = localIsNewer ? 'newer responseDate' : 'equal date but critical fields differ';
                       console.log(`🔄 Using local guest data (${reason}): ${localGuest.firstName} ${localGuest.lastName}`, {
@@ -735,6 +735,32 @@ export const useEventStore = create<EventStore>()(
                         localRsvpStatus: localGuest.rsvpStatus,
                         apiRsvpStatus: apiGuest.rsvpStatus
                       });
+                      
+                      // CRITICAL: Sync local update to API to ensure it's available on other devices
+                      // Use fire-and-forget to avoid blocking
+                      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+                      const pendingUpdatePayload = {
+                        phoneNumber: localGuest.phoneNumber,
+                        guestId: localGuest.id,
+                        eventId: apiEvent.id,
+                        status: localGuest.rsvpStatus,
+                        guestCount: localGuest.guestCount,
+                        actualAttendance: localGuest.actualAttendance,
+                        notes: localGuest.notes,
+                        responseDate: localGuest.responseDate ? (localGuest.responseDate instanceof Date ? localGuest.responseDate.toISOString() : localGuest.responseDate) : new Date().toISOString(),
+                        source: localGuest.source || 'manual_update',
+                        timestamp: Date.now()
+                      };
+                      
+                      // Send update to API in background (don't await)
+                      fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(pendingUpdatePayload)
+                      }).catch(err => {
+                        console.warn('⚠️ Failed to sync local update to API:', err);
+                      });
+                      
                       return {
                         ...localGuest,
                         firstName: cleanName(localGuest.firstName),

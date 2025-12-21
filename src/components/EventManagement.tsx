@@ -207,9 +207,9 @@ const EventManagement: React.FC = () => {
       console.log('✅ Started webhook polling - updates from WhatsApp will appear in table immediately');
     }
     
-    // Auto-refresh events every 15 seconds for real-time sync between devices
+    // Auto-refresh events every 10 seconds for real-time sync between devices
     // Using startTransition and silent mode to make updates smooth and non-blocking
-    // Reduced frequency to prevent excessive updates and reduce server load
+    // Increased frequency for better cross-device synchronization
     const intervalId = setInterval(() => {
       startTransition(() => {
         // Use silent: true to prevent isLoading updates that cause visual jumps
@@ -217,7 +217,7 @@ const EventManagement: React.FC = () => {
         console.error('❌ Error auto-refreshing events:', error);
       });
       });
-    }, 20000); // Refresh every 20 seconds (optimized: balanced between freshness and performance)
+    }, 10000); // Refresh every 10 seconds (optimized for better cross-device sync)
 
     return () => {
       clearInterval(intervalId);
