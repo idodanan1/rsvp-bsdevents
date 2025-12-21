@@ -230,6 +230,12 @@ const EventManagement: React.FC = () => {
     
     const event = events.find(e => e.id === id);
     if (!event) {
+      // CRITICAL: Clear currentEvent if event not found to prevent "לא נמצא אירוע פעיל" errors
+      if (currentEvent && currentEvent.id === id) {
+        console.warn('⚠️ Event not found in events array, clearing currentEvent');
+        setCurrentEvent(null);
+      }
+      
       // Event not found - redirect after a short delay to allow events to load
       const timeout = setTimeout(() => {
         // Use events from closure instead of getState() to avoid React hooks issues
@@ -300,9 +306,15 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Only update currentEvent if this is the event from the URL (id)
     // This ensures we don't override currentEvent when an update occurs for a different event
-    // CRITICAL: Only update if something actually changed to prevent infinite loops
-    // Remove the "|| !currentEvent || currentEvent.id !== id" part to prevent infinite loops
-    const shouldUpdate = event.id === id && (guestsChanged || eventChanged || eventActuallyUpdated);
+    // CRITICAL: Always update if currentEvent is null or doesn't match the event ID
+    // This ensures currentEvent is set even if nothing changed (initial load)
+    const shouldUpdate = event.id === id && (
+      !currentEvent || 
+      currentEvent.id !== id || 
+      guestsChanged || 
+      eventChanged || 
+      eventActuallyUpdated
+    );
     if (shouldUpdate) {
       // Update currentEvent when guests change
       
