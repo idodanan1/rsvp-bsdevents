@@ -68,15 +68,23 @@ const EventManagement: React.FC = () => {
   const events = useEventStore(state => state.events);
   const currentEvent = useEventStore(state => state.currentEvent);
   const isLoading = useEventStore(state => state.isLoading);
-  // CRITICAL: Also subscribe to a computed value that changes when events change
-  // This ensures the component re-renders even if events array reference doesn't change
-  // CRITICAL: Include responseDate timestamp to catch all updates
-  // CRITICAL: Use a stable selector that returns a primitive value
-  // This avoids React #310 errors by ensuring the dependency is stable
-  const eventsHashRaw = useEventStore(state => {
+  // CRITICAL: Use a simple primitive selector to avoid React #310 errors
+  // Subscribe to events length and currentEvent id to trigger re-renders
+  const eventsLength = useEventStore(state => state.events.length);
+  const currentEventId = useEventStore(state => state.currentEvent?.id || '');
+  const currentEventUpdatedAt = useEventStore(state => {
+    if (!state.currentEvent?.updatedAt) return 0;
+    const date = state.currentEvent.updatedAt instanceof Date 
+      ? state.currentEvent.updatedAt 
+      : new Date(state.currentEvent.updatedAt);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  });
+  
+  // CRITICAL: Create a stable hash using useMemo with ONLY primitive dependencies
+  // This avoids React #310 errors by using stable primitive values as dependencies
+  const eventsHash = useMemo(() => {
+    const state = useEventStore.getState();
     // Create a hash from events that changes when any event or guest changes
-    // CRITICAL: Also include currentEvent to catch immediate updates
-    // CRITICAL: Use currentEvent if it exists and matches an event in events array, otherwise use events array
     const eventsToHash = state.events.map(e => {
       // If this is the currentEvent, use currentEvent data (it's more up-to-date)
       const eventToUse = (state.currentEvent && state.currentEvent.id === e.id) ? state.currentEvent : e;
@@ -99,7 +107,6 @@ const EventManagement: React.FC = () => {
     }).join('||');
     
     // CRITICAL: Also include currentEvent hash to catch immediate updates
-    // CRITICAL: Always include currentEvent hash even if it's in events array to ensure we catch updates
     const currentEventHash = state.currentEvent ? (() => {
       const guestsHash = state.currentEvent.guests?.map(g => {
         try {
@@ -119,10 +126,7 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Combine both hashes to ensure we catch updates from both sources
     return `${eventsToHash}${currentEventHash}`;
-  });
-  
-  // CRITICAL: Memoize eventsHash to ensure stable reference for useMemo dependencies
-  const eventsHash = useMemo(() => eventsHashRaw, [eventsHashRaw]);
+  }, [eventsLength, currentEventId, currentEventUpdatedAt]);
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
   const updateGuest = useEventStore(state => state.updateGuest);

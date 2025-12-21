@@ -511,9 +511,11 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: SERVER IS THE SINGLE SOURCE OF TRUTH
                 // Use API events directly - they contain the latest data from all devices
                 // Only filter out deleted guests and clean names
+                // CRITICAL: Preserve manual guestCount changes when loading from API
                 const state = get();
                 
                 // Use API events as-is (server is source of truth)
+                // BUT preserve manual guestCount changes that haven't been synced yet
                 const allEvents = apiEvents.map(apiEvent => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
@@ -522,8 +524,12 @@ export const useEventStore = create<EventStore>()(
                     cleanedInvitationImageUrl = undefined; // Remove local file paths
                   }
                   
+                  // CRITICAL: Find existing event in local state to preserve manual guestCount changes
+                  const existingEvent = state.events.find(e => e.id === apiEvent.id);
+                  
                   // CRITICAL: Server is source of truth - use API data directly
                   // Filter out deleted guests and clean names
+                  // BUT preserve manual guestCount changes that are newer than API data
                   const deletedGuestIds = state.deletedGuests[apiEvent.id] || [];
                   
                   return {
@@ -539,11 +545,43 @@ export const useEventStore = create<EventStore>()(
                         }
                         return true;
                       })
-                      .map((g: Guest) => ({
-                        ...g,
-                        firstName: cleanName(g.firstName),
-                        lastName: cleanName(g.lastName)
-                      }))
+                      .map((g: Guest) => {
+                        // CRITICAL: Check if we have a manual guestCount change that should be preserved
+                        const existingGuest = existingEvent?.guests?.find(eg => eg.id === g.id);
+                        if (existingGuest) {
+                          const existingSource = existingGuest.source || '';
+                          const isExistingFromManual = existingSource === 'manual_update';
+                          const apiSource = g.source || '';
+                          const isApiFromManual = apiSource === 'manual_update';
+                          
+                          // If existing is manual and API is not, or existing is newer, preserve existing guestCount
+                          if (isExistingFromManual && existingGuest.guestCount !== undefined) {
+                            const existingDate = existingGuest.responseDate ? new Date(existingGuest.responseDate).getTime() : 0;
+                            const apiDate = g.responseDate ? new Date(g.responseDate).getTime() : 0;
+                            
+                            // Preserve manual guestCount if it's newer or if API doesn't have manual_update source
+                            if (!isApiFromManual || existingDate >= apiDate) {
+                              console.log(`🛡️ Preserving manual guestCount ${existingGuest.guestCount} from local state (API has ${g.guestCount})`);
+                              return {
+                                ...g,
+                                firstName: cleanName(g.firstName),
+                                lastName: cleanName(g.lastName),
+                                // CRITICAL: Preserve manual guestCount and source
+                                guestCount: existingGuest.guestCount,
+                                source: existingGuest.source,
+                                responseDate: existingGuest.responseDate
+                              };
+                            }
+                          }
+                        }
+                        
+                        // Use API data as-is
+                        return {
+                          ...g,
+                          firstName: cleanName(g.firstName),
+                          lastName: cleanName(g.lastName)
+                        };
+                      })
                   };
                 });
                 
