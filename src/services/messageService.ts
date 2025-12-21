@@ -196,14 +196,18 @@ class MessageService {
     // If messageData.templateName is explicitly undefined AND there's message content, send as regular message
     const explicitlyNoTemplate = messageData.templateName === undefined && hasMessageContent;
     
-    // CRITICAL: If no buttons are provided, don't use template - send as regular message
-    // BUT: First messages MUST use a template (Meta requirement), so don't clear templateName for first messages
-    // Templates like "a" require buttons, so if we don't have buttons, use regular message
-    // Exception: Template "aa" doesn't require buttons (has no buttons in Meta - user removed them)
-    if (!hasButtons && templateName && !isFirstMessage) {
-      console.log('📝 No buttons provided and not first message - sending as regular message instead of template');
+    // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use it regardless of buttons
+    // Template "aa" has a URL button that doesn't require buttons array - it uses guest_response_link parameter
+    // Only clear templateName if it's NOT an explicit template request (e.g., from campaign or manual send)
+    // CRITICAL: If templateName is explicitly set (not undefined), keep it - user wants to use that template
+    const isExplicitTemplateRequest = messageData.templateName && typeof messageData.templateName === 'string' && messageData.templateName.trim().length > 0;
+    
+    if (!hasButtons && templateName && !isFirstMessage && !isExplicitTemplateRequest) {
+      console.log('📝 No buttons provided and not first message and not explicit template request - sending as regular message instead of template');
       templateName = undefined;
       templateParams = undefined;
+    } else if (isExplicitTemplateRequest) {
+      console.log('✅ Explicit template request detected:', templateName, '- will use template regardless of buttons');
     }
     
     // CRITICAL: If explicit templateName is provided (e.g., 'aa'), ALWAYS use the template (only if buttons exist OR it's first message)
@@ -232,10 +236,16 @@ class MessageService {
       
       // CRITICAL: Ensure templateParams are set correctly
       // Priority: recipient.templateParams > messageData.templateParams
-      if (!templateParams || Object.keys(templateParams).length === 0) {
+      // CRITICAL: If recipient.templateParams exists and has paramsOrder, use it (it already has all 8 parameters + guest_response_link)
+      if (recipient.templateParams && recipient.templateParams.paramsOrder) {
+        console.log('✅ Using templateParams from recipient (already prepared with all parameters):', recipient.templateParams);
+        templateParams = recipient.templateParams;
+      } else if (!templateParams || Object.keys(templateParams).length === 0) {
         console.warn('⚠️ No template parameters provided - using defaults for template:', templateName);
         // If template is "aa" and no params, create default params
         if (templateName.toLowerCase() === 'aa' && recipient.eventData) {
+          // CRITICAL: Try to get guest_response_link from recipient.templateParams if available
+          const guestResponseLink = (recipient.templateParams as any)?.guest_response_link || '';
           templateParams = {
             paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                          'event_date', 'event_time', 'venue', 'couple_name'],
@@ -247,6 +257,7 @@ class MessageService {
             event_time: recipient.eventData.eventTime || '',
             venue: recipient.eventData.venue || '',
             couple_name: recipient.eventData.coupleName || '',
+            guest_response_link: guestResponseLink, // CRITICAL: Include guest_response_link for URL button
             language: 'he'
           };
           console.log('📋 Created default template parameters for "aa":', templateParams);

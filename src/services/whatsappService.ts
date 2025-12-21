@@ -100,9 +100,74 @@ class WhatsAppService {
           }
         };
         
-        // Add template parameters if provided AND template is not hello_world
-        // hello_world template doesn't support parameters
-        if (messageData.templateName !== 'hello_world' && 
+        // CRITICAL: For template "aa", rebuild components array FIRST before building regular components
+        // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters + 1 URL button
+        if ((messageData.templateName === 'aa' || messageData.templateName === 'AA') && 
+            messageData.templateParams && 
+            Object.keys(messageData.templateParams).length > 0) {
+          console.log('🔄 Building components array for template "aa" from original templateParams FIRST...');
+          
+          const expectedParams = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                                 'event_date', 'event_time', 'venue', 'couple_name'];
+          
+          // Build parameters array from original templateParams
+          const rebuiltParams: any[] = [];
+          for (let i = 0; i < 8; i++) {
+            const paramKey = expectedParams[i];
+            let paramValue: string;
+            
+            if (originalTemplateParams && paramKey in originalTemplateParams) {
+              const rawValue = originalTemplateParams[paramKey];
+              if (rawValue !== undefined && rawValue !== null) {
+                const strValue = String(rawValue).trim();
+                paramValue = strValue.length > 0 ? strValue : this.getPlaceholderForParameter(paramKey);
+              } else {
+                paramValue = this.getPlaceholderForParameter(paramKey);
+              }
+            } else {
+              paramValue = this.getPlaceholderForParameter(paramKey);
+            }
+            
+            rebuiltParams.push({
+              type: 'text',
+              text: paramValue
+            });
+            
+            console.log(`📋 Parameter ${i + 1}/8 [${paramKey}]: "${paramValue.substring(0, 50)}${paramValue.length > 50 ? '...' : ''}"`);
+          }
+          
+          // Build components array with body component AND URL button component
+          const rebuiltComponents: any[] = [{
+            type: 'body',
+            parameters: rebuiltParams
+          }];
+          
+          // CRITICAL: Add URL button component if guest_response_link is available
+          const guestResponseLink = originalTemplateParams?.guest_response_link || 
+                                   (messageData.templateParams as any)?.guest_response_link || '';
+          if (guestResponseLink) {
+            rebuiltComponents.push({
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [{
+                type: 'text',
+                text: guestResponseLink
+              }]
+            });
+            console.log(`✅ Added URL button component at index 0 with URL: ${guestResponseLink}`);
+          } else {
+            console.error('❌ CRITICAL ERROR: Template "aa" requires a URL button parameter but guest_response_link is missing!');
+            console.error('❌ The template has a URL button "לעדכון סטטוס הגעה" at index 0 that requires a URL parameter');
+            console.error('❌ This will cause Meta API error 100 or 132018');
+          }
+          
+          messagePayload.template.components = rebuiltComponents;
+          console.log(`✅ Built components array for template "aa" with exactly 8 body parameters + 1 URL button`);
+          
+          // Skip the regular component building logic for template "aa"
+          // Go directly to final validation and sending
+        } else if (messageData.templateName !== 'hello_world' && 
             messageData.templateParams && 
             Object.keys(messageData.templateParams).length > 0) {
           const components: any[] = [];
@@ -865,71 +930,38 @@ class WhatsAppService {
       }
       
       // CRITICAL: Final validation before sending - ensure components array structure is correct
-      // CRITICAL: For template "aa", rebuild components array from scratch using original templateParams
+      // CRITICAL: For template "aa", components array was already built above - just validate here
       if (messagePayload.type === 'template' && messagePayload.template?.components) {
         if (templateName === 'aa' || templateName === 'AA') {
-          // CRITICAL: For template "aa", rebuild components array from scratch using original templateParams
-          // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters
-          console.log('🔄 Rebuilding components array for template "aa" from original templateParams...');
+          // CRITICAL: Template "aa" components were already built above - just validate here
+          console.log('✅ Template "aa" components already built - validating structure...');
           
-          // Rebuild from original templateParams to ensure correctness
-          const expectedParams = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
-                                 'event_date', 'event_time', 'venue', 'couple_name'];
+          const bodyComponent = messagePayload.template.components.find((c: any) => c.type === 'body');
+          const headerComponent = messagePayload.template.components.find((c: any) => c.type === 'header');
+          const buttonComponents = messagePayload.template.components.filter((c: any) => c.type === 'button');
           
-          // Build parameters array from original templateParams
-          const rebuiltParams: any[] = [];
-          for (let i = 0; i < 8; i++) {
-            const paramKey = expectedParams[i];
-            let paramValue: string;
-            
-            if (originalTemplateParams && paramKey in originalTemplateParams) {
-              const rawValue = originalTemplateParams[paramKey];
-              if (rawValue !== undefined && rawValue !== null) {
-                const strValue = String(rawValue).trim();
-                paramValue = strValue.length > 0 ? strValue : this.getPlaceholderForParameter(paramKey);
-              } else {
-                paramValue = this.getPlaceholderForParameter(paramKey);
-              }
-            } else {
-              paramValue = this.getPlaceholderForParameter(paramKey);
-            }
-            
-            rebuiltParams.push({
-              type: 'text',
-              text: paramValue
-            });
-            
-            console.log(`📋 Rebuilt parameter ${i + 1}/${8} [${paramKey}]: "${paramValue.substring(0, 50)}${paramValue.length > 50 ? '...' : ''}"`);
+          const bodyParamsCount = bodyComponent?.parameters?.length || 0;
+          const headerCount = headerComponent ? 1 : 0;
+          const buttonCount = buttonComponents.length;
+          const urlButton = buttonComponents.find((btn: any) => btn.sub_type === 'url' && btn.index === '0');
+          
+          console.log(`📊 VALIDATION: ${headerCount === 0 ? '✅' : '❌'} ${headerCount} header (should be 0), ${bodyParamsCount === 8 ? '✅' : '❌'} ${bodyParamsCount} body params (should be 8), ${buttonCount === 1 ? '✅' : '❌'} ${buttonCount} buttons (should be 1), ${urlButton ? '✅' : '❌'} URL button at index 0`);
+          
+          if (bodyParamsCount !== 8) {
+            console.error(`❌ VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
+            console.error(`❌ Actual count: ${bodyParamsCount}`);
           }
-          
-          // Rebuild components array with body component AND URL button component
-          // Template "aa" requires: 8 body parameters + 1 URL button at index 0
-          const rebuiltComponents: any[] = [{
-            type: 'body',
-            parameters: rebuiltParams
-          }];
-          
-          // CRITICAL: Add URL button component if guest_response_link is available
-          if (originalTemplateParams?.guest_response_link) {
-            rebuiltComponents.push({
-              type: 'button',
-              sub_type: 'url',
-              index: '0',
-              parameters: [{
-                type: 'text',
-                text: originalTemplateParams.guest_response_link
-              }]
-            });
-            console.log(`✅ Added URL button component at index 0 with URL: ${originalTemplateParams.guest_response_link}`);
-          } else {
-            console.warn('⚠️ WARNING: Template "aa" requires a URL button parameter but guest_response_link is missing!');
-            console.warn('⚠️ The template has a URL button "לעדכון סטטוס הגעה" at index 0 that requires a URL parameter');
-            console.warn('⚠️ This may cause Meta API error 100 or 132018');
+          if (headerCount > 0) {
+            console.error(`❌ VALIDATION FAILED: Template "aa" should NOT have header components!`);
+            // Remove header component
+            messagePayload.template.components = messagePayload.template.components.filter((c: any) => c.type !== 'header');
+            console.log(`✅ Removed header component`);
           }
-          
-          messagePayload.template.components = rebuiltComponents;
-          
-          console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters + 1 URL button from original templateParams`);
+          if (buttonCount !== 1 || !urlButton) {
+            console.error(`❌ VALIDATION FAILED: Template "aa" requires exactly 1 URL button at index 0!`);
+            console.error(`❌ Actual button count: ${buttonCount}`);
+            console.error(`❌ URL button at index 0: ${urlButton ? 'Found' : 'Missing'}`);
+          }
         } else {
           // For other templates, validate and fix structure
           messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
