@@ -1726,13 +1726,21 @@ export const useEventStore = create<EventStore>()(
                   cleanedUpdates.lastName = cleanName(updates.lastName);
                 }
                 
+                // CRITICAL: For guestCount updates, always use the new value and mark with manual_update source
+                // This ensures manual changes are preserved even when backend sends old data
+                const finalGuestCount = updates.guestCount !== undefined 
+                  ? updates.guestCount 
+                  : guest.guestCount;
+                
                 return { 
                   ...guest, 
                   ...cleanedUpdates,
+                  // CRITICAL: Always use the new guestCount if provided in updates
+                  guestCount: finalGuestCount,
                   // Always update responseDate when critical fields change
                   responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now),
-                  // CRITICAL: Preserve source for manual updates to ensure they're not overwritten
-                  source: updates.source || guest.source || 'manual_update'
+                  // CRITICAL: For manual updates, always mark with manual_update source to preserve them
+                  source: updates.source || (updates.guestCount !== undefined ? 'manual_update' : guest.source) || 'manual_update'
                 };
               }
               return guest;
@@ -2034,9 +2042,26 @@ export const useEventStore = create<EventStore>()(
                       const isGuestLinkUpdate = updatedGuest.source === 'guest_link';
                       const isWhatsAppUpdate = updatedGuest.source === 'whatsapp';
                       
-                      // CRITICAL: Always apply updates from manual_update, guest_link, or whatsapp
-                      // These are user-initiated updates that should always be reflected
-                      const shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate;
+                      // CRITICAL: Check if current guest has manual_update source - if so, be more careful about overwriting
+                      const currentGuestSource = guest.source || '';
+                      const isCurrentFromManual = currentGuestSource === 'manual_update';
+                      
+                      // CRITICAL: If current value is from manual_update and new update would change guestCount to a different value,
+                      // only apply if new update is also from manual_update and is newer, OR if it's significantly newer (5+ seconds)
+                      let shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate;
+                      
+                      // Special handling for guestCount: if current is manual and new would change it, be more strict
+                      if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                        const isNewUpdateFromManual = isManualUpdateEcho;
+                        const timeDiff = newResponseDate.getTime() - oldResponseDate.getTime();
+                        const isSignificantlyNewer = timeDiff > 5000; // 5 seconds
+                        
+                        // Only allow overwrite if: new is also manual and newer, OR new is significantly newer (5+ seconds)
+                        if (!isNewUpdateFromManual && !isSignificantlyNewer) {
+                          console.log(`🛡️ Blocking update: current manual guestCount ${guest.guestCount} would be reverted to ${updatedGuest.guestCount} by non-manual or too-recent update`);
+                          shouldApplyUpdate = false; // Don't apply this update - it would revert manual change
+                        }
+                      }
                       
                       if (shouldApplyUpdate && !isNewerUpdate) {
                         console.log(`🔄 Applying ${updatedGuest.source} update even though timestamp is older - user-initiated update must be applied`);
@@ -2069,11 +2094,21 @@ export const useEventStore = create<EventStore>()(
                           const currentResponseDate = guest.responseDate ? new Date(guest.responseDate).getTime() : 0;
                           const updateResponseDate = newResponseDate.getTime();
                           
-                          // If current value is from manual_update and is newer or same, preserve it
-                          if (isCurrentFromManual && currentResponseDate >= updateResponseDate && updatedGuest.guestCount !== undefined) {
-                            // Current manual value is newer - preserve it instead of using old backend value
-                            console.log(`🛡️ Preserving manual guestCount ${guest.guestCount} (newer than backend update ${updatedGuest.guestCount})`);
-                            finalGuestCount = guest.guestCount;
+                          // CRITICAL: If current value is from manual_update, ALWAYS preserve it if it's different
+                          // This prevents old backend updates from reverting manual changes
+                          if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                            // Current manual value exists and is different from backend update - preserve it
+                            // Check if manual value is newer (or if backend update doesn't have manual_update source)
+                            const isBackendFromManual = (updatedGuest.source || '') === 'manual_update';
+                            
+                            if (!isBackendFromManual || currentResponseDate >= updateResponseDate) {
+                              // Manual value should be preserved - backend update is either not from manual or older
+                              console.log(`🛡️ Preserving manual guestCount ${guest.guestCount} (backend update ${updatedGuest.guestCount} would revert it)`);
+                              finalGuestCount = guest.guestCount;
+                            } else {
+                              // Backend update is also from manual and is newer - use it
+                              finalGuestCount = updatedGuest.guestCount;
+                            }
                           } else {
                             // Use update's value if provided, otherwise keep existing
                             finalGuestCount = updatedGuest.guestCount !== undefined 
