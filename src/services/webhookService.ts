@@ -868,12 +868,12 @@ class WebhookService {
                 if (update.guestId && update.eventId) {
                   console.log(`🔍 Attempting to remove update using guestId + eventId matching...`);
                   removeResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates`, {
-                    method: 'DELETE',
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                      phoneNumber: update.phoneNumber,
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                phoneNumber: update.phoneNumber,
                       guestId: update.guestId,
                       eventId: update.eventId
                       // Don't include status/guestCount - match by guestId/eventId only
@@ -903,13 +903,13 @@ class WebhookService {
                       phoneNumber: update.phoneNumber,
                       status: oldStatus, // Use OLD status to match the update
                       guestCount: oldGuestCount !== undefined ? oldGuestCount : update.guestCount, // Use OLD guestCount if available
-                      responseDate: update.responseDate,
+                responseDate: update.responseDate,
                       guestId: update.guestId,
                       eventId: update.eventId
-                    })
-                  });
+              })
+            });
                   
-                  if (removeResponse.ok) {
+            if (removeResponse.ok) {
                     removeData = await removeResponse.json();
                     if (removeData.removed > 0) {
                       console.log(`✅ Removed processed update using OLD values: ${removeData.removed} update(s) removed`);
@@ -972,18 +972,18 @@ class WebhookService {
                 // Log final result
                 if (removeResponse && removeResponse.ok && removeData) {
                   console.log(`✅ Removed processed update from backend: ${removeData.removed || 0} update(s) removed`);
-                  
-                  // CRITICAL: Verify that the update was actually removed
-                  if (removeData.removed === 0) {
-                    console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
+              
+              // CRITICAL: Verify that the update was actually removed
+              if (removeData.removed === 0) {
+                console.warn(`⚠️ No updates were removed - update might have already been removed or doesn't match`);
                     console.warn(`   Tried matching with: phoneNumber=${update.phoneNumber}, guestId=${update.guestId}, eventId=${update.eventId}`);
                     console.warn(`   OLD values: status=${oldStatus}, guestCount=${oldGuestCount}`);
                     console.warn(`   NEW values: status=${update.status}, guestCount=${update.guestCount}`);
-                  }
-                } else {
+              }
+            } else {
                   const errorText = removeResponse ? await removeResponse.text() : 'No response';
                   console.warn('⚠️ Failed to remove update from backend:', removeResponse?.status || 'unknown', errorText);
-                }
+            }
           } catch (error) {
             console.warn('⚠️ Could not remove update from backend (will be cleaned up automatically):', error);
           }

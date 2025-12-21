@@ -179,8 +179,8 @@ class WhatsAppService {
               console.error(`❌ Missing parameters for template "${templateName}":`, missingParams);
               console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
               console.error(`❌ Please ensure all parameters are provided in templateParams`);
-            }
-            
+                }
+                
             // CRITICAL: Validate all parameters BEFORE constructing bodyParams
             // This ensures we catch any issues early
             const paramValidationErrors: string[] = [];
@@ -248,9 +248,9 @@ class WhatsAppService {
               });
           }
           
-            // Add body component with parameters - Meta requires this exact structure
-            // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
-            if (bodyParams.length > 0) {
+          // Add body component with parameters - Meta requires this exact structure
+          // Reference: https://developers.facebook.com/docs/whatsapp/cloud-api/guides/send-message-templates
+          if (bodyParams.length > 0) {
               // CRITICAL: Log parameters being sent for debugging
               console.log(`📋 Template "${templateName}" - Sending ${bodyParams.length} body parameters:`);
               bodyParams.forEach((param, index) => {
@@ -285,14 +285,14 @@ class WhatsAppService {
               }
               
               if (validBodyParams.length > 0) {
-                components.push({
-                  type: 'body',
+            components.push({
+              type: 'body',
                   parameters: validBodyParams
-                });
+            });
               } else {
                 console.error('❌ CRITICAL: No valid body parameters to send! This will cause Meta API error 100.');
               }
-            }
+          }
           
           // Always send image as header component if we have a valid HTTPS image URL
           // This ensures the image is displayed with the message
@@ -326,52 +326,52 @@ class WhatsAppService {
             console.log('ℹ️ headerImageUrl provided:', headerImageUrl || 'none');
           } else {
             // For other templates, use the original logic
-            if (isValidImageUrl) {
-              // Always add header image component if we have a valid HTTP/HTTPS URL
-              let imageUrlForMeta = headerImageUrl;
-              if (headerImageUrl.startsWith('http://')) {
-                imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
-                console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
-              }
-              
-              components.unshift({
-                type: 'header',
-                parameters: [
-                  {
-                    type: 'image',
-                    image: {
-                      link: imageUrlForMeta
-                    }
+          if (isValidImageUrl) {
+            // Always add header image component if we have a valid HTTP/HTTPS URL
+            let imageUrlForMeta = headerImageUrl;
+            if (headerImageUrl.startsWith('http://')) {
+              imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+              console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
+            }
+            
+            components.unshift({
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: {
+                    link: imageUrlForMeta
                   }
-                ]
-              });
-              console.log('🖼️ ✅ Adding header image to template:', imageUrlForMeta);
-            } else {
-              // No valid image URL - check if we should add placeholder
-              const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder'];
-              
-              if (templatesRequiringHeader.includes(templateName)) {
-                // Template requires header image - add placeholder ONLY if no image was provided
-                if (!headerImageUrl) {
-                  components.unshift({
-                    type: 'header',
-                    parameters: [
-                      {
-                        type: 'image',
-                        image: {
-                          link: DEFAULT_PLACEHOLDER_IMAGE
-                        }
-                      }
-                    ]
-                  });
-                  console.log('🖼️ ⚠️ Adding placeholder header image (template requires it, no image provided):', DEFAULT_PLACEHOLDER_IMAGE);
-                } else {
-                  console.log('🖼️ ⚠️ Invalid image URL provided:', headerImageUrl);
-                  console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
                 }
+              ]
+            });
+            console.log('🖼️ ✅ Adding header image to template:', imageUrlForMeta);
+          } else {
+            // No valid image URL - check if we should add placeholder
+              const templatesRequiringHeader = ['aa', 'a', 'reminer', 'reminder'];
+            
+            if (templatesRequiringHeader.includes(templateName)) {
+              // Template requires header image - add placeholder ONLY if no image was provided
+              if (!headerImageUrl) {
+                components.unshift({
+                  type: 'header',
+                  parameters: [
+                    {
+                      type: 'image',
+                      image: {
+                        link: DEFAULT_PLACEHOLDER_IMAGE
+                      }
+                    }
+                  ]
+                });
+                console.log('🖼️ ⚠️ Adding placeholder header image (template requires it, no image provided):', DEFAULT_PLACEHOLDER_IMAGE);
               } else {
-                console.log('ℹ️ No header image URL provided - will send without header');
-                console.log('ℹ️ Template name:', messageData.templateName);
+                console.log('🖼️ ⚠️ Invalid image URL provided:', headerImageUrl);
+                console.log('🖼️ ⚠️ Image must be HTTP/HTTPS URL. Skipping image.');
+              }
+            } else {
+              console.log('ℹ️ No header image URL provided - will send without header');
+              console.log('ℹ️ Template name:', messageData.templateName);
               }
             }
           }
@@ -386,105 +386,105 @@ class WhatsAppService {
           // CRITICAL: Template "aa" does NOT have buttons - skip all button processing
           // The template "aa" in Meta Business Manager does not include buttons (user removed them)
           if (templateNameLower !== 'aa') {
-            // Always add URL button parameters if provided (they are required even for predefined buttons)
-            // Only skip Reply buttons for predefined templates (they don't need parameters)
-            if (messageData.buttons && messageData.buttons.length > 0) {
-              const buttonComponents: any[] = [];
+          // Always add URL button parameters if provided (they are required even for predefined buttons)
+          // Only skip Reply buttons for predefined templates (they don't need parameters)
+          if (messageData.buttons && messageData.buttons.length > 0) {
+            const buttonComponents: any[] = [];
+            
+            // Find URL button in the buttons array
+            const urlButton = messageData.buttons.find(btn => btn.type === 'url' && btn.url);
+            const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
+            
+            // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
+            // Template 'aa' has: URL button at index 0, Reply buttons at index 1, 2
+            // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
+            // We need to find the actual URL button and send its parameter to the correct template index
+            
+            messageData.buttons.forEach((btn, index) => {
+              if (index >= 3) return; // WhatsApp allows max 3 buttons
               
-              // Find URL button in the buttons array
-              const urlButton = messageData.buttons.find(btn => btn.type === 'url' && btn.url);
-              const urlButtonIndex = messageData.buttons.findIndex(btn => btn.type === 'url' && btn.url);
-              
-              // CRITICAL: For templates with predefined buttons, we need to map button positions correctly
-              // Template 'aa' has: URL button at index 0, Reply buttons at index 1, 2
-              // But messageData.buttons might have: Reply at index 0, Reply at index 1, URL at index 2
-              // We need to find the actual URL button and send its parameter to the correct template index
-              
-              messageData.buttons.forEach((btn, index) => {
-                if (index >= 3) return; // WhatsApp allows max 3 buttons
-                
-                if (btn.type === 'url' && btn.url) {
-                  // URL button - ALWAYS needs parameters, even for predefined templates
-                  // For template 'aa', URL button is at index 0 in the template
-                  // But in messageData.buttons it might be at a different index
+              if (btn.type === 'url' && btn.url) {
+                // URL button - ALWAYS needs parameters, even for predefined templates
+                // For template 'aa', URL button is at index 0 in the template
+                // But in messageData.buttons it might be at a different index
                   const templateButtonIndex = shouldSkipReplyButtons && (messageData.templateName?.toLowerCase() === 'aa')
-                    ? '0' // Template 'aa' has URL button at index 0
-                    : index.toString(); // For other templates, use the array index
-                  
-                  buttonComponents.push({
-                    type: 'button',
-                    sub_type: 'url',
-                    index: templateButtonIndex,
-                    parameters: [{
-                      type: 'text',
-                      text: btn.url
-                    }]
-                  });
-                  console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
-                } else if (btn.type === 'reply' && !shouldSkipReplyButtons) {
-                  // Reply button - only add if template doesn't have predefined buttons
-                  // Note: Reply buttons don't need parameters, they're already defined in Meta
-                  buttonComponents.push({
-                    type: 'button',
-                    sub_type: 'quick_reply',
-                    index: index.toString()
-                  });
-                  console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
-                } else if (btn.type === 'reply' && shouldSkipReplyButtons) {
-                  console.log(`ℹ️ Skipping Reply button ${index} - template has predefined buttons`);
-                }
-              });
-              
-              // CRITICAL: Add URL button parameter if template has predefined URL button but no URL in buttons array
-              if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
-                console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
-                console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
+                  ? '0' // Template 'aa' has URL button at index 0
+                  : index.toString(); // For other templates, use the array index
                 
-                const urlButtonComponent = {
+                buttonComponents.push({
                   type: 'button',
                   sub_type: 'url',
-                  index: '0', // Template 'aa' and 'a' have URL button at index 0
+                  index: templateButtonIndex,
                   parameters: [{
                     type: 'text',
-                    text: messageData.templateParams.guest_response_link
+                    text: btn.url
                   }]
-                };
-                
-                buttonComponents.push(urlButtonComponent);
-                console.log(`🔘 Added URL button parameter for predefined template button at index 0`);
+                });
+                console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
+              } else if (btn.type === 'reply' && !shouldSkipReplyButtons) {
+                // Reply button - only add if template doesn't have predefined buttons
+                // Note: Reply buttons don't need parameters, they're already defined in Meta
+                buttonComponents.push({
+                  type: 'button',
+                  sub_type: 'quick_reply',
+                  index: index.toString()
+                });
+                console.log(`🔘 Adding Reply button ${index}:`, btn.id || btn.title);
+              } else if (btn.type === 'reply' && shouldSkipReplyButtons) {
+                console.log(`ℹ️ Skipping Reply button ${index} - template has predefined buttons`);
               }
-              
-              // Add all button components
-              buttonComponents.forEach(btnComponent => {
-                components.push(btnComponent);
-              });
-              
-              if (buttonComponents.length > 0) {
-                console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
-              } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
-                console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
-                console.log('ℹ️ URL button parameters will be added if provided');
-              }
-            } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
-              // CRITICAL FIX: Template 'aa' and 'a' have a URL button that requires a parameter
-              // Even if no buttons are provided in messageData, we need to send the URL parameter
-              // The template has a URL button at index 0 that needs the guest_response_link parameter
-              console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
+            });
+            
+              // CRITICAL: Add URL button parameter if template has predefined URL button but no URL in buttons array
+            if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link && !urlButton) {
+              console.log('🔘 CRITICAL: Template has predefined URL button but no URL in buttons array - adding from templateParams');
               console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
               
               const urlButtonComponent = {
                 type: 'button',
                 sub_type: 'url',
-                index: '0', // First button (index 0) is the URL button
+                  index: '0', // Template 'aa' and 'a' have URL button at index 0
                 parameters: [{
                   type: 'text',
                   text: messageData.templateParams.guest_response_link
                 }]
               };
               
-              // Add button component to components array
-              components.push(urlButtonComponent);
-              console.log(`🔘 Added URL button parameter for predefined template button`);
+              buttonComponents.push(urlButtonComponent);
+              console.log(`🔘 Added URL button parameter for predefined template button at index 0`);
+            }
+            
+            // Add all button components
+            buttonComponents.forEach(btnComponent => {
+              components.push(btnComponent);
+            });
+            
+            if (buttonComponents.length > 0) {
+              console.log(`🔘 Added ${buttonComponents.length} button component(s) to template`);
+            } else if (shouldSkipReplyButtons && messageData.buttons && messageData.buttons.some(b => b.type === 'reply')) {
+              console.log('ℹ️ Template has predefined Reply buttons in Meta - skipping Reply button components');
+              console.log('ℹ️ URL button parameters will be added if provided');
+            }
+          } else if (shouldSkipReplyButtons && messageData.templateParams?.guest_response_link) {
+              // CRITICAL FIX: Template 'aa' and 'a' have a URL button that requires a parameter
+            // Even if no buttons are provided in messageData, we need to send the URL parameter
+            // The template has a URL button at index 0 that needs the guest_response_link parameter
+            console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
+            console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
+            
+            const urlButtonComponent = {
+              type: 'button',
+              sub_type: 'url',
+              index: '0', // First button (index 0) is the URL button
+              parameters: [{
+                type: 'text',
+                text: messageData.templateParams.guest_response_link
+              }]
+            };
+            
+            // Add button component to components array
+            components.push(urlButtonComponent);
+            console.log(`🔘 Added URL button parameter for predefined template button`);
             }
           } else {
             // Template "aa" - skip all button processing (template has no buttons)
@@ -724,7 +724,7 @@ class WhatsAppService {
           console.error(`❌ Expected parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name`);
         }
       }
-      
+
       // Log the FULL payload being sent to Meta API
       console.log('📤 FULL PAYLOAD TO META API:');
       console.log(JSON.stringify(messagePayload, null, 2));
@@ -818,23 +818,72 @@ class WhatsAppService {
         messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
           if (comp.type === 'body' && comp.parameters) {
             // Ensure all body parameters have correct structure
-            comp.parameters = comp.parameters.map((param: any) => {
+            comp.parameters = comp.parameters.map((param: any, index: number) => {
+              // CRITICAL: Ensure parameter has correct structure
+              if (!param || typeof param !== 'object') {
+                console.error(`❌ CRITICAL: Parameter ${index + 1} is not an object:`, param);
+                return { type: 'text', text: ' ' };
+              }
               if (!param.type || param.type !== 'text') {
-                console.error('❌ CRITICAL: Invalid parameter type:', param);
+                console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid type:`, param.type);
                 return { type: 'text', text: param.text || ' ' };
               }
               if (!param.text || typeof param.text !== 'string') {
-                console.error('❌ CRITICAL: Invalid parameter text:', param);
+                console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid text:`, param.text);
                 return { type: 'text', text: String(param.text || ' ') };
+              }
+              // CRITICAL: Ensure text is not empty or only whitespace
+              const trimmedText = param.text.trim();
+              if (trimmedText.length === 0) {
+                console.error(`❌ CRITICAL: Parameter ${index + 1} has empty text after trim!`);
+                console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
+                // Use placeholder for empty parameters
+                const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+                return { type: 'text', text: placeholder };
               }
               return {
                 type: 'text',
-                text: param.text.trim() || ' '
+                text: trimmedText
               };
             });
+            
+            // CRITICAL: Ensure parameters array is not empty
+            if (!comp.parameters || comp.parameters.length === 0) {
+              console.error('❌ CRITICAL: Body component has no parameters after validation!');
+              console.error('❌ This will cause Meta API error 100');
+            }
           }
           return comp;
         });
+        
+        // CRITICAL: For template "aa", ensure we have exactly one body component with 8 parameters
+        if (templateName === 'aa' || templateName === 'AA') {
+          const bodyComponent = messagePayload.template.components.find((c: any) => c.type === 'body');
+          const bodyParamsCount = bodyComponent?.parameters?.length || 0;
+          
+          if (bodyParamsCount !== 8) {
+            console.error(`❌ CRITICAL VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
+            console.error(`❌ Actual count: ${bodyParamsCount}`);
+            console.error(`❌ This payload will be REJECTED by Meta API`);
+            console.error(`❌ Body component:`, JSON.stringify(bodyComponent, null, 2));
+          }
+          
+          // Ensure no header or button components
+          const headerComponent = messagePayload.template.components.find((c: any) => c.type === 'header');
+          const buttonComponents = messagePayload.template.components.filter((c: any) => c.type === 'button');
+          
+          if (headerComponent) {
+            console.error(`❌ CRITICAL: Template "aa" should NOT have header component!`);
+            console.error(`❌ Removing header component...`);
+            messagePayload.template.components = messagePayload.template.components.filter((c: any) => c.type !== 'header');
+          }
+          
+          if (buttonComponents.length > 0) {
+            console.error(`❌ CRITICAL: Template "aa" should NOT have button components!`);
+            console.error(`❌ Removing ${buttonComponents.length} button component(s)...`);
+            messagePayload.template.components = messagePayload.template.components.filter((c: any) => c.type !== 'button');
+          }
+        }
       }
       
       // Try sending with current payload (may include header image)
