@@ -835,9 +835,8 @@ class WhatsAppService {
           }
           
           console.log('📋 Template body parameters:', JSON.stringify(bodyParams, null, 2));
-        } else if (messageData.templateName === 'hello_world') {
-          console.log('📋 hello_world template - no parameters needed');
         }
+        } // Close the else block for non-hello_world templates (line 116)
       } else {
         // Regular text message
         // CRITICAL: For regular text messages, NEVER include buttons
