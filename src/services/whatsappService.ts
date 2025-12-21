@@ -562,7 +562,10 @@ class WhatsAppService {
                   index: templateButtonIndex,
                   parameters: [{
                     type: 'text',
-                    text: btn.url
+                    text: btn.url,
+                    // CRITICAL: URL button parameters MUST include parameter_name
+                    // This is required by Meta API for URL button components
+                    parameter_name: 'url' // Standard name for URL button parameter
                   }]
                 });
                 console.log(`🔘 Adding URL button parameter: index ${templateButtonIndex} in template, array index ${index}, URL: ${btn.url}`);
@@ -605,15 +608,18 @@ class WhatsAppService {
             console.log('🔘 CRITICAL: Template has predefined URL button - adding parameter from templateParams');
             console.log('🔘 URL parameter:', messageData.templateParams.guest_response_link);
             
-            const urlButtonComponent = {
-              type: 'button',
-              sub_type: 'url',
-              index: '0', // First button (index 0) is the URL button
-              parameters: [{
-                type: 'text',
-                text: messageData.templateParams.guest_response_link
-              }]
-            };
+              const urlButtonComponent = {
+                type: 'button',
+                sub_type: 'url',
+                index: '0', // First button (index 0) is the URL button
+                parameters: [{
+                  type: 'text',
+                  text: messageData.templateParams.guest_response_link,
+                  // CRITICAL: URL button parameters MUST include parameter_name
+                  // This is required by Meta API for URL button components
+                  parameter_name: 'url' // Standard name for URL button parameter
+                }]
+              };
             
             buttonComponents.push(urlButtonComponent);
             console.log(`🔘 Added URL button parameter for predefined template button`);
@@ -1786,7 +1792,10 @@ class WhatsAppService {
                     index: '0', // Template "aa" has URL button at index 0
                     parameters: [{
                       type: 'text',
-                      text: guestResponseLink
+                      text: guestResponseLink,
+                      // CRITICAL: URL button parameters MUST include parameter_name
+                      // This is required by Meta API for URL button components
+                      parameter_name: 'url' // Standard name for URL button parameter
                     }]
                   });
                   console.log(`🔘 Added URL button component for template "aa" retry at index 0 with URL: ${guestResponseLink}`);
