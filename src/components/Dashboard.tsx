@@ -105,29 +105,23 @@ const Dashboard: React.FC = () => {
     };
   }, [user?.id, sessionId]);
 
-  // CRITICAL: Auto-refresh data every 15 seconds to reduce server load
-  // This ensures that changes made on one device are visible on other devices without excessive API calls
-  // Using startTransition to make updates smooth and non-blocking
+  // Fetch immediately on mount to get latest data from API
   useEffect(() => {
-    // Fetch immediately on mount to get latest data from API
     fetchEvents(true).catch(error => {
       console.error('❌ Error initial fetch:', error);
     });
-    
-    // Set up auto-refresh interval - fetch every 10 seconds for better cross-device sync
-    // Using startTransition and silent mode to make updates smooth and non-blocking
-    const dataInterval = setInterval(() => {
-      startTransition(() => {
-        // Use silent: true to prevent isLoading updates that cause visual jumps
-        fetchEvents(true, true).catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
-      });
-      });
-    }, 10000); // 10 seconds (optimized for better cross-device synchronization)
-
-    return () => clearInterval(dataInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Removed fetchEvents from deps to prevent infinite loop
+
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    try {
+      setCurrentTime(new Date());
+      await fetchEvents(true);
+    } catch (error) {
+      console.error('❌ Error refreshing events:', error);
+    }
+  };
 
 
   const handleDeleteEvent = async (eventId: string, eventName: string) => {

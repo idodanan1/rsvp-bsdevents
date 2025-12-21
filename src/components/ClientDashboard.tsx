@@ -15,7 +15,8 @@ import {
   MapPin,
   Download,
   Share2,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 
 // Helper function to parse and display guest notes with transportation
@@ -709,294 +710,41 @@ const ClientDashboard: React.FC = () => {
       loadFromAPI();
     }
     
-    // CRITICAL: Start polling for real-time updates from backend
-    // This ensures ClientDashboard always shows the latest data from backend
-    const startPolling = () => {
-      if (isPollingRef.current) return; // Already polling
-      
-      isPollingRef.current = true;
-      console.log('🔄 Starting real-time polling for ClientDashboard...');
-      
-      // Poll every 15 seconds for updates to reduce server load
-      pollingIntervalRef.current = window.setInterval(async () => {
-        try {
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
-          
-          // CRITICAL: Try to load full event with all guests from /api/events/:eventId FIRST
-          // This ensures we get ALL guests, not truncated data from /api/events/all
-          let foundEvent: any = null;
-          let fullGuestsList: any[] | null = null;
-          
-          try {
-            const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
-              method: 'GET',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              mode: 'cors',
-              credentials: 'omit'
-            });
-            
-            if (singleEventResponse.ok) {
-              const singleEventData = await singleEventResponse.json();
-              if (singleEventData.success && singleEventData.event) {
-                foundEvent = singleEventData.event;
-                console.log(`✅ Polling: Loaded event from /api/events/${eventId} with ${foundEvent.guests?.length || 0} guests`);
-              }
-            }
-          } catch (error) {
-            console.warn('⚠️ Polling: Single event endpoint failed, trying /api/events/all:', error);
+    // No auto-polling - user will use manual refresh button
+    const handleRefresh = async () => {
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        
+        // Load event from API
+        const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
+          method: 'GET',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          mode: 'cors',
+          credentials: 'omit'
+        });
+        
+        if (singleEventResponse.ok) {
+          const singleEventData = await singleEventResponse.json();
+          if (singleEventData.success && singleEventData.event) {
+            setCurrentEvent(singleEventData.event);
+            console.log(`✅ Refreshed event with ${singleEventData.event.guests?.length || 0} guests`);
           }
-          
-          // CRITICAL: Always try to load guests from /api/events/:eventId/guests
-          // This ensures we have ALL guests even if single event endpoint returned incomplete data
-          try {
-            const guestsResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
-              method: 'GET',
-              headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-              },
-              mode: 'cors',
-              credentials: 'omit'
-            });
-            
-            if (guestsResponse.ok) {
-              const guestsData = await guestsResponse.json();
-              if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
-                fullGuestsList = guestsData.guests;
-                console.log(`✅ Polling: Loaded ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
-              }
-            }
-          } catch (error) {
-            console.warn('⚠️ Polling: Guests endpoint failed:', error);
-          }
-          
-          // Fallback to /api/events/all if single event endpoint didn't work
-          if (!foundEvent) {
-          const response = await fetch(`${BACKEND_URL}/api/events/all`, {
-            method: 'GET',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            const allEvents = data.events || [];
-              foundEvent = allEvents.find((e: any) => e.id === eventId);
-            }
-          }
-          
-          // CRITICAL: If we loaded full guests list, use it instead of event's guests
-          if (foundEvent) {
-            if (fullGuestsList && fullGuestsList.length > 0) {
-              console.log(`✅ Polling: Using ${fullGuestsList.length} guests from /api/events/${eventId}/guests`);
-              foundEvent.guests = fullGuestsList;
-            } else if (foundEvent.guests && foundEvent.guests.length < 50) {
-              console.warn(`⚠️ Polling: Event has only ${foundEvent.guests.length} guests - may be incomplete`);
-            }
-            
-          if (foundEvent) {
-              // CRITICAL: Only update if new data is more recent or has actual changes
-              // This prevents overwriting correct data with stale data
-              setCurrentEvent((prev: any) => {
-                if (!prev) {
-                  console.log('🔄 ClientDashboard: Setting initial event from backend polling');
-                  console.log(`🔍 Initial load - polling returned ${foundEvent.guests?.length || 0} guests`);
-                  
-                  // CRITICAL: Ensure guests array exists
-                  return {
-                    ...foundEvent,
-                    guests: foundEvent.guests || []
-                  };
-                }
-                
-                // CRITICAL: Compare updatedAt timestamps to ensure we only update with newer data
-                const prevUpdatedAt = prev.updatedAt ? (prev.updatedAt instanceof Date ? prev.updatedAt.getTime() : new Date(prev.updatedAt).getTime()) : 0;
-                const newUpdatedAt = foundEvent.updatedAt ? (foundEvent.updatedAt instanceof Date ? foundEvent.updatedAt.getTime() : new Date(foundEvent.updatedAt).getTime()) : 0;
-                
-                // If new data is older, don't update (prevents overwriting with stale data)
-                if (newUpdatedAt < prevUpdatedAt) {
-                  console.log('⚠️ ClientDashboard: Ignoring older data from backend (prevents overwriting correct data)');
-                  console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
-                  console.log(`   New updatedAt: ${new Date(newUpdatedAt).toISOString()}`);
-                  return prev; // Keep previous (newer) data
-                }
-                
-                // Compare guests by ID, not by index (guests might be in different order)
-                const prevGuestsMap = new Map((prev.guests || []).map((g: any) => [g.id, g]));
-                const newGuestsMap = new Map((foundEvent.guests || []).map((g: any) => [g.id, g]));
-                
-                // CRITICAL: Check if polling data is incomplete BEFORE merging
-                // If prev has many more guests than polling, don't overwrite with incomplete data
-                const prevGuests = prev.guests || [];
-                const pollingGuests = foundEvent.guests || [];
-                const prevGuestsCount = prevGuests.length;
-                const pollingGuestsCount = pollingGuests.length;
-                
-                // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
-                // Don't overwrite complete data with incomplete data
-                const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
-                
-                if (isIncompletePollingData) {
-                  console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
-                  console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
-                  return prev; // Keep previous complete data, don't overwrite with incomplete polling data
-                }
-                
-                // Check if number of guests changed
-                if (prevGuestsMap.size !== newGuestsMap.size) {
-                  console.log('🔄 ClientDashboard: Guest count changed, updating from backend');
-                  
-                  // CRITICAL: If API returned 0 guests but prev has guests, keep prev guests (API data is incomplete)
-                  if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
-                    console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
-                    // Keep previous guests but update other fields
-                    return {
-                      ...prev,
-                      ...foundEvent,
-                      coupleName: foundEvent.coupleName || prev.coupleName,
-                      campaigns: foundEvent.campaigns || prev.campaigns || [],
-                      tables: foundEvent.tables || prev.tables || [],
-                      venueLayout: foundEvent.venueLayout || prev.venueLayout,
-                      eventImages: foundEvent.eventImages || prev.eventImages || [],
-                      guests: prev.guests || [] // Keep previous guests
-                    };
-                  }
-                  
-                  // CRITICAL: Merge data instead of replacing to preserve fields and ensure guests array exists
-                  const mergedEvent = {
-                    ...prev,
-                    ...foundEvent,
-                    coupleName: foundEvent.coupleName || prev.coupleName,
-                    campaigns: foundEvent.campaigns || prev.campaigns || [],
-                    tables: foundEvent.tables || prev.tables || [],
-                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
-                    eventImages: foundEvent.eventImages || prev.eventImages || [],
-                    guests: foundEvent.guests || prev.guests || [] // Ensure guests array always exists
-                  };
-                  return mergedEvent;
-                }
-                
-                // CRITICAL: If new data is older, don't update even if guests changed
-                // This prevents overwriting newer manual changes with older API data
-                if (newUpdatedAt < prevUpdatedAt) {
-                  console.log('⚠️ ClientDashboard: Ignoring older data from polling (prevents overwriting correct data)');
-                  console.log(`   Previous updatedAt: ${new Date(prevUpdatedAt).toISOString()}`);
-                  console.log(`   New updatedAt: ${new Date(newUpdatedAt).toISOString()}`);
-                  return prev; // Keep previous (newer) data
-                }
-                
-                // Check if any guest data changed (only if timestamps are same or new is newer)
-                let hasChanged = false;
-                for (const [guestId, newGuest] of newGuestsMap) {
-                  const prevGuest = prevGuestsMap.get(guestId);
-                  if (!prevGuest) {
-                    hasChanged = true;
-                    break;
-                  }
-                  
-                  // Check critical fields
-                  if (prevGuest.rsvpStatus !== newGuest.rsvpStatus ||
-                      prevGuest.guestCount !== newGuest.guestCount ||
-                      prevGuest.actualAttendance !== newGuest.actualAttendance ||
-                      prevGuest.firstName !== newGuest.firstName ||
-                      prevGuest.lastName !== newGuest.lastName ||
-                      prevGuest.phoneNumber !== newGuest.phoneNumber) {
-                    hasChanged = true;
-                    break;
-                  }
-                }
-                
-                if (hasChanged || newUpdatedAt > prevUpdatedAt) {
-                  // CRITICAL: Check if polling data is incomplete BEFORE merging
-                  // If prev has many more guests than polling, don't overwrite with incomplete data
-                  const prevGuests = prev.guests || [];
-                  const pollingGuests = foundEvent.guests || [];
-                  const prevGuestsCount = prevGuests.length;
-                  const pollingGuestsCount = pollingGuests.length;
-                  
-                  // CRITICAL: If polling has significantly fewer guests (< 50% of prev), it's incomplete data
-                  // Don't overwrite complete data with incomplete data
-                  const isIncompletePollingData = prevGuestsCount > 0 && pollingGuestsCount > 0 && pollingGuestsCount < prevGuestsCount * 0.5;
-                  
-                  if (isIncompletePollingData) {
-                    console.warn(`⚠️ Polling data appears incomplete (${pollingGuestsCount} guests vs ${prevGuestsCount} prev) - IGNORING polling data to preserve complete data`);
-                    console.warn(`⚠️ Keeping previous complete data with ${prevGuestsCount} guests`);
-                    return prev; // Keep previous complete data, don't overwrite with incomplete polling data
-                  }
-                  
-                  console.log('🔄 ClientDashboard: Event data updated silently from backend polling - merging data');
-                  
-                  // CRITICAL: Merge guests intelligently - don't lose guests that aren't in polling data
-                  const pollingGuestsMap = new Map(pollingGuests.map((g: any) => [g.id, g]));
-                  
-                  // CRITICAL: If polling returned 0 guests but prev has guests, keep prev guests (polling data is incomplete)
-                  if (pollingGuestsCount === 0 && prevGuestsCount > 0) {
-                    console.warn(`⚠️ Polling returned 0 guests but prev has ${prevGuestsCount} - keeping prev guests (polling data incomplete)`);
-                  }
-                  
-                  let mergedGuests = prevGuests;
-                  // Polling data seems complete - merge intelligently
-                  mergedGuests = prevGuests.map((prevGuest: any) => {
-                    const pollingGuest = pollingGuestsMap.get(prevGuest.id);
-                    return pollingGuest || prevGuest; // Use polling data if exists, otherwise keep prev
-                  });
-                  
-                  // Add any new guests from polling
-                  pollingGuests.forEach((pollingGuest: any) => {
-                    if (!prevGuests.find((g: any) => g.id === pollingGuest.id)) {
-                      mergedGuests.push(pollingGuest);
-                    }
-                  });
-                  
-                  console.log(`🔍 Merged from polling: ${prevGuestsCount} prev → ${mergedGuests.length} merged (${pollingGuestsCount} from polling)`);
-                  
-                  // CRITICAL: Merge data to preserve fields that might exist in prev but not in foundEvent
-                  const mergedEvent = {
-                    ...prev, // Start with previous data
-                    ...foundEvent, // Override with polling data (which is newer)
-                    // CRITICAL: Preserve important fields from prev if they're missing
-                    coupleName: foundEvent.coupleName || prev.coupleName,
-                    campaigns: foundEvent.campaigns || prev.campaigns || [],
-                    tables: foundEvent.tables || prev.tables || [],
-                    venueLayout: foundEvent.venueLayout || prev.venueLayout,
-                    eventImages: foundEvent.eventImages || prev.eventImages || [],
-                    // CRITICAL: Use merged guests
-                    guests: mergedGuests
-                  };
-                  return mergedEvent;
-                }
-                return prev;
-              });
-            }
-          }
-    } catch (error) {
-          console.warn('⚠️ Polling error (will retry):', error);
         }
-      }, 10000); // Poll every 10 seconds (optimized: balanced between freshness and performance)
+      } catch (error) {
+        console.error('❌ Error refreshing event:', error);
+      }
     };
     
-    // Start polling
-    startPolling();
-    
-    // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
-    if (!webhookService.pollingActive) {
-      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
-    }
-    
+    // No auto-polling - user will use manual refresh button
     // Cleanup on unmount
     return () => {
       if (pollingIntervalRef.current !== null) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
         isPollingRef.current = false;
-        console.log('⏹️ Stopped ClientDashboard polling');
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1218,7 +966,16 @@ const ClientDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-3">
-              {/* Refresh button removed - auto-refresh happens silently in background */}
+              {/* Manual Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="flex items-center space-x-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="רענן נתונים"
+              >
+                <RefreshCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                <span>רענן</span>
+              </button>
               
               <button
                 onClick={handleExportData}

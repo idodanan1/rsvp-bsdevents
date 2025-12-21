@@ -72,8 +72,7 @@ function App() {
       fetchEvents().catch(() => {}); // Silent fail - data already in localStorage
       fetchClients().catch(() => {}); // Silent fail - data already in localStorage
       
-      // Start webhook polling for button clicks
-      webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
+      // No auto-polling - user will use manual refresh button
 
       // Initialize scheduled campaigns
       const initializeScheduledCampaigns = async () => {

@@ -67,6 +67,7 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Subscribe to events array length AND a version counter to force re-renders
   const events = useEventStore(state => state.events);
   const currentEvent = useEventStore(state => state.currentEvent);
+  const isLoading = useEventStore(state => state.isLoading);
   // CRITICAL: Also subscribe to a computed value that changes when events change
   // This ensures the component re-renders even if events array reference doesn't change
   // CRITICAL: Include responseDate timestamp to catch all updates
@@ -199,31 +200,18 @@ const EventManagement: React.FC = () => {
       console.error('❌ Error initial fetch:', error);
     });
     
-    // CRITICAL: Start webhookService to receive updates from guest links and WhatsApp
-    // This ensures EventManagement receives real-time updates from backend
-    // Only start if not already active to avoid duplicate polling
-    if (!webhookService.pollingActive) {
-      webhookService.startPolling(5000); // Poll every 5 seconds (optimized for faster updates - reduced from 8)
-      console.log('✅ Started webhook polling - updates from WhatsApp will appear in table immediately');
-    }
-    
-    // Auto-refresh events every 10 seconds for real-time sync between devices
-    // Using startTransition and silent mode to make updates smooth and non-blocking
-    // Increased frequency for better cross-device synchronization
-    const intervalId = setInterval(() => {
-      startTransition(() => {
-        // Use silent: true to prevent isLoading updates that cause visual jumps
-        fetchEvents(false, true).catch(error => {
-        console.error('❌ Error auto-refreshing events:', error);
-      });
-      });
-    }, 10000); // Refresh every 10 seconds (optimized for better cross-device sync)
-
-    return () => {
-      clearInterval(intervalId);
-    };
+    // No auto-refresh or polling - user will use manual refresh button
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Removed fetchEvents from deps to prevent infinite loop
+
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    try {
+      await fetchEvents(false);
+    } catch (error) {
+      console.error('❌ Error refreshing events:', error);
+    }
+  };
 
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');
@@ -2905,6 +2893,16 @@ const EventManagement: React.FC = () => {
               </p>
             </div>
           <div className="flex items-center space-x-2">
+            {/* Manual Refresh Button */}
+            <button
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="רענן נתונים"
+            >
+              <RefreshCw className={`w-5 h-5 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
+              רענן
+            </button>
             <button
               onClick={() => setShowSyncMonitoringModal(true)}
               className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
