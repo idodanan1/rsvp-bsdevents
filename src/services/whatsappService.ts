@@ -84,8 +84,17 @@ class WhatsAppService {
 
       // CRITICAL: Declare templateName at outer scope so it's accessible throughout all blocks (including error handling)
       const templateName = (messageData.templateName || '').toLowerCase();
+      const templateNameOriginal = messageData.templateName; // Keep original for comparisons
       
       // CRITICAL: Save reference to original templateParams for rebuilding components later
+      // Log what we're receiving to debug
+      console.log('🔍 DEBUG: messageData.templateParams received:', {
+        hasTemplateParams: !!messageData.templateParams,
+        templateParamsKeys: messageData.templateParams ? Object.keys(messageData.templateParams) : [],
+        guest_response_link: messageData.templateParams ? (messageData.templateParams as any).guest_response_link : undefined,
+        paramsOrder: messageData.templateParams ? (messageData.templateParams as any).paramsOrder : undefined,
+        fullTemplateParams: messageData.templateParams
+      });
       const originalTemplateParams = messageData.templateParams ? { ...messageData.templateParams } : undefined;
 
       // If template is provided, send template message (for first messages)
@@ -94,7 +103,7 @@ class WhatsAppService {
         console.log('📋 Sending template message:', messageData.templateName);
         messagePayload.type = 'template';
         messagePayload.template = {
-          name: messageData.templateName,
+          name: messageData.templateName, // Use original templateName (preserves case)
           language: {
             code: messageData.templateParams?.language || 'he' // Default to Hebrew for template "a"
           }
@@ -102,7 +111,8 @@ class WhatsAppService {
         
         // CRITICAL: For template "aa", rebuild components array FIRST before building regular components
         // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters + 1 URL button
-        if ((messageData.templateName === 'aa' || messageData.templateName === 'AA') && 
+        // Use templateName (lowercase) for comparison to handle both 'aa' and 'AA'
+        if (templateName === 'aa' && 
             messageData.templateParams && 
             Object.keys(messageData.templateParams).length > 0) {
           console.log('🔄 Building components array for template "aa" from original templateParams FIRST...');
@@ -143,8 +153,14 @@ class WhatsAppService {
           }];
           
           // CRITICAL: Add URL button component if guest_response_link is available
+          console.log('🔍 DEBUG: Looking for guest_response_link:', {
+            originalTemplateParams: originalTemplateParams ? Object.keys(originalTemplateParams) : 'undefined',
+            originalTemplateParamsGuestResponseLink: originalTemplateParams?.guest_response_link,
+            messageDataTemplateParamsGuestResponseLink: (messageData.templateParams as any)?.guest_response_link
+          });
           const guestResponseLink = originalTemplateParams?.guest_response_link || 
                                    (messageData.templateParams as any)?.guest_response_link || '';
+          console.log('🔍 DEBUG: Final guestResponseLink:', guestResponseLink);
           if (guestResponseLink) {
             rebuiltComponents.push({
               type: 'button',
@@ -196,14 +212,14 @@ class WhatsAppService {
             // NOTE: For template "aa", guest_response_link is NOT in body parameters - it's only used for the button
             let paramsOrder: string[] = (Array.isArray(messageData.templateParams.paramsOrder) 
               ? messageData.templateParams.paramsOrder 
-              : templateName === 'aa' || templateName === 'AA'
+              : templateName === 'aa'
                 ? ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                    'event_date', 'event_time', 'venue', 'couple_name']
                 : ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name']) as string[];
             
             // CRITICAL FIX: Remove guest_response_link from body params for template "aa" if it exists
             // Template "aa" does NOT include guest_response_link in body parameters - it's only used for the button
-            if (templateName === 'aa' || templateName === 'AA') {
+            if (templateName === 'aa') {
               paramsOrder = paramsOrder.filter(key => key !== 'guest_response_link');
             }
             
@@ -217,7 +233,7 @@ class WhatsAppService {
             filteredParamsOrder = paramsOrder.filter((key: string) => 
               key !== 'language' && 
               key !== 'paramsOrder' && 
-              !((templateName === 'aa' || templateName === 'AA') && key === 'guest_response_link')
+              !(templateName === 'aa' && key === 'guest_response_link')
             );
             
             // CRITICAL: Check for extra parameters in templateParams that aren't in paramsOrder
@@ -386,7 +402,7 @@ class WhatsAppService {
           // Based on the template image provided by the user, the header image is static
           // Meta does NOT expect a dynamic header parameter for static images
           // Therefore, we should NOT send a header component for template "aa"
-          if (templateName === 'aa' || templateName === 'AA') {
+          if (templateName === 'aa') {
             // Template "aa" has a static header image - do NOT send header component
             // The image is defined in the template itself in Meta Business Manager
             console.log('ℹ️ Template "aa" - header image is STATIC (not a variable) in Meta Business Manager');
@@ -559,7 +575,7 @@ class WhatsAppService {
           
           // CRITICAL: Final validation before adding components
           // For template "aa", ensure we have exactly 8 body parameters, NO header component, and 1 URL button component at index 0
-          if (templateName === 'aa' || templateName === 'AA') {
+          if (templateName === 'aa') {
             const bodyComponent = components.find((c: any) => c.type === 'body');
             const headerComponent = components.find((c: any) => c.type === 'header');
             const buttonComponents = components.filter((c: any) => c.type === 'button');
@@ -691,7 +707,7 @@ class WhatsAppService {
             console.log(`  - Button components: ${buttonComponents.length}`);
             console.log(`  - Total components: ${components.length}`);
             
-            if (templateName === 'aa' || templateName === 'AA') {
+            if (templateName === 'aa') {
               console.log('📋 Template "aa" requirements:');
               console.log('  - 0 header image components (header image is STATIC in Meta Business Manager)');
               console.log('  - 8 body parameters: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name');
@@ -932,7 +948,7 @@ class WhatsAppService {
       // CRITICAL: Final validation before sending - ensure components array structure is correct
       // CRITICAL: For template "aa", components array was already built above - just validate here
       if (messagePayload.type === 'template' && messagePayload.template?.components) {
-        if (templateName === 'aa' || templateName === 'AA') {
+        if (templateName === 'aa') {
           // CRITICAL: Template "aa" components were already built above - just validate here
           console.log('✅ Template "aa" components already built - validating structure...');
           
