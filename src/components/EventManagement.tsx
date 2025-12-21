@@ -2066,26 +2066,26 @@ const EventManagement: React.FC = () => {
     workbook.created = new Date();
     workbook.modified = new Date();
     
-    // Create worksheet
+    // Create worksheet - LTR order: עמודה A תהיה "שם מלא" (שמאל), עמודה K תהיה "הערות" (ימין)
     const worksheet = workbook.addWorksheet('רשימת אורחים', {
       properties: {
         tabColor: { argb: 'FF2F5597' }
       }
     });
     
-    // Define columns in RTL order - עמודה A תהיה "הערות" (ימין), עמודה K תהיה "שם מלא" (שמאל)
+    // Define columns in LTR order - עמודה A תהיה "שם מלא" (שמאל), עמודה K תהיה "הערות" (ימין)
     worksheet.columns = [
-      { header: 'הערות', key: 'notes', width: 30 },
-      { header: 'תאריך שליחה', key: 'messageSentDate', width: 12 },
-      { header: 'סטטוס הודעה', key: 'messageStatus', width: 15 },
-      { header: 'שולחן', key: 'table', width: 8 },
-      { header: 'הגעה בפועל', key: 'actualAttendance', width: 15 },
-      { header: 'ערוץ', key: 'channel', width: 12 },
-      { header: 'תאריך תגובה', key: 'responseDate', width: 12 },
-      { header: 'סטטוס אישור', key: 'rsvpStatus', width: 15 },
-      { header: 'מספר מוזמנים', key: 'guestCount', width: 12 },
+      { header: 'שם מלא', key: 'fullName', width: 25 },
       { header: 'מספר טלפון', key: 'phoneNumber', width: 15 },
-      { header: 'שם מלא', key: 'fullName', width: 25 }
+      { header: 'מספר מוזמנים', key: 'guestCount', width: 12 },
+      { header: 'סטטוס אישור', key: 'rsvpStatus', width: 15 },
+      { header: 'תאריך תגובה', key: 'responseDate', width: 12 },
+      { header: 'ערוץ', key: 'channel', width: 12 },
+      { header: 'הגעה בפועל', key: 'actualAttendance', width: 15 },
+      { header: 'שולחן', key: 'table', width: 8 },
+      { header: 'סטטוס הודעה', key: 'messageStatus', width: 15 },
+      { header: 'תאריך שליחה', key: 'messageSentDate', width: 12 },
+      { header: 'הערות', key: 'notes', width: 30 }
     ];
     
     // Style header row
@@ -2115,20 +2115,20 @@ const EventManagement: React.FC = () => {
       };
     });
     
-    // Add data rows
+    // Add data rows - סדר הנתונים תואם לסדר העמודות (LTR)
     currentEvent.guests.forEach((guest, index) => {
       const row = worksheet.addRow({
-        notes: guest.notes || '',
-        messageSentDate: guest.messageSentDate ? formatDate(guest.messageSentDate) : '',
-        messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
-        table: guest.tableId ? currentEvent.tables?.find(t => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
-        actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
-        channel: guest.channel || 'וואטסאפ',
-        responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
-        rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
-        guestCount: guest.guestCount || 1,
+        fullName: formatFullName(guest.firstName, guest.lastName),
         phoneNumber: guest.phoneNumber || '',
-        fullName: formatFullName(guest.firstName, guest.lastName)
+        guestCount: guest.guestCount || 1,
+        rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
+        responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
+        channel: guest.channel || 'וואטסאפ',
+        actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
+        table: guest.tableId ? currentEvent.tables?.find(t => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
+        messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
+        messageSentDate: guest.messageSentDate ? formatDate(guest.messageSentDate) : '',
+        notes: guest.notes || ''
       });
       
       // Style data row
@@ -2203,14 +2203,21 @@ const EventManagement: React.FC = () => {
 
         // Helper function to parse RSVP status from text
         const parseRsvpStatus = (text: string): 'pending' | 'confirmed' | 'declined' | 'maybe' => {
+          if (!text || !text.trim()) return 'pending';
+          
           const lowerText = text.toLowerCase().trim();
-          if (lowerText.includes('מגיע') || lowerText.includes('confirmed') || lowerText.includes('אישר')) {
+          // Check for confirmed status
+          if (lowerText.includes('מגיע') || lowerText.includes('confirmed') || lowerText.includes('אישר') || 
+              lowerText.includes('אישור') || lowerText === '✓' || lowerText === 'v') {
             return 'confirmed';
           }
-          if (lowerText.includes('לא מגיע') || lowerText.includes('declined') || lowerText.includes('דחה')) {
+          // Check for declined status
+          if (lowerText.includes('לא מגיע') || lowerText.includes('declined') || lowerText.includes('דחה') || 
+              lowerText.includes('דחייה') || lowerText === '✗' || lowerText === 'x') {
             return 'declined';
           }
-          if (lowerText.includes('אולי') || lowerText.includes('maybe')) {
+          // Check for maybe status
+          if (lowerText.includes('אולי') || lowerText.includes('maybe') || lowerText.includes('לא בטוח')) {
             return 'maybe';
           }
           return 'pending';
@@ -2218,19 +2225,28 @@ const EventManagement: React.FC = () => {
 
         // Helper function to parse actual attendance from text
         const parseActualAttendance = (text: string): 'attended' | 'not_attended' | 'not_marked' => {
+          if (!text || !text.trim()) return 'not_marked';
+          
           const lowerText = text.toLowerCase().trim();
-          if (lowerText.includes('הגיע') || lowerText.includes('attended') || lowerText.includes('כן')) {
+          // Check for attended status
+          if (lowerText.includes('הגיע') || lowerText.includes('attended') || lowerText.includes('כן') || 
+              lowerText.includes('נוכח') || lowerText === '✓' || lowerText === 'v') {
             return 'attended';
           }
-          if (lowerText.includes('לא הגיע') || lowerText.includes('not_attended') || lowerText.includes('לא')) {
+          // Check for not attended status
+          if (lowerText.includes('לא הגיע') || lowerText.includes('not_attended') || 
+              (lowerText.includes('לא') && !lowerText.includes('לא בטוח')) || lowerText === '✗' || lowerText === 'x') {
             return 'not_attended';
           }
           return 'not_marked';
         };
 
         // Convert to guests array
-        // Excel columns order (RTL - Right to Left, מימין לשמאל): שם האורח, פלאפון האורח, כמות מגיעים, שיוך למשפחה, הערות
-        // Array indices (0-based, RTL): [0] שם האורח, [1] פלאפון האורח, [2] כמות מגיעים, [3] שיוך למשפחה, [4] הערות
+        // Excel columns order (LTR - Left to Right, משמאל לימין): 
+        // Column A: שם מלא, B: מספר טלפון, C: מספר מוזמנים, D: סטטוס אישור, E: תאריך תגובה, 
+        // F: ערוץ, G: הגעה בפועל, H: שולחן, I: סטטוס הודעה, J: תאריך שליחה, K: הערות
+        // Array indices (0-based): [0] שם מלא, [1] מספר טלפון, [2] מספר מוזמנים, [3] סטטוס אישור, 
+        // [4] תאריך תגובה, [5] ערוץ, [6] הגעה בפועל, [7] שולחן, [8] סטטוס הודעה, [9] תאריך שליחה, [10] הערות
         
         console.log('📊 Total rows in Excel:', jsonData.length);
         console.log('📊 Header row:', jsonData[0]);
@@ -2260,9 +2276,8 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Processing row ${index + 1}:`, row);
             console.log(`📋 Row length: ${row.length}, Values:`, row);
             
-            // Excel structure (RTL - מימין לשמאל): Column A=שם האורח, B=פלאפון האורח, C=כמות מגיעים, D=שיוך למשפחה, E=הערות
-            
-            // Column A (index 0): שם האורח → תחת "מוזמן"
+            // Excel structure (LTR - משמאל לימין): 
+            // Column A (index 0): שם מלא
             const fullName = String(row[0] || '').trim();
             console.log(`📋 Full name from column A (index 0): "${fullName}"`);
             
@@ -2277,30 +2292,32 @@ const EventManagement: React.FC = () => {
               lastName = nameParts.slice(1).join(' ') || '';
             }
             
-            // Column B (index 1): פלאפון האורח → תחת "טלפון"
+            // Column B (index 1): מספר טלפון
             const phoneNumber = String(row[1] || '').trim();
             console.log(`📋 Phone from column B (index 1): "${phoneNumber}"`);
             const finalPhone = phoneNumber.replace(/[^\d]/g, ''); // Remove non-digits
             
-            // Column C (index 2): כמות מגיעים → תחת "מספר מוזמנים"
+            // Column C (index 2): מספר מוזמנים
             const guestCount = parseInt(String(row[2] || '1')) || 1;
             console.log(`📋 Guest count from column C (index 2): "${guestCount}"`);
             
-            // Column D (index 3): שיוך למשפחה (optional)
-            const family = String(row[3] || '').trim();
-            console.log(`📋 Family from column D (index 3): "${family}"`);
+            // Column D (index 3): סטטוס אישור (RSVP Status)
+            const rsvpStatusText = String(row[3] || '').trim();
+            console.log(`📋 RSVP status from column D (index 3): "${rsvpStatusText}"`);
+            const rsvpStatus = parseRsvpStatus(rsvpStatusText) || 'pending';
             
-            // Column E (index 4): הערות (optional)
-            const notes = String(row[4] || '').trim();
-            console.log(`📋 Notes from column E (index 4): "${notes}"`);
+            // Column G (index 6): הגעה בפועל (Actual Attendance)
+            const actualAttendanceText = String(row[6] || '').trim();
+            console.log(`📋 Actual attendance from column G (index 6): "${actualAttendanceText}"`);
+            const actualAttendance = parseActualAttendance(actualAttendanceText) || 'not_marked';
             
-            // Default RSVP status and attendance (not in template)
-            const rsvpStatus = 'pending' as 'pending' | 'confirmed' | 'declined' | 'maybe';
-            const actualAttendance = 'not_marked' as 'attended' | 'not_attended' | 'not_marked';
+            // Column H (index 7): שולחן
+            const tableNumber = String(row[7] || '').trim();
+            console.log(`📋 Table number from column H (index 7): "${tableNumber}"`);
             
-            // Table number not in template - will be empty
-            const tableNumber = '';
-            console.log(`📋 Table number from column G (index 6): "${tableNumber}"`);
+            // Column K (index 10): הערות
+            const notes = String(row[10] || '').trim();
+            console.log(`📋 Notes from column K (index 10): "${notes}"`);
             
             // Try to find existing table
             let table = tableNumber && !isNaN(parseInt(tableNumber)) ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
@@ -2362,14 +2379,20 @@ const EventManagement: React.FC = () => {
         if (guests.length === 0) {
           console.error('❌ No guests found! Check the Excel file structure.');
           console.log('📋 Sample row data:', jsonData[1]);
-          console.log('📋 Expected columns (RTL - מימין לשמאל):', [
-            '[0] Column A: שם האורח',
-            '[1] Column B: פלאפון האורח',
-            '[2] Column C: כמות מגיעים',
-            '[3] Column D: שיוך למשפחה',
-            '[4] Column E: הערות'
+          console.log('📋 Expected columns (LTR - משמאל לימין):', [
+            '[0] Column A: שם מלא',
+            '[1] Column B: מספר טלפון',
+            '[2] Column C: מספר מוזמנים',
+            '[3] Column D: סטטוס אישור',
+            '[4] Column E: תאריך תגובה',
+            '[5] Column F: ערוץ',
+            '[6] Column G: הגעה בפועל',
+            '[7] Column H: שולחן',
+            '[8] Column I: סטטוס הודעה',
+            '[9] Column J: תאריך שליחה',
+            '[10] Column K: הערות'
           ]);
-          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (מימין לשמאל):\n- Column A: שם האורח\n- Column B: פלאפון האורח\n- Column C: כמות מגיעים\n- Column D: שיוך למשפחה\n- Column E: הערות');
+          alert('לא נמצאו אורחים לייבוא.\n\nאנא ודא שהקובץ Excel מכיל את העמודות הבאות (משמאל לימין):\n- Column A: שם מלא\n- Column B: מספר טלפון\n- Column C: מספר מוזמנים\n- Column D: סטטוס אישור\n- Column E: תאריך תגובה\n- Column F: ערוץ\n- Column G: הגעה בפועל\n- Column H: שולחן\n- Column I: סטטוס הודעה\n- Column J: תאריך שליחה\n- Column K: הערות\n\nשים לב: ניתן לייבא גם קובץ עם העמודות הבסיסיות בלבד (A, B, C, K).');
         }
 
         // Check for duplicates in the imported file
