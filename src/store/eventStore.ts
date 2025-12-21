@@ -1965,6 +1965,10 @@ export const useEventStore = create<EventStore>()(
             const newTableId = updates.tableId;
             
             // Update guest - always add/update responseDate for timestamp-based conflict resolution
+            // Check if any critical fields are being updated
+            const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
+            const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+            
             const updatedGuests = event.guests.map(guest => {
               if (guest.id === guestId) {
                 // If updating critical fields, ensure we have a timestamp
