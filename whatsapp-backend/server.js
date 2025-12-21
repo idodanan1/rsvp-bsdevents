@@ -3273,10 +3273,12 @@ app.get('/api/guests/pending-updates', (req, res) => {
 
 // DELETE endpoint to remove a specific pending update
 app.delete('/api/guests/pending-updates', (req, res) => {
+  // CRITICAL: Set CORS headers FIRST, before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
   
   const { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId } = req.body;
   console.log('🗑️ DELETE /api/guests/pending-updates received:', { phoneNumber, status, responseDate, guestCount, removeAllForPhone, guestId, eventId });

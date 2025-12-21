@@ -813,76 +813,128 @@ class WhatsAppService {
       }
       
       // CRITICAL: Final validation before sending - ensure components array structure is correct
+      // CRITICAL: For template "aa", rebuild components array from scratch to ensure perfect structure
       if (messagePayload.type === 'template' && messagePayload.template?.components) {
-        // Ensure each component has the correct structure
-        messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
-          if (comp.type === 'body' && comp.parameters) {
-            // Ensure all body parameters have correct structure
-            comp.parameters = comp.parameters.map((param: any, index: number) => {
-              // CRITICAL: Ensure parameter has correct structure
-              if (!param || typeof param !== 'object') {
-                console.error(`❌ CRITICAL: Parameter ${index + 1} is not an object:`, param);
-                return { type: 'text', text: ' ' };
+        if (templateName === 'aa' || templateName === 'AA') {
+          // CRITICAL: For template "aa", rebuild components array from scratch
+          // This ensures we have exactly what Meta expects: ONLY body component with 8 parameters
+          const bodyComponent = messagePayload.template.components.find((c: any) => c.type === 'body');
+          
+          if (!bodyComponent || !bodyComponent.parameters || bodyComponent.parameters.length !== 8) {
+            console.error(`❌ CRITICAL: Template "aa" requires exactly 8 body parameters!`);
+            console.error(`❌ Actual count: ${bodyComponent?.parameters?.length || 0}`);
+            console.error(`❌ Body component:`, JSON.stringify(bodyComponent, null, 2));
+            
+            // Try to fix by ensuring we have 8 parameters
+            if (bodyComponent && bodyComponent.parameters) {
+              const currentParams = bodyComponent.parameters;
+              const expectedParams = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                                     'event_date', 'event_time', 'venue', 'couple_name'];
+              
+              // Rebuild parameters array ensuring we have exactly 8
+              const fixedParams: any[] = [];
+              for (let i = 0; i < 8; i++) {
+                const paramKey = expectedParams[i];
+                const existingParam = currentParams[i];
+                
+                if (existingParam && existingParam.type === 'text' && existingParam.text && typeof existingParam.text === 'string' && existingParam.text.trim().length > 0) {
+                  fixedParams.push({
+                    type: 'text',
+                    text: existingParam.text.trim()
+                  });
+                } else {
+                  // Use placeholder for missing/invalid parameter
+                  const placeholder = this.getPlaceholderForParameter(paramKey);
+                  console.warn(`⚠️ Parameter ${i + 1} (${paramKey}) is missing or invalid, using placeholder: "${placeholder}"`);
+                  fixedParams.push({
+                    type: 'text',
+                    text: placeholder
+                  });
+                }
               }
-              if (!param.type || param.type !== 'text') {
-                console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid type:`, param.type);
-                return { type: 'text', text: param.text || ' ' };
-              }
-              if (!param.text || typeof param.text !== 'string') {
-                console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid text:`, param.text);
-                return { type: 'text', text: String(param.text || ' ') };
-              }
-              // CRITICAL: Ensure text is not empty or only whitespace
-              const trimmedText = param.text.trim();
-              if (trimmedText.length === 0) {
-                console.error(`❌ CRITICAL: Parameter ${index + 1} has empty text after trim!`);
-                console.error(`❌ This will cause Meta API error 100: "Parameter name is missing or empty"`);
-                // Use placeholder for empty parameters
-                const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+              
+              // Rebuild components array with ONLY body component
+              messagePayload.template.components = [{
+                type: 'body',
+                parameters: fixedParams
+              }];
+              
+              console.log(`✅ Rebuilt components array for template "aa" with exactly 8 body parameters`);
+            } else {
+              console.error(`❌ CRITICAL: Cannot fix - body component is missing or invalid!`);
+            }
+          } else {
+            // Body component exists and has 8 parameters - validate and rebuild cleanly
+            const cleanParams = bodyComponent.parameters.map((param: any, index: number) => {
+              // Ensure parameter has correct structure
+              if (!param || typeof param !== 'object' || param.type !== 'text') {
+                const paramKey = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                                 'event_date', 'event_time', 'venue', 'couple_name'][index];
+                const placeholder = this.getPlaceholderForParameter(paramKey);
+                console.warn(`⚠️ Parameter ${index + 1} has invalid structure, using placeholder: "${placeholder}"`);
                 return { type: 'text', text: placeholder };
               }
+              
+              // Ensure text is not empty
+              const textValue = typeof param.text === 'string' ? param.text.trim() : String(param.text || '').trim();
+              if (textValue.length === 0) {
+                const paramKey = ['guest_name', 'event_type', 'groom_name', 'bride_name', 
+                                 'event_date', 'event_time', 'venue', 'couple_name'][index];
+                const placeholder = this.getPlaceholderForParameter(paramKey);
+                console.warn(`⚠️ Parameter ${index + 1} is empty, using placeholder: "${placeholder}"`);
+                return { type: 'text', text: placeholder };
+              }
+              
+              // Remove any extra fields (like parameter_name) that shouldn't be in body parameters
               return {
                 type: 'text',
-                text: trimmedText
+                text: textValue
               };
             });
             
-            // CRITICAL: Ensure parameters array is not empty
-            if (!comp.parameters || comp.parameters.length === 0) {
-              console.error('❌ CRITICAL: Body component has no parameters after validation!');
-              console.error('❌ This will cause Meta API error 100');
+            // Rebuild components array with ONLY body component (no header, no buttons)
+            messagePayload.template.components = [{
+              type: 'body',
+              parameters: cleanParams
+            }];
+            
+            console.log(`✅ Rebuilt clean components array for template "aa" with exactly 8 validated body parameters`);
+          }
+        } else {
+          // For other templates, validate and fix structure
+          messagePayload.template.components = messagePayload.template.components.map((comp: any) => {
+            if (comp.type === 'body' && comp.parameters) {
+              comp.parameters = comp.parameters.map((param: any, index: number) => {
+                if (!param || typeof param !== 'object') {
+                  console.error(`❌ CRITICAL: Parameter ${index + 1} is not an object:`, param);
+                  return { type: 'text', text: ' ' };
+                }
+                if (!param.type || param.type !== 'text') {
+                  console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid type:`, param.type);
+                  return { type: 'text', text: param.text || ' ' };
+                }
+                if (!param.text || typeof param.text !== 'string') {
+                  console.error(`❌ CRITICAL: Parameter ${index + 1} has invalid text:`, param.text);
+                  return { type: 'text', text: String(param.text || ' ') };
+                }
+                const trimmedText = param.text.trim();
+                if (trimmedText.length === 0) {
+                  console.error(`❌ CRITICAL: Parameter ${index + 1} has empty text after trim!`);
+                  const placeholder = this.getPlaceholderForParameter(`param_${index + 1}`);
+                  return { type: 'text', text: placeholder };
+                }
+                return {
+                  type: 'text',
+                  text: trimmedText
+                };
+              });
+              
+              if (!comp.parameters || comp.parameters.length === 0) {
+                console.error('❌ CRITICAL: Body component has no parameters after validation!');
+              }
             }
-          }
-          return comp;
-        });
-        
-        // CRITICAL: For template "aa", ensure we have exactly one body component with 8 parameters
-        if (templateName === 'aa' || templateName === 'AA') {
-          const bodyComponent = messagePayload.template.components.find((c: any) => c.type === 'body');
-          const bodyParamsCount = bodyComponent?.parameters?.length || 0;
-          
-          if (bodyParamsCount !== 8) {
-            console.error(`❌ CRITICAL VALIDATION FAILED: Template "aa" requires exactly 8 body parameters!`);
-            console.error(`❌ Actual count: ${bodyParamsCount}`);
-            console.error(`❌ This payload will be REJECTED by Meta API`);
-            console.error(`❌ Body component:`, JSON.stringify(bodyComponent, null, 2));
-          }
-          
-          // Ensure no header or button components
-          const headerComponent = messagePayload.template.components.find((c: any) => c.type === 'header');
-          const buttonComponents = messagePayload.template.components.filter((c: any) => c.type === 'button');
-          
-          if (headerComponent) {
-            console.error(`❌ CRITICAL: Template "aa" should NOT have header component!`);
-            console.error(`❌ Removing header component...`);
-            messagePayload.template.components = messagePayload.template.components.filter((c: any) => c.type !== 'header');
-          }
-          
-          if (buttonComponents.length > 0) {
-            console.error(`❌ CRITICAL: Template "aa" should NOT have button components!`);
-            console.error(`❌ Removing ${buttonComponents.length} button component(s)...`);
-            messagePayload.template.components = messagePayload.template.components.filter((c: any) => c.type !== 'button');
-          }
+            return comp;
+          });
         }
       }
       
