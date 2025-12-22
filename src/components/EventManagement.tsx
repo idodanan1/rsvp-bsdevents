@@ -267,6 +267,21 @@ const EventManagement: React.FC = () => {
     try {
       const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
       
+      // First, check current pending count before processing
+      let pendingBeforeProcessing = pendingUpdatesCount;
+      try {
+        const checkResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
+          signal: AbortSignal.timeout(3000)
+        });
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          pendingBeforeProcessing = checkData.totalPending || 0;
+          console.log(`📊 Pending updates before processing: ${pendingBeforeProcessing}`);
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not check pending count before processing:', err);
+      }
+      
       console.log(`🔄 Processing all pending updates...`);
       
       const response = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
@@ -281,26 +296,48 @@ const EventManagement: React.FC = () => {
         console.log(`✅ Processed ${data.processed} updates, ${data.failed} failed, ${data.remaining} remaining`);
         console.log(`📊 Processed updates details:`, data.processedUpdates?.slice(0, 5));
         
-        // Update pending count first
+        // Update pending count immediately
         setPendingUpdatesCount(data.remaining || 0);
         
-        // Show success message
-        if (data.processed > 0) {
-          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 מרענן את הטבלה...`);
-        } else {
-          alert('ℹ️ לא נמצאו עדכונים לעיבוד.');
-        }
-        
+        // CRITICAL: Always refresh the table, even if processed count is 0
+        // This is because updates might have been processed by automatic sync on component mount
         // Refresh events to show updated data - use force refresh
         console.log(`🔄 Refreshing events after processing updates...`);
         await fetchEvents(true, true); // Force refresh to get latest data
         console.log(`✅ Events refreshed after processing updates`);
+        
+        // Show appropriate message
+        if (data.processed > 0) {
+          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 הטבלה מתעדכנת...`);
+        } else if (pendingBeforeProcessing > 0 && data.remaining === 0) {
+          // Updates were already processed (probably by automatic sync)
+          alert(`ℹ️ כל העדכונים כבר עובדו (${pendingBeforeProcessing} עדכונים).\n\n🔄 מרענן את הטבלה...`);
+        } else if (data.remaining > 0) {
+          // Some updates remain (failed to process)
+          alert(`⚠️ ${data.remaining} עדכונים עדיין ממתינים לעיבוד.\n${data.failed > 0 ? `\n❌ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 מרענן את הטבלה...`);
+        } else {
+          alert('ℹ️ לא נמצאו עדכונים לעיבוד.\n\n🔄 מרענן את הטבלה...');
+        }
         
         // Wait a bit and refresh again to ensure all updates are reflected
         setTimeout(async () => {
           console.log(`🔄 Second refresh to ensure all updates are reflected...`);
           await fetchEvents(true, true);
           console.log(`✅ Second refresh completed`);
+          
+          // Also refresh pending count after a delay to ensure it's accurate
+          try {
+            const refreshCheckResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
+              signal: AbortSignal.timeout(3000)
+            });
+            if (refreshCheckResponse.ok) {
+              const refreshCheckData = await refreshCheckResponse.json();
+              setPendingUpdatesCount(refreshCheckData.totalPending || 0);
+              console.log(`📊 Updated pending count after refresh: ${refreshCheckData.totalPending || 0}`);
+            }
+          } catch (err) {
+            console.warn('⚠️ Could not refresh pending count:', err);
+          }
         }, 1000);
       } else {
         const errorText = await response.text();
