@@ -2595,11 +2595,43 @@ export const useEventStore = create<EventStore>()(
                 });
                 
                 // Send only the updated guest with append=true to merge with existing guests
+                // CRITICAL: Ensure all required fields are included in the guest object
+                // The backend merges by ID, so we need to include all fields to ensure proper update
+                const guestForServer = {
+                  id: updatedGuest.id,
+                  firstName: updatedGuest.firstName,
+                  lastName: updatedGuest.lastName,
+                  phoneNumber: updatedGuest.phoneNumber,
+                  rsvpStatus: updatedGuest.rsvpStatus,
+                  guestCount: updatedGuest.guestCount,
+                  notes: updatedGuest.notes || '',
+                  actualAttendance: updatedGuest.actualAttendance,
+                  responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
+                  source: updatedGuest.source || 'guest_link',
+                  channel: updatedGuest.channel || 'whatsapp',
+                  messageStatus: updatedGuest.messageStatus,
+                  // Include other fields that might be needed
+                  ...(updatedGuest.messageSentDate && { messageSentDate: updatedGuest.messageSentDate instanceof Date ? updatedGuest.messageSentDate.toISOString() : updatedGuest.messageSentDate }),
+                  ...(updatedGuest.messageDeliveredDate && { messageDeliveredDate: updatedGuest.messageDeliveredDate instanceof Date ? updatedGuest.messageDeliveredDate.toISOString() : updatedGuest.messageDeliveredDate }),
+                  ...(updatedGuest.messageFailedDate && { messageFailedDate: updatedGuest.messageFailedDate instanceof Date ? updatedGuest.messageFailedDate.toISOString() : updatedGuest.messageFailedDate }),
+                  ...(updatedGuest.tableId && { tableId: updatedGuest.tableId })
+                };
+                
+                console.log('📤 Sending complete guest object to server:', {
+                  id: guestForServer.id,
+                  firstName: guestForServer.firstName,
+                  lastName: guestForServer.lastName,
+                  phoneNumber: guestForServer.phoneNumber,
+                  rsvpStatus: guestForServer.rsvpStatus,
+                  guestCount: guestForServer.guestCount,
+                  source: guestForServer.source
+                });
+                
                 const apiUpdateResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    guests: [updatedGuest], // Only send the updated guest
+                    guests: [guestForServer], // Send complete guest object with all fields
                     append: true // Merge with existing guests (update by ID)
                   })
                 });
