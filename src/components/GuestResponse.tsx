@@ -1721,14 +1721,30 @@ const GuestResponse = () => {
               {/* Submit button */}
               <div className="text-center">
                 <button
-                  onClick={() => {
-                    setTimeout(() => {
-                      handleSubmit({ preventDefault: () => {} } as any);
-                    }, 300);
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('✅ "אישור" button clicked for attending with guestCount:', formData.guestCount);
+                    setIsSubmitting(true);
+                    try {
+                      // Ensure formData.response is set to 'attending'
+                      setFormData(prev => ({ ...prev, response: 'attending' }));
+                      // Wait a bit for state to update
+                      await new Promise(resolve => setTimeout(resolve, 50));
+                      // Now call handleSubmit
+                      await handleSubmit({ preventDefault: () => {} } as any);
+                    } catch (error) {
+                      console.error('Error submitting:', error);
+                      setSubmitStatus('error');
+                      setErrorMessage('שגיאה בשליחת התגובה. אנא נסה שוב.');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }}
-                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105"
+                  disabled={isSubmitting}
+                  className="bg-gradient-to-r from-amber-500 to-amber-600 text-white px-8 py-3 rounded-xl font-medium text-lg shadow-lg hover:from-amber-600 hover:to-amber-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  אישור - {formData.guestCount} {formData.guestCount === 1 ? 'אורח' : 'אורחים'}
+                  {isSubmitting ? 'שולח...' : `אישור - ${formData.guestCount} ${formData.guestCount === 1 ? 'אורח' : 'אורחים'}`}
                 </button>
               </div>
               
@@ -1787,13 +1803,23 @@ const GuestResponse = () => {
               {/* Confirm button */}
               <div className="text-center">
                 <button
-                  onClick={async () => {
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('✅ "אישור" button clicked for', formData.response, 'with guestCount:', formData.guestCount);
                     setIsSubmitting(true);
                     try {
+                      // Ensure formData.response is set correctly (should already be set, but just in case)
+                      if (!formData.response || (formData.response !== 'maybe' && formData.response !== 'not_attending')) {
+                        console.warn('⚠️ formData.response is not set correctly, using current state');
+                      }
+                      // Call handleSubmit
                       await handleSubmit({ preventDefault: () => {} } as any);
                       // After successful submission, showConfirmButton will be reset by setSubmitStatus('success')
                     } catch (error) {
                       console.error('Error submitting:', error);
+                      setSubmitStatus('error');
+                      setErrorMessage('שגיאה בשליחת התגובה. אנא נסה שוב.');
                     } finally {
                       setIsSubmitting(false);
                     }
