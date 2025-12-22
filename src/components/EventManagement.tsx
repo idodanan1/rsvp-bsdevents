@@ -30,7 +30,9 @@ import {
   Camera,
   Activity,
   BarChart3,
-  Clock
+  Clock,
+  Play,
+  AlertCircle
 } from 'lucide-react';
 import SyncMonitoringPanel from './SyncMonitoringPanel';
 
@@ -155,6 +157,8 @@ const EventManagement: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showSendMessageModal, setShowSendMessageModal] = useState(false);
   const [showSyncMonitoringModal, setShowSyncMonitoringModal] = useState(false);
+  const [pendingUpdatesCount, setPendingUpdatesCount] = useState(0);
+  const [isProcessingPendingUpdates, setIsProcessingPendingUpdates] = useState(false);
   const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
   const [messageChannel] = useState<'whatsapp'>('whatsapp');
   const [customMessage, setCustomMessage] = useState('');
@@ -222,6 +226,78 @@ const EventManagement: React.FC = () => {
       await fetchEvents(false);
     } catch (error) {
       console.error('❌ Error refreshing events:', error);
+    }
+  };
+
+  // Check for pending updates
+  useEffect(() => {
+    if (!id) return;
+    
+    const checkPendingUpdates = async () => {
+      try {
+        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setPendingUpdatesCount(data.totalPending || 0);
+        }
+      } catch (error) {
+        // Silent fail - don't show error to user
+      }
+    };
+
+    checkPendingUpdates();
+    const interval = setInterval(checkPendingUpdates, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [id]);
+
+  // Handle processing pending updates
+  const handleProcessPendingUpdates = async () => {
+    setIsProcessingPendingUpdates(true);
+    try {
+      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      
+      console.log(`🔄 Processing all pending updates...`);
+      
+      const response = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Processed ${data.processed} updates, ${data.failed} failed, ${data.remaining} remaining`);
+        
+        // Refresh events to show updated data
+        await fetchEvents(false, true);
+        
+        // Update pending count
+        setPendingUpdatesCount(data.remaining || 0);
+        
+        // Show success message
+        if (data.processed > 0) {
+          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}`);
+        } else {
+          alert('ℹ️ לא נמצאו עדכונים לעיבוד.');
+        }
+      } else {
+        throw new Error(`Backend processing failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Error processing pending updates:', error);
+      alert('❌ שגיאה בעיבוד עדכונים ממתינים. נסה שוב.');
+    } finally {
+      setIsProcessingPendingUpdates(false);
     }
   };
 
@@ -2926,6 +3002,17 @@ const EventManagement: React.FC = () => {
               <RefreshCw className={`w-5 h-5 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
               רענן
             </button>
+            {pendingUpdatesCount > 0 && (
+              <button
+                onClick={handleProcessPendingUpdates}
+                disabled={isProcessingPendingUpdates || isLoading}
+                className="flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md font-semibold"
+                title={`עבד ${pendingUpdatesCount} עדכונים ממתינים`}
+              >
+                <Play className={`w-5 h-5 ml-2 ${isProcessingPendingUpdates ? 'animate-spin' : ''}`} />
+                <span>{isProcessingPendingUpdates ? 'מעבד...' : `עבד ${pendingUpdatesCount} עדכונים ממתינים`}</span>
+              </button>
+            )}
             <button
               onClick={() => setShowSyncMonitoringModal(true)}
               className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
