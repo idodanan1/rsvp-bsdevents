@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
+import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName, generateGuestResponseLink } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
-import { messageService } from '../services/messageService';
-
-// Log that messageService is loaded
-console.log('✅ EventManagement: messageService imported successfully', typeof messageService);
+// Import messageService dynamically to avoid circular dependency issues
+// import { messageService } from '../services/messageService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -2501,9 +2499,6 @@ const EventManagement: React.FC = () => {
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
-      // Import helper function once before map
-      const { generateGuestResponseLink } = await import('../utils/helpers');
-      
       const recipients = guestsToSend.map(guest => {
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
@@ -2575,6 +2570,9 @@ const EventManagement: React.FC = () => {
       
       let result;
       try {
+        // CRITICAL: Import messageService dynamically to avoid circular dependency issues
+        const { messageService } = await import('../services/messageService');
+        
         // CRITICAL: For free-form messages, pass the message content
         // Each recipient has their own personalized message in recipient.message
         // But we also need to pass a base message for messageService to use
@@ -2785,6 +2783,9 @@ const EventManagement: React.FC = () => {
       
       let result;
       try {
+        // CRITICAL: Import messageService dynamically to avoid circular dependency issues
+        const { messageService } = await import('../services/messageService');
+        
         result = await messageService.sendBulkMessages({
           message,
           imageUrl: finalImageUrl,
