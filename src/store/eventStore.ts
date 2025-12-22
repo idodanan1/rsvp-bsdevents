@@ -5,6 +5,7 @@ import { generateId, formatDate, cleanName, ensureUniqueEventIds } from '../util
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
+import { crossTabSync } from '../utils/crossTabSync';
 
 const mockEvents: Event[] = [];
 
@@ -5564,3 +5565,105 @@ export const useEventStore = create<EventStore>()(
     }
   )
 );
+
+// Set up cross-tab synchronization listener for eventStore
+if (typeof window !== 'undefined') {
+  crossTabSync.subscribe('rsvp-events-storage', (message) => {
+    if (message.type === 'store-update' || message.type === 'force-refresh') {
+      const store = useEventStore.getState();
+      
+      // Handle force refresh
+      if (message.type === 'force-refresh' || message.action === 'force-refresh') {
+        console.log('🔄 Cross-tab: Force refreshing events...');
+        store.fetchEvents(true, true).catch(err => {
+          console.error('❌ Error refreshing events from cross-tab:', err);
+        });
+        return;
+      }
+      
+      // Handle store updates
+      if (message.data?.state) {
+        console.log('🔄 Cross-tab: Updating events from other tab...');
+        const newState = message.data.state;
+        
+        // Merge events intelligently (keep newer versions)
+        const currentEvents = store.events;
+        const incomingEvents = newState.events || [];
+        
+        // Create a map of current events by ID
+        const currentEventsMap = new Map(currentEvents.map(e => [e.id, e]));
+        
+        // Merge incoming events, keeping the newer version
+        const mergedEvents = incomingEvents.map((incomingEvent: Event) => {
+          const currentEvent = currentEventsMap.get(incomingEvent.id);
+          if (currentEvent) {
+            // Compare timestamps
+            const currentUpdatedAt = currentEvent.updatedAt 
+              ? (currentEvent.updatedAt instanceof Date ? currentEvent.updatedAt.getTime() : new Date(currentEvent.updatedAt).getTime())
+              : 0;
+            const incomingUpdatedAt = incomingEvent.updatedAt
+              ? (incomingEvent.updatedAt instanceof Date ? incomingEvent.updatedAt.getTime() : new Date(incomingEvent.updatedAt).getTime())
+              : 0;
+            
+            // Use the newer version
+            return incomingUpdatedAt >= currentUpdatedAt ? incomingEvent : currentEvent;
+          }
+          return incomingEvent;
+        });
+        
+        // Add any current events that aren't in incoming
+        currentEvents.forEach(currentEvent => {
+          if (!mergedEvents.find((e: Event) => e.id === currentEvent.id)) {
+            mergedEvents.push(currentEvent);
+          }
+        });
+        
+        // Mark that this update is from cross-tab to avoid broadcasting back
+        (window as any).__rsvp_cross_tab_update = true;
+        
+        // Update store with merged events
+        useEventStore.setState({
+          events: mergedEvents,
+          deletedEvents: newState.deletedEvents || store.deletedEvents,
+          deletedGuests: newState.deletedGuests || store.deletedGuests,
+          currentEvent: newState.currentEvent || store.currentEvent,
+        });
+      }
+    }
+  });
+  
+  // Broadcast store updates when state changes
+  let lastStateHash = '';
+  useEventStore.subscribe((state) => {
+    // Create a hash of the state to detect changes
+    const stateHash = JSON.stringify({
+      eventsCount: state.events.length,
+      currentEventId: state.currentEvent?.id,
+      deletedEventsCount: state.deletedEvents.length,
+    });
+    
+    // Only broadcast if state actually changed
+    if (stateHash !== lastStateHash) {
+      lastStateHash = stateHash;
+      
+      // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
+      const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
+      if (!isFromCrossTab && crossTabSync.isReady()) {
+        crossTabSync.broadcast({
+          type: 'store-update',
+          storeName: 'rsvp-events-storage',
+          action: 'state-change',
+          data: {
+            state: {
+              events: state.events,
+              deletedEvents: state.deletedEvents,
+              deletedGuests: state.deletedGuests,
+              currentEvent: state.currentEvent,
+            },
+          },
+        });
+      }
+      (window as any).__rsvp_cross_tab_update = false;
+    }
+  });
+}

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Client, ClientEvent, Reminder, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types';
 import { generateId, formatDate, cleanName } from '../utils/helpers';
+import { crossTabSync } from '../utils/crossTabSync';
 
 export interface ClientStore {
   clients: Client[];
@@ -589,3 +590,71 @@ export const useClientStore = create<ClientStore>()(
     }
   )
 );
+
+// Set up cross-tab synchronization listener for clientStore
+if (typeof window !== 'undefined') {
+  crossTabSync.subscribe('client-store', (message) => {
+    if (message.type === 'store-update' || message.type === 'force-refresh') {
+      const store = useClientStore.getState();
+      
+      // Handle force refresh
+      if (message.type === 'force-refresh' || message.action === 'force-refresh') {
+        console.log('🔄 Cross-tab: Force refreshing clients...');
+        store.fetchClients().catch(err => {
+          console.error('❌ Error refreshing clients from cross-tab:', err);
+        });
+        return;
+      }
+      
+      // Handle store updates
+      if (message.data?.state) {
+        console.log('🔄 Cross-tab: Updating clients from other tab...');
+        const newState = message.data.state;
+        
+        // Mark that this update is from cross-tab to avoid broadcasting back
+        (window as any).__rsvp_cross_tab_update = true;
+        
+        // Update store with new state
+        useClientStore.setState({
+          clients: newState.clients || store.clients,
+          reminders: newState.reminders || store.reminders,
+          currentClient: newState.currentClient || store.currentClient,
+        });
+      }
+    }
+  });
+  
+  // Broadcast store updates when state changes
+  let lastStateHash = '';
+  useClientStore.subscribe((state) => {
+    // Create a hash of the state to detect changes
+    const stateHash = JSON.stringify({
+      clientsCount: state.clients.length,
+      remindersCount: state.reminders.length,
+      currentClientId: state.currentClient?.id,
+    });
+    
+    // Only broadcast if state actually changed
+    if (stateHash !== lastStateHash) {
+      lastStateHash = stateHash;
+      
+      // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
+      const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
+      if (!isFromCrossTab && crossTabSync.isReady()) {
+        crossTabSync.broadcast({
+          type: 'store-update',
+          storeName: 'client-store',
+          action: 'state-change',
+          data: {
+            state: {
+              clients: state.clients,
+              reminders: state.reminders,
+              currentClient: state.currentClient,
+            },
+          },
+        });
+      }
+      (window as any).__rsvp_cross_tab_update = false;
+    }
+  });
+}

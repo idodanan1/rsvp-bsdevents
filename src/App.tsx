@@ -34,6 +34,7 @@ import { useUserStore } from './store/userStore';
 import { useCampaignStore } from './store/campaignStore';
 import { webhookService } from './services/webhookService';
 import { schedulerService } from './services/schedulerService';
+import { crossTabSync } from './utils/crossTabSync';
 
 // Component to save current location to localStorage
 function LocationSaver() {
@@ -54,8 +55,30 @@ function App() {
   
   // App initialization
   React.useEffect(() => {
-    // App initialized
-  }, []);
+    // Initialize cross-tab synchronization
+    if (crossTabSync.isReady()) {
+      console.log('✅ Cross-tab synchronization ready');
+      
+      // Listen for force refresh requests from other tabs
+      crossTabSync.subscribeAll((message) => {
+        if (message.type === 'force-refresh') {
+          console.log(`🔄 Cross-tab: Force refresh requested for ${message.storeName}`);
+          
+          if (message.storeName === 'rsvp-events-storage' || message.storeName === '*') {
+            fetchEvents(true, true).catch(err => {
+              console.error('❌ Error refreshing events from cross-tab:', err);
+            });
+          }
+          
+          if (message.storeName === 'client-store' || message.storeName === '*') {
+            fetchClients().catch(err => {
+              console.error('❌ Error refreshing clients from cross-tab:', err);
+            });
+          }
+        }
+      });
+    }
+  }, [fetchEvents, fetchClients]);
 
   // Load data in background - don't block rendering
   // Zustand persist already loads from localStorage instantly
