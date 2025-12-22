@@ -2007,11 +2007,20 @@ export const useEventStore = create<EventStore>()(
                   // Ensure all fields are updated
                   rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : g.rsvpStatus,
                   // CRITICAL: Preserve manual guestCount - if current is from manual_update and update would change it, preserve current
+                  // CRITICAL: EXCEPTION - guest_link updates ALWAYS take priority (direct user input from guest response page)
                   guestCount: (() => {
                     const currentSource = g.source || '';
                     const isCurrentFromManual = currentSource === 'manual_update';
                     const updateSource = updatedGuest.source || '';
                     const isUpdateFromManual = updateSource === 'manual_update';
+                    const isUpdateFromGuestLink = updateSource === 'guest_link';
+                    
+                    // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
+                    if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
+                      // Guest link update - always use the new value (direct user input)
+                      console.log(`✅ Applying guest_link guestCount update (API path): ${updatedGuest.guestCount} (overriding current: ${g.guestCount})`);
+                      return updatedGuest.guestCount;
+                    }
                     
                     // If current is manual and update would change it, preserve current unless update is also manual and newer
                     if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== g.guestCount) {
