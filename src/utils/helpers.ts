@@ -393,6 +393,7 @@ export const getFrontendUrl = (): string => {
 
 // Generate guest response link (works on all devices)
 // CRITICAL: Always includes eventId to distinguish between events, even if guests are identical
+// The eventId is included both in the path AND as a query parameter for maximum uniqueness
 export const generateGuestResponseLink = (eventId: string, guestId: string): string => {
   // Validate inputs
   if (!eventId || !guestId) {
@@ -402,9 +403,10 @@ export const generateGuestResponseLink = (eventId: string, guestId: string): str
   
   const frontendUrl = getFrontendUrl();
   // Use HashRouter format for static hosting compatibility
-  // Format: /#/guest-response/{eventId}?guest={guestId}
-  // This ensures each link is unique per event, even if guests have the same ID across events
-  const link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}`;
+  // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}
+  // CRITICAL: eventId appears TWICE - once in path, once as query param
+  // This ensures maximum uniqueness when same person is invited to multiple events
+  const link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}&event=${eventId}`;
   console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId);
   return link;
 };
