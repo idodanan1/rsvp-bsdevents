@@ -51,13 +51,13 @@ if (append && guests.length > 0) {
 ## איך לחזור למצב זה:
 1. אם יש בעיה בעתיד, ניתן לחזור ל-commit זה
 2. **Tag:** `guest-count-fix-stable`
-3. **Commit hash:** `110f31f`
+3. **Commit hash:** `e40f0e0`
 4. **Commit message:** "Fix guestCount update from guest_link - now displays correctly in table after server load"
 
 ### פקודות לחזרה למצב זה:
 ```bash
 # לחזור ל-commit זה:
-git checkout 110f31f
+git checkout e40f0e0
 
 # או לחזור ל-tag:
 git checkout guest-count-fix-stable
