@@ -2089,6 +2089,9 @@ export const useEventStore = create<EventStore>()(
             console.log(`📋 Before update - Event found: ${!!event}, Guest found: ${!!guest}`);
             console.log(`📋 Events in store: ${state.events.length}`);
             console.log(`📋 Guest status:`, guest?.rsvpStatus);
+            console.log(`📋 Guest count before update:`, guest?.guestCount);
+            console.log(`📋 Updated guest count:`, updatedGuest.guestCount);
+            console.log(`📋 Updated guest source:`, updatedGuest.source);
             
             // CRITICAL: Create new array reference to force React re-render
             // Always create a completely new events array to ensure React detects the change
