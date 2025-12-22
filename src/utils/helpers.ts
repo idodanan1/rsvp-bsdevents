@@ -405,7 +405,10 @@ export const generateGuestResponseLink = (eventId: string, guestId: string, firs
   // Use HashRouter format for static hosting compatibility
   // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}&name={firstName}_{lastName}&phone={phoneNumber}
   // CRITICAL: Includes eventId, guestId, name, and phone to ensure maximum uniqueness
-  const nameParam = firstName && lastName ? `${encodeURIComponent(firstName)}_${encodeURIComponent(lastName)}` : '';
+  // CRITICAL: Clean names before encoding to ensure consistency
+  const cleanedFirstName = cleanName(firstName || '');
+  const cleanedLastName = cleanName(lastName || '');
+  const nameParam = (cleanedFirstName || cleanedLastName) ? `${encodeURIComponent(cleanedFirstName)}_${encodeURIComponent(cleanedLastName)}` : '';
   const phoneParam = phoneNumber ? encodeURIComponent(phoneNumber.replace(/\D/g, '')) : ''; // Remove non-digits for consistency
   
   let link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}&event=${eventId}`;

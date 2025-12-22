@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName, generateGuestResponseLink } from '../utils/helpers';
+import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
 // Import messageService dynamically to avoid circular dependency issues
 // import { messageService } from '../services/messageService';
@@ -2498,6 +2498,9 @@ const EventManagement: React.FC = () => {
       
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
+
+      // CRITICAL: Import generateGuestResponseLink dynamically to avoid initialization issues
+      const { generateGuestResponseLink } = await import('../utils/helpers');
 
       const recipients = guestsToSend.map(guest => {
         // Use helper function to ensure production URL (works on all devices)
