@@ -557,29 +557,46 @@ export const useEventStore = create<EventStore>()(
                           
                           // CRITICAL: Log all guest_link updates to verify they're being detected
                           if (isApiFromGuestLink) {
+                            const isProblematicGuest = (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
+                                                      (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו')) ||
+                                                      (g.firstName?.includes('עידו') && g.lastName?.includes('דנן'));
                             console.log(`🔍 DETECTED guest_link update in fetchEvents for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               apiRsvpStatus: g.rsvpStatus,
                               apiGuestCount: g.guestCount,
                               apiSource: g.source,
                               existingRsvpStatus: existingGuest.rsvpStatus,
                               existingGuestCount: existingGuest.guestCount,
-                              existingSource: existingGuest.source
+                              existingSource: existingGuest.source,
+                              isProblematicGuest,
+                              willApply: true // guest_link updates are always applied
                             });
+                            if (isProblematicGuest) {
+                              console.log(`🔍 PROBLEMATIC GUEST DETECTED IN FETCH: ${g.firstName} ${g.lastName}`, {
+                                id: g.id,
+                                apiRsvpStatus: g.rsvpStatus,
+                                apiGuestCount: g.guestCount,
+                                existingRsvpStatus: existingGuest.rsvpStatus,
+                                existingGuestCount: existingGuest.guestCount,
+                                statusWillChange: g.rsvpStatus !== existingGuest.rsvpStatus,
+                                countWillChange: g.guestCount !== existingGuest.guestCount
+                              });
+                            }
                           }
                           
                           // CRITICAL: If API has guest_link update, ALWAYS use it (direct user input from guest response page)
                           if (isApiFromGuestLink) {
                             const statusChanged = existingGuest.rsvpStatus !== g.rsvpStatus;
                             const countChanged = existingGuest.guestCount !== g.guestCount;
-                            const nameMatch = (g.firstName?.includes('דורון') || g.lastName?.includes('שושני')) || 
-                                            (g.firstName?.includes('מאור') || g.lastName?.includes('רומנו'));
+                            const isProblematicGuest = (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
+                                                      (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו')) ||
+                                                      (g.firstName?.includes('עידו') && g.lastName?.includes('דנן'));
                             console.log(`✅ Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               rsvpStatus: g.rsvpStatus,
                               guestCount: g.guestCount,
                               responseDate: g.responseDate,
                               statusChanged,
                               countChanged,
-                              isProblematicGuest: nameMatch,
+                              isProblematicGuest,
                               overridingLocal: {
                                 rsvpStatus: existingGuest.rsvpStatus,
                                 guestCount: existingGuest.guestCount,
@@ -592,10 +609,12 @@ export const useEventStore = create<EventStore>()(
                             if (countChanged) {
                               console.log(`🔄 COUNT CHANGE: ${existingGuest.guestCount} -> ${g.guestCount} for guest ${g.id} (${g.firstName} ${g.lastName})`);
                             }
-                            if (nameMatch) {
-                              console.log(`🔍 PROBLEMATIC GUEST UPDATE: ${g.firstName} ${g.lastName} - status: ${g.rsvpStatus}, count: ${g.guestCount}, source: ${g.source}`);
+                            if (isProblematicGuest) {
+                              console.log(`🔍 PROBLEMATIC GUEST UPDATE APPLIED: ${g.firstName} ${g.lastName} - status: ${g.rsvpStatus}, count: ${g.guestCount}, source: ${g.source}`);
+                              console.log(`🔍 BEFORE: status=${existingGuest.rsvpStatus}, count=${existingGuest.guestCount}`);
+                              console.log(`🔍 AFTER: status=${g.rsvpStatus}, count=${g.guestCount}`);
                             }
-                            return {
+                            const updatedGuest = {
                               ...g,
                               firstName: cleanName(g.firstName),
                               lastName: cleanName(g.lastName),
@@ -607,6 +626,15 @@ export const useEventStore = create<EventStore>()(
                               source: g.source,
                               responseDate: g.responseDate
                             };
+                            if (isProblematicGuest) {
+                              console.log(`🔍 RETURNING UPDATED GUEST:`, {
+                                id: updatedGuest.id,
+                                rsvpStatus: updatedGuest.rsvpStatus,
+                                guestCount: updatedGuest.guestCount,
+                                source: updatedGuest.source
+                              });
+                            }
+                            return updatedGuest;
                           }
                           
                           // CRITICAL: If API has manual_update, use it if it's newer or equal (manual update from table was saved to server)
