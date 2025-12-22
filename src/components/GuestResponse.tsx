@@ -773,66 +773,61 @@ const GuestResponse = () => {
       return;
     }
     
-    // CRITICAL: Additional verification - ensure guest belongs to the correct event
-    // Also try to find guest with partial match (in case guestId has extra characters like 'https')
-    let foundGuest = guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null;
-    
-    if (!foundGuest && guestId && currentEvent) {
-      // Try partial match - guestId might have extra characters
-      foundGuest = currentEvent.guests?.find((g: any) => 
-        g.id.startsWith(guestId) || guestId.startsWith(g.id) ||
-        g.id === guestId.replace(/https?$/i, '') || // Remove https/http at end
-        guestId.replace(/https?$/i, '') === g.id
-      );
-      
-      if (foundGuest) {
-        console.log(`✅ Found guest with partial match: ${foundGuest.id} (searched for: ${guestId})`);
-        // Update guestId to the correct one
-        const correctGuestId = foundGuest.id;
-        // Update the guest reference
-        const guestToUpdate = currentEvent.guests?.find((g: any) => g.id === correctGuestId);
-        if (guestToUpdate) {
-          // Continue with the correct guestId
-          console.log(`✅ Using correct guestId: ${correctGuestId}`);
-        }
-      }
-    }
-    
-    if (!foundGuest && guestId && currentEvent) {
-      console.error(`❌ Guest ${guestId} not found in event ${eventId}`);
-      console.error(`❌ This ensures we're updating the correct guest in the correct event`);
-      console.error(`❌ Available guest IDs:`, currentEvent.guests?.slice(0, 5).map((g: any) => g.id));
-      setSubmitStatus('error');
-      setErrorMessage(`אורח לא נמצא באירוע זה. מזהה אירוע: ${eventId}, מזהה אורח: ${guestId}`);
-      return;
-    }
-    
     setIsSubmitting(true);
     setSubmitStatus('idle');
     setErrorMessage('');
     
     try {
-      // Determine the guest to update
-      // First try exact match
-      let guestToUpdate = currentGuest || (guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null);
+      // CRITICAL: Always find guest by guestId from URL, regardless of currentGuest
+      // This ensures we always update the correct guest, even if currentGuest is not set
+      let guestToUpdate: any = null;
       
-      // If not found, try partial match (in case guestId has extra characters like 'https')
-      if (!guestToUpdate && guestId && currentEvent) {
-        // Clean guestId - remove https/http at the end
-        const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
-        guestToUpdate = currentEvent.guests?.find((g: any) => 
-          g.id === cleanedGuestId ||
-          g.id.startsWith(cleanedGuestId) || 
-          cleanedGuestId.startsWith(g.id) ||
-          g.id === guestId.replace(/https?$/i, '')
-        );
+      // First, try to find guest by exact guestId match in currentEvent
+      if (guestId && currentEvent) {
+        guestToUpdate = currentEvent.guests?.find((g: any) => g.id === guestId);
         
         if (guestToUpdate) {
-          console.log(`✅ Found guest with partial match: ${guestToUpdate.id} (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
+          console.log(`✅ Found guest by exact match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
+        } else {
+          // Try partial match (in case guestId has extra characters like 'https')
+          const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
+          guestToUpdate = currentEvent.guests?.find((g: any) => 
+            g.id === cleanedGuestId ||
+            g.id.startsWith(cleanedGuestId) || 
+            cleanedGuestId.startsWith(g.id) ||
+            g.id === guestId.replace(/https?$/i, '')
+          );
+          
+          if (guestToUpdate) {
+            console.log(`✅ Found guest with partial match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName}) (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
+          }
         }
       }
       
-      console.log('👤 Guest to update:', guestToUpdate?.id, guestToUpdate?.firstName);
+      // Fallback: Use currentGuest if guestId search failed
+      if (!guestToUpdate && currentGuest) {
+        console.log(`⚠️ Guest not found by guestId, using currentGuest: ${currentGuest.id} (${currentGuest.firstName} ${currentGuest.lastName})`);
+        guestToUpdate = currentGuest;
+      }
+      
+      if (!guestToUpdate) {
+        console.error(`❌ CRITICAL: Guest not found by any method!`, {
+          guestId,
+          eventId,
+          currentGuest: currentGuest?.id,
+          availableGuests: currentEvent.guests?.slice(0, 5).map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` }))
+        });
+        setSubmitStatus('error');
+        setErrorMessage(`אורח לא נמצא באירוע זה. מזהה אירוע: ${eventId}, מזהה אורח: ${guestId}`);
+        return;
+      }
+      
+      console.log('👤 Guest to update:', {
+        id: guestToUpdate.id,
+        name: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+        currentStatus: guestToUpdate.rsvpStatus,
+        currentGuestCount: guestToUpdate.guestCount
+      });
       
       // Determine the response status
       const responseStatus = formData.response === 'attending' ? 'confirmed' : 
@@ -840,9 +835,9 @@ const GuestResponse = () => {
       
       console.log('📝 Response status:', responseStatus);
       
-      if (guestToUpdate) {
-        // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
-        let finalNotes = formData.notes || '';
+      // CRITICAL: guestToUpdate is guaranteed to exist at this point (we checked above)
+      // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
+      let finalNotes = formData.notes || '';
         
         // CRITICAL: Always use current time for responseDate to ensure update is always considered "newer"
         // This ensures repeated updates from guest_link are always processed
@@ -873,7 +868,9 @@ const GuestResponse = () => {
           guestId: guestToUpdate.id,
           guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
           currentStatus: guestToUpdate.rsvpStatus,
-          newStatus: updatedGuest.rsvpStatus
+          currentGuestCount: guestToUpdate.guestCount,
+          newStatus: updatedGuest.rsvpStatus,
+          newGuestCount: updatedGuest.guestCount
         });
         
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
@@ -914,93 +911,28 @@ const GuestResponse = () => {
         // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
         // This ensures the table in EventManagement updates immediately
-        setTimeout(() => {
-          storeState.fetchEvents(false, true).catch(err => {
-            console.warn(`⚠️ Failed to refresh events after guest response update:`, err);
-          });
-        }, 100); // Single delayed refresh to ensure API is in sync
-      } else if (guestId) {
-        // Try to find guest by ID in event
-        const foundGuest = currentEvent.guests?.find((g: any) => g.id === guestId);
-        if (foundGuest) {
-          let finalNotes = formData.notes || '';
-          
-          // CRITICAL: Always use current time for responseDate to ensure update is always considered "newer"
-          const currentResponseDate = new Date();
-          
-          const updatedGuest = {
-            ...foundGuest,
-            guestCount: formData.guestCount,
-            notes: finalNotes,
-            rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
-            responseDate: currentResponseDate, // CRITICAL: Always use current time
-            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked',
-            source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
-          };
-          
-          await updateGuestResponse(currentEvent.id, guestId, updatedGuest);
-          
-          // CRITICAL: Get the updated state immediately after updateGuestResponse
-          // This ensures we have the latest data from the store
-          const storeModule = await import('../store/eventStore');
-          const storeState = storeModule.useEventStore.getState();
-          const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
-          const refreshedGuest = refreshedEvent?.guests?.find(g => g.id === guestId);
-          console.log(`🔄 Refreshed guest status after update: ${refreshedGuest?.rsvpStatus}`);
-          console.log(`🔄 Refreshed guest count after update: ${refreshedGuest?.guestCount}`);
-          
-          // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
-          // The store update already triggers React re-renders, but fetchEvents ensures API sync
-          // This ensures the table in EventManagement updates immediately
-          // Use immediate refresh (minimal delay) to ensure table updates instantly
-          // CRITICAL: Force refresh to ensure EventManagement detects the change
-          console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestId} update...`);
-          setTimeout(() => {
-            storeState.fetchEvents(true, true).then(() => {
-              console.log(`✅ fetchEvents completed - table should now show updated guest ${guestId}`);
-              // Verify the update was loaded from server
-              const verifyState = storeState;
-              const verifyEvent = verifyState.events.find(e => e.id === currentEvent.id);
-              const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
-              if (verifyGuest) {
-                console.log(`✅ VERIFIED: Guest ${guestId} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
-                  rsvpStatus: verifyGuest.rsvpStatus,
-                  guestCount: verifyGuest.guestCount,
-                  source: verifyGuest.source,
-                  responseDate: verifyGuest.responseDate
-                });
-              } else {
-                console.error(`❌ Guest ${guestId} not found after fetchEvents!`);
-              }
-            }).catch(err => {
-              console.error('❌ Failed to refresh events after guest response update:', err);
+      console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update...`);
+      setTimeout(() => {
+        storeState.fetchEvents(true, true).then(() => {
+          console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
+          // Verify the update was loaded from server
+          const verifyState = storeState;
+          const verifyEvent = verifyState.events.find(e => e.id === currentEvent.id);
+          const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestToUpdate.id);
+          if (verifyGuest) {
+            console.log(`✅ VERIFIED: Guest ${guestToUpdate.id} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
+              rsvpStatus: verifyGuest.rsvpStatus,
+              guestCount: verifyGuest.guestCount,
+              source: (verifyGuest as any).source,
+              responseDate: verifyGuest.responseDate
             });
-          }, 500); // Increased delay to ensure server update completes first
-        } else {
-          // Create new guest (fallback for direct access)
-          let finalNotes = formData.notes || '';
-          
-          const newGuest = {
-            id: guestId || 'guest-' + Date.now(),
-            firstName: formData.fullName.split(' ')[0] || 'אורח',
-            lastName: formData.fullName.split(' ').slice(1).join(' ') || 'דמו',
-            phoneNumber: formData.phoneNumber || '000-0000000',
-            guestCount: formData.guestCount,
-            notes: finalNotes,
-            rsvpStatus: responseStatus as 'confirmed' | 'declined' | 'maybe',
-            responseDate: new Date(),
-            channel: 'manual' as const,
-            actualAttendance: (formData.response === 'attending' ? 'not_marked' : 'not_marked') as 'attended' | 'not_attended' | 'not_marked'
-          };
-          
-          await updateGuestResponse(currentEvent.id, newGuest.id, newGuest);
-        }
-      } else {
-        console.error('❌ No guest ID provided');
-        setSubmitStatus('error');
-        setErrorMessage('אורח לא נמצא');
-        return;
-      }
+          } else {
+            console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
+          }
+        }).catch(err => {
+          console.error('❌ Failed to refresh events after guest response update:', err);
+        });
+      }, 500); // Increased delay to ensure server update completes first
       
       // Reset confirm button state
       setShowConfirmButton(false);
