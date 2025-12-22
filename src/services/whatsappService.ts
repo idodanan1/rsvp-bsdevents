@@ -113,6 +113,88 @@ class WhatsAppService {
           };
           // No components needed for hello_world - it's that simple!
           // Skip all the complex logic below and go directly to sending
+        } else if (templateName === 'simple_invitation') {
+          // NEW SIMPLE TEMPLATE: Uses positional parameters ({{1}}, {{2}}, etc.) - NO parameter_name needed
+          messagePayload.type = 'template';
+          messagePayload.template = {
+            name: 'simple_invitation',
+            language: {
+              code: 'he'
+            }
+          };
+          
+          // Get data from templateParams
+          const eventData = (messageData.templateParams as any)?.eventData || {};
+          const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
+          const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          
+          // Get image URL
+          const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
+          const eventInvitationImage = eventData?.invitationImageUrl;
+          const headerImageUrl = headerImageFromParams || eventInvitationImage || messageData.imageUrl;
+          
+          // Build 10 body parameters WITHOUT parameter_name (positional parameters)
+          // Order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name, guest_response_link, couple_name (again for signature)
+          const bodyParams = [
+            { type: 'text', text: (guestName && guestName.trim()) || 'אורח' }, // {{1}}
+            { type: 'text', text: (eventData.eventTypeHebrew && eventData.eventTypeHebrew.trim()) || 'חתונה' }, // {{2}}
+            { type: 'text', text: (eventData.groomName && eventData.groomName.trim()) || 'חתן' }, // {{3}}
+            { type: 'text', text: (eventData.brideName && eventData.brideName.trim()) || 'כלה' }, // {{4}}
+            { type: 'text', text: (eventData.eventDate && eventData.eventDate.trim()) || 'תאריך האירוע' }, // {{5}}
+            { type: 'text', text: (eventData.eventTime && eventData.eventTime.trim()) || 'שעת האירוע' }, // {{6}}
+            { type: 'text', text: (eventData.venue && eventData.venue.trim()) || 'מיקום האירוע' }, // {{7}}
+            { type: 'text', text: (eventData.coupleName && eventData.coupleName.trim()) || (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 'הזוג') }, // {{8}}
+            { type: 'text', text: (guestResponseLink && guestResponseLink.trim()) || 'https://rsvp-frontend-wy47.onrender.com' }, // {{9}}
+            { type: 'text', text: (eventData.coupleName && eventData.coupleName.trim()) || (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 'הזוג') } // {{10}} - for signature
+          ];
+          
+          // Validate all parameters are non-empty
+          bodyParams.forEach((param, index) => {
+            if (!param.text || param.text.trim().length === 0) {
+              console.warn(`⚠️ Parameter ${index + 1} is empty, using placeholder`);
+              param.text = `פרמטר ${index + 1}`;
+            }
+          });
+          
+          console.log('📋 Body parameters for template "simple_invitation":', bodyParams.map((p, i) => `${i + 1}. "${p.text.substring(0, 30)}${p.text.length > 30 ? '...' : ''}"`));
+          
+          // Build components array - start with body
+          const components: any[] = [
+            {
+              type: 'body',
+              parameters: bodyParams
+            }
+          ];
+          
+          // Add header image if available
+          const isValidImageUrl = headerImageUrl && (
+            headerImageUrl.startsWith('https://') || 
+            headerImageUrl.startsWith('http://')
+          );
+          
+          if (isValidImageUrl) {
+            let imageUrlForMeta = headerImageUrl;
+            if (headerImageUrl.startsWith('http://')) {
+              imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+            }
+            
+            components.unshift({
+              type: 'header',
+              parameters: [
+                {
+                  type: 'image',
+                  image: {
+                    link: imageUrlForMeta
+                  }
+                }
+              ]
+            });
+            console.log('🖼️ ✅ Adding header image to template "simple_invitation":', imageUrlForMeta);
+          }
+          
+          messagePayload.template.components = components;
+          
+          // Skip all the complex logic below and go directly to sending
         } else if (templateName === 'new' || templateName === 'aa') {
           messagePayload.type = 'template';
           messagePayload.template = {
