@@ -2854,13 +2854,30 @@ export const useEventStore = create<EventStore>()(
               // This ensures the update is persisted immediately in the server
               // The table will then refresh from the server to get the latest data
               try {
+                const isProblematicGuest = (updatedGuest.firstName?.includes('דורון') && updatedGuest.lastName?.includes('שושני')) ||
+                                          (updatedGuest.firstName?.includes('מאור') && updatedGuest.lastName?.includes('רומנו')) ||
+                                          (updatedGuest.firstName?.includes('עידו') && updatedGuest.lastName?.includes('דנן'));
+                
                 console.log('🔄 Updating event directly in server via /api/events/:eventId/guests...');
                 console.log('📤 Sending updated guest to server:', {
                   eventId: updatedEvent.id,
                   guestId: updatedGuest.id,
                   rsvpStatus: updatedGuest.rsvpStatus,
-                  guestCount: updatedGuest.guestCount
+                  guestCount: updatedGuest.guestCount,
+                  source: updatedGuest.source,
+                  isProblematicGuest
                 });
+                
+                if (isProblematicGuest) {
+                  console.log(`🔍 PROBLEMATIC GUEST SENDING TO SERVER: ${updatedGuest.firstName} ${updatedGuest.lastName}`, {
+                    id: updatedGuest.id,
+                    eventId: updatedEvent.id,
+                    rsvpStatus: updatedGuest.rsvpStatus,
+                    guestCount: updatedGuest.guestCount,
+                    source: updatedGuest.source,
+                    responseDate: updatedGuest.responseDate
+                  });
+                }
                 
                 // Send only the updated guest with append=true to merge with existing guests
                 // CRITICAL: Ensure all required fields are included in the guest object
@@ -2906,6 +2923,10 @@ export const useEventStore = create<EventStore>()(
                 
                 if (apiUpdateResponse.ok) {
                   const apiResponseData = await apiUpdateResponse.json();
+                  const isProblematicGuest = (guestForServer.firstName?.includes('דורון') && guestForServer.lastName?.includes('שושני')) ||
+                                            (guestForServer.firstName?.includes('מאור') && guestForServer.lastName?.includes('רומנו')) ||
+                                            (guestForServer.firstName?.includes('עידו') && guestForServer.lastName?.includes('דנן'));
+                  
                   console.log('✅ Event updated directly in server:', {
                     success: true,
                     message: apiResponseData.message || 'Updated event with guests',
@@ -2914,8 +2935,19 @@ export const useEventStore = create<EventStore>()(
                     guestName: `${guestForServer.firstName} ${guestForServer.lastName}`,
                     rsvpStatus: guestForServer.rsvpStatus,
                     guestCount: guestForServer.guestCount,
-                    source: guestForServer.source
+                    source: guestForServer.source,
+                    isProblematicGuest
                   });
+                  
+                  if (isProblematicGuest) {
+                    console.log(`🔍 PROBLEMATIC GUEST SENT TO SERVER SUCCESSFULLY: ${guestForServer.firstName} ${guestForServer.lastName}`, {
+                      id: guestForServer.id,
+                      rsvpStatus: guestForServer.rsvpStatus,
+                      guestCount: guestForServer.guestCount,
+                      source: guestForServer.source,
+                      responseDate: guestForServer.responseDate
+                    });
+                  }
                   
                   // CRITICAL: Verify the update was saved correctly
                   console.log(`✅ VERIFIED: Guest ${guestForServer.id} (${guestForServer.firstName} ${guestForServer.lastName}) update sent to server:`, {
@@ -2932,14 +2964,28 @@ export const useEventStore = create<EventStore>()(
                   console.log('✅ Server update confirmed - local update preserved in store');
                 } else {
                   const apiErrorText = await apiUpdateResponse.text();
+                  const isProblematicGuest = (guestForServer.firstName?.includes('דורון') && guestForServer.lastName?.includes('שושני')) ||
+                                            (guestForServer.firstName?.includes('מאור') && guestForServer.lastName?.includes('רומנו')) ||
+                                            (guestForServer.firstName?.includes('עידו') && guestForServer.lastName?.includes('דנן'));
+                  
                   console.error('❌ FAILED to update event directly in server:', {
                     status: apiUpdateResponse.status,
                     statusText: apiUpdateResponse.statusText,
                     error: apiErrorText,
                     guestId: guestForServer.id,
                     guestName: `${guestForServer.firstName} ${guestForServer.lastName}`,
-                    eventId: eventId
+                    eventId: eventId,
+                    isProblematicGuest
                   });
+                  
+                  if (isProblematicGuest) {
+                    console.error(`🔍 PROBLEMATIC GUEST FAILED TO SEND TO SERVER: ${guestForServer.firstName} ${guestForServer.lastName}`, {
+                      id: guestForServer.id,
+                      status: apiUpdateResponse.status,
+                      error: apiErrorText
+                    });
+                  }
+                  
                   // Fallback: Still add to pendingUpdates for webhook service to process
                   console.log('⚠️ Falling back to pendingUpdates mechanism');
                 }
