@@ -6405,6 +6405,18 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
     fileData.events[eventIndex].guests = finalGuests;
     fileData.events[eventIndex].updatedAt = new Date().toISOString();
     
+    // CRITICAL: Verify guestCount was updated correctly
+    if (append && guests.length > 0) {
+      const updatedGuest = guests[0];
+      const savedGuest = finalGuests.find(g => g.id === updatedGuest.id);
+      if (savedGuest) {
+        console.log(`✅ VERIFIED: Guest ${savedGuest.id} (${savedGuest.firstName} ${savedGuest.lastName}) guestCount saved as: ${savedGuest.guestCount} (incoming was: ${updatedGuest.guestCount})`);
+        if (savedGuest.guestCount !== updatedGuest.guestCount) {
+          console.error(`❌ GUEST COUNT MISMATCH! Saved: ${savedGuest.guestCount}, Incoming: ${updatedGuest.guestCount}`);
+        }
+      }
+    }
+    
     // Save to file
     fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
     

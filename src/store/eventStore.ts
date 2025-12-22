@@ -553,6 +553,21 @@ export const useEventStore = create<EventStore>()(
                           const isExistingFromManual = existingSource === 'manual_update';
                           const apiSource = g.source || '';
                           const isApiFromManual = apiSource === 'manual_update';
+                          const isApiFromGuestLink = apiSource === 'guest_link';
+                          
+                          // CRITICAL: If API has guest_link update, ALWAYS use it (direct user input from guest response page)
+                          if (isApiFromGuestLink && g.guestCount !== undefined) {
+                            console.log(`✅ Using guest_link guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount})`);
+                            return {
+                              ...g,
+                              firstName: cleanName(g.firstName),
+                              lastName: cleanName(g.lastName),
+                              // CRITICAL: Use API data for guest_link updates
+                              guestCount: g.guestCount,
+                              source: g.source,
+                              responseDate: g.responseDate
+                            };
+                          }
                           
                           // If existing is manual and API is not, or existing is newer, preserve existing guestCount
                           if (isExistingFromManual && existingGuest.guestCount !== undefined) {
