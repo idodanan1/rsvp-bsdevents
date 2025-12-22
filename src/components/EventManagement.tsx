@@ -2506,7 +2506,7 @@ const EventManagement: React.FC = () => {
       
       const recipients = guestsToSend.map(guest => {
         // Use helper function to ensure production URL (works on all devices)
-        const guestLink = generateGuestResponseLink(currentEvent.id, guest.id);
+        const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
       console.log('🔗 Generated guest link:', guestLink);
       console.log('🔗 Event ID:', currentEvent.id);
       console.log('🔗 Guest ID:', guest.id);
@@ -2676,7 +2676,8 @@ const EventManagement: React.FC = () => {
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
       const { generateGuestResponseLink } = await import('../utils/helpers');
-      const guestLink = generateGuestResponseLink(event.id, guestIdToUse);
+      const guest = event.guests.find(g => g.id === guestIdToUse);
+      const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guest?.firstName, guest?.lastName, guest?.phoneNumber);
       
       console.log('🔗 Single guest link:', guestLink);
       console.log('🔗 Single Event ID:', event.id);

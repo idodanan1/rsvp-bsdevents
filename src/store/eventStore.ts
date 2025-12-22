@@ -2221,12 +2221,28 @@ export const useEventStore = create<EventStore>()(
             const event = state.events.find(e => e.id === eventId);
             const guest = event?.guests?.find(g => g.id === guestId);
             
+            const isProblematicGuest = (guest?.firstName?.includes('דורון') && guest?.lastName?.includes('שושני')) ||
+                                      (guest?.firstName?.includes('מאור') && guest?.lastName?.includes('רומנו'));
+            
             console.log(`📋 Before update - Event found: ${!!event}, Guest found: ${!!guest}`);
             console.log(`📋 Events in store: ${state.events.length}`);
             console.log(`📋 Guest status:`, guest?.rsvpStatus);
             console.log(`📋 Guest count before update:`, guest?.guestCount);
             console.log(`📋 Updated guest count:`, updatedGuest.guestCount);
             console.log(`📋 Updated guest source:`, updatedGuest.source);
+            console.log(`📋 Is problematic guest:`, isProblematicGuest);
+            
+            if (isProblematicGuest) {
+              console.log(`🔍 PROBLEMATIC GUEST UPDATE IN STORE: ${guest?.firstName} ${guest?.lastName}`, {
+                id: guestId,
+                eventId,
+                currentStatus: guest?.rsvpStatus,
+                newStatus: updatedGuest.rsvpStatus,
+                currentCount: guest?.guestCount,
+                newCount: updatedGuest.guestCount,
+                source: updatedGuest.source
+              });
+            }
             
             // CRITICAL: Create new array reference to force React re-render
             // Always create a completely new events array to ensure React detects the change
@@ -3184,7 +3200,7 @@ export const useEventStore = create<EventStore>()(
             
             // Replace the generic link with guest-specific link
             // Use helper function to ensure production URL (works on all devices)
-            const guestLink = generateGuestResponseLink(eventId, guest.id);
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
             
             // Debug: Log the guest ID being used
             console.log('🔗 Campaign - Guest ID:', guest.id, 'for guest:', `${guest.firstName} ${guest.lastName}`);
@@ -3263,7 +3279,7 @@ export const useEventStore = create<EventStore>()(
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
             // Use helper function to ensure production URL (works on all devices)
-            const guestLink = generateGuestResponseLink(eventId, guest.id);
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
             
             // Prepare template parameters based on the template name (use corrected templateNameForCampaign)
             // Different templates require different parameters
@@ -3585,7 +3601,7 @@ export const useEventStore = create<EventStore>()(
           // Create personalized messages for each failed guest
           const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
             let personalizedMessage = campaign.message;
-            const guestLink = generateGuestResponseLink(eventId, guest.id);
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
             
             // Replace template variables
             personalizedMessage = personalizedMessage

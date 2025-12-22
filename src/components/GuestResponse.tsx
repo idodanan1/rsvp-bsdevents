@@ -302,6 +302,63 @@ const GuestResponse = () => {
   
   const guestId = parseGuestId();
   
+  // Parse guest name and phone from URL (for additional verification)
+  const parseGuestName = () => {
+    const hash = window.location.hash;
+    const fromSearch = searchParams.get('name');
+    
+    if (fromSearch) {
+      const decoded = decodeURIComponent(fromSearch);
+      const parts = decoded.split('_');
+      if (parts.length >= 2) {
+        return { firstName: parts[0], lastName: parts.slice(1).join('_') };
+      } else if (parts.length === 1) {
+        return { firstName: parts[0], lastName: '' };
+      }
+    }
+    
+    // Try to find in hash
+    if (hash) {
+      const nameMatch = hash.match(/[?&]name=([^&]+)/);
+      if (nameMatch && nameMatch[1]) {
+        const decoded = decodeURIComponent(nameMatch[1]);
+        const parts = decoded.split('_');
+        if (parts.length >= 2) {
+          return { firstName: parts[0], lastName: parts.slice(1).join('_') };
+        } else if (parts.length === 1) {
+          return { firstName: parts[0], lastName: '' };
+        }
+      }
+    }
+    
+    return null;
+  };
+  
+  const parseGuestPhone = () => {
+    const fromSearch = searchParams.get('phone');
+    if (fromSearch) {
+      return decodeURIComponent(fromSearch);
+    }
+    
+    const hash = window.location.hash;
+    if (hash) {
+      const phoneMatch = hash.match(/[?&]phone=([^&]+)/);
+      if (phoneMatch && phoneMatch[1]) {
+        return decodeURIComponent(phoneMatch[1]);
+      }
+    }
+    
+    return null;
+  };
+  
+  const guestNameFromUrl = parseGuestName();
+  const guestPhoneFromUrl = parseGuestPhone();
+  
+  console.log(`🔍 Final guestId: ${guestId}`);
+  console.log(`🔍 Final eventId: ${eventId}`);
+  console.log(`🔍 Guest name from URL:`, guestNameFromUrl);
+  console.log(`🔍 Guest phone from URL:`, guestPhoneFromUrl);
+  
   // DEBUG: Log URL parsing
   React.useEffect(() => {
     console.log('🔍 GuestResponse URL Debug:', {
@@ -314,7 +371,51 @@ const GuestResponse = () => {
       guestId: guestId,
       searchParams: Object.fromEntries(searchParams.entries())
     });
-  }, [paramEventId, eventId, guestId, searchParams]);
+    
+    // CRITICAL: Log all guests in the event to verify guestId matching
+    if (eventId && events.length > 0) {
+      const event = events.find(e => e.id === eventId);
+      if (event) {
+        console.log(`🔍 Event ${eventId} has ${event.guests?.length || 0} guests`);
+        if (guestId) {
+          const matchingGuest = event.guests?.find((g: any) => g.id === guestId);
+          if (matchingGuest) {
+            console.log(`✅ GuestId ${guestId} matches guest: ${matchingGuest.firstName} ${matchingGuest.lastName}`);
+            const isProblematic = (matchingGuest.firstName?.includes('דורון') && matchingGuest.lastName?.includes('שושני')) ||
+                                (matchingGuest.firstName?.includes('מאור') && matchingGuest.lastName?.includes('רומנו'));
+            if (isProblematic) {
+              console.log(`🔍 PROBLEMATIC GUEST FOUND IN EVENT: ${matchingGuest.firstName} ${matchingGuest.lastName}`, {
+                id: matchingGuest.id,
+                status: matchingGuest.rsvpStatus,
+                guestCount: matchingGuest.guestCount
+              });
+            }
+          } else {
+            console.error(`❌ GuestId ${guestId} NOT FOUND in event ${eventId}!`);
+            console.error(`❌ Available guest IDs (first 10):`, event.guests?.slice(0, 10).map((g: any) => ({
+              id: g.id,
+              name: `${g.firstName} ${g.lastName}`
+            })));
+            // Try to find similar guestIds
+            const similarGuests = event.guests?.filter((g: any) => 
+              g.id.includes(guestId) || guestId.includes(g.id) ||
+              g.id.startsWith(guestId) || guestId.startsWith(g.id)
+            );
+            if (similarGuests && similarGuests.length > 0) {
+              console.error(`⚠️ Found ${similarGuests.length} similar guest IDs:`, similarGuests.map((g: any) => ({
+                id: g.id,
+                name: `${g.firstName} ${g.lastName}`
+              })));
+            }
+          }
+        } else {
+          console.error(`❌ No guestId parsed from URL!`);
+        }
+      } else {
+        console.error(`❌ Event ${eventId} not found in events array!`);
+      }
+    }
+  }, [paramEventId, eventId, guestId, searchParams, events]);
   
   // Load event IMMEDIATELY from localStorage first (fast, no waiting)
   React.useEffect(() => {
@@ -787,27 +888,76 @@ const GuestResponse = () => {
         console.log(`🔍 Searching for guest with ID: ${guestId} in event ${currentEvent.id}`);
         console.log(`🔍 Event has ${currentEvent.guests?.length || 0} guests`);
         console.log(`🔍 Sample guest IDs:`, currentEvent.guests?.slice(0, 5).map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+        console.log(`🔍 Guest name from URL:`, guestNameFromUrl);
+        console.log(`🔍 Guest phone from URL:`, guestPhoneFromUrl);
         
         guestToUpdate = currentEvent.guests?.find((g: any) => g.id === guestId);
         
         if (guestToUpdate) {
-          console.log(`✅ Found guest by exact match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
-        } else {
-          console.log(`⚠️ Guest not found by exact match, trying partial match...`);
-          // Try partial match (in case guestId has extra characters like 'https')
-          const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
-          guestToUpdate = currentEvent.guests?.find((g: any) => 
-            g.id === cleanedGuestId ||
-            g.id.startsWith(cleanedGuestId) || 
-            cleanedGuestId.startsWith(g.id) ||
-            g.id === guestId.replace(/https?$/i, '')
-          );
+          console.log(`✅ Found guest by exact ID match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
           
-          if (guestToUpdate) {
-            console.log(`✅ Found guest with partial match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName}) (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
-          } else {
-            console.error(`❌ Guest not found even with partial match. Searched for: ${guestId}, cleaned: ${cleanedGuestId}`);
-            console.error(`❌ All guest IDs in event:`, currentEvent.guests?.map((g: any) => g.id).slice(0, 10));
+          // CRITICAL: Verify guest using name and phone from URL for additional security
+          if (guestNameFromUrl || guestPhoneFromUrl) {
+            const nameMatches = !guestNameFromUrl || (
+              (guestToUpdate.firstName?.includes(guestNameFromUrl.firstName) || guestNameFromUrl.firstName.includes(guestToUpdate.firstName || '')) &&
+              (!guestNameFromUrl.lastName || !guestToUpdate.lastName || 
+               guestToUpdate.lastName?.includes(guestNameFromUrl.lastName) || guestNameFromUrl.lastName.includes(guestToUpdate.lastName))
+            );
+            const phoneMatches = !guestPhoneFromUrl || (
+              guestToUpdate.phoneNumber?.replace(/\D/g, '') === guestPhoneFromUrl.replace(/\D/g, '')
+            );
+            
+            if (nameMatches && phoneMatches) {
+              console.log(`✅ Guest verified by name and phone from URL`);
+            } else {
+              console.warn(`⚠️ Guest ID matches but name/phone don't match!`, {
+                nameMatches,
+                phoneMatches,
+                urlName: guestNameFromUrl,
+                urlPhone: guestPhoneFromUrl,
+                guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+                guestPhone: guestToUpdate.phoneNumber
+              });
+            }
+          }
+        } else {
+          console.log(`⚠️ Guest not found by exact ID match, trying name and phone match...`);
+          
+          // CRITICAL: If guestId doesn't match, try to find by name and phone from URL
+          if (guestNameFromUrl && guestPhoneFromUrl) {
+            const normalizedUrlPhone = guestPhoneFromUrl.replace(/\D/g, '');
+            guestToUpdate = currentEvent.guests?.find((g: any) => {
+              const nameMatches = (
+                (g.firstName?.includes(guestNameFromUrl.firstName) || guestNameFromUrl.firstName.includes(g.firstName || '')) &&
+                (!guestNameFromUrl.lastName || !g.lastName || 
+                 g.lastName?.includes(guestNameFromUrl.lastName) || guestNameFromUrl.lastName.includes(g.lastName))
+              );
+              const phoneMatches = g.phoneNumber?.replace(/\D/g, '') === normalizedUrlPhone;
+              return nameMatches && phoneMatches;
+            });
+            
+            if (guestToUpdate) {
+              console.log(`✅ Found guest by name and phone match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
+            }
+          }
+          
+          // If still not found, try partial ID match
+          if (!guestToUpdate) {
+            console.log(`⚠️ Guest not found by name/phone, trying partial ID match...`);
+            const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
+            guestToUpdate = currentEvent.guests?.find((g: any) => 
+              g.id === cleanedGuestId ||
+              g.id.startsWith(cleanedGuestId) || 
+              cleanedGuestId.startsWith(g.id) ||
+              g.id === guestId.replace(/https?$/i, '')
+            );
+            
+            if (guestToUpdate) {
+              console.log(`✅ Found guest with partial ID match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName}) (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
+            } else {
+              console.error(`❌ Guest not found even with partial match. Searched for: ${guestId}, cleaned: ${cleanedGuestId}`);
+              console.error(`❌ All guest IDs in event:`, currentEvent.guests?.map((g: any) => g.id).slice(0, 10));
+            }
           }
         }
       } else {
@@ -865,11 +1015,15 @@ const GuestResponse = () => {
           source: 'guest_link' // CRITICAL: Mark this update as coming from guest_link
         };
         
+        const isProblematicGuest = (guestToUpdate.firstName?.includes('דורון') && guestToUpdate.lastName?.includes('שושני')) ||
+                                  (guestToUpdate.firstName?.includes('מאור') && guestToUpdate.lastName?.includes('רומנו'));
+        
         console.log('🔄 Calling updateGuestResponse with:', {
           eventId: currentEvent.id,
           eventName: currentEvent.coupleName,
           guestId: guestToUpdate.id,
           guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+          isProblematicGuest,
           updatedGuest: { 
             rsvpStatus: updatedGuest.rsvpStatus, 
             guestCount: updatedGuest.guestCount,
@@ -877,6 +1031,16 @@ const GuestResponse = () => {
             responseDate: updatedGuest.responseDate
           }
         });
+        
+        if (isProblematicGuest) {
+          console.log(`🔍 PROBLEMATIC GUEST UPDATE STARTING: ${guestToUpdate.firstName} ${guestToUpdate.lastName}`, {
+            id: guestToUpdate.id,
+            currentStatus: guestToUpdate.rsvpStatus,
+            newStatus: updatedGuest.rsvpStatus,
+            currentCount: guestToUpdate.guestCount,
+            newCount: updatedGuest.guestCount
+          });
+        }
         
         // CRITICAL: Verify we have the correct event and guest before updating
         console.log('🔍 Verifying event and guest before update:', {

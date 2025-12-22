@@ -392,9 +392,9 @@ export const getFrontendUrl = (): string => {
 };
 
 // Generate guest response link (works on all devices)
-// CRITICAL: Always includes eventId to distinguish between events, even if guests are identical
-// The eventId is included both in the path AND as a query parameter for maximum uniqueness
-export const generateGuestResponseLink = (eventId: string, guestId: string): string => {
+// CRITICAL: Always includes eventId, guestId, firstName, lastName, and phoneNumber to uniquely identify the guest
+// This prevents failures when guests have similar IDs or when links are concatenated
+export const generateGuestResponseLink = (eventId: string, guestId: string, firstName?: string, lastName?: string, phoneNumber?: string): string => {
   // Validate inputs
   if (!eventId || !guestId) {
     console.error('❌ generateGuestResponseLink: Missing eventId or guestId', { eventId, guestId });
@@ -403,11 +403,20 @@ export const generateGuestResponseLink = (eventId: string, guestId: string): str
   
   const frontendUrl = getFrontendUrl();
   // Use HashRouter format for static hosting compatibility
-  // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}
-  // CRITICAL: eventId appears TWICE - once in path, once as query param
-  // This ensures maximum uniqueness when same person is invited to multiple events
-  const link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}&event=${eventId}`;
-  console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId);
+  // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}&name={firstName}_{lastName}&phone={phoneNumber}
+  // CRITICAL: Includes eventId, guestId, name, and phone to ensure maximum uniqueness
+  const nameParam = firstName && lastName ? `${encodeURIComponent(firstName)}_${encodeURIComponent(lastName)}` : '';
+  const phoneParam = phoneNumber ? encodeURIComponent(phoneNumber.replace(/\D/g, '')) : ''; // Remove non-digits for consistency
+  
+  let link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}&event=${eventId}`;
+  if (nameParam) {
+    link += `&name=${nameParam}`;
+  }
+  if (phoneParam) {
+    link += `&phone=${phoneParam}`;
+  }
+  
+  console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId, 'Name:', nameParam, 'Phone:', phoneParam);
   return link;
 };
 
