@@ -2769,7 +2769,7 @@ const EventManagement: React.FC = () => {
           message,
           imageUrl: finalImageUrl,
           // CRITICAL: Use template "new" (simple like curl - no components)
-          templateName: 'simple_invitation', // Use new simple template with positional parameters
+          templateName: '1', // Use template "1" from Meta Business Manager
           templateParams: templateParamsForNew,
           recipients: [{
             id: guest.id,

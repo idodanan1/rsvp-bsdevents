@@ -113,11 +113,11 @@ class WhatsAppService {
           };
           // No components needed for hello_world - it's that simple!
           // Skip all the complex logic below and go directly to sending
-        } else if (templateName === 'simple_invitation') {
+        } else if (templateName === 'simple_invitation' || templateName === '1') {
           // NEW SIMPLE TEMPLATE: Uses positional parameters ({{1}}, {{2}}, etc.) - NO parameter_name needed
           messagePayload.type = 'template';
           messagePayload.template = {
-            name: 'simple_invitation',
+            name: '1', // Template name in Meta Business Manager
             language: {
               code: 'he'
             }
