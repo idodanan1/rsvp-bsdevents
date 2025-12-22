@@ -406,10 +406,15 @@ export const generateGuestResponseLink = (eventId: string, guestId: string, firs
   // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}&name={firstName}_{lastName}&phone={phoneNumber}
   // CRITICAL: Includes eventId, guestId, name, and phone to ensure maximum uniqueness
   // CRITICAL: Clean names before encoding to ensure consistency
-  const cleanedFirstName = cleanName(firstName || '');
-  const cleanedLastName = cleanName(lastName || '');
-  const nameParam = (cleanedFirstName || cleanedLastName) ? `${encodeURIComponent(cleanedFirstName)}_${encodeURIComponent(cleanedLastName)}` : '';
-  const phoneParam = phoneNumber ? encodeURIComponent(phoneNumber.replace(/\D/g, '')) : ''; // Remove non-digits for consistency
+  const cleanedFirstName = cleanName(firstName || '').trim();
+  const cleanedLastName = cleanName(lastName || '').trim();
+  // CRITICAL: Only include name if at least one part exists, and format as firstName_lastName
+  // If lastName is empty, just use firstName (no trailing underscore)
+  const nameParam = cleanedFirstName 
+    ? (cleanedLastName ? `${encodeURIComponent(cleanedFirstName)}_${encodeURIComponent(cleanedLastName)}` : encodeURIComponent(cleanedFirstName))
+    : (cleanedLastName ? encodeURIComponent(cleanedLastName) : '');
+  // CRITICAL: Always include phone if provided, normalize to digits only
+  const phoneParam = phoneNumber ? encodeURIComponent(phoneNumber.replace(/\D/g, '')) : '';
   
   let link = `${frontendUrl}/#/guest-response/${eventId}?guest=${guestId}&event=${eventId}`;
   if (nameParam) {
