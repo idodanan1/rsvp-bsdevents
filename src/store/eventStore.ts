@@ -557,16 +557,26 @@ export const useEventStore = create<EventStore>()(
                           
                           // CRITICAL: If API has guest_link update, ALWAYS use it (direct user input from guest response page)
                           if (isApiFromGuestLink) {
+                            const statusChanged = existingGuest.rsvpStatus !== g.rsvpStatus;
+                            const countChanged = existingGuest.guestCount !== g.guestCount;
                             console.log(`✅ Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               rsvpStatus: g.rsvpStatus,
                               guestCount: g.guestCount,
                               responseDate: g.responseDate,
+                              statusChanged,
+                              countChanged,
                               overridingLocal: {
                                 rsvpStatus: existingGuest.rsvpStatus,
                                 guestCount: existingGuest.guestCount,
                                 responseDate: existingGuest.responseDate
                               }
                             });
+                            if (statusChanged) {
+                              console.log(`🔄 STATUS CHANGE: ${existingGuest.rsvpStatus} -> ${g.rsvpStatus} for guest ${g.id} (${g.firstName} ${g.lastName})`);
+                            }
+                            if (countChanged) {
+                              console.log(`🔄 COUNT CHANGE: ${existingGuest.guestCount} -> ${g.guestCount} for guest ${g.id} (${g.firstName} ${g.lastName})`);
+                            }
                             return {
                               ...g,
                               firstName: cleanName(g.firstName),
@@ -916,6 +926,40 @@ export const useEventStore = create<EventStore>()(
                       guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
                     };
                     console.log('🔄 Updated currentEvent from API fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
+                    // CRITICAL: Log specific guest statuses to verify updates
+                    const sampleGuests = updatedCurrentEvent.guests?.slice(0, 5).map(g => ({
+                      id: g.id,
+                      name: `${g.firstName} ${g.lastName}`,
+                      status: g.rsvpStatus,
+                      source: g.source
+                    }));
+                    console.log('🔍 Sample guests in updated currentEvent:', sampleGuests);
+                    // Check for specific guest if searching
+                    const doronGuest = updatedCurrentEvent.guests?.find(g => 
+                      g.firstName?.includes('דורון') && g.lastName?.includes('שושני')
+                    );
+                    if (doronGuest) {
+                      console.log('🔍 Found דורון שושני in updated currentEvent:', {
+                        id: doronGuest.id,
+                        status: doronGuest.rsvpStatus,
+                        source: (doronGuest as any).source,
+                        responseDate: doronGuest.responseDate
+                      });
+                    }
+                    // Check for specific guest if searching
+                    const doronGuest = updatedCurrentEvent.guests?.find(g => 
+                      g.firstName?.includes('דורון') && g.lastName?.includes('שושני')
+                    );
+                    if (doronGuest) {
+                      console.log('🔍 Found דורון שושני in updated currentEvent:', {
+                        id: doronGuest.id,
+                        status: doronGuest.rsvpStatus,
+                        source: (doronGuest as any).source,
+                        responseDate: doronGuest.responseDate
+                      });
+                    }
+                  } else {
+                    console.warn('⚠️ currentEvent not found in eventsWithNewReferences:', storeState.currentEvent.id);
                   }
                 }
                 
