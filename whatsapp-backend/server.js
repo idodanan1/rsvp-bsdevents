@@ -5494,10 +5494,11 @@ app.get('/api/events/:eventId', async (req, res) => {
       return;
     }
     
-    // Check if eventId looks like a userId (starts with "user_")
+    // Check if eventId looks like a userId (starts with "user_" or is "admin-fixed-id")
     // If so, treat it as /api/events/:userId endpoint
-    // CRITICAL: Only treat as userId if it explicitly starts with "user_"
-    if (eventId && typeof eventId === 'string' && eventId.startsWith('user_')) {
+    // CRITICAL: Treat as userId if it starts with "user_" OR is "admin-fixed-id"
+    const isUserId = eventId && typeof eventId === 'string' && (eventId.startsWith('user_') || eventId === 'admin-fixed-id');
+    if (isUserId) {
       const userId = eventId;
       console.log(`📋 [USER_ID_BRANCH] Treating ${eventId} as userId, filtering events...`);
       
@@ -5527,10 +5528,15 @@ app.get('/api/events/:eventId', async (req, res) => {
       }
       
       // Filter events by userId
-      const userEvents = events.filter(e => e.userId === userId);
-      const userDeletedEvents = deletedEvents.filter(e => e.userId === userId);
+      // CRITICAL: Admin user (admin-fixed-id) should see ALL events
+      const userEvents = userId === 'admin-fixed-id' 
+        ? events  // Admin sees all events
+        : events.filter(e => e.userId === userId);  // Regular users see only their events
+      const userDeletedEvents = userId === 'admin-fixed-id'
+        ? deletedEvents  // Admin sees all deleted events
+        : deletedEvents.filter(e => e.userId === userId);  // Regular users see only their deleted events
       
-      console.log(`📋 [USER_ID_BRANCH] Fetched ${userEvents.length} events for user ${userId}`);
+      console.log(`📋 [USER_ID_BRANCH] Fetched ${userEvents.length} events for user ${userId} (${userId === 'admin-fixed-id' ? 'admin - all events' : 'regular user - filtered'})`);
       
       res.json({
         success: true,
@@ -6380,12 +6386,21 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
           // Update existing guest
           const oldGuest = mergedGuests[existingIndex];
           const oldGuestCount = oldGuest.guestCount;
+          const oldSource = oldGuest.source;
           const newGuestCount = incomingGuest.guestCount;
+          const newSource = incomingGuest.source;
           mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
           console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+          console.log(`📊 SOURCE UPDATED in /api/events/:eventId/guests: ${oldSource || 'undefined'} → ${newSource || 'undefined'} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
           if (oldGuestCount !== newGuestCount && newGuestCount !== undefined) {
             console.log(`📊 GUEST COUNT UPDATED in /api/events/:eventId/guests: ${oldGuestCount} → ${newGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
             console.log(`📊 Updated guest object:`, JSON.stringify(mergedGuests[existingIndex], null, 2));
+          }
+          // CRITICAL: Verify source was saved correctly
+          if (newSource && mergedGuests[existingIndex].source !== newSource) {
+            console.error(`❌ SOURCE MISMATCH! Expected: ${newSource}, Got: ${mergedGuests[existingIndex].source}`);
+          } else if (newSource) {
+            console.log(`✅ SOURCE VERIFIED: ${mergedGuests[existingIndex].source} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
           }
         } else {
           // Add new guest
