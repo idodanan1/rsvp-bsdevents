@@ -6391,10 +6391,44 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
           const newGuestCount = incomingGuest.guestCount;
           const newSource = incomingGuest.source;
           const newRsvpStatus = incomingGuest.rsvpStatus;
+          
+          // CRITICAL: Check if this is a problematic guest (דורון שושני, מאור רומנו, עידו דנן)
+          const isProblematicGuest = (incomingGuest.firstName?.includes('דורון') && incomingGuest.lastName?.includes('שושני')) ||
+                                    (incomingGuest.firstName?.includes('מאור') && incomingGuest.lastName?.includes('רומנו')) ||
+                                    (incomingGuest.firstName?.includes('עידו') && incomingGuest.lastName?.includes('דנן'));
+          
+          if (isProblematicGuest) {
+            console.log(`🔍 PROBLEMATIC GUEST UPDATE IN SERVER: ${incomingGuest.firstName} ${incomingGuest.lastName}`, {
+              id: incomingGuest.id,
+              oldRsvpStatus,
+              newRsvpStatus,
+              oldGuestCount,
+              newGuestCount,
+              oldSource,
+              newSource,
+              incomingGuestData: {
+                rsvpStatus: incomingGuest.rsvpStatus,
+                guestCount: incomingGuest.guestCount,
+                source: incomingGuest.source,
+                responseDate: incomingGuest.responseDate
+              }
+            });
+          }
+          
           mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
           console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
           console.log(`📊 SOURCE UPDATED in /api/events/:eventId/guests: ${oldSource || 'undefined'} → ${newSource || 'undefined'} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
           console.log(`📊 RSVP STATUS UPDATED in /api/events/:eventId/guests: ${oldRsvpStatus || 'undefined'} → ${newRsvpStatus || 'undefined'} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+          
+          if (isProblematicGuest) {
+            console.log(`🔍 PROBLEMATIC GUEST AFTER MERGE: ${incomingGuest.firstName} ${incomingGuest.lastName}`, {
+              id: mergedGuests[existingIndex].id,
+              rsvpStatus: mergedGuests[existingIndex].rsvpStatus,
+              guestCount: mergedGuests[existingIndex].guestCount,
+              source: mergedGuests[existingIndex].source,
+              responseDate: mergedGuests[existingIndex].responseDate
+            });
+          }
           if (oldGuestCount !== newGuestCount && newGuestCount !== undefined) {
             console.log(`📊 GUEST COUNT UPDATED in /api/events/:eventId/guests: ${oldGuestCount} → ${newGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
             console.log(`📊 Updated guest object:`, JSON.stringify(mergedGuests[existingIndex], null, 2));

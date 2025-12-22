@@ -548,10 +548,30 @@ export const useEventStore = create<EventStore>()(
                       .map((g: Guest) => {
                         // CRITICAL: Check if we have a manual guestCount change that should be preserved
                         const existingGuest = existingEvent?.guests?.find(eg => eg.id === g.id);
+                        
+                        // CRITICAL: Check if this is a problematic guest (דורון שושני, מאור רומנו, עידו דנן)
+                        const isProblematicGuest = (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
+                                                  (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו')) ||
+                                                  (g.firstName?.includes('עידו') && g.lastName?.includes('דנן'));
+                        
+                        if (isProblematicGuest) {
+                          console.log(`🔍 PROBLEMATIC GUEST IN FETCH: ${g.firstName} ${g.lastName}`, {
+                            id: g.id,
+                            apiRsvpStatus: g.rsvpStatus,
+                            apiGuestCount: g.guestCount,
+                            apiSource: g.source,
+                            existingGuest: existingGuest ? {
+                              rsvpStatus: existingGuest.rsvpStatus,
+                              guestCount: existingGuest.guestCount,
+                              source: (existingGuest as any).source
+                            } : null
+                          });
+                        }
+                        
                         if (existingGuest) {
-                          const existingSource = existingGuest.source || '';
+                          const existingSource = (existingGuest as any).source || '';
                           const isExistingFromManual = existingSource === 'manual_update';
-                          const apiSource = g.source || '';
+                          const apiSource = (g as any).source || '';
                           const isApiFromManual = apiSource === 'manual_update';
                           const isApiFromGuestLink = apiSource === 'guest_link';
                           
@@ -675,9 +695,9 @@ export const useEventStore = create<EventStore>()(
                         
                         // Use API data as-is
                         return {
-                          ...g,
-                          firstName: cleanName(g.firstName),
-                          lastName: cleanName(g.lastName)
+                        ...g,
+                        firstName: cleanName(g.firstName),
+                        lastName: cleanName(g.lastName)
                         };
                       })
                   };
