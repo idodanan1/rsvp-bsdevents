@@ -556,14 +556,26 @@ export const useEventStore = create<EventStore>()(
                           const isApiFromGuestLink = apiSource === 'guest_link';
                           
                           // CRITICAL: If API has guest_link update, ALWAYS use it (direct user input from guest response page)
-                          if (isApiFromGuestLink && g.guestCount !== undefined) {
-                            console.log(`✅ Using guest_link guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount})`);
+                          if (isApiFromGuestLink) {
+                            console.log(`✅ Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
+                              rsvpStatus: g.rsvpStatus,
+                              guestCount: g.guestCount,
+                              responseDate: g.responseDate,
+                              overridingLocal: {
+                                rsvpStatus: existingGuest.rsvpStatus,
+                                guestCount: existingGuest.guestCount,
+                                responseDate: existingGuest.responseDate
+                              }
+                            });
                             return {
                               ...g,
                               firstName: cleanName(g.firstName),
                               lastName: cleanName(g.lastName),
-                              // CRITICAL: Use API data for guest_link updates
+                              // CRITICAL: Use API data for guest_link updates (ALL fields, not just guestCount)
+                              rsvpStatus: g.rsvpStatus,
                               guestCount: g.guestCount,
+                              notes: g.notes,
+                              actualAttendance: g.actualAttendance,
                               source: g.source,
                               responseDate: g.responseDate
                             };
@@ -2761,7 +2773,24 @@ export const useEventStore = create<EventStore>()(
                 
                 if (apiUpdateResponse.ok) {
                   const apiResponseData = await apiUpdateResponse.json();
-                  console.log('✅ Event updated directly in server:', apiResponseData);
+                  console.log('✅ Event updated directly in server:', {
+                    success: true,
+                    message: apiResponseData.message || 'Updated event with guests',
+                    guestsCount: apiResponseData.guestsCount,
+                    guestId: guestForServer.id,
+                    guestName: `${guestForServer.firstName} ${guestForServer.lastName}`,
+                    rsvpStatus: guestForServer.rsvpStatus,
+                    guestCount: guestForServer.guestCount,
+                    source: guestForServer.source
+                  });
+                  
+                  // CRITICAL: Verify the update was saved correctly
+                  console.log(`✅ VERIFIED: Guest ${guestForServer.id} (${guestForServer.firstName} ${guestForServer.lastName}) update sent to server:`, {
+                    rsvpStatus: guestForServer.rsvpStatus,
+                    guestCount: guestForServer.guestCount,
+                    source: guestForServer.source,
+                    responseDate: guestForServer.responseDate
+                  });
                   
                   // CRITICAL: Don't refresh from server immediately - this would overwrite the local update
                   // The local update is already in the store and the table will update automatically
@@ -2770,7 +2799,14 @@ export const useEventStore = create<EventStore>()(
                   console.log('✅ Server update confirmed - local update preserved in store');
                 } else {
                   const apiErrorText = await apiUpdateResponse.text();
-                  console.warn('⚠️ Failed to update event directly in server:', apiUpdateResponse.status, apiErrorText);
+                  console.error('❌ FAILED to update event directly in server:', {
+                    status: apiUpdateResponse.status,
+                    statusText: apiUpdateResponse.statusText,
+                    error: apiErrorText,
+                    guestId: guestForServer.id,
+                    guestName: `${guestForServer.firstName} ${guestForServer.lastName}`,
+                    eventId: eventId
+                  });
                   // Fallback: Still add to pendingUpdates for webhook service to process
                   console.log('⚠️ Falling back to pendingUpdates mechanism');
                 }

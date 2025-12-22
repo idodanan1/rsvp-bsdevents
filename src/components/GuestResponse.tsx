@@ -954,11 +954,28 @@ const GuestResponse = () => {
           // This ensures the table in EventManagement updates immediately
           // Use immediate refresh (minimal delay) to ensure table updates instantly
           // CRITICAL: Force refresh to ensure EventManagement detects the change
+          console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestId} update...`);
           setTimeout(() => {
-            storeState.fetchEvents(true, true).catch(err => {
-              console.warn('⚠️ Failed to refresh events after guest response update:', err);
+            storeState.fetchEvents(true, true).then(() => {
+              console.log(`✅ fetchEvents completed - table should now show updated guest ${guestId}`);
+              // Verify the update was loaded from server
+              const verifyState = storeState;
+              const verifyEvent = verifyState.events.find(e => e.id === currentEvent.id);
+              const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
+              if (verifyGuest) {
+                console.log(`✅ VERIFIED: Guest ${guestId} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
+                  rsvpStatus: verifyGuest.rsvpStatus,
+                  guestCount: verifyGuest.guestCount,
+                  source: verifyGuest.source,
+                  responseDate: verifyGuest.responseDate
+                });
+              } else {
+                console.error(`❌ Guest ${guestId} not found after fetchEvents!`);
+              }
+            }).catch(err => {
+              console.error('❌ Failed to refresh events after guest response update:', err);
             });
-          }, 100); // Small delay to ensure store update completes first
+          }, 500); // Increased delay to ensure server update completes first
         } else {
           // Create new guest (fallback for direct access)
           let finalNotes = formData.notes || '';
