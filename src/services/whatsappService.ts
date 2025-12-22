@@ -190,6 +190,25 @@ class WhatsAppService {
             console.log('🖼️ ✅ Adding header image to template "1":', imageUrlForMeta);
           }
           
+          // Add URL button with unique guest response link
+          if (guestResponseLink && guestResponseLink.trim()) {
+            components.push({
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [
+                {
+                  type: 'text',
+                  text: guestResponseLink.trim()
+                  // NOTE: For URL buttons, parameter_name is NOT needed - URL buttons use positional parameters
+                }
+              ]
+            });
+            console.log('🔘 ✅ Adding URL button with guest response link to template "1":', guestResponseLink);
+          } else {
+            console.warn('⚠️ No guest response link provided - button will not be added');
+          }
+          
           messagePayload.template.components = components;
           
           // Skip all the complex logic below and go directly to sending
