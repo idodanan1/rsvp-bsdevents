@@ -555,6 +555,18 @@ export const useEventStore = create<EventStore>()(
                           const isApiFromManual = apiSource === 'manual_update';
                           const isApiFromGuestLink = apiSource === 'guest_link';
                           
+                          // CRITICAL: Log all guest_link updates to verify they're being detected
+                          if (isApiFromGuestLink) {
+                            console.log(`🔍 DETECTED guest_link update in fetchEvents for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
+                              apiRsvpStatus: g.rsvpStatus,
+                              apiGuestCount: g.guestCount,
+                              apiSource: g.source,
+                              existingRsvpStatus: existingGuest.rsvpStatus,
+                              existingGuestCount: existingGuest.guestCount,
+                              existingSource: existingGuest.source
+                            });
+                          }
+                          
                           // CRITICAL: If API has guest_link update, ALWAYS use it (direct user input from guest response page)
                           if (isApiFromGuestLink) {
                             const statusChanged = existingGuest.rsvpStatus !== g.rsvpStatus;

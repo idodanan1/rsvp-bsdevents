@@ -6387,11 +6387,14 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
           const oldGuest = mergedGuests[existingIndex];
           const oldGuestCount = oldGuest.guestCount;
           const oldSource = oldGuest.source;
+          const oldRsvpStatus = oldGuest.rsvpStatus;
           const newGuestCount = incomingGuest.guestCount;
           const newSource = incomingGuest.source;
+          const newRsvpStatus = incomingGuest.rsvpStatus;
           mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
           console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
           console.log(`📊 SOURCE UPDATED in /api/events/:eventId/guests: ${oldSource || 'undefined'} → ${newSource || 'undefined'} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+          console.log(`📊 RSVP STATUS UPDATED in /api/events/:eventId/guests: ${oldRsvpStatus || 'undefined'} → ${newRsvpStatus || 'undefined'} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
           if (oldGuestCount !== newGuestCount && newGuestCount !== undefined) {
             console.log(`📊 GUEST COUNT UPDATED in /api/events/:eventId/guests: ${oldGuestCount} → ${newGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
             console.log(`📊 Updated guest object:`, JSON.stringify(mergedGuests[existingIndex], null, 2));
@@ -6401,6 +6404,12 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
             console.error(`❌ SOURCE MISMATCH! Expected: ${newSource}, Got: ${mergedGuests[existingIndex].source}`);
           } else if (newSource) {
             console.log(`✅ SOURCE VERIFIED: ${mergedGuests[existingIndex].source} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+          }
+          // CRITICAL: Verify rsvpStatus was saved correctly
+          if (newRsvpStatus && mergedGuests[existingIndex].rsvpStatus !== newRsvpStatus) {
+            console.error(`❌ RSVP STATUS MISMATCH! Expected: ${newRsvpStatus}, Got: ${mergedGuests[existingIndex].rsvpStatus}`);
+          } else if (newRsvpStatus) {
+            console.log(`✅ RSVP STATUS VERIFIED: ${mergedGuests[existingIndex].rsvpStatus} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
           }
         } else {
           // Add new guest
@@ -6420,14 +6429,22 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
     fileData.events[eventIndex].guests = finalGuests;
     fileData.events[eventIndex].updatedAt = new Date().toISOString();
     
-    // CRITICAL: Verify guestCount was updated correctly
+    // CRITICAL: Verify guestCount and rsvpStatus were updated correctly
     if (append && guests.length > 0) {
       const updatedGuest = guests[0];
       const savedGuest = finalGuests.find(g => g.id === updatedGuest.id);
       if (savedGuest) {
         console.log(`✅ VERIFIED: Guest ${savedGuest.id} (${savedGuest.firstName} ${savedGuest.lastName}) guestCount saved as: ${savedGuest.guestCount} (incoming was: ${updatedGuest.guestCount})`);
+        console.log(`✅ VERIFIED: Guest ${savedGuest.id} (${savedGuest.firstName} ${savedGuest.lastName}) rsvpStatus saved as: ${savedGuest.rsvpStatus} (incoming was: ${updatedGuest.rsvpStatus})`);
+        console.log(`✅ VERIFIED: Guest ${savedGuest.id} (${savedGuest.firstName} ${savedGuest.lastName}) source saved as: ${savedGuest.source} (incoming was: ${updatedGuest.source})`);
         if (savedGuest.guestCount !== updatedGuest.guestCount) {
           console.error(`❌ GUEST COUNT MISMATCH! Saved: ${savedGuest.guestCount}, Incoming: ${updatedGuest.guestCount}`);
+        }
+        if (savedGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
+          console.error(`❌ RSVP STATUS MISMATCH! Saved: ${savedGuest.rsvpStatus}, Incoming: ${updatedGuest.rsvpStatus}`);
+        }
+        if (savedGuest.source !== updatedGuest.source) {
+          console.error(`❌ SOURCE MISMATCH! Saved: ${savedGuest.source}, Incoming: ${updatedGuest.source}`);
         }
       }
     }
