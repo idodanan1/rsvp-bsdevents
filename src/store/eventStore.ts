@@ -2150,14 +2150,19 @@ export const useEventStore = create<EventStore>()(
                         } else {
                           // For non-manual updates: check if current value is from manual_update and is newer
                           // If so, preserve it to prevent old backend updates from reverting manual changes
+                          // CRITICAL: EXCEPTION - guest_link updates ALWAYS take priority (direct user input from guest response page)
                           const currentGuestSource = guest.source || '';
                           const isCurrentFromManual = currentGuestSource === 'manual_update';
+                          const isUpdateFromGuestLink = updatedGuest.source === 'guest_link';
                           const currentResponseDate = guest.responseDate ? new Date(guest.responseDate).getTime() : 0;
                           const updateResponseDate = newResponseDate.getTime();
                           
-                          // CRITICAL: If current value is from manual_update, ALWAYS preserve it if it's different
-                          // This prevents old backend updates from reverting manual changes
-                          if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                          // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
+                          if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
+                            // Guest link update - always use the new value (direct user input)
+                            console.log(`✅ Applying guest_link guestCount update: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
+                            finalGuestCount = updatedGuest.guestCount;
+                          } else if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
                             // Current manual value exists and is different from backend update - preserve it
                             // Check if manual value is newer (or if backend update doesn't have manual_update source)
                             const isBackendFromManual = (updatedGuest.source || '') === 'manual_update';
@@ -2364,14 +2369,21 @@ export const useEventStore = create<EventStore>()(
                     
                     // CRITICAL: Preserve manual guestCount changes - if current value is from manual_update, preserve it
                     // This prevents old backend updates from reverting manual changes
+                    // CRITICAL: EXCEPTION - guest_link updates ALWAYS take priority (direct user input from guest response page)
                     let finalGuestCount: number | undefined;
                     
                     const currentGuestSource = guest.source || '';
                     const isCurrentFromManual = currentGuestSource === 'manual_update';
                     const updateSource = updatedGuest.source || '';
                     const isUpdateFromManual = updateSource === 'manual_update';
+                    const isUpdateFromGuestLink = updateSource === 'guest_link';
                     
-                    if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                    // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
+                    if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
+                      // Guest link update - always use the new value (direct user input)
+                      console.log(`✅ Applying guest_link guestCount update in currentEvent: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
+                      finalGuestCount = updatedGuest.guestCount;
+                    } else if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
                       // Current is manual and update would change it - preserve current unless update is also manual and newer
                       if (!isUpdateFromManual || oldResponseDate.getTime() >= newResponseDate.getTime()) {
                         console.log(`🛡️ Preserving manual guestCount ${guest.guestCount} in currentEvent (update ${updatedGuest.guestCount} would revert it)`);
