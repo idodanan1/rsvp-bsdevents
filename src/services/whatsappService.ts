@@ -212,20 +212,8 @@ class WhatsAppService {
             console.log('⚠️ This may cause the message to fail if template requires header image');
           }
           
-          // Add URL button if guest_response_link is available
-          // CRITICAL: Button parameters for template "new" also use parameter_name
-          if (guestResponseLink) {
-            components.push({
-              type: 'button',
-              sub_type: 'url',
-              index: '0',
-              parameters: [{
-                type: 'text',
-                text: guestResponseLink,
-                parameter_name: 'guest_response_link' // Must match the variable name in Meta Business Manager template
-              }]
-            });
-          }
+          // NOTE: Template "new" does NOT have a button component
+          // Do NOT add button component - template "new" only has header image + body parameters
           
           messagePayload.template.components = components;
           
