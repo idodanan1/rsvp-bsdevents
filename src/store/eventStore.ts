@@ -946,18 +946,6 @@ export const useEventStore = create<EventStore>()(
                         responseDate: doronGuest.responseDate
                       });
                     }
-                    // Check for specific guest if searching
-                    const doronGuest = updatedCurrentEvent.guests?.find(g => 
-                      g.firstName?.includes('דורון') && g.lastName?.includes('שושני')
-                    );
-                    if (doronGuest) {
-                      console.log('🔍 Found דורון שושני in updated currentEvent:', {
-                        id: doronGuest.id,
-                        status: doronGuest.rsvpStatus,
-                        source: (doronGuest as any).source,
-                        responseDate: doronGuest.responseDate
-                      });
-                    }
                   } else {
                     console.warn('⚠️ currentEvent not found in eventsWithNewReferences:', storeState.currentEvent.id);
                   }
