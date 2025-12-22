@@ -144,17 +144,28 @@ class WhatsAppService {
           // Build 9 body parameters with parameter_name (template "new" uses NAMED parameters)
           // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
           // CRITICAL: Template "new" uses NAMED parameters, so parameter_name is REQUIRED
+          // CRITICAL: All parameters MUST have non-empty values - Meta rejects empty parameters
           const bodyParams = [
-            { type: 'text', text: guestName || 'אורח', parameter_name: 'guest_name' },
-            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה', parameter_name: 'event_type' },
-            { type: 'text', text: eventData.groomName || '', parameter_name: 'groom_name' },
-            { type: 'text', text: eventData.brideName || '', parameter_name: 'bride_name' },
-            { type: 'text', text: eventData.eventDate || '', parameter_name: 'event_date' },
-            { type: 'text', text: eventData.eventTime || '', parameter_name: 'event_time' },
-            { type: 'text', text: eventData.venue || '', parameter_name: 'venue' },
-            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג'), parameter_name: 'couple_name' },
-            { type: 'text', text: guestResponseLink || '', parameter_name: 'guest_response_link' } // 9th parameter
+            { type: 'text', text: (guestName && guestName.trim()) || 'אורח', parameter_name: 'guest_name' },
+            { type: 'text', text: (eventData.eventTypeHebrew && eventData.eventTypeHebrew.trim()) || 'חתונה', parameter_name: 'event_type' },
+            { type: 'text', text: (eventData.groomName && eventData.groomName.trim()) || 'חתן', parameter_name: 'groom_name' },
+            { type: 'text', text: (eventData.brideName && eventData.brideName.trim()) || 'כלה', parameter_name: 'bride_name' },
+            { type: 'text', text: (eventData.eventDate && eventData.eventDate.trim()) || 'תאריך האירוע', parameter_name: 'event_date' },
+            { type: 'text', text: (eventData.eventTime && eventData.eventTime.trim()) || 'שעת האירוע', parameter_name: 'event_time' },
+            { type: 'text', text: (eventData.venue && eventData.venue.trim()) || 'מיקום האירוע', parameter_name: 'venue' },
+            { type: 'text', text: (eventData.coupleName && eventData.coupleName.trim()) || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג'), parameter_name: 'couple_name' },
+            { type: 'text', text: (guestResponseLink && guestResponseLink.trim()) || 'https://rsvp-frontend-wy47.onrender.com', parameter_name: 'guest_response_link' } // 9th parameter
           ];
+          
+          // CRITICAL: Validate all parameters are non-empty
+          bodyParams.forEach((param, index) => {
+            if (!param.text || param.text.trim().length === 0) {
+              console.warn(`⚠️ Parameter ${index + 1} (${param.parameter_name}) is empty, using placeholder`);
+              param.text = this.getPlaceholderForParameter(param.parameter_name || `param_${index + 1}`);
+            }
+          });
+          
+          console.log('📋 Body parameters for template "new":', bodyParams.map((p, i) => `${i + 1}. ${p.parameter_name}: "${p.text.substring(0, 30)}${p.text.length > 30 ? '...' : ''}"`));
           
           // Build components array - start with body
           const components: any[] = [
