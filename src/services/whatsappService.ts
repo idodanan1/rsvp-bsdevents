@@ -126,13 +126,19 @@ class WhatsAppService {
           // Get data from templateParams
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
-          // CRITICAL: Get guest_response_link - check multiple sources
+          // CRITICAL: Get guest_response_link for URL button (NOT for {{8}} - {{8}} is couple name)
+          // Check multiple sources to find the link
           let guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
-          // If not found, try to extract from body params (it might be in {{8}})
           if (!guestResponseLink) {
             // Try to get from messageData directly
             guestResponseLink = (messageData as any)?.guestResponseLink || '';
           }
+          console.log('🔗 DEBUG: Looking for guest_response_link:', {
+            fromTemplateParams: (messageData.templateParams as any)?.guest_response_link,
+            fromMessageData: (messageData as any)?.guestResponseLink,
+            finalLink: guestResponseLink,
+            allTemplateParamsKeys: messageData.templateParams ? Object.keys(messageData.templateParams) : []
+          });
           
           // Get image URL
           const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
