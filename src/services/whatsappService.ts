@@ -126,7 +126,13 @@ class WhatsAppService {
           // Get data from templateParams
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
-          const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          // CRITICAL: Get guest_response_link - check multiple sources
+          let guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          // If not found, try to extract from body params (it might be in {{8}})
+          if (!guestResponseLink) {
+            // Try to get from messageData directly
+            guestResponseLink = (messageData as any)?.guestResponseLink || '';
+          }
           
           // Get image URL
           const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
@@ -145,6 +151,8 @@ class WhatsAppService {
             { type: 'text', text: (eventData.venue && eventData.venue.trim()) || 'מיקום האירוע' }, // {{7}}
             { type: 'text', text: (eventData.coupleName && eventData.coupleName.trim()) || (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 'הזוג') } // {{8}} - couple name for signature
           ];
+          
+          console.log('🔗 Guest response link for button:', guestResponseLink);
           
           // Validate all parameters are non-empty
           bodyParams.forEach((param, index) => {
@@ -190,24 +198,26 @@ class WhatsAppService {
             console.log('🖼️ ✅ Adding header image to template "1":', imageUrlForMeta);
           }
           
-          // Add URL button with unique guest response link
-          if (guestResponseLink && guestResponseLink.trim()) {
-            components.push({
-              type: 'button',
-              sub_type: 'url',
-              index: '0',
-              parameters: [
-                {
-                  type: 'text',
-                  text: guestResponseLink.trim()
-                  // NOTE: For URL buttons, parameter_name is NOT needed - URL buttons use positional parameters
-                }
-              ]
-            });
-            console.log('🔘 ✅ Adding URL button with guest response link to template "1":', guestResponseLink);
-          } else {
-            console.warn('⚠️ No guest response link provided - button will not be added');
-          }
+          // CRITICAL: Template "1" has a URL button that REQUIRES a parameter
+          // Always add the button - if no link provided, use a placeholder
+          // The template in Meta has a button, so we MUST provide a parameter
+          const buttonLink = guestResponseLink && guestResponseLink.trim() 
+            ? guestResponseLink.trim() 
+            : 'https://rsvp-frontend-wy47.onrender.com'; // Fallback placeholder
+            
+          components.push({
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
+            parameters: [
+              {
+                type: 'text',
+                text: buttonLink
+                // NOTE: For URL buttons, parameter_name is NOT needed - URL buttons use positional parameters
+              }
+            ]
+          });
+          console.log('🔘 ✅ Adding URL button with guest response link to template "1":', buttonLink);
           
           messagePayload.template.components = components;
           
