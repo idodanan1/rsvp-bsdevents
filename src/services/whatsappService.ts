@@ -154,7 +154,7 @@ class WhatsAppService {
             }
           });
           
-          console.log('📋 Body parameters for template "simple_invitation":', bodyParams.map((p, i) => `${i + 1}. "${p.text.substring(0, 30)}${p.text.length > 30 ? '...' : ''}"`));
+          console.log('📋 Body parameters for template "1":', bodyParams.map((p, i) => `${i + 1}. "${p.text.substring(0, 30)}${p.text.length > 30 ? '...' : ''}"`));
           
           // Build components array - start with body
           const components: any[] = [
@@ -187,7 +187,7 @@ class WhatsAppService {
                 }
               ]
             });
-            console.log('🖼️ ✅ Adding header image to template "simple_invitation":', imageUrlForMeta);
+            console.log('🖼️ ✅ Adding header image to template "1":', imageUrlForMeta);
           }
           
           messagePayload.template.components = components;
