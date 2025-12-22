@@ -2011,12 +2011,28 @@ export const useEventStore = create<EventStore>()(
                   tableId: updatedGuest.tableId
                 };
                 
+                // CRITICAL: Validate payload before sending
+                if (!guestUpdatePayload.phoneNumber || !guestUpdatePayload.guestId || !guestUpdatePayload.eventId) {
+                  console.error('❌ Invalid guestUpdatePayload - missing required fields:', {
+                    hasPhoneNumber: !!guestUpdatePayload.phoneNumber,
+                    hasGuestId: !!guestUpdatePayload.guestId,
+                    hasEventId: !!guestUpdatePayload.eventId,
+                    phoneNumber: guestUpdatePayload.phoneNumber,
+                    guestId: guestUpdatePayload.guestId,
+                    eventId: guestUpdatePayload.eventId
+                  });
+                }
+                
                 console.log('📤 Sending guest update only (not full event):', {
                   eventId: updatedEvent.id,
                   guestId: guestId,
                   updates: Object.keys(updates),
                   rsvpStatus: guestUpdatePayload.status,
-                  guestCount: guestUpdatePayload.guestCount
+                  guestCount: guestUpdatePayload.guestCount,
+                  phoneNumber: guestUpdatePayload.phoneNumber,
+                  hasStatus: guestUpdatePayload.status !== undefined,
+                  hasGuestCount: guestUpdatePayload.guestCount !== undefined,
+                  hasNotes: guestUpdatePayload.notes !== undefined
                 });
                 
                 const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
@@ -2085,12 +2101,12 @@ export const useEventStore = create<EventStore>()(
                   }
                 } else {
                   const errorText = await response.text();
-                  console.warn('⚠️ API sync failed:', response.status, errorText);
-                  if (retries > 0) {
-                    console.log(`🔄 Retrying sync (${retries} retries left)...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    return syncToAPI(retries - 1);
-                  }
+                  console.error('❌ Failed to sync guest update to API:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText,
+                    payload: guestUpdatePayload
+                  });
                 }
               } catch (error) {
                 console.warn('⚠️ Failed to sync guest update to API:', error);
@@ -2666,11 +2682,16 @@ export const useEventStore = create<EventStore>()(
                       delete updatedGuestWithoutCount.guestCount;
                     }
                     
+                    // CRITICAL: For guest_link updates, ALWAYS use the new rsvpStatus (direct user input)
+                    const finalRsvpStatus = isUpdateFromGuestLink && updatedGuest.rsvpStatus !== undefined
+                      ? updatedGuest.rsvpStatus
+                      : (updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus);
+                    
                     const updatedGuestData = {
                       ...guest,
                       ...updatedGuestWithoutCount, // Override with new values BUT preserve guestCount if needed
-                      // Always use new values if provided (latest update wins)
-                      rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                      // CRITICAL: For guest_link updates, ALWAYS use the new rsvpStatus (direct user input)
+                      rsvpStatus: finalRsvpStatus,
                       // CRITICAL: Use finalGuestCount which preserves manual values
                       guestCount: finalGuestCount,
                       notes: updatedGuest.notes !== undefined ? updatedGuest.notes : (guest.notes || ''),
@@ -2685,7 +2706,9 @@ export const useEventStore = create<EventStore>()(
                       newStatus: updatedGuestData.rsvpStatus,
                       isNewerUpdate,
                       isManualUpdateEcho,
-                      source: updatedGuest.source
+                      isUpdateFromGuestLink,
+                      source: updatedGuest.source,
+                      willApplyStatus: finalRsvpStatus !== guest.rsvpStatus
                     });
                     
                     return updatedGuestData;
@@ -3304,9 +3327,11 @@ export const useEventStore = create<EventStore>()(
             let personalizedMessage = campaign.message;
             let personalizedSmsMessage = campaign.smsMessage || campaign.message;
             
+            // CRITICAL: Find the original row number of the guest in the event (not filtered)
+            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
             // Replace the generic link with guest-specific link
             // Use helper function to ensure production URL (works on all devices)
-            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
             // Debug: Log the guest ID being used
             console.log('🔗 Campaign - Guest ID:', guest.id, 'for guest:', `${guest.firstName} ${guest.lastName}`);
@@ -3384,8 +3409,10 @@ export const useEventStore = create<EventStore>()(
           const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }) => {
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
+            // CRITICAL: Find the original row number of the guest in the event (not filtered)
+            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
             // Use helper function to ensure production URL (works on all devices)
-            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
             // Prepare template parameters based on the template name (use corrected templateNameForCampaign)
             // Different templates require different parameters
@@ -3707,7 +3734,9 @@ export const useEventStore = create<EventStore>()(
           // Create personalized messages for each failed guest
           const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
             let personalizedMessage = campaign.message;
-            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
+            // CRITICAL: Find the original row number of the guest in the event (not filtered)
+            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
+            const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
             // Replace template variables
             personalizedMessage = personalizedMessage

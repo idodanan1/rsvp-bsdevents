@@ -394,7 +394,7 @@ export const getFrontendUrl = (): string => {
 // Generate guest response link (works on all devices)
 // CRITICAL: Always includes eventId, guestId, firstName, lastName, and phoneNumber to uniquely identify the guest
 // This prevents failures when guests have similar IDs or when links are concatenated
-export const generateGuestResponseLink = (eventId: string, guestId: string, firstName?: string, lastName?: string, phoneNumber?: string): string => {
+export const generateGuestResponseLink = (eventId: string, guestId: string, firstName?: string, lastName?: string, phoneNumber?: string, rowNumber?: number): string => {
   // Validate inputs
   if (!eventId || !guestId) {
     console.error('❌ generateGuestResponseLink: Missing eventId or guestId', { eventId, guestId });
@@ -403,8 +403,8 @@ export const generateGuestResponseLink = (eventId: string, guestId: string, firs
   
   const frontendUrl = getFrontendUrl();
   // Use HashRouter format for static hosting compatibility
-  // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}&name={firstName}_{lastName}&phone={phoneNumber}
-  // CRITICAL: Includes eventId, guestId, name, and phone to ensure maximum uniqueness
+  // Format: /#/guest-response/{eventId}?guest={guestId}&event={eventId}&name={firstName}_{lastName}&phone={phoneNumber}&row={rowNumber}
+  // CRITICAL: Includes eventId, guestId, name, phone, and rowNumber to ensure maximum uniqueness
   // CRITICAL: Clean names before encoding to ensure consistency
   const cleanedFirstName = cleanName(firstName || '').trim();
   const cleanedLastName = cleanName(lastName || '').trim();
@@ -423,8 +423,12 @@ export const generateGuestResponseLink = (eventId: string, guestId: string, firs
   if (phoneParam) {
     link += `&phone=${phoneParam}`;
   }
+  // CRITICAL: Include rowNumber if provided to help identify guest (must be > 0)
+  if (rowNumber !== undefined && rowNumber !== null && rowNumber > 0) {
+    link += `&row=${rowNumber}`;
+  }
   
-  console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId, 'Name:', nameParam, 'Phone:', phoneParam);
+  console.log('🔗 Generated guest response link:', link, 'EventId:', eventId, 'GuestId:', guestId, 'Name:', nameParam, 'Phone:', phoneParam, 'RowNumber:', rowNumber);
   return link;
 };
 

@@ -2500,8 +2500,10 @@ const EventManagement: React.FC = () => {
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
       const recipients = guestsToSend.map(guest => {
+        // CRITICAL: Find the original row number of the guest in the event (not filtered)
+        const originalRowNumber = currentEvent.guests.findIndex(g => g.id === guest.id) + 1;
         // Use helper function to ensure production URL (works on all devices)
-        const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
+        const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
       console.log('🔗 Generated guest link:', guestLink);
       console.log('🔗 Event ID:', currentEvent.id);
       console.log('🔗 Guest ID:', guest.id);
@@ -2674,9 +2676,21 @@ const EventManagement: React.FC = () => {
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
       const guestToUse = event.guests.find(g => g.id === guestIdToUse) || realGuest || guest;
-      const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guestToUse?.firstName, guestToUse?.lastName, guestToUse?.phoneNumber);
+      // CRITICAL: Find the original row number of the guest in the event (not filtered)
+      const guestIndex = event.guests.findIndex(g => g.id === guestIdToUse);
+      const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
+      console.log('🔍 DEBUG - Original row number for guest:', {
+        guestId: guestIdToUse,
+        guestName: `${guestToUse?.firstName} ${guestToUse?.lastName}`,
+        guestIndex,
+        originalRowNumber,
+        totalGuests: event.guests.length,
+        willIncludeInLink: originalRowNumber > 0
+      });
+      const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guestToUse?.firstName, guestToUse?.lastName, guestToUse?.phoneNumber, originalRowNumber);
       
       console.log('🔗 Single guest link:', guestLink);
+      console.log('🔍 DEBUG - Link includes row?', guestLink.includes('row='));
       console.log('🔗 Single Event ID:', event.id);
       console.log('🔗 Single Guest ID used:', guestIdToUse);
       
@@ -3574,10 +3588,15 @@ const EventManagement: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredGuests.map((guest, index) => (
+                filteredGuests.map((guest, index) => {
+                  // CRITICAL: Find the original row number of the guest in the event (not filtered)
+                  const originalRowNumber = currentEvent.guests.findIndex(g => g.id === guest.id) + 1;
+                  return (
                 <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 relative z-0 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                  <td className="px-3 py-4 text-center text-sm font-semibold text-gray-600 w-12">
-                    {index + 1}
+                  <td className="px-3 py-4 text-center text-sm font-bold w-12">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white shadow-sm" title={`מספר שורה מקורי: ${originalRowNumber}`}>
+                      {originalRowNumber}
+                    </span>
                   </td>
                   <td className="px-4 py-4 whitespace-nowrap">
                     <input
@@ -3795,7 +3814,8 @@ const EventManagement: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

@@ -141,19 +141,19 @@ const GuestResponse = () => {
         
         // CRITICAL: Always check if guestId ends with 'https' or 'http' and remove it
         // This handles cases where the regex captured 'https' as part of the ID
-        if (cleanGuestId.endsWith('https')) {
-          cleanGuestId = cleanGuestId.slice(0, -5);
-        } else if (cleanGuestId.endsWith('http')) {
-          cleanGuestId = cleanGuestId.slice(0, -4);
-        } else if (cleanGuestId.endsWith('htt')) {
-          cleanGuestId = cleanGuestId.slice(0, -3);
-        } else if (cleanGuestId.endsWith('ht')) {
-          cleanGuestId = cleanGuestId.slice(0, -2);
-        } else if (cleanGuestId.endsWith('h')) {
+          if (cleanGuestId.endsWith('https')) {
+            cleanGuestId = cleanGuestId.slice(0, -5);
+          } else if (cleanGuestId.endsWith('http')) {
+            cleanGuestId = cleanGuestId.slice(0, -4);
+          } else if (cleanGuestId.endsWith('htt')) {
+            cleanGuestId = cleanGuestId.slice(0, -3);
+          } else if (cleanGuestId.endsWith('ht')) {
+            cleanGuestId = cleanGuestId.slice(0, -2);
+          } else if (cleanGuestId.endsWith('h')) {
           // Check if 'h' is part of 'https://' or 'http://' that follows
-          if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
-            cleanGuestId = cleanGuestId.slice(0, -1);
-          }
+            if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+              cleanGuestId = cleanGuestId.slice(0, -1);
+            }
         }
         
         // If 'https://' or 'http://' appears right after, trim any remaining characters
@@ -354,10 +354,39 @@ const GuestResponse = () => {
   const guestNameFromUrl = parseGuestName();
   const guestPhoneFromUrl = parseGuestPhone();
   
+  // Parse row number from URL (for additional identification)
+  const parseGuestRowNumber = () => {
+    const fromSearch = searchParams.get('row');
+    if (fromSearch) {
+      const rowNum = parseInt(fromSearch, 10);
+      if (!isNaN(rowNum) && rowNum > 0) {
+        return rowNum;
+      }
+    }
+    
+    const hash = window.location.hash;
+    if (hash) {
+      const rowMatch = hash.match(/[?&]row=(\d+)/);
+      if (rowMatch && rowMatch[1]) {
+        const rowNum = parseInt(rowMatch[1], 10);
+        if (!isNaN(rowNum) && rowNum > 0) {
+          return rowNum;
+        }
+      }
+    }
+    
+    return null;
+  };
+  
+  const guestRowNumberFromUrl = parseGuestRowNumber();
+  
   console.log(`🔍 Final guestId: ${guestId}`);
   console.log(`🔍 Final eventId: ${eventId}`);
   console.log(`🔍 Guest name from URL:`, guestNameFromUrl);
   console.log(`🔍 Guest phone from URL:`, guestPhoneFromUrl);
+  console.log(`🔍 Guest row number from URL:`, guestRowNumberFromUrl);
+  console.log(`🔍 Full URL hash:`, window.location.hash);
+  console.log(`🔍 Search params:`, Object.fromEntries(searchParams.entries()));
   
   // DEBUG: Log URL parsing
   React.useEffect(() => {
@@ -941,9 +970,50 @@ const GuestResponse = () => {
             }
           }
           
+          // If still not found, try row number match (CRITICAL: Use row number to find guest)
+          if (!guestToUpdate && guestRowNumberFromUrl) {
+            console.log(`⚠️ Guest not found by name/phone, trying row number match...`);
+            // Row number is 1-based, so subtract 1 to get index
+            const rowIndex = guestRowNumberFromUrl - 1;
+            if (rowIndex >= 0 && rowIndex < (currentEvent.guests?.length || 0)) {
+              guestToUpdate = currentEvent.guests[rowIndex];
+              if (guestToUpdate) {
+                console.log(`✅ Found guest by row number ${guestRowNumberFromUrl}: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
+                
+                // CRITICAL: Verify guest using name and phone from URL for additional security
+                if (guestNameFromUrl || guestPhoneFromUrl) {
+                  const nameMatches = !guestNameFromUrl || (
+                    (guestToUpdate.firstName?.includes(guestNameFromUrl.firstName) || guestNameFromUrl.firstName.includes(guestToUpdate.firstName || '')) &&
+                    (!guestNameFromUrl.lastName || !guestToUpdate.lastName || 
+                     guestToUpdate.lastName?.includes(guestNameFromUrl.lastName) || guestNameFromUrl.lastName.includes(guestToUpdate.lastName))
+                  );
+                  const phoneMatches = !guestPhoneFromUrl || (
+                    guestToUpdate.phoneNumber?.replace(/\D/g, '') === guestPhoneFromUrl.replace(/\D/g, '')
+                  );
+                  
+                  if (nameMatches && phoneMatches) {
+                    console.log(`✅ Guest verified by name and phone from URL (found by row number)`);
+                  } else {
+                    console.warn(`⚠️ Guest found by row number but name/phone don't match!`, {
+                      nameMatches,
+                      phoneMatches,
+                      urlName: guestNameFromUrl,
+                      urlPhone: guestPhoneFromUrl,
+                      guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+                      guestPhone: guestToUpdate.phoneNumber
+                    });
+                    // Still use this guest, but log the warning
+                  }
+                }
+              }
+            } else {
+              console.error(`❌ Invalid row number: ${guestRowNumberFromUrl} (event has ${currentEvent.guests?.length || 0} guests)`);
+            }
+          }
+          
           // If still not found, try partial ID match
           if (!guestToUpdate) {
-            console.log(`⚠️ Guest not found by name/phone, trying partial ID match...`);
+            console.log(`⚠️ Guest not found by row number, trying partial ID match...`);
             const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
             guestToUpdate = currentEvent.guests?.find((g: any) => 
               g.id === cleanedGuestId ||
@@ -996,8 +1066,8 @@ const GuestResponse = () => {
       console.log('📝 Response status:', responseStatus);
       
       // CRITICAL: guestToUpdate is guaranteed to exist at this point (we checked above)
-      // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
-      let finalNotes = formData.notes || '';
+        // Update existing guest - CRITICAL: explicitly set rsvpStatus to override any existing value
+        let finalNotes = formData.notes || '';
         
         // CRITICAL: Always use current time for responseDate to ensure update is always considered "newer"
         // This ensures repeated updates from guest_link are always processed
@@ -1035,10 +1105,14 @@ const GuestResponse = () => {
         if (isProblematicGuest) {
           console.log(`🔍 PROBLEMATIC GUEST UPDATE STARTING: ${guestToUpdate.firstName} ${guestToUpdate.lastName}`, {
             id: guestToUpdate.id,
+            eventId: currentEvent.id,
+            eventName: currentEvent.coupleName,
             currentStatus: guestToUpdate.rsvpStatus,
             newStatus: updatedGuest.rsvpStatus,
             currentCount: guestToUpdate.guestCount,
-            newCount: updatedGuest.guestCount
+            newCount: updatedGuest.guestCount,
+            source: updatedGuest.source,
+            responseDate: updatedGuest.responseDate
           });
         }
         
@@ -1051,10 +1125,28 @@ const GuestResponse = () => {
           currentStatus: guestToUpdate.rsvpStatus,
           currentGuestCount: guestToUpdate.guestCount,
           newStatus: updatedGuest.rsvpStatus,
-          newGuestCount: updatedGuest.guestCount
+          newGuestCount: updatedGuest.guestCount,
+          isProblematicGuest
         });
         
+        if (isProblematicGuest) {
+          console.log(`🔍 PROBLEMATIC GUEST CALLING updateGuestResponse: ${guestToUpdate.firstName} ${guestToUpdate.lastName}`, {
+            eventId: currentEvent.id,
+            guestId: guestToUpdate.id,
+            updatedGuest: {
+              rsvpStatus: updatedGuest.rsvpStatus,
+              guestCount: updatedGuest.guestCount,
+              source: updatedGuest.source,
+              responseDate: updatedGuest.responseDate
+            }
+          });
+        }
+        
         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
+        
+        if (isProblematicGuest) {
+          console.log(`🔍 PROBLEMATIC GUEST updateGuestResponse COMPLETED: ${guestToUpdate.firstName} ${guestToUpdate.lastName}`);
+        }
         
         console.log('✅ updateGuestResponse completed!');
         
@@ -1072,13 +1164,37 @@ const GuestResponse = () => {
           if (!refreshedGuest) {
             console.error('❌ Guest not found in event after update!', guestToUpdate.id);
           } else {
+            const isProblematicGuest = (guestToUpdate.firstName?.includes('דורון') && guestToUpdate.lastName?.includes('שושני')) ||
+                                      (guestToUpdate.firstName?.includes('מאור') && guestToUpdate.lastName?.includes('רומנו'));
+            
+            const refreshedGuestAny = refreshedGuest as any;
             console.log(`✅ Verified update - Guest status: ${refreshedGuest.rsvpStatus} (expected: ${updatedGuest.rsvpStatus})`);
             console.log(`✅ Verified update - Guest count: ${refreshedGuest.guestCount} (expected: ${updatedGuest.guestCount})`);
+            console.log(`✅ Verified update - Guest source: ${refreshedGuestAny.source} (expected: ${updatedGuest.source})`);
+            
+            if (isProblematicGuest) {
+              console.log(`🔍 PROBLEMATIC GUEST VERIFICATION: ${guestToUpdate.firstName} ${guestToUpdate.lastName}`, {
+                id: refreshedGuest.id,
+                rsvpStatus: refreshedGuest.rsvpStatus,
+                expectedRsvpStatus: updatedGuest.rsvpStatus,
+                guestCount: refreshedGuest.guestCount,
+                expectedGuestCount: updatedGuest.guestCount,
+                source: refreshedGuestAny.source,
+                expectedSource: updatedGuest.source,
+                statusMatch: refreshedGuest.rsvpStatus === updatedGuest.rsvpStatus,
+                countMatch: refreshedGuest.guestCount === updatedGuest.guestCount,
+                sourceMatch: refreshedGuestAny.source === updatedGuest.source
+              });
+            }
+            
             if (refreshedGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
               console.error(`❌ STATUS MISMATCH! Expected: ${updatedGuest.rsvpStatus}, Got: ${refreshedGuest.rsvpStatus}`);
             }
             if (refreshedGuest.guestCount !== updatedGuest.guestCount) {
               console.error(`❌ GUEST COUNT MISMATCH! Expected: ${updatedGuest.guestCount}, Got: ${refreshedGuest.guestCount}`);
+            }
+            if (refreshedGuestAny.source !== updatedGuest.source) {
+              console.error(`❌ SOURCE MISMATCH! Expected: ${updatedGuest.source}, Got: ${refreshedGuestAny.source}`);
             }
           }
         }
@@ -1093,7 +1209,7 @@ const GuestResponse = () => {
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
         // This ensures the table in EventManagement updates immediately
       console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update...`);
-      setTimeout(() => {
+        setTimeout(() => {
         storeState.fetchEvents(true, true).then(() => {
           console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
           // Verify the update was loaded from server
@@ -1107,7 +1223,7 @@ const GuestResponse = () => {
               source: (verifyGuest as any).source,
               responseDate: verifyGuest.responseDate
             });
-          } else {
+        } else {
             console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
           }
         }).catch(err => {
