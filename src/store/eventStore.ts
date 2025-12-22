@@ -2203,12 +2203,14 @@ export const useEventStore = create<EventStore>()(
                       let shouldApplyUpdate = isNewerUpdate || isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate;
                       
                       // Special handling for guestCount: if current is manual and new would change it, be more strict
-                      if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
+                      // CRITICAL: EXCEPTION - guest_link updates ALWAYS take priority (direct user input from guest response page)
+                      if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount && !isGuestLinkUpdate) {
                         const isNewUpdateFromManual = isManualUpdateEcho;
                         const timeDiff = newResponseDate.getTime() - oldResponseDate.getTime();
                         const isSignificantlyNewer = timeDiff > 5000; // 5 seconds
                         
                         // Only allow overwrite if: new is also manual and newer, OR new is significantly newer (5+ seconds)
+                        // CRITICAL: guest_link updates are handled separately and always applied
                         if (!isNewUpdateFromManual && !isSignificantlyNewer) {
                           console.log(`🛡️ Blocking update: current manual guestCount ${guest.guestCount} would be reverted to ${updatedGuest.guestCount} by non-manual or too-recent update`);
                           shouldApplyUpdate = false; // Don't apply this update - it would revert manual change
@@ -2380,6 +2382,24 @@ export const useEventStore = create<EventStore>()(
                           }
                         });
                         
+                        // CRITICAL: If update is from guest_link, ALWAYS apply it (direct user input from guest response page)
+                        // This ensures guest responses are never blocked, even if old update is newer
+                        if (isGuestLinkUpdate) {
+                          console.log(`✅ Applying guest_link update even though old update is newer - direct user input must be applied`);
+                          const mergedGuest = { 
+                            ...guest,
+                            ...updatedGuest,
+                            // Use new values from guest_link update (direct user input)
+                            rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                            guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                            notes: updatedGuest.notes !== undefined ? updatedGuest.notes : guest.notes,
+                            actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
+                            responseDate: newResponseDate, // Use new responseDate
+                            source: updatedGuest.source || guest.source
+                          };
+                          return { ...mergedGuest };
+                        }
+                        
                         // Keep old guest values
                         const mergedGuest = { 
                           ...guest,
@@ -2393,6 +2413,24 @@ export const useEventStore = create<EventStore>()(
                         };
                       
                         // CRITICAL: Always return a new object reference for the guest
+                        return { ...mergedGuest };
+                      }
+                      
+                      // CRITICAL: If update is from guest_link, ALWAYS apply it (direct user input from guest response page)
+                      // This ensures guest responses are never blocked
+                      if (isGuestLinkUpdate) {
+                        console.log(`✅ Applying guest_link update even though old update is newer - direct user input must be applied`);
+                        const mergedGuest = { 
+                          ...guest,
+                          ...updatedGuest,
+                          // Use new values from guest_link update (direct user input)
+                          rsvpStatus: updatedGuest.rsvpStatus !== undefined ? updatedGuest.rsvpStatus : guest.rsvpStatus,
+                          guestCount: updatedGuest.guestCount !== undefined ? updatedGuest.guestCount : guest.guestCount,
+                          notes: updatedGuest.notes !== undefined ? updatedGuest.notes : guest.notes,
+                          actualAttendance: updatedGuest.actualAttendance !== undefined ? updatedGuest.actualAttendance : guest.actualAttendance,
+                          responseDate: newResponseDate, // Use new responseDate
+                          source: updatedGuest.source || guest.source
+                        };
                         return { ...mergedGuest };
                       }
                       
