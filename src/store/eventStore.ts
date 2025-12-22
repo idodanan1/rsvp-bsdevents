@@ -2636,12 +2636,25 @@ export const useEventStore = create<EventStore>()(
             const verifyEvent = updatedEvents.find(e => e.id === eventId);
             const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
             const verifyCurrentEventGuest = updatedCurrentEvent?.guests?.find(g => g.id === guestId);
+            console.log(`✅ STORE: After updateGuestResponse - Guest ID: ${guestId}`);
+            console.log(`✅ STORE: After updateGuestResponse - Guest name: ${verifyGuest?.firstName} ${verifyGuest?.lastName}`);
             console.log(`✅ STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
             console.log(`✅ STORE: After updateGuestResponse - Guest count in events array:`, verifyGuest?.guestCount);
+            console.log(`✅ STORE: After updateGuestResponse - Guest source in events array:`, (verifyGuest as any)?.source);
             console.log(`✅ STORE: After updateGuestResponse - Guest count in currentEvent:`, verifyCurrentEventGuest?.guestCount);
+            console.log(`✅ STORE: After updateGuestResponse - Guest status in currentEvent:`, verifyCurrentEventGuest?.rsvpStatus);
+            console.log(`✅ STORE: After updateGuestResponse - Guest source in currentEvent:`, (verifyCurrentEventGuest as any)?.source);
             console.log(`✅ STORE: Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
             console.log(`✅ STORE: Event updatedAt:`, updatedEvent?.updatedAt);
             console.log(`✅ STORE: CurrentEvent updatedAt:`, updatedCurrentEvent?.updatedAt);
+            
+            // CRITICAL: Check if update was applied correctly
+            if (verifyGuest && verifyGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
+              console.error(`❌ MISMATCH: Guest status in events array (${verifyGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
+            }
+            if (verifyCurrentEventGuest && verifyCurrentEventGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
+              console.error(`❌ MISMATCH: Guest status in currentEvent (${verifyCurrentEventGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
+            }
             
             // CRITICAL: Always create new array reference for events to force React re-render
             // This ensures React detects changes even if array contents are similar

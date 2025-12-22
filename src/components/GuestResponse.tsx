@@ -784,11 +784,16 @@ const GuestResponse = () => {
       
       // First, try to find guest by exact guestId match in currentEvent
       if (guestId && currentEvent) {
+        console.log(`🔍 Searching for guest with ID: ${guestId} in event ${currentEvent.id}`);
+        console.log(`🔍 Event has ${currentEvent.guests?.length || 0} guests`);
+        console.log(`🔍 Sample guest IDs:`, currentEvent.guests?.slice(0, 5).map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+        
         guestToUpdate = currentEvent.guests?.find((g: any) => g.id === guestId);
         
         if (guestToUpdate) {
           console.log(`✅ Found guest by exact match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName})`);
         } else {
+          console.log(`⚠️ Guest not found by exact match, trying partial match...`);
           // Try partial match (in case guestId has extra characters like 'https')
           const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
           guestToUpdate = currentEvent.guests?.find((g: any) => 
@@ -800,8 +805,13 @@ const GuestResponse = () => {
           
           if (guestToUpdate) {
             console.log(`✅ Found guest with partial match: ${guestToUpdate.id} (${guestToUpdate.firstName} ${guestToUpdate.lastName}) (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
+          } else {
+            console.error(`❌ Guest not found even with partial match. Searched for: ${guestId}, cleaned: ${cleanedGuestId}`);
+            console.error(`❌ All guest IDs in event:`, currentEvent.guests?.map((g: any) => g.id).slice(0, 10));
           }
         }
+      } else {
+        console.error(`❌ Missing guestId or currentEvent:`, { guestId, hasCurrentEvent: !!currentEvent });
       }
       
       // Fallback: Use currentGuest if guestId search failed
@@ -857,8 +867,15 @@ const GuestResponse = () => {
         
         console.log('🔄 Calling updateGuestResponse with:', {
           eventId: currentEvent.id,
+          eventName: currentEvent.coupleName,
           guestId: guestToUpdate.id,
-          updatedGuest: { rsvpStatus: updatedGuest.rsvpStatus, guestCount: updatedGuest.guestCount }
+          guestName: `${guestToUpdate.firstName} ${guestToUpdate.lastName}`,
+          updatedGuest: { 
+            rsvpStatus: updatedGuest.rsvpStatus, 
+            guestCount: updatedGuest.guestCount,
+            source: updatedGuest.source,
+            responseDate: updatedGuest.responseDate
+          }
         });
         
         // CRITICAL: Verify we have the correct event and guest before updating
