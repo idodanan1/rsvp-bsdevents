@@ -279,20 +279,32 @@ const EventManagement: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log(`✅ Processed ${data.processed} updates, ${data.failed} failed, ${data.remaining} remaining`);
+        console.log(`📊 Processed updates details:`, data.processedUpdates?.slice(0, 5));
         
-        // Refresh events to show updated data
-        await fetchEvents(false, true);
-        
-        // Update pending count
+        // Update pending count first
         setPendingUpdatesCount(data.remaining || 0);
         
         // Show success message
         if (data.processed > 0) {
-          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}`);
+          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 מרענן את הטבלה...`);
         } else {
           alert('ℹ️ לא נמצאו עדכונים לעיבוד.');
         }
+        
+        // Refresh events to show updated data - use force refresh
+        console.log(`🔄 Refreshing events after processing updates...`);
+        await fetchEvents(true, true); // Force refresh to get latest data
+        console.log(`✅ Events refreshed after processing updates`);
+        
+        // Wait a bit and refresh again to ensure all updates are reflected
+        setTimeout(async () => {
+          console.log(`🔄 Second refresh to ensure all updates are reflected...`);
+          await fetchEvents(true, true);
+          console.log(`✅ Second refresh completed`);
+        }, 1000);
       } else {
+        const errorText = await response.text();
+        console.error(`❌ Backend processing failed: ${response.status}`, errorText);
         throw new Error(`Backend processing failed: ${response.status}`);
       }
     } catch (error) {
