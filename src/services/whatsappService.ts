@@ -134,7 +134,7 @@ class WhatsAppService {
           const headerImageUrl = headerImageFromParams || eventInvitationImage || messageData.imageUrl;
           
           // Build 8 body parameters WITHOUT parameter_name (positional parameters)
-          // Order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, guest_response_link
+          // Order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name
           const bodyParams = [
             { type: 'text', text: (guestName && guestName.trim()) || 'אורח' }, // {{1}}
             { type: 'text', text: (eventData.eventTypeHebrew && eventData.eventTypeHebrew.trim()) || 'חתונה' }, // {{2}}
@@ -143,7 +143,7 @@ class WhatsAppService {
             { type: 'text', text: (eventData.eventDate && eventData.eventDate.trim()) || 'תאריך האירוע' }, // {{5}}
             { type: 'text', text: (eventData.eventTime && eventData.eventTime.trim()) || 'שעת האירוע' }, // {{6}}
             { type: 'text', text: (eventData.venue && eventData.venue.trim()) || 'מיקום האירוע' }, // {{7}}
-            { type: 'text', text: (guestResponseLink && guestResponseLink.trim()) || 'https://rsvp-frontend-wy47.onrender.com' } // {{8}} - unique guest response link
+            { type: 'text', text: (eventData.coupleName && eventData.coupleName.trim()) || (eventData.groomName && eventData.brideName ? `${eventData.groomName} & ${eventData.brideName}` : 'הזוג') } // {{8}} - couple name for signature
           ];
           
           // Validate all parameters are non-empty
