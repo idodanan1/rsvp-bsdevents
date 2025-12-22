@@ -127,9 +127,19 @@ class WhatsAppService {
           const eventData = (messageData.templateParams as any)?.eventData || {};
           const guestName = (messageData.templateParams as any)?.guestName || messageData.to || 'אורח';
           const guestResponseLink = (messageData.templateParams as any)?.guest_response_link || '';
+          
+          // CRITICAL: Get image URL - priority: headerImageUrl from params > eventData.invitationImageUrl > messageData.imageUrl
+          // This ensures event invitation image is always used
           const headerImageFromParams = (messageData.templateParams as any)?.headerImageUrl;
           const eventInvitationImage = eventData?.invitationImageUrl;
           const headerImageUrl = headerImageFromParams || eventInvitationImage || messageData.imageUrl;
+          
+          console.log('🖼️ Image URL sources for template "new":', {
+            headerImageFromParams,
+            eventInvitationImage,
+            messageDataImageUrl: messageData.imageUrl,
+            finalHeaderImageUrl: headerImageUrl
+          });
           
           // Build 9 body parameters with parameter_name for each (required by Meta API for named variables)
           // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
@@ -154,8 +164,8 @@ class WhatsAppService {
             }
           ];
           
-          // Add header image component if template "new" has a header image variable
-          // Check if we have a valid image URL
+          // CRITICAL: Always add header image component if we have a valid image URL
+          // Template "new" should include event invitation image in header
           const isValidImageUrl = headerImageUrl && (
             headerImageUrl.startsWith('https://') || 
             headerImageUrl.startsWith('http://')
@@ -165,6 +175,7 @@ class WhatsAppService {
             let imageUrlForMeta = headerImageUrl;
             if (headerImageUrl.startsWith('http://')) {
               imageUrlForMeta = headerImageUrl.replace('http://', 'https://');
+              console.log('🖼️ ⚠️ Converting HTTP to HTTPS for Meta:', imageUrlForMeta);
             }
             
             // Add header component with image
@@ -183,8 +194,11 @@ class WhatsAppService {
               ]
             });
             console.log('🖼️ ✅ Adding header image to template "new":', imageUrlForMeta);
+            console.log('🖼️ 📋 Header component added to payload');
           } else {
-            console.log('ℹ️ Template "new" - no header image URL provided or invalid URL');
+            console.log('⚠️ Template "new" - no header image URL provided or invalid URL');
+            console.log('⚠️ Image URL was:', headerImageUrl);
+            console.log('⚠️ This may cause the message to fail if template requires header image');
           }
           
           // Add URL button if guest_response_link is available
