@@ -559,12 +559,15 @@ export const useEventStore = create<EventStore>()(
                           if (isApiFromGuestLink) {
                             const statusChanged = existingGuest.rsvpStatus !== g.rsvpStatus;
                             const countChanged = existingGuest.guestCount !== g.guestCount;
+                            const nameMatch = (g.firstName?.includes('דורון') || g.lastName?.includes('שושני')) || 
+                                            (g.firstName?.includes('מאור') || g.lastName?.includes('רומנו'));
                             console.log(`✅ Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               rsvpStatus: g.rsvpStatus,
                               guestCount: g.guestCount,
                               responseDate: g.responseDate,
                               statusChanged,
                               countChanged,
+                              isProblematicGuest: nameMatch,
                               overridingLocal: {
                                 rsvpStatus: existingGuest.rsvpStatus,
                                 guestCount: existingGuest.guestCount,
@@ -576,6 +579,9 @@ export const useEventStore = create<EventStore>()(
                             }
                             if (countChanged) {
                               console.log(`🔄 COUNT CHANGE: ${existingGuest.guestCount} -> ${g.guestCount} for guest ${g.id} (${g.firstName} ${g.lastName})`);
+                            }
+                            if (nameMatch) {
+                              console.log(`🔍 PROBLEMATIC GUEST UPDATE: ${g.firstName} ${g.lastName} - status: ${g.rsvpStatus}, count: ${g.guestCount}, source: ${g.source}`);
                             }
                             return {
                               ...g,
@@ -934,17 +940,23 @@ export const useEventStore = create<EventStore>()(
                       source: g.source
                     }));
                     console.log('🔍 Sample guests in updated currentEvent:', sampleGuests);
-                    // Check for specific guest if searching
-                    const doronGuest = updatedCurrentEvent.guests?.find(g => 
-                      g.firstName?.includes('דורון') && g.lastName?.includes('שושני')
+                    // Check for specific problematic guests
+                    const problematicGuests = updatedCurrentEvent.guests?.filter(g => 
+                      (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
+                      (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו'))
                     );
-                    if (doronGuest) {
-                      console.log('🔍 Found דורון שושני in updated currentEvent:', {
-                        id: doronGuest.id,
-                        status: doronGuest.rsvpStatus,
-                        source: (doronGuest as any).source,
-                        responseDate: doronGuest.responseDate
+                    if (problematicGuests && problematicGuests.length > 0) {
+                      problematicGuests.forEach(guest => {
+                        console.log(`🔍 Found problematic guest in updated currentEvent: ${guest.firstName} ${guest.lastName}`, {
+                          id: guest.id,
+                          status: guest.rsvpStatus,
+                          source: (guest as any).source,
+                          responseDate: guest.responseDate,
+                          guestCount: guest.guestCount
+                        });
                       });
+                    } else {
+                      console.log('⚠️ No problematic guests found in updated currentEvent');
                     }
                   } else {
                     console.warn('⚠️ currentEvent not found in eventsWithNewReferences:', storeState.currentEvent.id);
