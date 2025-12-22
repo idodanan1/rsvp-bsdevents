@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, startTransition, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName } from '../utils/helpers';
+import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName, generateGuestResponseLink } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
 // Import messageService dynamically to avoid circular dependency issues
 // import { messageService } from '../services/messageService';
@@ -2499,9 +2499,6 @@ const EventManagement: React.FC = () => {
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
-      // CRITICAL: Import generateGuestResponseLink dynamically to avoid initialization issues
-      const { generateGuestResponseLink } = await import('../utils/helpers');
-
       const recipients = guestsToSend.map(guest => {
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber);
@@ -2676,9 +2673,8 @@ const EventManagement: React.FC = () => {
       // Use the real guest ID if found, otherwise use the parameter ID
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
-      const { generateGuestResponseLink } = await import('../utils/helpers');
-      const guest = event.guests.find(g => g.id === guestIdToUse);
-      const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guest?.firstName, guest?.lastName, guest?.phoneNumber);
+      const guestToUse = event.guests.find(g => g.id === guestIdToUse) || realGuest || guest;
+      const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guestToUse?.firstName, guestToUse?.lastName, guestToUse?.phoneNumber);
       
       console.log('🔗 Single guest link:', guestLink);
       console.log('🔗 Single Event ID:', event.id);
