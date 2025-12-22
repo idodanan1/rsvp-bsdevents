@@ -2459,7 +2459,10 @@ export const useEventStore = create<EventStore>()(
             // Verify the update
             const verifyEvent = updatedEvents.find(e => e.id === eventId);
             const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
+            const verifyCurrentEventGuest = updatedCurrentEvent?.guests?.find(g => g.id === guestId);
             console.log(`✅ STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
+            console.log(`✅ STORE: After updateGuestResponse - Guest count in events array:`, verifyGuest?.guestCount);
+            console.log(`✅ STORE: After updateGuestResponse - Guest count in currentEvent:`, verifyCurrentEventGuest?.guestCount);
             console.log(`✅ STORE: Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
             console.log(`✅ STORE: Event updatedAt:`, updatedEvent?.updatedAt);
             console.log(`✅ STORE: CurrentEvent updatedAt:`, updatedCurrentEvent?.updatedAt);
