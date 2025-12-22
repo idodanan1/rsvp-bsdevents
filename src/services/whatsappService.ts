@@ -1467,7 +1467,8 @@ class WhatsAppService {
           console.warn('📋 Error details:', errorDetails);
           
           // Use the image URL from messageData if available, otherwise use placeholder
-          const headerImageUrl = messageData.imageUrl || finalImageUrl || DEFAULT_PLACEHOLDER_IMAGE;
+          const DEFAULT_PLACEHOLDER_IMAGE_FALLBACK = 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?w=800&h=600&fit=crop';
+          const headerImageUrl = messageData.imageUrl || finalImageUrl || DEFAULT_PLACEHOLDER_IMAGE_FALLBACK;
           
           // Build components with placeholder header image
           const componentsWithHeader: any[] = [
