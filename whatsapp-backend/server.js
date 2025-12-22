@@ -6378,7 +6378,15 @@ app.post('/api/events/:eventId/guests', async (req, res) => {
         const existingIndex = mergedGuests.findIndex(g => g.id === incomingGuest.id);
         if (existingIndex >= 0) {
           // Update existing guest
+          const oldGuest = mergedGuests[existingIndex];
+          const oldGuestCount = oldGuest.guestCount;
+          const newGuestCount = incomingGuest.guestCount;
           mergedGuests[existingIndex] = { ...mergedGuests[existingIndex], ...incomingGuest };
+          console.log(`🔄 Updated existing guest ${incomingGuest.id} (${incomingGuest.firstName} ${incomingGuest.lastName})`);
+          if (oldGuestCount !== newGuestCount && newGuestCount !== undefined) {
+            console.log(`📊 GUEST COUNT UPDATED in /api/events/:eventId/guests: ${oldGuestCount} → ${newGuestCount} for ${incomingGuest.firstName} ${incomingGuest.lastName}`);
+            console.log(`📊 Updated guest object:`, JSON.stringify(mergedGuests[existingIndex], null, 2));
+          }
         } else {
           // Add new guest
           mergedGuests.push(incomingGuest);
