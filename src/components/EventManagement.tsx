@@ -80,6 +80,16 @@ const EventManagement: React.FC = () => {
     return isNaN(date.getTime()) ? 0 : date.getTime();
   });
   
+  // CRITICAL: Get events array to detect changes even when currentEvent is undefined
+  // This ensures updates from guest response page are detected
+  const eventsUpdatedAtHash = useEventStore(state => {
+    // Create a hash from all events' updatedAt timestamps to detect changes
+    return state.events.map(e => {
+      const updatedAt = e.updatedAt ? (e.updatedAt instanceof Date ? e.updatedAt.getTime() : new Date(e.updatedAt).getTime()) : 0;
+      return `${e.id}:${updatedAt}`;
+    }).join('||');
+  });
+  
   // CRITICAL: Create a stable hash using useMemo with ONLY primitive dependencies
   // This avoids React #310 errors by using stable primitive values as dependencies
   const eventsHash = useMemo(() => {
@@ -126,7 +136,7 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Combine both hashes to ensure we catch updates from both sources
     return `${eventsToHash}${currentEventHash}`;
-  }, [eventsLength, currentEventId, currentEventUpdatedAt]);
+  }, [eventsLength, currentEventId, currentEventUpdatedAt, eventsUpdatedAtHash]);
   const setCurrentEvent = useEventStore(state => state.setCurrentEvent);
   const addGuest = useEventStore(state => state.addGuest);
   const updateGuest = useEventStore(state => state.updateGuest);
