@@ -1006,7 +1006,16 @@ const EventManagement: React.FC = () => {
   }, [setCurrentEvent, fetchEvents]);
 
   const handleUpdateGuestField = useCallback(async (guestId: string, updates: any) => {
-    const event = useEventStore.getState().currentEvent;
+    const state = useEventStore.getState();
+    // CRITICAL: Try to get event from currentEvent first, then from events array
+    let event = state.currentEvent;
+    if (!event || !event.id) {
+      // If currentEvent is not set, try to find event from events array using the URL
+      const eventId = id; // Get eventId from URL params
+      if (eventId) {
+        event = state.events.find(e => e.id === eventId);
+      }
+    }
     if (!event || !event.id) {
       alert('שגיאה: לא נמצא אירוע פעיל');
       return;

@@ -569,19 +569,20 @@ export const useEventStore = create<EventStore>()(
                             };
                           }
                           
-                          // CRITICAL: If API has manual_update and it's newer, use it (manual update from table was saved to server)
+                          // CRITICAL: If API has manual_update, use it if it's newer or equal (manual update from table was saved to server)
                           if (isApiFromManual && g.guestCount !== undefined) {
                             const existingDate = existingGuest.responseDate ? new Date(existingGuest.responseDate).getTime() : 0;
                             const apiDate = g.responseDate ? new Date(g.responseDate).getTime() : 0;
                             
-                            // If API manual update is newer, use it (it was saved to server from table edit)
-                            if (apiDate > existingDate) {
-                              console.log(`✅ Using manual_update guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount}, API is newer)`);
+                            // If API manual update is newer or equal, use it (it was saved to server from table edit)
+                            // CRITICAL: Always prefer API manual_update if it exists, as it represents the saved state
+                            if (apiDate >= existingDate || !isExistingFromManual) {
+                              console.log(`✅ Using manual_update guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount}, API is ${apiDate >= existingDate ? 'newer or equal' : 'from server'})`);
                               return {
                                 ...g,
                                 firstName: cleanName(g.firstName),
                                 lastName: cleanName(g.lastName),
-                                // CRITICAL: Use API data for newer manual_update
+                                // CRITICAL: Use API data for manual_update (represents saved state from server)
                                 guestCount: g.guestCount,
                                 source: g.source,
                                 responseDate: g.responseDate
@@ -589,24 +590,18 @@ export const useEventStore = create<EventStore>()(
                             }
                           }
                           
-                          // If existing is manual and API is not, or existing is newer, preserve existing guestCount
-                          if (isExistingFromManual && existingGuest.guestCount !== undefined) {
-                            const existingDate = existingGuest.responseDate ? new Date(existingGuest.responseDate).getTime() : 0;
-                            const apiDate = g.responseDate ? new Date(g.responseDate).getTime() : 0;
-                            
-                            // Preserve manual guestCount if it's newer or if API doesn't have manual_update source
-                            if (!isApiFromManual || existingDate >= apiDate) {
-                              console.log(`🛡️ Preserving manual guestCount ${existingGuest.guestCount} from local state (API has ${g.guestCount})`);
-                              return {
-                                ...g,
-                                firstName: cleanName(g.firstName),
-                                lastName: cleanName(g.lastName),
-                                // CRITICAL: Preserve manual guestCount and source
-                                guestCount: existingGuest.guestCount,
-                                source: existingGuest.source,
-                                responseDate: existingGuest.responseDate
-                              };
-                            }
+                          // If existing is manual and API is not manual_update, preserve existing guestCount
+                          if (isExistingFromManual && existingGuest.guestCount !== undefined && !isApiFromManual) {
+                            console.log(`🛡️ Preserving manual guestCount ${existingGuest.guestCount} from local state (API has ${g.guestCount} but not from manual_update)`);
+                            return {
+                              ...g,
+                              firstName: cleanName(g.firstName),
+                              lastName: cleanName(g.lastName),
+                              // CRITICAL: Preserve manual guestCount and source
+                              guestCount: existingGuest.guestCount,
+                              source: existingGuest.source,
+                              responseDate: existingGuest.responseDate
+                            };
                           }
                         }
                         
@@ -1923,6 +1918,55 @@ export const useEventStore = create<EventStore>()(
                     guestId: guestId,
                     syncedFields: Object.keys(updates)
                   });
+                  
+                  // CRITICAL: Also update directly via /api/events/:eventId/guests to ensure persistence
+                  // This is especially important for manual_update to ensure it's saved in files
+                  if (updates.guestCount !== undefined || updates.source === 'manual_update') {
+                    try {
+                      console.log('🔄 Also updating event directly in server via /api/events/:eventId/guests for persistence...');
+                      const guestForServer = {
+                        id: updatedGuest.id,
+                        firstName: updatedGuest.firstName,
+                        lastName: updatedGuest.lastName,
+                        phoneNumber: updatedGuest.phoneNumber,
+                        rsvpStatus: updatedGuest.rsvpStatus,
+                        guestCount: updatedGuest.guestCount,
+                        notes: updatedGuest.notes || '',
+                        actualAttendance: updatedGuest.actualAttendance,
+                        responseDate: updatedGuest.responseDate ? (updatedGuest.responseDate instanceof Date ? updatedGuest.responseDate.toISOString() : updatedGuest.responseDate) : new Date().toISOString(),
+                        source: updatedGuest.source || 'manual_update',
+                        channel: updatedGuest.channel || 'whatsapp',
+                        messageStatus: updatedGuest.messageStatus,
+                        ...(updatedGuest.messageSentDate && { messageSentDate: updatedGuest.messageSentDate instanceof Date ? updatedGuest.messageSentDate.toISOString() : updatedGuest.messageSentDate }),
+                        ...(updatedGuest.messageDeliveredDate && { messageDeliveredDate: updatedGuest.messageDeliveredDate instanceof Date ? updatedGuest.messageDeliveredDate.toISOString() : updatedGuest.messageDeliveredDate }),
+                        ...(updatedGuest.messageFailedDate && { messageFailedDate: updatedGuest.messageFailedDate instanceof Date ? updatedGuest.messageFailedDate.toISOString() : updatedGuest.messageFailedDate }),
+                        ...(updatedGuest.tableId && { tableId: updatedGuest.tableId })
+                      };
+                      
+                      const directResponse = await fetch(`${BACKEND_URL}/api/events/${updatedEvent.id}/guests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          guests: [guestForServer],
+                          append: true // Merge with existing guests (update by ID)
+                        })
+                      });
+                      
+                      if (directResponse.ok) {
+                        const directResult = await directResponse.json();
+                        console.log('✅ Event updated directly in server:', {
+                          success: true,
+                          message: directResult.message || 'Updated event with guests',
+                          guestsCount: directResult.guestsCount
+                        });
+                      } else {
+                        const errorText = await directResponse.text();
+                        console.warn('⚠️ Direct update to /api/events/:eventId/guests failed:', directResponse.status, errorText);
+                      }
+                    } catch (directError) {
+                      console.warn('⚠️ Failed to update event directly in server:', directError);
+                    }
+                  }
                 } else {
                   const errorText = await response.text();
                   console.warn('⚠️ API sync failed:', response.status, errorText);
