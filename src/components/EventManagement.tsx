@@ -247,7 +247,9 @@ const EventManagement: React.FC = () => {
         
         if (response.ok) {
           const data = await response.json();
-          setPendingUpdatesCount(data.totalPending || 0);
+          const totalPending = data.totalPending || 0;
+          console.log(`📊 EventManagement: Found ${totalPending} pending updates`);
+          setPendingUpdatesCount(totalPending);
         }
       } catch (error) {
         // Silent fail - don't show error to user
