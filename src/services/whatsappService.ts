@@ -131,18 +131,19 @@ class WhatsAppService {
           const eventInvitationImage = eventData?.invitationImageUrl;
           const headerImageUrl = headerImageFromParams || eventInvitationImage || messageData.imageUrl;
           
-          // Build 9 body parameters (in order: guest_name, event_type, groom_name, bride_name, event_date, event_time, venue, couple_name, guest_response_link)
+          // Build 9 body parameters with parameter_name for each (required by Meta API for named variables)
           // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
+          // Each parameter MUST have parameter_name matching the variable name in Meta Business Manager
           const bodyParams = [
-            { type: 'text', text: guestName || 'אורח' },
-            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה' },
-            { type: 'text', text: eventData.groomName || '' },
-            { type: 'text', text: eventData.brideName || '' },
-            { type: 'text', text: eventData.eventDate || '' },
-            { type: 'text', text: eventData.eventTime || '' },
-            { type: 'text', text: eventData.venue || '' },
-            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג') },
-            { type: 'text', text: guestResponseLink || '' } // 9th parameter: guest_response_link in body
+            { type: 'text', text: guestName || 'אורח', parameter_name: 'guest_name' },
+            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה', parameter_name: 'event_type' },
+            { type: 'text', text: eventData.groomName || '', parameter_name: 'groom_name' },
+            { type: 'text', text: eventData.brideName || '', parameter_name: 'bride_name' },
+            { type: 'text', text: eventData.eventDate || '', parameter_name: 'event_date' },
+            { type: 'text', text: eventData.eventTime || '', parameter_name: 'event_time' },
+            { type: 'text', text: eventData.venue || '', parameter_name: 'venue' },
+            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג'), parameter_name: 'couple_name' },
+            { type: 'text', text: guestResponseLink || '', parameter_name: 'guest_response_link' } // 9th parameter
           ];
           
           // Build components array - start with body
@@ -167,8 +168,8 @@ class WhatsAppService {
             }
             
             // Add header component with image
-            // CRITICAL: If template "new" has a header image variable, it needs parameter_name
-            // Check if template expects a named variable (usually "header_image" or "event_image")
+            // NOTE: For header IMAGE parameters, parameter_name is NOT used (images are positional, not named)
+            // Only text body parameters use parameter_name
             components.unshift({
               type: 'header',
               parameters: [
@@ -176,15 +177,12 @@ class WhatsAppService {
                   type: 'image',
                   image: {
                     link: imageUrlForMeta
-                  },
-                  // CRITICAL: Header image parameters MUST include parameter_name if template has a variable
-                  // Common names: "header_image", "event_image", "invitation_image"
-                  // If template "new" has a header image variable, add its name here
-                  parameter_name: 'header_image' // Try common name - adjust if template uses different name
+                  }
+                  // NOTE: NO parameter_name for image - images don't use named variables
                 }
               ]
             });
-            console.log('🖼️ ✅ Adding header image to template "new" with parameter_name "header_image":', imageUrlForMeta);
+            console.log('🖼️ ✅ Adding header image to template "new":', imageUrlForMeta);
           } else {
             console.log('ℹ️ Template "new" - no header image URL provided or invalid URL');
           }
