@@ -141,19 +141,19 @@ class WhatsAppService {
             finalHeaderImageUrl: headerImageUrl
           });
           
-          // Build 9 body parameters with parameter_name for each (required by Meta API for named variables)
+          // Build 9 body parameters (positional, NOT named - no parameter_name needed)
           // NOTE: Template "new" requires 9 body parameters (unlike "aa" which requires 8)
-          // Each parameter MUST have parameter_name matching the variable name in Meta Business Manager
+          // Template uses positional parameters, not named parameters, so NO parameter_name
           const bodyParams = [
-            { type: 'text', text: guestName || 'אורח', parameter_name: 'guest_name' },
-            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה', parameter_name: 'event_type' },
-            { type: 'text', text: eventData.groomName || '', parameter_name: 'groom_name' },
-            { type: 'text', text: eventData.brideName || '', parameter_name: 'bride_name' },
-            { type: 'text', text: eventData.eventDate || '', parameter_name: 'event_date' },
-            { type: 'text', text: eventData.eventTime || '', parameter_name: 'event_time' },
-            { type: 'text', text: eventData.venue || '', parameter_name: 'venue' },
-            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג'), parameter_name: 'couple_name' },
-            { type: 'text', text: guestResponseLink || '', parameter_name: 'guest_response_link' } // 9th parameter
+            { type: 'text', text: guestName || 'אורח' },
+            { type: 'text', text: eventData.eventTypeHebrew || 'חתונה' },
+            { type: 'text', text: eventData.groomName || '' },
+            { type: 'text', text: eventData.brideName || '' },
+            { type: 'text', text: eventData.eventDate || '' },
+            { type: 'text', text: eventData.eventTime || '' },
+            { type: 'text', text: eventData.venue || '' },
+            { type: 'text', text: eventData.coupleName || (eventData.groomName && eventData.brideName ? `${eventData.groomName} ו-${eventData.brideName}` : 'הזוג') },
+            { type: 'text', text: guestResponseLink || '' } // 9th parameter
           ];
           
           // Build components array - start with body
@@ -202,6 +202,7 @@ class WhatsAppService {
           }
           
           // Add URL button if guest_response_link is available
+          // NOTE: Button parameters also use positional parameters, not named
           if (guestResponseLink) {
             components.push({
               type: 'button',
@@ -209,9 +210,8 @@ class WhatsAppService {
               index: '0',
               parameters: [{
                 type: 'text',
-                text: guestResponseLink,
-                // CRITICAL: URL button parameters MUST include parameter_name matching the variable name in template "new"
-                parameter_name: 'guest_response_link' // Must match the variable name in Meta Business Manager template
+                text: guestResponseLink
+                // NOTE: NO parameter_name - buttons also use positional parameters
               }]
             });
           }
