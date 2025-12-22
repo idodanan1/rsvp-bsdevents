@@ -114,6 +114,22 @@ class WhatsAppService {
           // No components needed for hello_world - it's that simple!
           // Skip all the complex logic below and go directly to sending
         } else if (templateName === 'simple_invitation' || templateName === '1') {
+          // ============================================================
+          // ⚠️ CRITICAL: TEMPLATE "1" IMPLEMENTATION - DO NOT MODIFY!
+          // ============================================================
+          // This template is WORKING and APPROVED in Meta Business Manager.
+          // See TEMPLATE_1_IMPLEMENTATION.md for full documentation.
+          //
+          // IMPORTANT RULES:
+          // 1. {{8}} = couple name (NOT guest_response_link!)
+          // 2. guest_response_link goes in URL button (NOT in {{8}}!)
+          // 3. Button is ALWAYS required (template has button in Meta)
+          // 4. All 8 parameters are POSITIONAL (no parameter_name)
+          // 5. Header image is positional (no parameter_name)
+          //
+          // If you need to modify this, check TEMPLATE_1_IMPLEMENTATION.md first!
+          // ============================================================
+          
           // NEW SIMPLE TEMPLATE: Uses positional parameters ({{1}}, {{2}}, etc.) - NO parameter_name needed
           messagePayload.type = 'template';
           messagePayload.template = {
@@ -204,9 +220,10 @@ class WhatsAppService {
             console.log('🖼️ ✅ Adding header image to template "1":', imageUrlForMeta);
           }
           
-          // CRITICAL: Template "1" has a URL button that REQUIRES a parameter
+          // ⚠️ CRITICAL: Template "1" has a URL button that REQUIRES a parameter
+          // The template in Meta Business Manager includes a URL button, so we MUST provide a parameter
+          // ⚠️ REMEMBER: guest_response_link goes in button, NOT in {{8}}!
           // Always add the button - if no link provided, use a placeholder
-          // The template in Meta has a button, so we MUST provide a parameter
           const buttonLink = guestResponseLink && guestResponseLink.trim() 
             ? guestResponseLink.trim() 
             : 'https://rsvp-frontend-wy47.onrender.com'; // Fallback placeholder
