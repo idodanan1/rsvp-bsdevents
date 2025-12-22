@@ -569,6 +569,26 @@ export const useEventStore = create<EventStore>()(
                             };
                           }
                           
+                          // CRITICAL: If API has manual_update and it's newer, use it (manual update from table was saved to server)
+                          if (isApiFromManual && g.guestCount !== undefined) {
+                            const existingDate = existingGuest.responseDate ? new Date(existingGuest.responseDate).getTime() : 0;
+                            const apiDate = g.responseDate ? new Date(g.responseDate).getTime() : 0;
+                            
+                            // If API manual update is newer, use it (it was saved to server from table edit)
+                            if (apiDate > existingDate) {
+                              console.log(`✅ Using manual_update guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount}, API is newer)`);
+                              return {
+                                ...g,
+                                firstName: cleanName(g.firstName),
+                                lastName: cleanName(g.lastName),
+                                // CRITICAL: Use API data for newer manual_update
+                                guestCount: g.guestCount,
+                                source: g.source,
+                                responseDate: g.responseDate
+                              };
+                            }
+                          }
+                          
                           // If existing is manual and API is not, or existing is newer, preserve existing guestCount
                           if (isExistingFromManual && existingGuest.guestCount !== undefined) {
                             const existingDate = existingGuest.responseDate ? new Date(existingGuest.responseDate).getTime() : 0;
