@@ -139,21 +139,30 @@ const GuestResponse = () => {
         const matchIndex = hash.indexOf(eventGuestMatch[0]);
         const afterMatch = hash.substring(matchIndex + eventGuestMatch[0].length);
         
-        // If 'https://' or 'http://' appears right after, trim the ID
+        // CRITICAL: Always check if guestId ends with 'https' or 'http' and remove it
+        // This handles cases where the regex captured 'https' as part of the ID
+        if (cleanGuestId.endsWith('https')) {
+          cleanGuestId = cleanGuestId.slice(0, -5);
+        } else if (cleanGuestId.endsWith('http')) {
+          cleanGuestId = cleanGuestId.slice(0, -4);
+        } else if (cleanGuestId.endsWith('htt')) {
+          cleanGuestId = cleanGuestId.slice(0, -3);
+        } else if (cleanGuestId.endsWith('ht')) {
+          cleanGuestId = cleanGuestId.slice(0, -2);
+        } else if (cleanGuestId.endsWith('h')) {
+          // Check if 'h' is part of 'https://' or 'http://' that follows
+          if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
+            cleanGuestId = cleanGuestId.slice(0, -1);
+          }
+        }
+        
+        // If 'https://' or 'http://' appears right after, trim any remaining characters
         if (afterMatch.startsWith('https://') || afterMatch.startsWith('http://')) {
-          // Remove 'h', 'ht', 'htt', 'http', or 'https' from the end
+          // Already cleaned above, but double-check
           if (cleanGuestId.endsWith('https')) {
             cleanGuestId = cleanGuestId.slice(0, -5);
           } else if (cleanGuestId.endsWith('http')) {
             cleanGuestId = cleanGuestId.slice(0, -4);
-          } else if (cleanGuestId.endsWith('htt')) {
-            cleanGuestId = cleanGuestId.slice(0, -3);
-          } else if (cleanGuestId.endsWith('ht')) {
-            cleanGuestId = cleanGuestId.slice(0, -2);
-          } else if (cleanGuestId.endsWith('h')) {
-            if (afterMatch.startsWith('ttps://') || afterMatch.startsWith('ttp://')) {
-              cleanGuestId = cleanGuestId.slice(0, -1);
-            }
           }
         }
         
@@ -161,6 +170,8 @@ const GuestResponse = () => {
         if (cleanGuestId.length >= 10 && /^[a-z0-9-]+$/i.test(cleanGuestId)) {
           console.log(`✅ Found guestId matching eventId ${finalEventId}: ${cleanGuestId}`);
           return cleanGuestId;
+        } else {
+          console.warn(`⚠️ Cleaned guestId failed validation: ${cleanGuestId} (original: ${eventGuestMatch[1]})`);
         }
       }
       
@@ -763,9 +774,34 @@ const GuestResponse = () => {
     }
     
     // CRITICAL: Additional verification - ensure guest belongs to the correct event
-    if (guestId && currentEvent && !currentEvent.guests?.find((g: any) => g.id === guestId)) {
+    // Also try to find guest with partial match (in case guestId has extra characters like 'https')
+    let foundGuest = guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null;
+    
+    if (!foundGuest && guestId && currentEvent) {
+      // Try partial match - guestId might have extra characters
+      foundGuest = currentEvent.guests?.find((g: any) => 
+        g.id.startsWith(guestId) || guestId.startsWith(g.id) ||
+        g.id === guestId.replace(/https?$/i, '') || // Remove https/http at end
+        guestId.replace(/https?$/i, '') === g.id
+      );
+      
+      if (foundGuest) {
+        console.log(`✅ Found guest with partial match: ${foundGuest.id} (searched for: ${guestId})`);
+        // Update guestId to the correct one
+        const correctGuestId = foundGuest.id;
+        // Update the guest reference
+        const guestToUpdate = currentEvent.guests?.find((g: any) => g.id === correctGuestId);
+        if (guestToUpdate) {
+          // Continue with the correct guestId
+          console.log(`✅ Using correct guestId: ${correctGuestId}`);
+        }
+      }
+    }
+    
+    if (!foundGuest && guestId && currentEvent) {
       console.error(`❌ Guest ${guestId} not found in event ${eventId}`);
       console.error(`❌ This ensures we're updating the correct guest in the correct event`);
+      console.error(`❌ Available guest IDs:`, currentEvent.guests?.slice(0, 5).map((g: any) => g.id));
       setSubmitStatus('error');
       setErrorMessage(`אורח לא נמצא באירוע זה. מזהה אירוע: ${eventId}, מזהה אורח: ${guestId}`);
       return;
@@ -777,7 +813,24 @@ const GuestResponse = () => {
     
     try {
       // Determine the guest to update
-      const guestToUpdate = currentGuest || (guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null);
+      // First try exact match
+      let guestToUpdate = currentGuest || (guestId ? currentEvent.guests?.find((g: any) => g.id === guestId) : null);
+      
+      // If not found, try partial match (in case guestId has extra characters like 'https')
+      if (!guestToUpdate && guestId && currentEvent) {
+        // Clean guestId - remove https/http at the end
+        const cleanedGuestId = guestId.replace(/https?$/i, '').replace(/http$/i, '');
+        guestToUpdate = currentEvent.guests?.find((g: any) => 
+          g.id === cleanedGuestId ||
+          g.id.startsWith(cleanedGuestId) || 
+          cleanedGuestId.startsWith(g.id) ||
+          g.id === guestId.replace(/https?$/i, '')
+        );
+        
+        if (guestToUpdate) {
+          console.log(`✅ Found guest with partial match: ${guestToUpdate.id} (searched for: ${guestId}, cleaned: ${cleanedGuestId})`);
+        }
+      }
       
       console.log('👤 Guest to update:', guestToUpdate?.id, guestToUpdate?.firstName);
       
