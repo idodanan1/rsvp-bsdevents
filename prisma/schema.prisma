@@ -1,0 +1,232 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RsvpStatus {
+  PENDING
+  CONFIRMED
+  MAYBE
+  DECLINED
+}
+
+enum MessageStatus {
+  NOT_SENT
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum CheckInStatus {
+  NOT_ARRIVED
+  ARRIVED
+}
+
+enum CampaignType {
+  INVITE_ROUND_1
+  INVITE_ROUND_2
+  INVITE_ROUND_3
+  REMINDER
+  THANK_YOU
+  CUSTOM
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  full_name String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  events    Event[]
+  templates MessageTemplate[]
+}
+
+model Event {
+  id                  String   @id @default(uuid())
+  name                String
+  slug                String   @unique
+  description         String?
+  event_date          DateTime?
+  location            String?
+  public_view_enabled Boolean  @default(false)
+  public_view_password String?
+  user_id             String
+  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  guests              Guest[]
+  tables              Table[]
+  campaigns           Campaign[]
+  whatsapp_messages   WhatsAppMessage[]
+  qr_codes            QRCode[]
+  check_ins           CheckIn[]
+}
+
+model Guest {
+  id              String        @id @default(uuid())
+  full_name       String
+  phone           String?
+  guest_count     Int           @default(1)
+  group_category  String?       // למשל: משפחה, עבודה
+  rsvp_status     RsvpStatus    @default(PENDING)
+  message_status  MessageStatus @default(NOT_SENT)
+  check_in_status CheckInStatus @default(NOT_ARRIVED)
+  checked_in_at   DateTime?
+  notes           String?
+  qr_code_url     String?
+  event_id        String
+  event           Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  table_id        String?
+  table           Table?        @relation(fields: [table_id], references: [id], onDelete: SetNull)
+  table_assignment TableAssignment?
+  whatsapp_messages WhatsAppMessage[]
+  qr_code         QRCode?
+  check_in        CheckIn?
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  @@index([event_id])
+  @@index([rsvp_status])
+  @@index([message_status])
+  @@index([check_in_status])
+  @@index([updated_at])
+}
+
+model Table {
+  id              String   @id @default(uuid())
+  name            String
+  table_number    Int
+  capacity        Int      @default(1)
+  position_x      Int?
+  position_y      Int?
+  event_id        String
+  event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  guests          Guest[]
+  table_assignment TableAssignment[]
+
+  @@unique([event_id, table_number])
+  @@index([event_id])
+}
+
+model TableAssignment {
+  id         String   @id @default(uuid())
+  event_id   String
+  guest_id  String   @unique
+  table_id  String
+  assigned_at DateTime @default(now())
+  guest      Guest    @relation(fields: [guest_id], references: [id], onDelete: Cascade)
+  table      Table    @relation(fields: [table_id], references: [id], onDelete: Cascade)
+
+  @@unique([event_id, table_id, guest_id])
+  @@index([event_id])
+  @@index([guest_id])
+  @@index([table_id])
+}
+
+model MessageTemplate {
+  id         String   @id @default(uuid())
+  user_id   String
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  name      String
+  template_id String? // Meta template ID
+  content   String
+  type      String   @default("invite") // invite, reminder, thank_you, custom
+  variables Json?    // Template variables like {{name}}, {{table_number}}
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  campaigns  Campaign[]
+  messages   WhatsAppMessage[]
+}
+
+model WhatsAppMessage {
+  id           String        @id @default(uuid())
+  event_id     String
+  event        Event         @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  guest_id     String?
+  guest        Guest?        @relation(fields: [guest_id], references: [id], onDelete: SetNull)
+  template_id  String?
+  template     MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  message_id   String?       // Meta WhatsApp message ID
+  phone_number String
+  status       MessageStatus @default(NOT_SENT)
+  content      String?
+  error_message String?
+  sent_at      DateTime?
+  delivered_at DateTime?
+  read_at      DateTime?
+  created_at   DateTime      @default(now())
+  updated_at   DateTime      @updatedAt
+
+  @@index([event_id])
+  @@index([guest_id])
+  @@index([status])
+}
+
+model Campaign {
+  id              String         @id @default(uuid())
+  event_id        String
+  event           Event          @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  template_id     String?
+  template        MessageTemplate? @relation(fields: [template_id], references: [id], onDelete: SetNull)
+  name            String
+  type            CampaignType
+  target_status   String[]       // Array of RSVP statuses to target
+  scheduled_at    DateTime?
+  status          CampaignStatus @default(DRAFT)
+  total_recipients Int            @default(0)
+  sent_count      Int            @default(0)
+  failed_count    Int            @default(0)
+  created_at      DateTime       @default(now())
+  updated_at      DateTime       @updatedAt
+
+  @@index([event_id])
+  @@index([status])
+}
+
+model QRCode {
+  id            String   @id @default(uuid())
+  event_id      String
+  event         Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  guest_id      String   @unique
+  guest         Guest    @relation(fields: [guest_id], references: [id], onDelete: Cascade)
+  code          String   @unique // Encrypted/signed QR code data
+  qr_image_url String?
+  created_at   DateTime @default(now())
+
+  @@index([event_id])
+  @@index([guest_id])
+  @@index([code])
+}
+
+model CheckIn {
+  id            String   @id @default(uuid())
+  event_id      String
+  event         Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  guest_id      String   @unique
+  guest         Guest    @relation(fields: [guest_id], references: [id], onDelete: Cascade)
+  qr_code_id    String?
+  checked_in_at DateTime @default(now())
+  scanner_device_id String?
+
+  @@unique([event_id, guest_id])
+  @@index([event_id])
+  @@index([guest_id])
+}
+

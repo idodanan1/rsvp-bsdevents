@@ -1,0 +1,17 @@
+-- Initial schema migration
+-- This file references the complete database schema
+-- 
+-- IMPORTANT: This migration file is a reference placeholder.
+-- To apply the schema, use the main schema.sql file:
+-- 
+-- Run in Supabase SQL Editor:
+--   1. Open supabase/schema.sql
+--   2. Copy all contents
+--   3. Paste into Supabase SQL Editor
+--   4. Execute
+--
+-- Or for PostgreSQL:
+--   psql -d your_database -f supabase/schema.sql
+--
+-- See: supabase/schema.sql for the complete schema
+

@@ -1,0 +1,84 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# testing
+coverage/
+*.log
+
+# next.js
+.next/
+out/
+.vercel
+
+# production
+build/
+dist/
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# local env files
+.env*.local
+.env.development
+.env.production
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# supabase
+.supabase
+
+# prisma
+prisma/migrations/
+prisma/client/
+
+# uploads
+uploads/
+generated-pdfs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.cursor/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# User home directory files (should not be in project)
+.config/
+AppData/
+Aftershoot Projects/
+Downloads/
+Favorites/
+Links/
+Searches/
+OneDrive/
+CrossDevice/
+*.DAT
+*.LOG*
+*.ini
+NTUSER.*
+MJKJ*
+
