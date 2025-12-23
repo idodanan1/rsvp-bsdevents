@@ -35,9 +35,8 @@ export default function SignupPage() {
       setLoading(false)
     } else if (data.user) {
       // Create user profile
-      // @ts-ignore - Supabase type inference issue with users table
-      const { error: profileError } = await supabase
-        .from('users')
+      const { error: profileError } = await (supabase
+        .from('users') as any)
         .insert({
           id: data.user.id,
           email: data.user.email!,
