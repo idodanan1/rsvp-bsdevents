@@ -417,10 +417,25 @@ export const useEventStore = create<EventStore>()(
             // Even if we have cache, we need fresh data from API
             if (forceRefresh || !useCache || true) { // Always fetch from API
               try {
+                console.log(`🔍 Fetching events from API for userId: ${userId}, URL: ${BACKEND_URL}/api/events/${userId}`);
                 const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
                 if (response.ok) {
                   const data = await response.json();
+                  console.log(`📥 API response received:`, {
+                    success: data.success,
+                    eventsCount: data.events?.length || 0,
+                    hasEvents: Array.isArray(data.events),
+                    deletedEventsCount: data.deletedEvents?.length || 0,
+                    fullResponse: data
+                  });
                   apiEvents = data.events || [];
+                  
+                  if (apiEvents.length === 0) {
+                    console.warn(`⚠️ API returned empty events array for userId: ${userId}. This could mean:`);
+                    console.warn(`   - No events exist for this user on the server`);
+                    console.warn(`   - Events exist locally but haven't been synced to server yet`);
+                    console.warn(`   - Server-side issue with event retrieval`);
+                  }
                   
                   // CRITICAL: Ensure all API events have unique IDs (fixes existing events with duplicate IDs)
                   apiEvents = ensureUniqueEventIds(apiEvents);
@@ -731,6 +746,12 @@ export const useEventStore = create<EventStore>()(
                 // This prevents data loss when API is temporarily unavailable
                 if (apiEvents.length === 0 && localEvents.length > 0) {
                   console.warn('⚠️ API returned empty events but local events exist - using local events as fallback');
+                  console.log(`📊 Local events count: ${localEvents.length}, UserId: ${userId}`);
+                  console.log(`💡 This is normal if:`);
+                  console.log(`   - Events were created locally but not yet synced to server`);
+                  console.log(`   - Server is temporarily unavailable`);
+                  console.log(`   - User's events don't exist on server yet`);
+                  console.log(`🔄 Attempting to sync local events to server...`);
                   // Get deletedEvents from stored data first
                   let deletedEventsForPreserve: any[] = [];
                   try {
