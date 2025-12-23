@@ -6,8 +6,6 @@ import { useRouter } from 'next/navigation'
 import { he } from '@/lib/i18n/he'
 import type { Database } from '@/types/database.types'
 
-type UserInsert = Database['public']['Tables']['users']['Insert']
-
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,14 +35,13 @@ export default function SignupPage() {
       setLoading(false)
     } else if (data.user) {
       // Create user profile
-      const userData: UserInsert = {
-        id: data.user.id,
-        email: data.user.email!,
-        full_name: fullName || null,
-      }
       const { error: profileError } = await supabase
         .from('users')
-        .insert(userData)
+        .insert({
+          id: data.user.id,
+          email: data.user.email!,
+          full_name: fullName || null,
+        } as any)
 
       if (profileError) {
         setError(profileError.message)
