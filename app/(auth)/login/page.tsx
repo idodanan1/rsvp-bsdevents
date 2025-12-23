@@ -13,22 +13,43 @@ export default function LoginPage() {
   const router = useRouter()
   const supabase = createClient()
 
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     setLoading(true)
     setError(null)
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
-    if (error) {
-      setError(error.message)
+    
+    if (!email || !password) {
+      setError('אנא מלא את כל השדות')
       setLoading(false)
-    } else {
-      router.push('/dashboard')
-      router.refresh()
+      return
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) {
+        setError(error.message || 'שגיאה בהתחברות. אנא נסה שוב.')
+        setLoading(false)
+        return
+      }
+
+      if (data?.user) {
+        // Wait a moment for session cookies to be set
+        await new Promise(resolve => setTimeout(resolve, 300))
+        
+        // Use window.location for hard redirect to ensure cookies are saved
+        window.location.href = '/dashboard'
+      } else {
+        setError('התחברות נכשלה. אנא נסה שוב.')
+        setLoading(false)
+      }
+    } catch (err: any) {
+      setError(err.message || 'שגיאה לא צפויה. אנא נסה שוב.')
+      setLoading(false)
     }
   }
 
@@ -40,7 +61,7 @@ export default function LoginPage() {
             {he.auth.login}
           </h2>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+        <div className="mt-8 space-y-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
               {error}
@@ -61,6 +82,12 @@ export default function LoginPage() {
                 placeholder={he.auth.email}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleLogin(e as any)
+                  }
+                }}
               />
             </div>
             <div>
@@ -77,13 +104,24 @@ export default function LoginPage() {
                 placeholder={he.auth.password}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleLogin(e as any)
+                  }
+                }}
               />
             </div>
           </div>
 
           <div>
             <button
-              type="submit"
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleLogin(e)
+              }}
               disabled={loading}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
             >
@@ -99,7 +137,7 @@ export default function LoginPage() {
               {he.auth.dontHaveAccount}
             </a>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   )
