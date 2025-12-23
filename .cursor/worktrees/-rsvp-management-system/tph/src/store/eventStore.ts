@@ -5617,7 +5617,7 @@ if (typeof window !== 'undefined') {
       // Handle force refresh
       if (message.type === 'force-refresh' || message.action === 'force-refresh') {
         console.log('?ƒôä Cross-tab: Force refreshing events...');
-        store.fetchEventsRef(true, true).catch(err => {
+        store.fetchEvents(true, true).catch(err => {
           console.error('?¥ì Error refreshing events from cross-tab:', err);
         });
         return;
