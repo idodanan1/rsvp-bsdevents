@@ -216,17 +216,7 @@ const EventManagement: React.FC = () => {
       console.error('❌ Error initial fetch:', error);
     });
     
-    // Cross-device sync: Poll for updates every 15 seconds to sync between different devices/IPs
-    const pollingInterval = setInterval(async () => {
-      try {
-        await fetchEvents(true, true); // Force refresh, silent
-        console.log('🔄 EventManagement: Auto-refreshed events from server (cross-device sync)');
-      } catch (error) {
-        console.warn('⚠️ EventManagement: Error auto-refreshing events:', error);
-      }
-    }, 15000); // Poll every 15 seconds
-    
-    return () => clearInterval(pollingInterval);
+    // No auto-refresh or polling - user will use manual refresh button
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]); // Removed fetchEvents from deps to prevent infinite loop
 
