@@ -730,10 +730,31 @@ export const useEventStore = create<EventStore>()(
                 // Sync local-only events to server in background (fire-and-forget)
                 if (localOnlyEvents.length > 0) {
                   console.log(`🔄 Found ${localOnlyEvents.length} local events not in API - syncing to server...`);
-                  localOnlyEvents.forEach(event => {
-                    syncEventToAPI(event).catch(err => {
-                      console.warn(`⚠️ Failed to sync local event ${event.id} to server:`, err);
-                    });
+                  const syncPromises = localOnlyEvents.map((event, index) => 
+                    syncEventToAPI(event)
+                      .then(() => {
+                        console.log(`✅ Event ${index + 1}/${localOnlyEvents.length} synced successfully: ${event.id}`);
+                        return true;
+                      })
+                      .catch(err => {
+                        console.warn(`⚠️ Failed to sync local event ${event.id} to server:`, err);
+                        return false;
+                      })
+                  );
+                  
+                  // Wait for all syncs to complete, then refresh to get events from server
+                  Promise.all(syncPromises).then(results => {
+                    const successCount = results.filter(r => r === true).length;
+                    if (successCount > 0) {
+                      console.log(`✅ Successfully synced ${successCount}/${localOnlyEvents.length} event(s) to server. Refreshing to get updated data...`);
+                      // Refresh after a short delay to allow server to process
+                      setTimeout(() => {
+                        console.log(`🔄 Refreshing events from API after sync...`);
+                        fetchEvents(true, true).catch(err => {
+                          console.warn('⚠️ Failed to refresh after sync:', err);
+                        });
+                      }, 1500); // 1.5 seconds to allow server to process
+                    }
                   });
                 }
                 
