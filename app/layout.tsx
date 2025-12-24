@@ -7,6 +7,9 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'RSVP SaaS Platform',
   description: 'Comprehensive RSVP management with WhatsApp automation',
+  icons: {
+    icon: '/favicon.ico',
+  },
 }
 
 export default function RootLayout({

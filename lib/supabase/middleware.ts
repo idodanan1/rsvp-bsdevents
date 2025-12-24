@@ -3,12 +3,13 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { Database } from '@/types/database.types'
 
 export async function updateSession(request: NextRequest) {
-  // TEMPORARILY DISABLED: Simple pass-through middleware
-  // Redirect /login to /dashboard
-  if (request.nextUrl.pathname === '/login') {
+  const pathname = request.nextUrl.pathname
+  
+  // FORCE REDIRECT: Redirect /login to /dashboard immediately
+  if (pathname === '/login' || pathname.startsWith('/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
+    return NextResponse.redirect(url, 308) // 308 = Permanent Redirect
   }
 
   // Just pass through for now
