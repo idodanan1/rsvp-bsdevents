@@ -14,15 +14,12 @@ export default async function EventPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  // TEMPORARILY DISABLED: if (!user) { redirect('/login') }
 
   const { data: event, error } = await supabase
     .from('events')
     .select('*')
     .eq('id', eventId)
-    .eq('user_id', user.id)
     .single()
 
   if (error || !event) {

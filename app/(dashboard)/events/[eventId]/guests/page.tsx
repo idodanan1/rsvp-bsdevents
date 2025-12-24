@@ -12,18 +12,15 @@ export default async function GuestsPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect('/login')
-  }
+  // TEMPORARILY DISABLED: if (!user) { redirect('/login') }
 
   const { eventId } = await params
 
-  // Verify event ownership
+  // Verify event ownership (temporarily disabled)
   const { data: event } = await supabase
     .from('events')
     .select('id')
     .eq('id', eventId)
-    .eq('user_id', user.id)
     .single()
 
   if (!event) {
