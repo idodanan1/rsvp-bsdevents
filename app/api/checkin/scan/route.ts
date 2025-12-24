@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { validateQRCode } from '@/lib/services/qr/validator'
+import type { Database } from '@/types/database.types'
+
+// TypeScript fix: Added type assertion for guests query
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,6 +35,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Guest not found' }, { status: 404 })
     }
 
+    // Type assertion to fix TypeScript inference issue
+    const guestData = guest as Database['public']['Tables']['guests']['Row'] & {
+      events: { id: string; name: string }
+    }
+
     // Check if already checked in
     const { data: existingCheckIn } = await supabase
       .from('check_ins')
@@ -45,8 +53,8 @@ export async function POST(request: NextRequest) {
         success: true,
         alreadyCheckedIn: true,
         guest: {
-          id: guest.id,
-          full_name: guest.full_name,
+          id: guestData.id,
+          full_name: guestData.full_name,
           table_number: null, // Will be fetched from assignments
         },
       })
@@ -91,8 +99,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       guest: {
-        id: guest.id,
-        full_name: guest.full_name,
+        id: guestData.id,
+        full_name: guestData.full_name,
         table_number: assignment?.tables?.table_number || null,
       },
     })
