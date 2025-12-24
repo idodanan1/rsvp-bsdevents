@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { validateQRCode } from '@/lib/services/qr/validator'
 import type { Database } from '@/types/database.types'
 
-// TypeScript fix: Added type assertion for guests query
+// TypeScript fix: Added type assertions for all Supabase queries
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,6 +68,11 @@ export async function POST(request: NextRequest) {
       .eq('event_id', eventId)
       .single()
 
+    // Type assertion for assignment
+    const assignmentData = assignment as {
+      tables: { table_number: number }
+    } | null
+
     // Create check-in record
     const { data: qrCodeRecord } = await supabase
       .from('qr_codes')
@@ -75,25 +80,29 @@ export async function POST(request: NextRequest) {
       .eq('code', qrCode)
       .single()
 
-    const { error: checkInError } = await supabase
-      .from('check_ins')
+    // Type assertion for qrCodeRecord
+    const qrCodeRecordData = qrCodeRecord as Database['public']['Tables']['qr_codes']['Row'] | null
+
+    // Type assertion to fix TypeScript inference issue
+    const { error: checkInError } = await (supabase
+      .from('check_ins') as any)
       .insert({
         event_id: eventId,
         guest_id: guestId,
-        qr_code_id: qrCodeRecord?.id || null,
-      })
+        qr_code_id: qrCodeRecordData?.id || null,
+      } as Database['public']['Tables']['check_ins']['Insert'])
 
     if (checkInError) {
       return NextResponse.json({ error: checkInError.message }, { status: 500 })
     }
 
     // Update guest check-in status
-    await supabase
-      .from('guests')
+    await (supabase
+      .from('guests') as any)
       .update({
         check_in_status: 'arrived',
         checked_in_at: new Date().toISOString(),
-      })
+      } as Database['public']['Tables']['guests']['Update'])
       .eq('id', guestId)
 
     return NextResponse.json({
@@ -101,7 +110,7 @@ export async function POST(request: NextRequest) {
       guest: {
         id: guestData.id,
         full_name: guestData.full_name,
-        table_number: assignment?.tables?.table_number || null,
+        table_number: assignmentData?.tables?.table_number || null,
       },
     })
   } catch (error: any) {
