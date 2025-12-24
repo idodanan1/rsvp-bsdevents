@@ -10,6 +10,7 @@ import { he } from '@/lib/i18n/he'
 import type { Database } from '@/types/database.types'
 
 type Guest = Database['public']['Tables']['guests']['Row']
+type GuestInsert = Omit<Database['public']['Tables']['guests']['Insert'], 'id' | 'event_id' | 'created_at' | 'updated_at'>
 
 interface GuestManagementProps {
   eventId: string
@@ -83,7 +84,7 @@ export default function GuestManagement({ eventId }: GuestManagementProps) {
     }
   }, [eventId, filters])
 
-  const handleAddGuest = async (guestData: Omit<Guest, 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
+  const handleAddGuest = async (guestData: GuestInsert) => {
     // Use typed variable to fix TypeScript inference issue
     const insertData: Database['public']['Tables']['guests']['Insert'] = {
       ...guestData,
