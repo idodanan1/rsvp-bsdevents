@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { WhatsAppClient } from '@/lib/services/whatsapp/client'
+import type { Database } from '@/types/database.types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +41,14 @@ export async function POST(request: NextRequest) {
       .eq('event_id', eventId)
       .single()
 
-    if (guestError || !guest || !guest.phone) {
+    if (guestError || !guest) {
+      return NextResponse.json({ error: 'Guest not found or no phone number' }, { status: 404 })
+    }
+
+    // Type assertion to fix TypeScript inference issue
+    const guestData = guest as Database['public']['Tables']['guests']['Row']
+
+    if (!guestData.phone) {
       return NextResponse.json({ error: 'Guest not found or no phone number' }, { status: 404 })
     }
 
@@ -53,41 +61,47 @@ export async function POST(request: NextRequest) {
         .eq('id', templateId)
         .single()
 
-      if (template?.template_id) {
-        templateName = template.template_id
+      if (template) {
+        // Type assertion to fix TypeScript inference issue
+        const templateData = template as Database['public']['Tables']['message_templates']['Row']
+        if (templateData.template_id) {
+          templateName = templateData.template_id
+        }
       }
     }
 
     // Send message via WhatsApp
     const whatsapp = new WhatsAppClient()
     const result = await whatsapp.sendTemplateMessage(
-      guest.phone,
+      guestData.phone,
       templateName,
       'he',
-      [guest.full_name]
+      [guestData.full_name]
     )
 
     // Record message
-    const { error: messageError } = await supabase
-      .from('whatsapp_messages')
+    // Type assertion to fix TypeScript inference issue
+    const { error: messageError } = await (supabase
+      .from('whatsapp_messages') as any)
       .insert({
         event_id: eventId,
         guest_id: guestId,
         template_id: templateId || null,
         message_id: result.messages?.[0]?.id,
-        phone_number: guest.phone,
+        phone_number: guestData.phone,
         status: 'sent',
         sent_at: new Date().toISOString(),
-      })
+      } as Database['public']['Tables']['whatsapp_messages']['Insert'])
 
     if (messageError) {
       return NextResponse.json({ error: messageError.message }, { status: 500 })
     }
 
     // Update guest message status
-    await supabase
-      .from('guests')
-      .update({ message_status: 'sent' })
+    // Type assertion to fix TypeScript inference issue
+    await (supabase
+      .from('guests') as any)
+      .update({ message_status: 'sent' } as Database['public']['Tables']['guests']['Update'])
       .eq('id', guestId)
 
     return NextResponse.json({ success: true, messageId: result.messages?.[0]?.id })
