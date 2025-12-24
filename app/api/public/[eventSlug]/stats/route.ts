@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import type { Database } from '@/types/database.types'
 
 export async function GET(
   request: NextRequest,
@@ -21,22 +22,25 @@ export async function GET(
       return NextResponse.json({ error: 'Event not found' }, { status: 404 })
     }
 
+    // Type assertion to fix TypeScript inference issue
+    const eventData = event as Database['public']['Tables']['events']['Row']
+
     // Get stats
     const { count: total } = await supabase
       .from('guests')
       .select('*', { count: 'exact', head: true })
-      .eq('event_id', event.id)
+      .eq('event_id', eventData.id)
 
     const { count: confirmed } = await supabase
       .from('guests')
       .select('*', { count: 'exact', head: true })
-      .eq('event_id', event.id)
+      .eq('event_id', eventData.id)
       .eq('rsvp_status', 'confirmed')
 
     const { count: arrived } = await supabase
       .from('guests')
       .select('*', { count: 'exact', head: true })
-      .eq('event_id', event.id)
+      .eq('event_id', eventData.id)
       .eq('check_in_status', 'arrived')
 
     return NextResponse.json({
@@ -48,4 +52,3 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
-
