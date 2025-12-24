@@ -1119,12 +1119,7 @@ export const useEventStore = create<EventStore>()(
             } catch (error) {
               console.warn('⚠️ API not available, using localStorage:', error);
               apiError = true;
-<<<<<<< HEAD
-            }
-          }                    // Check if there are events in localStorage
-=======
-            }                    // Check if there are events in localStorage
->>>>>>> e2581f7 (Fix: Remove extra closing brace in eventStore.ts (line 1080))
+
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
