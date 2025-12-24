@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import type { Database } from '@/types/database.types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -43,8 +44,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: fetchError.message }, { status: 500 })
     }
 
+    // Type assertion to fix TypeScript inference issue
+    const guestsData = (guests || []) as Database['public']['Tables']['guests']['Row'][]
+    
+
     // Convert to Excel format with Hebrew headers
-    const excelData = (guests || []).map((guest) => ({
+    const excelData = guestsData.map((guest) => ({
       'שם מלא': guest.full_name,
       'טלפון': guest.phone || '',
       'מספר אורחים': guest.guest_count,
