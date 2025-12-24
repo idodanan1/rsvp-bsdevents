@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { he } from '@/lib/i18n/he'
 import { generateSlug } from '@/lib/utils/slug'
+import type { Database } from '@/types/database.types'
 
 interface EventFormProps {
   userId: string
@@ -39,24 +40,27 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
 
       if (eventId) {
         // Update existing event
-        const { error: updateError } = await supabase
-          .from('events')
+        // Type assertion to fix TypeScript inference issue
+        const { error: updateError } = await (supabase
+          .from('events') as any)
           .update({
             name: formData.name,
             slug,
             description: formData.description || null,
             event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
             location: formData.location || null,
-          })
+          } as Database['public']['Tables']['events']['Update'])
           .eq('id', eventId)
           .eq('user_id', userId)
+          
 
         if (updateError) throw updateError
         router.push(`/dashboard/events/${eventId}`)
       } else {
         // Create new event
-        const { data, error: insertError } = await supabase
-          .from('events')
+        // Type assertion to fix TypeScript inference issue
+        const { data, error: insertError } = await (supabase
+          .from('events') as any)
           .insert({
             user_id: userId,
             name: formData.name,
@@ -64,7 +68,7 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
             description: formData.description || null,
             event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
             location: formData.location || null,
-          })
+          } as Database['public']['Tables']['events']['Insert'])
           .select()
           .single()
 
