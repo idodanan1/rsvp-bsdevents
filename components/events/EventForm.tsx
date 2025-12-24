@@ -48,8 +48,8 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
           event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
           location: formData.location || null,
         }
-        const { error: updateError } = await supabase
-          .from('events')
+        const { error: updateError } = await (supabase
+          .from('events') as any)
           .update(updateData)
           .eq('id', eventId)
           .eq('user_id', userId)
