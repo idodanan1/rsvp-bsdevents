@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import type { Database } from '@/types/database.types'
 
 // GET - Fetch tables for an event
 export async function GET(request: NextRequest) {
@@ -81,8 +82,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Create table
-    const { data, error } = await supabase
-      .from('tables')
+    // Type assertion to fix TypeScript inference issue
+    const { data, error } = await (supabase
+      .from('tables') as any)
       .insert({
         event_id: eventId,
         name,
@@ -90,9 +92,10 @@ export async function POST(request: NextRequest) {
         capacity,
         position_x: position_x || null,
         position_y: position_y || null,
-      })
+      } as Database['public']['Tables']['tables']['Insert'])
       .select()
       .single()
+      
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -143,9 +146,10 @@ export async function PUT(request: NextRequest) {
     if (position_x !== undefined) updates.position_x = position_x
     if (position_y !== undefined) updates.position_y = position_y
 
-    const { data, error } = await supabase
-      .from('tables')
-      .update(updates)
+    // Type assertion to fix TypeScript inference issue
+    const { data, error } = await (supabase
+      .from('tables') as any)
+      .update(updates as Database['public']['Tables']['tables']['Update'])
       .eq('id', id)
       .eq('event_id', eventId)
       .select()
