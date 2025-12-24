@@ -33,29 +33,34 @@ export default function SignupPage() {
       setError(signUpError.message)
       setLoading(false)
     } else if (data.user) {
-      // Create user profile via API route (fixed TypeScript error)
-      const response = await fetch('/api/users/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: data.user.id,
-          email: data.user.email!,
-          full_name: fullName || null,
-        }),
-      })
+      // Create user profile via API route to avoid TypeScript errors
+      try {
+        const response = await fetch('/api/users/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: data.user.id,
+            email: data.user.email!,
+            full_name: fullName || null,
+          }),
+        })
 
-      if (!response.ok) {
-        const result = await response.json()
-        setError(result.error || 'Failed to create user profile')
+        if (!response.ok) {
+          const result = await response.json()
+          setError(result.error || 'Failed to create user profile')
+          setLoading(false)
+          return
+        }
+
+        // Success - redirect to dashboard
+        router.push('/dashboard')
+        router.refresh()
+      } catch (err: any) {
+        setError(err.message || 'Failed to create user profile')
         setLoading(false)
-        return
       }
-
-      // Success - redirect to dashboard
-      router.push('/dashboard')
-      router.refresh()
     }
   }
 
@@ -146,4 +151,3 @@ export default function SignupPage() {
     </div>
   )
 }
-
