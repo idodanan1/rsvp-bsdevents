@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import PublicViewClient from '@/components/public/PublicViewClient'
+import type { Database } from '@/types/database.types'
 
 export default async function PublicViewPage({
   params,
@@ -22,6 +23,9 @@ export default async function PublicViewPage({
     notFound()
   }
 
-  return <PublicViewClient eventId={event.id} eventName={event.name} />
+  // Type assertion to fix TypeScript inference issue
+  const eventData = event as Database['public']['Tables']['events']['Row']
+
+  return <PublicViewClient eventId={eventData.id} eventName={eventData.name} />
 }
 
