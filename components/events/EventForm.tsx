@@ -48,9 +48,10 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
           event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
           location: formData.location || null,
         }
-        const { error: updateError } = await supabase
-          .from('events')
-          .update(updateData)
+        // Type assertion to fix TypeScript inference issue
+        const { error: updateError } = await (supabase
+          .from('events') as any)
+          .update(updateData as Database['public']['Tables']['events']['Update'])
           .eq('id', eventId)
           .eq('user_id', userId)
           
