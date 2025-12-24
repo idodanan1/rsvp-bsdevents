@@ -84,12 +84,14 @@ export default function GuestManagement({ eventId }: GuestManagementProps) {
   }, [eventId, filters])
 
   const handleAddGuest = async (guestData: Omit<Guest, 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
-    const { error } = await supabase
-      .from('guests')
-      .insert({
-        ...guestData,
-        event_id: eventId,
-      })
+    // Use typed variable to fix TypeScript inference issue
+    const insertData: Database['public']['Tables']['guests']['Insert'] = {
+      ...guestData,
+      event_id: eventId,
+    }
+    const { error } = await (supabase
+      .from('guests') as any)
+      .insert(insertData)
 
     if (error) {
       console.error('Error adding guest:', error)
