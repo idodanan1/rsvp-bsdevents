@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { he } from '@/lib/i18n/he'
 import { generateSlug } from '@/lib/utils/slug'
+import { Database } from '@/types/database.types'
 
 interface EventFormProps {
   userId: string
@@ -47,7 +48,7 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
             description: formData.description || null,
             event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
             location: formData.location || null,
-          })
+          } as Database['public']['Tables']['events']['Update'])
           .eq('id', eventId)
           .eq('user_id', userId)
 
