@@ -1075,8 +1075,10 @@ export const useEventStore = create<EventStore>()(
             } catch (error) {
               console.warn('⚠️ API not available, using localStorage:', error);
               apiError = true;
-            }                    // Check if there are events in localStorage
-          const stored = localStorage.getItem('rsvp-events-storage');
+            }
+            
+            // Check if there are events in localStorage
+            const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state && parsed.state.events && parsed.state.events.length > 0) {
