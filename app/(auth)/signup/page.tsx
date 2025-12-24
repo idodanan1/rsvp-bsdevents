@@ -33,7 +33,7 @@ export default function SignupPage() {
       setError(signUpError.message)
       setLoading(false)
     } else if (data.user) {
-      // Create user profile via API route
+      // Create user profile via API route (fixed TypeScript error)
       const response = await fetch('/api/users/create', {
         method: 'POST',
         headers: {
