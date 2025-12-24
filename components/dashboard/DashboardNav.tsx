@@ -31,7 +31,7 @@ export default function DashboardNav() {
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               {navItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                const isActive = pathname === item.href || (pathname && pathname.startsWith(item.href + '/'))
                 return (
                   <Link
                     key={item.href}
