@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const stripe = require('stripe');
 const mongoose = require('mongoose');
+const supabaseDb = require('./supabase-db');
 require('dotenv').config();
 
 // CRITICAL: Log all environment variables related to WhatsApp (for debugging)
@@ -5192,90 +5193,74 @@ app.get('/api/events/all', async (req, res) => {
   console.log(`📋 User-Agent: ${req.headers['user-agent'] || 'unknown'}`);
   
   try {
-    
-    // CRITICAL: Read directly from file to ensure we have latest data
-    // This bypasses any potential memory issues or stale data
     let events = [];
-    try {
+    
+    // Try Supabase first
+    if (supabaseDb.isSupabaseConfigured()) {
+      try {
+        console.log(`📋 [EVENTS_ALL] Fetching events from Supabase...`);
+        const supabaseEvents = await supabaseDb.getAllEvents();
+        console.log(`📋 [EVENTS_ALL] Fetched ${supabaseEvents.length} events from Supabase`);
+        
+        // Fetch guests for each event
+        for (const supabaseEvent of supabaseEvents) {
+          try {
+            const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
+            const frontendGuests = supabaseGuests.map(g => supabaseDb.convertSupabaseGuestToFrontend(g));
+            const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
+            
+            // Auto-create campaigns if needed
+            if (!frontendEvent.campaigns || frontendEvent.campaigns.length === 0) {
+              console.log(`🔄 [EVENTS_ALL] No campaigns found for event ${frontendEvent.id}, creating default campaigns...`);
+              frontendEvent.campaigns = createDefaultCampaigns(frontendEvent.id, frontendEvent.eventDate);
+            }
+            
+            events.push(frontendEvent);
+          } catch (error) {
+            console.error(`❌ [EVENTS_ALL] Error fetching guests for event ${supabaseEvent.id}:`, error);
+            // Add event without guests
+            const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, []);
+            events.push(frontendEvent);
+          }
+        }
+        
+        console.log(`📋 [EVENTS_ALL] Converted ${events.length} events from Supabase to frontend format`);
+      } catch (error) {
+        console.error(`❌ [EVENTS_ALL] Error fetching from Supabase:`, error);
+        // Fallback to file-based storage
+        throw error;
+      }
+    } else {
+      // Fallback: Read from file (legacy support)
+      console.warn(`⚠️ [EVENTS_ALL] Supabase not configured, falling back to file storage`);
+      const eventsFilePath = path.join(__dirname, 'events.json');
       if (fs.existsSync(eventsFilePath)) {
         const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
         events = fileData.events || [];
-        console.log(`📋 [EVENTS_ALL] Read ${events.length} events directly from file`);
-        
-        // Log guest counts for debugging
-        events.forEach(e => {
-          const guestCount = e.guests?.length || 0;
-          console.log(`📋 [EVENTS_ALL] Event ${e.id}: ${guestCount} guests`);
-        });
-      } else {
-        console.warn(`⚠️ [EVENTS_ALL] Events file does not exist, using memory fallback`);
-    loadEvents();
-        events = eventsData.events || [];
+        console.log(`📋 [EVENTS_ALL] Read ${events.length} events from file (fallback)`);
       }
-    } catch (error) {
-      console.error(`❌ [EVENTS_ALL] Error reading events file:`, error);
-      // Fallback: try loadEvents() and use eventsData
-      loadEvents();
-      events = eventsData.events || [];
     }
-    
-    console.log(`📋 Events in memory: ${events.length}`);
-    console.log(`📋 Events file path: ${eventsFilePath}`);
-    console.log(`📋 Events file exists: ${fs.existsSync(eventsFilePath)}`);
     
     // Log event IDs for debugging
     if (events.length > 0) {
       console.log(`📋 Event IDs in response:`, events.map(e => ({ 
         id: e.id, 
         name: e.coupleName,
-        userId: e.userId 
+        userId: e.userId,
+        guestCount: e.guests?.length || 0
       })));
     } else {
-      console.warn(`⚠️ No events found in memory!`);
-      // Try to reload from file as fallback
-      const fileEvents = loadEvents();
-      if (fileEvents.length > 0) {
-        console.log(`📋 Reloaded ${fileEvents.length} events from file as fallback`);
-        events.push(...fileEvents);
-      }
+      console.warn(`⚠️ No events found!`);
     }
     
-    // CRITICAL: Auto-create campaigns for events that don't have them
-    let eventsUpdated = false;
-    const updatedEvents = events.map(event => {
-      if (!event.campaigns || !Array.isArray(event.campaigns) || event.campaigns.length === 0) {
-        console.log(`🔄 [EVENTS_ALL] No campaigns found for event ${event.id}, creating default campaigns...`);
-        const newCampaigns = createDefaultCampaigns(event.id, event.eventDate);
-        eventsUpdated = true;
-        return {
-          ...event,
-          campaigns: newCampaigns,
-          eventTypeHebrew: event.eventTypeHebrew || 'חתונה'
-        };
-      }
-      return event;
-    });
-    
-    // Save updated events to file if campaigns were created
-    if (eventsUpdated) {
-      try {
-        const fileData = { events: updatedEvents, deletedEvents: eventsData.deletedEvents || [] };
-        fs.writeFileSync(eventsFilePath, JSON.stringify(fileData, null, 2), 'utf8');
-        eventsData.events = updatedEvents;
-        console.log(`✅ [EVENTS_ALL] Created campaigns and saved to file`);
-      } catch (error) {
-        console.error(`❌ [EVENTS_ALL] Error saving campaigns to file:`, error);
-      }
-    }
-    
-    console.log(`📋 GET /api/events/all - Returning ${updatedEvents.length} events (public endpoint, no userId filter)`);
+    console.log(`📋 GET /api/events/all - Returning ${events.length} events (public endpoint, no userId filter)`);
     
     // CRITICAL: Return ALL events without filtering by userId
     // This allows guest response links to work on any device
     res.json({
       success: true,
-      events: updatedEvents,
-      total: updatedEvents.length
+      events: events,
+      total: events.length
     });
   } catch (error) {
     console.error('❌ Error loading all events:', error);
@@ -5320,110 +5305,56 @@ app.get('/api/events/:eventId/guests', async (req, res) => {
   try {
     const { eventId } = req.params;
     console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Request received`);
-    console.log(`📋 [GUESTS_ENDPOINT] Events file path: ${eventsFilePath}`);
-    console.log(`📋 [GUESTS_ENDPOINT] Events file exists: ${fs.existsSync(eventsFilePath)}`);
     
-    // CRITICAL: Read directly from file to ensure we have latest data (don't rely on eventsData)
-    // This is CRITICAL because eventsData might be stale or incomplete
-    console.log(`📋 [GUESTS_ENDPOINT] Reading events directly from file`);
+    let guests = [];
     
-    let events = [];
-    try {
-      if (fs.existsSync(eventsFilePath)) {
-        const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
-        console.log(`📋 [GUESTS_ENDPOINT] File size: ${fileContent.length} bytes`);
-        console.log(`📋 [GUESTS_ENDPOINT] File path: ${eventsFilePath}`);
-        console.log(`📋 [GUESTS_ENDPOINT] File content preview (first 500 chars):`, fileContent.substring(0, 500));
-        
-        const fileData = JSON.parse(fileContent);
-        events = fileData.events || [];
-        console.log(`📋 [GUESTS_ENDPOINT] Read ${events.length} events directly from file`);
-        console.log(`📋 [GUESTS_ENDPOINT] File data structure:`, {
-          hasEvents: 'events' in fileData,
-          eventsType: typeof fileData.events,
-          eventsIsArray: Array.isArray(fileData.events),
-          eventsLength: fileData.events?.length || 0,
-          fileDataKeys: Object.keys(fileData)
-        });
-        
-        // Log guest counts for debugging
-        events.forEach(e => {
-          const guestCount = e.guests?.length || 0;
-          console.log(`📋 [GUESTS_ENDPOINT] Event ${e.id}: ${guestCount} guests`);
-          if (e.id === eventId) {
-            console.log(`📋 [GUESTS_ENDPOINT] Found event ${eventId} with ${guestCount} guests in file`);
-            console.log(`📋 [GUESTS_ENDPOINT] Event object keys:`, Object.keys(e));
-            console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in e);
-            console.log(`📋 [GUESTS_ENDPOINT] Event guests value:`, e.guests);
-            console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof e.guests);
-            console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(e.guests));
-          }
-        });
-      } else {
-        console.warn(`⚠️ [GUESTS_ENDPOINT] Events file does not exist: ${eventsFilePath}`);
-        // Fallback: try loadEvents() and use eventsData
-    loadEvents();
-        events = eventsData.events || [];
-        console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback: ${events.length} events`);
+    // Try Supabase first
+    if (supabaseDb.isSupabaseConfigured()) {
+      try {
+        console.log(`📋 [GUESTS_ENDPOINT] Fetching guests from Supabase for event ${eventId}...`);
+        const supabaseGuests = await supabaseDb.getGuestsByEventId(eventId);
+        guests = supabaseGuests.map(g => supabaseDb.convertSupabaseGuestToFrontend(g));
+        console.log(`📋 [GUESTS_ENDPOINT] Fetched ${guests.length} guests from Supabase`);
+      } catch (error) {
+        console.error(`❌ [GUESTS_ENDPOINT] Error fetching guests from Supabase:`, error);
+        // Fallback to file-based storage
+        throw error;
       }
-    } catch (error) {
-      console.error(`❌ [GUESTS_ENDPOINT] Error reading events file:`, error);
-      console.error(`❌ [GUESTS_ENDPOINT] Error stack:`, error.stack);
-      // Fallback: try loadEvents() and use eventsData
-      loadEvents();
-      events = eventsData.events || [];
-      console.log(`📋 [GUESTS_ENDPOINT] Using eventsData fallback after error: ${events.length} events`);
+    } else {
+      // Fallback: Read from file (legacy support)
+      console.warn(`⚠️ [GUESTS_ENDPOINT] Supabase not configured, falling back to file storage`);
+      const eventsFilePath = path.join(__dirname, 'events.json');
+      if (fs.existsSync(eventsFilePath)) {
+        const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
+        const events = fileData.events || [];
+        const event = events.find(e => e.id === eventId);
+        if (event) {
+          guests = event.guests || [];
+          console.log(`📋 [GUESTS_ENDPOINT] Read ${guests.length} guests from file (fallback)`);
+        } else {
+          console.warn(`⚠️ [GUESTS_ENDPOINT] Event ${eventId} not found in file`);
+          res.status(404).json({
+            success: false,
+            error: 'Event not found',
+            eventId: eventId
+          });
+          return;
+        }
+      } else {
+        console.warn(`⚠️ [GUESTS_ENDPOINT] Events file does not exist`);
+        res.status(404).json({
+          success: false,
+          error: 'Events file not found'
+        });
+        return;
+      }
     }
     
-    // CRITICAL: Ensure events is an array
-    if (!Array.isArray(events)) {
-      console.error(`❌ events is not an array!`);
-      console.error(`❌ events type:`, typeof events);
-      res.status(500).json({
-        success: false,
-        error: 'Events data not available'
-      });
-      return;
-    }
-    
-    console.log(`📋 [GUESTS_ENDPOINT] Searching for event ${eventId} in ${events.length} events`);
-    console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
-    
-    const event = events.find(e => e.id === eventId);
-    
-    if (!event) {
-      console.log(`❌ [GUESTS_ENDPOINT] Event ${eventId} not found`);
-      console.log(`📋 [GUESTS_ENDPOINT] Available event IDs:`, events.map(e => e.id));
-      res.status(404).json({
-        success: false,
-        error: 'Event not found',
-        eventId: eventId,
-        availableEventIds: events.map(e => e.id)
-      });
-      return;
-    }
-    
-    const guests = event.guests || [];
     console.log(`📋 [GUESTS_ENDPOINT] GET /api/events/${eventId}/guests - Returning ${guests.length} guests`);
-    console.log(`📋 [GUESTS_ENDPOINT] Event name: ${event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : event.groomName || event.brideName || 'Unknown')}`);
-    console.log(`📋 [GUESTS_ENDPOINT] Event has guests property:`, 'guests' in event);
-    console.log(`📋 [GUESTS_ENDPOINT] Event guests type:`, typeof event.guests);
-    console.log(`📋 [GUESTS_ENDPOINT] Event guests is array:`, Array.isArray(event.guests));
-    console.log(`📋 [GUESTS_ENDPOINT] Event keys:`, Object.keys(event).slice(0, 10));
     
     if (guests.length > 0) {
       console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (first 5):`, guests.slice(0, 5).map(g => g.id));
       console.log(`📋 [GUESTS_ENDPOINT] Guest IDs (last 5):`, guests.slice(-5).map(g => g.id));
-    } else {
-      console.warn(`⚠️ [GUESTS_ENDPOINT] Event has NO guests! Event object:`, JSON.stringify({
-        id: event.id,
-        coupleName: event.coupleName,
-        groomName: event.groomName,
-        brideName: event.brideName,
-        hasGuestsProperty: 'guests' in event,
-        guestsType: typeof event.guests,
-        guestsValue: event.guests
-      }, null, 2));
     }
     
     res.json({
@@ -6211,11 +6142,35 @@ app.post('/api/events', async (req, res) => {
         console.warn(`⚠️ PRESERVING GUESTS: Incoming event ${event.id} had empty guests array, but preserving ${mergedGuests.length} existing guests`);
       }
       
-      eventsData.events[existingIndex] = mergedEvent;
-      console.log(`✅ Updated event ${event.id} with ${mergedEvent.guests?.length || 0} guests (merged from ${existingEvent.guests?.length || 0} existing + ${event.guests?.length || 0} incoming)`);
+      // Save to Supabase
+      if (supabaseDb.isSupabaseConfigured()) {
+        try {
+          // Convert to Supabase format
+          const supabaseEventData = supabaseDb.convertFrontendEventToSupabase(mergedEvent);
+          await supabaseDb.upsertEvent(supabaseEventData);
+          
+          // Save guests to Supabase
+          if (mergedEvent.guests && mergedEvent.guests.length > 0) {
+            const supabaseGuests = mergedEvent.guests.map(g => supabaseDb.convertFrontendGuestToSupabase(g));
+            await supabaseDb.upsertGuests(supabaseGuests);
+            console.log(`✅ Saved ${supabaseGuests.length} guests to Supabase for event ${event.id}`);
+          }
+          
+          console.log(`✅ Updated event ${event.id} in Supabase with ${mergedEvent.guests?.length || 0} guests`);
+        } catch (error) {
+          console.error(`❌ Error saving to Supabase:`, error);
+          // Fallback to file-based storage
+          eventsData.events[existingIndex] = mergedEvent;
+          saveEvents();
+        }
+      } else {
+        // Fallback: Save to file (legacy support)
+        eventsData.events[existingIndex] = mergedEvent;
+        saveEvents();
+      }
       
       // Verify actualAttendance was saved
-      const savedEvent = eventsData.events[existingIndex];
+      const savedEvent = mergedEvent;
       if (savedEvent.guests && savedEvent.guests.length > 0) {
         const guestsWithAttendance = savedEvent.guests.filter(g => g.actualAttendance && g.actualAttendance !== 'not_marked');
         if (guestsWithAttendance.length > 0) {
@@ -6254,13 +6209,49 @@ app.post('/api/events', async (req, res) => {
         newEvent.eventTypeHebrew = 'חתונה';
       }
       
-      eventsData.events.push(newEvent);
+      // Save to Supabase
+      if (supabaseDb.isSupabaseConfigured()) {
+        try {
+          // Convert to Supabase format
+          const supabaseEventData = supabaseDb.convertFrontendEventToSupabase(newEvent);
+          await supabaseDb.upsertEvent(supabaseEventData);
+          
+          // Save guests to Supabase
+          if (newEvent.guests && newEvent.guests.length > 0) {
+            const supabaseGuests = newEvent.guests.map(g => supabaseDb.convertFrontendGuestToSupabase(g));
+            await supabaseDb.upsertGuests(supabaseGuests);
+            console.log(`✅ Saved ${supabaseGuests.length} guests to Supabase for new event ${event.id}`);
+          }
+          
+          console.log(`✅ Created event ${event.id} in Supabase`);
+        } catch (error) {
+          console.error(`❌ Error saving to Supabase:`, error);
+          // Fallback to file-based storage
+          eventsData.events.push(newEvent);
+          saveEvents();
+        }
+      } else {
+        // Fallback: Save to file (legacy support)
+        eventsData.events.push(newEvent);
+        saveEvents();
+      }
     }
     
-    // Save to file
-    saveEvents();
-    
-    const savedEvent = existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1];
+    // Get saved event from Supabase or memory
+    let savedEvent;
+    if (supabaseDb.isSupabaseConfigured() && existingIndex >= 0) {
+      try {
+        const supabaseEvent = await supabaseDb.getEventById(event.id);
+        const supabaseGuests = await supabaseDb.getGuestsByEventId(event.id);
+        const frontendGuests = supabaseGuests.map(g => supabaseDb.convertSupabaseGuestToFrontend(g));
+        savedEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
+      } catch (error) {
+        console.error(`❌ Error fetching saved event from Supabase:`, error);
+        savedEvent = existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1];
+      }
+    } else {
+      savedEvent = existingIndex >= 0 ? eventsData.events[existingIndex] : eventsData.events[eventsData.events.length - 1];
+    }
     
     res.json({
       success: true,

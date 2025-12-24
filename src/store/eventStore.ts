@@ -6,6 +6,7 @@ import { messageService, MessageData, MessageRecipient, BulkMessageResult } from
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
 import { crossTabSync } from '../utils/crossTabSync';
+import { isSupabaseConfigured, getUserEvents, getAllEvents, upsertEvent as supabaseUpsertEvent } from '../services/supabaseService';
 
 const mockEvents: Event[] = [];
 
@@ -87,6 +88,26 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
+    // Try Supabase first if configured
+    if (isSupabaseConfigured()) {
+      try {
+        console.log(`📤 Syncing FULL event to Supabase:`, {
+          eventId: event.id,
+          guestsCount: event.guests?.length || 0
+        });
+        await supabaseUpsertEvent(event);
+        console.log('✅ FULL event synced to Supabase successfully:', { 
+          eventId: event.id,
+          guestsCount: event.guests?.length || 0
+        });
+        return; // Success - exit early
+      } catch (supabaseError) {
+        console.warn('⚠️ Error syncing to Supabase, falling back to API:', supabaseError);
+        // Fall through to API sync
+      }
+    }
+    
+    // Fallback to API
     // CRITICAL: Send FULL event WITH guests to ensure all data is synced
     // This is necessary for the client dashboard to display all guests
     const fullEventPayload = {
@@ -417,18 +438,41 @@ export const useEventStore = create<EventStore>()(
             // Even if we have cache, we need fresh data from API
             if (forceRefresh || !useCache || true) { // Always fetch from API
               try {
-                console.log(`🔍 Fetching events from API for userId: ${userId}, URL: ${BACKEND_URL}/api/events/${userId}`);
-                const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
-                if (response.ok) {
-                  const data = await response.json();
-                  console.log(`📥 API response received:`, {
-                    success: data.success,
-                    eventsCount: data.events?.length || 0,
-                    hasEvents: Array.isArray(data.events),
-                    deletedEventsCount: data.deletedEvents?.length || 0,
-                    fullResponse: data
-                  });
-                  apiEvents = data.events || [];
+                // Try Supabase first if configured
+                if (isSupabaseConfigured()) {
+                  try {
+                    console.log(`🔍 Fetching events from Supabase for userId: ${userId}`);
+                    apiEvents = await getUserEvents(userId);
+                    console.log(`📥 Supabase response received:`, {
+                      success: true,
+                      eventsCount: apiEvents?.length || 0,
+                      hasEvents: Array.isArray(apiEvents)
+                    });
+                  } catch (supabaseError) {
+                    console.warn('⚠️ Error fetching from Supabase, falling back to API:', supabaseError);
+                    // Fallback to API
+                    const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                    if (response.ok) {
+                      const data = await response.json();
+                      apiEvents = data.events || [];
+                    }
+                  }
+                } else {
+                  // Use API endpoint
+                  console.log(`🔍 Fetching events from API for userId: ${userId}, URL: ${BACKEND_URL}/api/events/${userId}`);
+                  const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
+                  if (response.ok) {
+                    const data = await response.json();
+                    console.log(`📥 API response received:`, {
+                      success: data.success,
+                      eventsCount: data.events?.length || 0,
+                      hasEvents: Array.isArray(data.events),
+                      deletedEventsCount: data.deletedEvents?.length || 0,
+                      fullResponse: data
+                    });
+                    apiEvents = data.events || [];
+                  }
+                }
                   
                   if (apiEvents.length === 0) {
                     console.warn(`⚠️ API returned empty events array for userId: ${userId}. This could mean:`);
@@ -5665,6 +5709,138 @@ if (typeof window !== 'undefined') {
         
         // Update store with merged events
         useEventStore.setState({
+          events: mergedEvents,
+          deletedEvents: newState.deletedEvents || store.deletedEvents,
+          deletedGuests: newState.deletedGuests || store.deletedGuests,
+          currentEvent: newState.currentEvent || store.currentEvent,
+        });
+      }
+    }
+  });
+  
+  // Broadcast store updates when state changes
+  let lastStateHash = '';
+  useEventStore.subscribe((state) => {
+    // Create a hash of the state to detect changes
+    const stateHash = JSON.stringify({
+      eventsCount: state.events.length,
+      currentEventId: state.currentEvent?.id,
+      deletedEventsCount: state.deletedEvents.length,
+    });
+    
+    // Only broadcast if state actually changed
+    if (stateHash !== lastStateHash) {
+      lastStateHash = stateHash;
+      
+      // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
+      const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
+      if (!isFromCrossTab && crossTabSync.isReady()) {
+        crossTabSync.broadcast({
+          type: 'store-update',
+          storeName: 'rsvp-events-storage',
+          action: 'state-change',
+          data: {
+            state: {
+              events: state.events,
+              deletedEvents: state.deletedEvents,
+              deletedGuests: state.deletedGuests,
+              currentEvent: state.currentEvent,
+            },
+          },
+        });
+      }
+      (window as any).__rsvp_cross_tab_update = false;
+    }
+  });
+}
+          events: mergedEvents,
+          deletedEvents: newState.deletedEvents || store.deletedEvents,
+          deletedGuests: newState.deletedGuests || store.deletedGuests,
+          currentEvent: newState.currentEvent || store.currentEvent,
+        });
+      }
+    }
+  });
+  
+  // Broadcast store updates when state changes
+  let lastStateHash = '';
+  useEventStore.subscribe((state) => {
+    // Create a hash of the state to detect changes
+    const stateHash = JSON.stringify({
+      eventsCount: state.events.length,
+      currentEventId: state.currentEvent?.id,
+      deletedEventsCount: state.deletedEvents.length,
+    });
+    
+    // Only broadcast if state actually changed
+    if (stateHash !== lastStateHash) {
+      lastStateHash = stateHash;
+      
+      // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
+      const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
+      if (!isFromCrossTab && crossTabSync.isReady()) {
+        crossTabSync.broadcast({
+          type: 'store-update',
+          storeName: 'rsvp-events-storage',
+          action: 'state-change',
+          data: {
+            state: {
+              events: state.events,
+              deletedEvents: state.deletedEvents,
+              deletedGuests: state.deletedGuests,
+              currentEvent: state.currentEvent,
+            },
+          },
+        });
+      }
+      (window as any).__rsvp_cross_tab_update = false;
+    }
+  });
+}
+          events: mergedEvents,
+          deletedEvents: newState.deletedEvents || store.deletedEvents,
+          deletedGuests: newState.deletedGuests || store.deletedGuests,
+          currentEvent: newState.currentEvent || store.currentEvent,
+        });
+      }
+    }
+  });
+  
+  // Broadcast store updates when state changes
+  let lastStateHash = '';
+  useEventStore.subscribe((state) => {
+    // Create a hash of the state to detect changes
+    const stateHash = JSON.stringify({
+      eventsCount: state.events.length,
+      currentEventId: state.currentEvent?.id,
+      deletedEventsCount: state.deletedEvents.length,
+    });
+    
+    // Only broadcast if state actually changed
+    if (stateHash !== lastStateHash) {
+      lastStateHash = stateHash;
+      
+      // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
+      const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
+      if (!isFromCrossTab && crossTabSync.isReady()) {
+        crossTabSync.broadcast({
+          type: 'store-update',
+          storeName: 'rsvp-events-storage',
+          action: 'state-change',
+          data: {
+            state: {
+              events: state.events,
+              deletedEvents: state.deletedEvents,
+              deletedGuests: state.deletedGuests,
+              currentEvent: state.currentEvent,
+            },
+          },
+        });
+      }
+      (window as any).__rsvp_cross_tab_update = false;
+    }
+  });
+}
           events: mergedEvents,
           deletedEvents: newState.deletedEvents || store.deletedEvents,
           deletedGuests: newState.deletedGuests || store.deletedGuests,
