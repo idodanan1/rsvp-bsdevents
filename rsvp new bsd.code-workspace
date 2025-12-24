@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../rsvp new bsd"
+		},
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"powershell.cwd": "rsvp-bsdevents"
+	}
+}

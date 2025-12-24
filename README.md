@@ -1,133 +1,86 @@
-# בס"ד אירועים - מערכת אישורי הגעה וסידורי הושבה
+# RSVP SaaS Platform
 
-מערכת מתקדמת לניהול אירועים, שליחת הודעות WhatsApp ו-SMS, ומעקב אחר אישורי הגעה.
+A comprehensive SaaS platform for RSVP management, table seating, and WhatsApp automation in Hebrew (RTL).
 
-## 🚀 פיצ'רים עיקריים
+## Features
 
-### 📊 ניהול אירועים
-- **ניהול אירועים במקביל** - מספר אירועים בו-זמנית
-- **יצירת אירועים חדשים** - פרטי הזוג, תאריך, מיקום
-- **מעקב אחר סטטיסטיקות** - אישורים, דחיות, מוזמנים
+- **Multi-Tenant Event Management**: Create and manage multiple events
+- **Guest Management**: Filterable guest list with RSVP status, message status, and check-in status
+- **Excel Import/Export**: Import and export guests with Hebrew column headers
+- **WhatsApp Integration**: Send individual messages and automated campaigns via Meta WhatsApp Business API
+- **Table Seating**: Interactive drag-and-drop seating chart with real-time capacity tracking
+- **QR Check-in**: Generate QR codes for guests and scan them at event entrance
+- **Public View**: Read-only public view with real-time statistics
+- **Real-time Sync**: All data syncs in real-time across devices using Supabase Realtime
+- **Full Hebrew (RTL) Support**: Complete Hebrew UI with RTL layout
 
-### 👥 ניהול מוזמנים
-- **הוספת מוזמנים** - ידנית או ייבוא מקובץ
-- **עריכת פרטי מוזמנים** - שם, טלפון, מספר מוזמנים
-- **מעקב אחר אישורי הגעה** - מגיע, לא מגיע, אולי
-- **סימון הגעה בפועל** - ביום האירוע
+## Tech Stack
 
-### 📱 שליחת הודעות
-- **WhatsApp** - הודעות טקסט + תמונות/קבצים
-- **SMS** - הודעות טקסט עם קישור לאישור
-- **תזמון הודעות** - שליחה מיידית או מתוזמנת
-- **קמפיינים חוזרים** - שליחה אוטומטית
+- **Framework**: Next.js 14+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS with RTL support
+- **Database**: Supabase (PostgreSQL + Auth + Realtime + Storage)
+- **WhatsApp**: Meta WhatsApp Business API
+- **QR Codes**: qrcode library
+- **Excel**: xlsx for import/export
 
-### 📊 דוחות וייצוא
-- **ייצוא לאקסל** - כל הנתונים
-- **ייבוא מאקסל** - רשימת מוזמנים
-- **תבניות הודעות** - שמירה ושימוש חוזר
-- **ממשק לקוח** - צפייה בנתונים
+## Getting Started
 
-## 🛠️ התקנה והפעלה
+### Prerequisites
 
-### דרישות מערכת
-- Node.js 16+ 
-- npm או yarn
+- Node.js 18+
+- Supabase account (or PostgreSQL database)
+- Meta WhatsApp Business API access (optional for development)
 
-### התקנה
-```bash
-# הורדת התלויות
-npm install
+### Installation
 
-# הפעלת השרת
-npm run dev
-```
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-### גישה למערכת
-פתח דפדפן וגש לכתובת: `http://localhost:3001`
+3. Set up environment variables:
+   - Copy `.env.example` to `.env.development`
+   - Fill in your Supabase credentials or PostgreSQL connection string
+   - Configure WhatsApp API keys (optional - can be disabled with `ENABLE_WHATSAPP_SENDING=false`)
 
-## 📋 הוראות שימוש
+4. Run database migrations:
+   - If using Supabase: Open SQL Editor and run `supabase/schema.sql`
+   - If using PostgreSQL: `psql -d your_database -f supabase/schema.sql`
 
-### יצירת אירוע חדש
-1. לחץ על "אירוע חדש" בדשבורד
-2. מלא את פרטי הזוג
-3. בחר תאריך ושעה
-4. הוסף מיקום ופרטי קשר
-5. שמור את האירוע
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-### הוספת מוזמנים
-#### ידנית:
-1. לך לניהול האירוע
-2. לחץ על "הוסף מוזמן"
-3. מלא את הפרטים
-4. שמור
+Visit `http://localhost:3000` to see the application.
 
-#### ייבוא מקובץ:
-1. לחץ על "ייבוא אקסל"
-2. הורד את קובץ התבנית
-3. מלא את הפרטים בקובץ
-4. שמור כקובץ CSV
-5. העלה את הקובץ
+## Environment Setup
 
-### שליחת הודעות
-1. לך לניהול הקמפיינים
-2. לחץ על "קמפיין חדש"
-3. בחר ערוץ (WhatsApp/SMS)
-4. כתוב את ההודעה
-5. בחר תאריך ושעה
-6. שלח או תזמן
+See [docs/ENVIRONMENT_SETUP.md](docs/ENVIRONMENT_SETUP.md) for detailed setup instructions for both development and production environments.
 
-### ייצוא נתונים
-1. בדשבורד: "ייצוא כל האירועים"
-2. בניהול אירוע: "ייצוא אקסל"
-3. הקובץ יורד אוטומטית
-
-## 📁 מבנה קבצים
+## Project Structure
 
 ```
-src/
-├── components/          # רכיבי React
-│   ├── Dashboard.tsx    # דשבורד ראשי
-│   ├── CreateEvent.tsx  # יצירת אירוע
-│   ├── EventManagement.tsx # ניהול אירוע
-│   └── ...
-├── store/              # ניהול מצב (Zustand)
-│   ├── eventStore.ts   # מצב אירועים
-│   └── campaignStore.ts # מצב קמפיינים
-├── types/              # הגדרות TypeScript
-├── utils/              # פונקציות עזר
-└── services/           # שירותים חיצוניים
+rsvp-saas/
+├── app/
+│   ├── (auth)/          # Authentication pages
+│   ├── (dashboard)/     # Dashboard pages
+│   ├── (scanner)/       # QR scanner pages
+│   ├── (public)/        # Public view pages
+│   └── api/             # API routes
+├── components/          # React components
+├── lib/                 # Utilities and services
+├── supabase/            # Database schema and migrations
+└── scripts/             # Utility scripts
 ```
 
-## 🎨 עיצוב
+## Development/Production Workflow
 
-המערכת משתמשת ב:
-- **Tailwind CSS** - עיצוב
-- **Lucide React** - איקונים
-- **React Router** - ניווט
-- **Zustand** - ניהול מצב
+The project uses separate environments for development and production. See `scripts/merge-dev-to-prod.js` for merging tested features from dev to prod.
 
-### צבעים
-- **טוריז** - כפתורים וגבולות
-- **זהב צהוב** - שם המערכת וכותרות
-- **גרדיאנט** - רקע טוריז-צהוב
+## License
 
-## 🔧 פיתוח
+Private - All rights reserved
 
-### הוספת פיצ'ר חדש
-1. צור קומפוננטה ב-`src/components/`
-2. הוסף route ב-`App.tsx`
-3. עדכן את ה-store אם נדרש
-4. הוסף ניווט ב-`Layout.tsx`
-
-### הוספת API
-1. צור קובץ ב-`src/services/`
-2. הוסף את הפונקציה ל-store
-3. השתמש בקומפוננטה
-
-## 📞 תמיכה
-
-לשאלות ותמיכה טכנית, פנה למפתח המערכת.
-
----
-
-**בס"ד אירועים** - מערכת מתקדמת לניהול אירועים 🎉

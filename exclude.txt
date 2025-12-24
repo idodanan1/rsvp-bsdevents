@@ -1,0 +1,11 @@
+node_modules
+.git
+.next
+.env
+.env.local
+.env.development
+.env.production
+*.log
+.DS_Store
+Thumbs.db
+
