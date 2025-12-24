@@ -13,7 +13,7 @@ interface TableEditorProps {
   table?: Table
   guests: Guest[]
   assignments: Assignment[]
-  onCreate?: (data: Omit<Database['public']['Tables']['tables']['Insert'], 'id' | 'event_id' | 'created_at' | 'updated_at'>) => Promise<boolean>
+  onCreate?: (data: Omit<Database['public']['Tables']['tables']['Insert'], 'id' | 'created_at' | 'updated_at'>) => Promise<boolean>
   onUpdate?: (id: string, updates: Partial<Table>) => Promise<boolean>
   onDelete?: (id: string) => Promise<boolean>
   onAssignGuest?: (guestId: string, tableId: string) => Promise<boolean>

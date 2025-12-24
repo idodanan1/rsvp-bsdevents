@@ -98,7 +98,7 @@ export default function SeatingEditor({ eventId }: SeatingEditorProps) {
     }
   }
 
-  const handleCreateTable = async (tableData: Omit<Database['public']['Tables']['tables']['Insert'], 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
+  const handleCreateTable = async (tableData: Omit<Database['public']['Tables']['tables']['Insert'], 'id' | 'created_at' | 'updated_at'>) => {
     // Use typed variable to fix TypeScript inference issue
     const insertData: Database['public']['Tables']['tables']['Insert'] = {
       ...tableData,
