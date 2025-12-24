@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { he } from '@/lib/i18n/he'
-import type { Database } from '@/types/database.types'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
@@ -34,23 +33,29 @@ export default function SignupPage() {
       setError(signUpError.message)
       setLoading(false)
     } else if (data.user) {
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('users')
-        // @ts-ignore - Supabase type inference issue with users table insert
-        .insert({
+      // Create user profile via API route
+      const response = await fetch('/api/users/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           id: data.user.id,
           email: data.user.email!,
           full_name: fullName || null,
-        })
+        }),
+      })
 
-      if (profileError) {
-        setError(profileError.message)
+      if (!response.ok) {
+        const result = await response.json()
+        setError(result.error || 'Failed to create user profile')
         setLoading(false)
-      } else {
-        router.push('/dashboard')
-        router.refresh()
+        return
       }
+
+      // Success - redirect to dashboard
+      router.push('/dashboard')
+      router.refresh()
     }
   }
 
