@@ -2,7 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { he } from '@/lib/i18n/he'
+import type { Database } from '@/types/database.types'
 
+// Event page with type assertion fix for TypeScript
 export default async function EventPage({
   params,
 }: {
@@ -26,6 +28,9 @@ export default async function EventPage({
     redirect('/dashboard')
   }
 
+  // Type assertion to fix TypeScript inference issue
+  const eventData = event as Database['public']['Tables']['events']['Row']
+
   // Get stats
   const { count: guestsCount } = await supabase
     .from('guests')
@@ -47,17 +52,17 @@ export default async function EventPage({
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{event.name}</h1>
-        {event.event_date && (
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">{eventData.name}</h1>
+        {eventData.event_date && (
           <p className="text-gray-600">
-            {new Date(event.event_date).toLocaleDateString('he-IL', {
+            {new Date(eventData.event_date).toLocaleDateString('he-IL', {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
             })}
           </p>
         )}
-        {event.location && <p className="text-gray-600">{event.location}</p>}
+        {eventData.location && <p className="text-gray-600">{eventData.location}</p>}
       </div>
 
       {/* Stats */}
