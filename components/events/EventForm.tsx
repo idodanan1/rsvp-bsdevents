@@ -60,17 +60,18 @@ export default function EventForm({ userId, eventId, initialData }: EventFormPro
         router.push(`/dashboard/events/${eventId}`)
       } else {
         // Create new event
-        // Type assertion to fix TypeScript inference issue
+        // Use typed variable to fix TypeScript inference issue
+        const insertData: Database['public']['Tables']['events']['Insert'] = {
+          user_id: userId,
+          name: formData.name,
+          slug,
+          description: formData.description || null,
+          event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
+          location: formData.location || null,
+        }
         const { data, error: insertError } = await (supabase
           .from('events') as any)
-          .insert({
-            user_id: userId,
-            name: formData.name,
-            slug,
-            description: formData.description || null,
-            event_date: formData.event_date ? new Date(formData.event_date).toISOString() : null,
-            location: formData.location || null,
-          } as Database['public']['Tables']['events']['Insert'])
+          .insert(insertData)
           .select()
           .single()
 
