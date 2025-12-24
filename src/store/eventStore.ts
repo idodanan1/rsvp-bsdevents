@@ -18,7 +18,7 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
   const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
   
   try {
-    console.log(`?��? Syncing ${guests.length} guests directly to API for event ${eventId}...`);
+    console.log(`≡ƒףñ Syncing ${guests.length} guests directly to API for event ${eventId}...`);
     
     // Try sending all guests at once first
     const response = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
@@ -30,17 +30,17 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
     });
     
     if (response.ok) {
-      console.log(`?�� Successfully synced ${guests.length} guests directly to API`);
+      console.log(`Γ£ו Successfully synced ${guests.length} guests directly to API`);
       return true;
     } else if (response.status === 413) {
       // Payload too large - split into chunks of 100 guests each
-      console.log(`?�???� Payload too large (413), splitting into chunks...`);
+      console.log(`Γתá∩╕ן Payload too large (413), splitting into chunks...`);
       const CHUNK_SIZE = 100;
       let allSynced = true;
       
       for (let i = 0; i < guests.length; i += CHUNK_SIZE) {
         const chunk = guests.slice(i, i + CHUNK_SIZE);
-        console.log(`?��? Syncing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(guests.length / CHUNK_SIZE)} (${chunk.length} guests)...`);
+        console.log(`≡ƒףñ Syncing chunk ${Math.floor(i / CHUNK_SIZE) + 1}/${Math.ceil(guests.length / CHUNK_SIZE)} (${chunk.length} guests)...`);
         
         // For chunks, we need to merge with existing guests on server
         // So we'll use a PATCH endpoint or append to existing
@@ -53,10 +53,10 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
         });
         
         if (!chunkResponse.ok) {
-          console.warn(`?�???� Failed to sync chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, chunkResponse.status);
+          console.warn(`Γתá∩╕ן Failed to sync chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, chunkResponse.status);
           allSynced = false;
         } else {
-          console.log(`?�� Synced chunk ${Math.floor(i / CHUNK_SIZE) + 1} successfully`);
+          console.log(`Γ£ו Synced chunk ${Math.floor(i / CHUNK_SIZE) + 1} successfully`);
         }
         
         // Small delay between chunks to avoid overwhelming server
@@ -66,19 +66,19 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
       }
       
       if (allSynced) {
-        console.log(`?�� Successfully synced all ${guests.length} guests in chunks`);
+        console.log(`Γ£ו Successfully synced all ${guests.length} guests in chunks`);
         return true;
       } else {
-        console.warn(`?�???� Some chunks failed to sync`);
+        console.warn(`Γתá∩╕ן Some chunks failed to sync`);
         return false;
       }
     } else {
       const errorText = await response.text();
-      console.warn(`?�???� Failed to sync guests directly:`, response.status, errorText);
+      console.warn(`Γתá∩╕ן Failed to sync guests directly:`, response.status, errorText);
       return false;
     }
   } catch (error) {
-    console.warn('?�???� Failed to sync guests directly:', error);
+    console.warn('Γתá∩╕ן Failed to sync guests directly:', error);
     return false;
   }
 };
@@ -111,7 +111,7 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
     };
     
     const payloadSize = JSON.stringify(fullEventPayload).length;
-    console.log(`?��? Syncing FULL event to API:`, {
+    console.log(`≡ƒףñ Syncing FULL event to API:`, {
       eventId: event.id,
       guestsCount: event.guests?.length || 0,
       payloadSize: `${(payloadSize / 1024).toFixed(2)} KB`
@@ -126,27 +126,27 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
     });
     
     if (response.ok) {
-      console.log('?�� FULL event synced to API successfully:', { 
+      console.log('Γ£ו FULL event synced to API successfully:', { 
         eventId: event.id,
         guestsCount: event.guests?.length || 0
       });
     } else {
       const errorText = await response.text();
-      console.warn('?�???� API sync failed:', response.status, errorText);
+      console.warn('Γתá∩╕ן API sync failed:', response.status, errorText);
       
       // CRITICAL: If sync failed but we have guests, try syncing guests directly as fallback
       if (event.guests && event.guests.length > 0) {
-        console.log(`?��� Trying to sync guests directly as fallback...`);
+        console.log(`≡ƒפה Trying to sync guests directly as fallback...`);
         const guestsSynced = await syncGuestsDirectly(event.id, event.guests);
         if (guestsSynced) {
-          console.log('?�� Guests synced directly, but event details may not be updated');
+          console.log('Γ£ו Guests synced directly, but event details may not be updated');
           // Don't return - continue to try event details sync
         }
       }
       
       // If 413 error, try with event details only (fallback)
       if (response.status === 413 && retries > 0) {
-        console.log(`?��� 413 error - trying event details only (${retries} retries left)...`);
+        console.log(`≡ƒפה 413 error - trying event details only (${retries} retries left)...`);
         const eventDetailsOnly = {
           id: event.id,
           userId: event.userId,
@@ -171,7 +171,7 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
         });
         
         if (retryResponse.ok) {
-          console.log('?�� Event synced with details only');
+          console.log('Γ£ו Event synced with details only');
           // If guests weren't synced yet, try syncing them directly
           if (event.guests && event.guests.length > 0) {
             await syncGuestsDirectly(event.id, event.guests);
@@ -181,19 +181,19 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
       }
       
       if (retries > 0) {
-        console.log(`?��� Retrying sync (${retries} retries left)...`);
+        console.log(`≡ƒפה Retrying sync (${retries} retries left)...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
         return syncEventToAPI(event, retries - 1);
       }
     }
   } catch (error) {
-    console.warn('?�???� Failed to sync event to API:', error);
+    console.warn('Γתá∩╕ן Failed to sync event to API:', error);
     // Try syncing guests directly as last resort
     if (event.guests && event.guests.length > 0) {
       await syncGuestsDirectly(event.id, event.guests);
     }
     if (retries > 0) {
-      console.log(`?��� Retrying sync (${retries} retries left)...`);
+      console.log(`≡ƒפה Retrying sync (${retries} retries left)...`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       return syncEventToAPI(event, retries - 1);
     }
@@ -237,7 +237,7 @@ class GuestUpdateBatchProcessor {
     const now = Date.now();
     
     if (cachedTime && (now - cachedTime) < this.CACHE_TTL_MS) {
-      console.log('?��� Skipping duplicate update (cached):', cacheKey);
+      console.log('≡ƒת½ Skipping duplicate update (cached):', cacheKey);
       return;
     }
     
@@ -250,7 +250,7 @@ class GuestUpdateBatchProcessor {
     this.updateQueue.push(update);
     this.updateCache.set(cacheKey, now);
     
-    console.log(`?��? Added update to batch queue (${this.updateQueue.length} pending)`);
+    console.log(`≡ƒףª Added update to batch queue (${this.updateQueue.length} pending)`);
     
     // If queue is full, send immediately
     if (this.updateQueue.length >= this.MAX_BATCH_SIZE) {
@@ -284,7 +284,7 @@ class GuestUpdateBatchProcessor {
       this.batchTimeout = null;
     }
     
-    console.log(`?��? Sending batch of ${updatesToSend.length} guest updates...`);
+    console.log(`≡ƒףñ Sending batch of ${updatesToSend.length} guest updates...`);
     
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
     
@@ -303,13 +303,13 @@ class GuestUpdateBatchProcessor {
             });
             
             if (response.ok) {
-              console.log(`?�� Batch update sent successfully for guest ${update.guestId}`);
+              console.log(`Γ£ו Batch update sent successfully for guest ${update.guestId}`);
             } else {
               const errorText = await response.text();
-              console.warn(`?�???� Batch update failed for guest ${update.guestId}:`, response.status, errorText);
+              console.warn(`Γתá∩╕ן Batch update failed for guest ${update.guestId}:`, response.status, errorText);
             }
           } catch (error) {
-            console.warn(`?�???� Batch update error for guest ${update.guestId}:`, error);
+            console.warn(`Γתá∩╕ן Batch update error for guest ${update.guestId}:`, error);
           }
         })
       );
@@ -320,7 +320,7 @@ class GuestUpdateBatchProcessor {
       }
     }
     
-    console.log(`?�� Batch of ${updatesToSend.length} updates completed`);
+    console.log(`Γ£ו Batch of ${updatesToSend.length} updates completed`);
   }
 
   /**
@@ -349,7 +349,7 @@ export const useEventStore = create<EventStore>()(
   persist(
     (set, get) => ({
       events: mockEvents,
-      deletedEvents: [], // ?�?�?�?�???�?� ???????�???�
+      deletedEvents: [], // ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥ ╫⌐╫á╫₧╫ק╫º╫ץ
       deletedGuests: {}, // Track deleted guests: eventId -> array of guestIds
       currentEvent: null,
       isLoading: false,
@@ -379,7 +379,7 @@ export const useEventStore = create<EventStore>()(
             userId = parsed.state?.user?.id || '';
             userEmail = parsed.state?.user?.email || '';
           } catch (e) {
-            console.warn('?�???� Error parsing user storage:', e);
+            console.warn('Γתá∩╕ן Error parsing user storage:', e);
           }
         }
 
@@ -417,11 +417,11 @@ export const useEventStore = create<EventStore>()(
             // Even if we have cache, we need fresh data from API
             if (forceRefresh || !useCache || true) { // Always fetch from API
               try {
-                console.log(`?��� Fetching events from API for userId: ${userId}, URL: ${BACKEND_URL}/api/events/${userId}`);
+                console.log(`≡ƒפם Fetching events from API for userId: ${userId}, URL: ${BACKEND_URL}/api/events/${userId}`);
                 const response = await fetch(`${BACKEND_URL}/api/events/${userId}`);
                 if (response.ok) {
                   const data = await response.json();
-                  console.log(`?��? API response received:`, {
+                  console.log(`≡ƒףÑ API response received:`, {
                     success: data.success,
                     eventsCount: data.events?.length || 0,
                     hasEvents: Array.isArray(data.events),
@@ -431,7 +431,7 @@ export const useEventStore = create<EventStore>()(
                   apiEvents = data.events || [];
                   
                   if (apiEvents.length === 0) {
-                    console.warn(`?�???� API returned empty events array for userId: ${userId}. This could mean:`);
+                    console.warn(`Γתá∩╕ן API returned empty events array for userId: ${userId}. This could mean:`);
                     console.warn(`   - No events exist for this user on the server`);
                     console.warn(`   - Events exist locally but haven't been synced to server yet`);
                     console.warn(`   - Server-side issue with event retrieval`);
@@ -469,7 +469,7 @@ export const useEventStore = create<EventStore>()(
                           ?.filter((guest: Guest) => {
                             // CRITICAL: Filter out deleted guests - they should not be restored from localStorage
                             if (deletedGuestIds.includes(guest.id)) {
-                              console.log(`?��� Filtering out deleted guest from localStorage load: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                              console.log(`≡ƒת½ Filtering out deleted guest from localStorage load: ${guest.firstName} ${guest.lastName} (${guest.id})`);
                               return false;
                             }
                             return true;
@@ -490,7 +490,7 @@ export const useEventStore = create<EventStore>()(
                     });
                     // Recent events logged for debugging if needed
                   } catch (e) {
-                    console.warn('?�???� Error parsing local events:', e);
+                    console.warn('Γתá∩╕ן Error parsing local events:', e);
                   }
                 }
                 
@@ -515,13 +515,13 @@ export const useEventStore = create<EventStore>()(
                 const originalApiEventsCount = apiEvents.length;
                 apiEvents = apiEvents.filter((apiEvent: Event) => {
                   if (deletedEventIds.has(apiEvent.id)) {
-                    console.log(`?��� Filtering out deleted event ${apiEvent.id} (${apiEvent.coupleName}) from API response`);
+                    console.log(`≡ƒת½ Filtering out deleted event ${apiEvent.id} (${apiEvent.coupleName}) from API response`);
                     return false;
                   }
                   return true;
                 });
                 if (originalApiEventsCount > apiEvents.length) {
-                  console.log(`?��� Filtered out ${originalApiEventsCount - apiEvents.length} deleted event(s) from API response`);
+                  console.log(`≡ƒת½ Filtered out ${originalApiEventsCount - apiEvents.length} deleted event(s) from API response`);
                 }
                 
                 // CRITICAL: SERVER IS THE SINGLE SOURCE OF TRUTH
@@ -536,7 +536,7 @@ export const useEventStore = create<EventStore>()(
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
                   if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
-                    console.warn('?�???� Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
+                    console.warn('Γתá∩╕ן Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
                     cleanedInvitationImageUrl = undefined; // Remove local file paths
                   }
                   
@@ -551,12 +551,12 @@ export const useEventStore = create<EventStore>()(
                   return {
                     ...apiEvent,
                     invitationImageUrl: cleanedInvitationImageUrl,
-                    eventTypeHebrew: apiEvent.eventTypeHebrew || '?�?�?�???�',
+                    eventTypeHebrew: apiEvent.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                     guests: (apiEvent.guests || [])
                       .filter((g: Guest) => {
                         // CRITICAL: Filter out deleted guests - they should not be restored from API
                         if (deletedGuestIds.includes(g.id)) {
-                          console.log(`?��� Skipping deleted guest from API: ${g.firstName} ${g.lastName} (${g.id})`);
+                          console.log(`≡ƒת½ Skipping deleted guest from API: ${g.firstName} ${g.lastName} (${g.id})`);
                           return false;
                         }
                         return true;
@@ -565,13 +565,13 @@ export const useEventStore = create<EventStore>()(
                         // CRITICAL: Check if we have a manual guestCount change that should be preserved
                         const existingGuest = existingEvent?.guests?.find(eg => eg.id === g.id);
                         
-                        // CRITICAL: Check if this is a problematic guest (?�?�?�?�?� ???�?????�, ???�?�?� ?�?�?????�, ???�?�?� ?�???�)
-                        const isProblematicGuest = (g.firstName?.includes('?�?�?�?�?�') && g.lastName?.includes('???�?????�')) ||
-                                                  (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�?�?????�')) ||
-                                                  (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�???�'));
+                        // CRITICAL: Check if this is a problematic guest (╫ף╫ץ╫¿╫ץ╫ƒ ╫⌐╫ץ╫⌐╫á╫ש, ╫₧╫נ╫ץ╫¿ ╫¿╫ץ╫₧╫á╫ץ, ╫ó╫ש╫ף╫ץ ╫ף╫á╫ƒ)
+                        const isProblematicGuest = (g.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && g.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                                  (g.firstName?.includes('╫₧╫נ╫ץ╫¿') && g.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                                  (g.firstName?.includes('╫ó╫ש╫ף╫ץ') && g.lastName?.includes('╫ף╫á╫ƒ'));
                         
                         if (isProblematicGuest) {
-                          console.log(`?��� PROBLEMATIC GUEST IN FETCH: ${g.firstName} ${g.lastName}`, {
+                          console.log(`≡ƒפם PROBLEMATIC GUEST IN FETCH: ${g.firstName} ${g.lastName}`, {
                             id: g.id,
                             apiRsvpStatus: g.rsvpStatus,
                             apiGuestCount: g.guestCount,
@@ -593,10 +593,10 @@ export const useEventStore = create<EventStore>()(
                           
                           // CRITICAL: Log all guest_link updates to verify they're being detected
                           if (isApiFromGuestLink) {
-                            const isProblematicGuest = (g.firstName?.includes('?�?�?�?�?�') && g.lastName?.includes('???�?????�')) ||
-                                                      (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�?�?????�')) ||
-                                                      (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�???�'));
-                            console.log(`?��� DETECTED guest_link update in fetchEvents for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
+                            const isProblematicGuest = (g.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && g.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                                      (g.firstName?.includes('╫₧╫נ╫ץ╫¿') && g.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                                      (g.firstName?.includes('╫ó╫ש╫ף╫ץ') && g.lastName?.includes('╫ף╫á╫ƒ'));
+                            console.log(`≡ƒפם DETECTED guest_link update in fetchEvents for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               apiRsvpStatus: g.rsvpStatus,
                               apiGuestCount: g.guestCount,
                               apiSource: g.source,
@@ -607,7 +607,7 @@ export const useEventStore = create<EventStore>()(
                               willApply: true // guest_link updates are always applied
                             });
                             if (isProblematicGuest) {
-                              console.log(`?��� PROBLEMATIC GUEST DETECTED IN FETCH: ${g.firstName} ${g.lastName}`, {
+                              console.log(`≡ƒפם PROBLEMATIC GUEST DETECTED IN FETCH: ${g.firstName} ${g.lastName}`, {
                                 id: g.id,
                                 apiRsvpStatus: g.rsvpStatus,
                                 apiGuestCount: g.guestCount,
@@ -623,10 +623,10 @@ export const useEventStore = create<EventStore>()(
                           if (isApiFromGuestLink) {
                             const statusChanged = existingGuest.rsvpStatus !== g.rsvpStatus;
                             const countChanged = existingGuest.guestCount !== g.guestCount;
-                            const isProblematicGuest = (g.firstName?.includes('?�?�?�?�?�') && g.lastName?.includes('???�?????�')) ||
-                                                      (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�?�?????�')) ||
-                                                      (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�???�'));
-                            console.log(`?�� Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
+                            const isProblematicGuest = (g.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && g.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                                      (g.firstName?.includes('╫₧╫נ╫ץ╫¿') && g.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                                      (g.firstName?.includes('╫ó╫ש╫ף╫ץ') && g.lastName?.includes('╫ף╫á╫ƒ'));
+                            console.log(`Γ£ו Using guest_link update from API for guest ${g.id} (${g.firstName} ${g.lastName}):`, {
                               rsvpStatus: g.rsvpStatus,
                               guestCount: g.guestCount,
                               responseDate: g.responseDate,
@@ -640,15 +640,15 @@ export const useEventStore = create<EventStore>()(
                               }
                             });
                             if (statusChanged) {
-                              console.log(`?��� STATUS CHANGE: ${existingGuest.rsvpStatus} -> ${g.rsvpStatus} for guest ${g.id} (${g.firstName} ${g.lastName})`);
+                              console.log(`≡ƒפה STATUS CHANGE: ${existingGuest.rsvpStatus} -> ${g.rsvpStatus} for guest ${g.id} (${g.firstName} ${g.lastName})`);
                             }
                             if (countChanged) {
-                              console.log(`?��� COUNT CHANGE: ${existingGuest.guestCount} -> ${g.guestCount} for guest ${g.id} (${g.firstName} ${g.lastName})`);
+                              console.log(`≡ƒפה COUNT CHANGE: ${existingGuest.guestCount} -> ${g.guestCount} for guest ${g.id} (${g.firstName} ${g.lastName})`);
                             }
                             if (isProblematicGuest) {
-                              console.log(`?��� PROBLEMATIC GUEST UPDATE APPLIED: ${g.firstName} ${g.lastName} - status: ${g.rsvpStatus}, count: ${g.guestCount}, source: ${g.source}`);
-                              console.log(`?��� BEFORE: status=${existingGuest.rsvpStatus}, count=${existingGuest.guestCount}`);
-                              console.log(`?��� AFTER: status=${g.rsvpStatus}, count=${g.guestCount}`);
+                              console.log(`≡ƒפם PROBLEMATIC GUEST UPDATE APPLIED: ${g.firstName} ${g.lastName} - status: ${g.rsvpStatus}, count: ${g.guestCount}, source: ${g.source}`);
+                              console.log(`≡ƒפם BEFORE: status=${existingGuest.rsvpStatus}, count=${existingGuest.guestCount}`);
+                              console.log(`≡ƒפם AFTER: status=${g.rsvpStatus}, count=${g.guestCount}`);
                             }
                             const updatedGuest = {
                               ...g,
@@ -663,7 +663,7 @@ export const useEventStore = create<EventStore>()(
                               responseDate: g.responseDate
                             };
                             if (isProblematicGuest) {
-                              console.log(`?��� RETURNING UPDATED GUEST:`, {
+                              console.log(`≡ƒפם RETURNING UPDATED GUEST:`, {
                                 id: updatedGuest.id,
                                 rsvpStatus: updatedGuest.rsvpStatus,
                                 guestCount: updatedGuest.guestCount,
@@ -681,7 +681,7 @@ export const useEventStore = create<EventStore>()(
                             // If API manual update is newer or equal, use it (it was saved to server from table edit)
                             // CRITICAL: Always prefer API manual_update if it exists, as it represents the saved state
                             if (apiDate >= existingDate || !isExistingFromManual) {
-                              console.log(`?�� Using manual_update guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount}, API is ${apiDate >= existingDate ? 'newer or equal' : 'from server'})`);
+                              console.log(`Γ£ו Using manual_update guestCount from API: ${g.guestCount} (overriding local: ${existingGuest.guestCount}, API is ${apiDate >= existingDate ? 'newer or equal' : 'from server'})`);
                               return {
                                 ...g,
                                 firstName: cleanName(g.firstName),
@@ -696,7 +696,7 @@ export const useEventStore = create<EventStore>()(
                           
                           // If existing is manual and API is not manual_update, preserve existing guestCount
                           if (isExistingFromManual && existingGuest.guestCount !== undefined && !isApiFromManual) {
-                            console.log(`?��???� Preserving manual guestCount ${existingGuest.guestCount} from local state (API has ${g.guestCount} but not from manual_update)`);
+                            console.log(`≡ƒ¢í∩╕ן Preserving manual guestCount ${existingGuest.guestCount} from local state (API has ${g.guestCount} but not from manual_update)`);
                             return {
                               ...g,
                               firstName: cleanName(g.firstName),
@@ -729,15 +729,15 @@ export const useEventStore = create<EventStore>()(
                 
                 // Sync local-only events to server in background (fire-and-forget)
                 if (localOnlyEvents.length > 0) {
-                  console.log(`?��� Found ${localOnlyEvents.length} local events not in API - syncing to server...`);
+                  console.log(`≡ƒפה Found ${localOnlyEvents.length} local events not in API - syncing to server...`);
                   const syncPromises = localOnlyEvents.map((event, index) => 
                     syncEventToAPI(event)
                       .then(() => {
-                        console.log(`?�� Event ${index + 1}/${localOnlyEvents.length} synced successfully: ${event.id}`);
+                        console.log(`Γ£ו Event ${index + 1}/${localOnlyEvents.length} synced successfully: ${event.id}`);
                         return true;
                       })
                       .catch(err => {
-                        console.warn(`?�???� Failed to sync local event ${event.id} to server:`, err);
+                        console.warn(`Γתá∩╕ן Failed to sync local event ${event.id} to server:`, err);
                         return false;
                       })
                   );
@@ -746,12 +746,12 @@ export const useEventStore = create<EventStore>()(
                   Promise.all(syncPromises).then(results => {
                     const successCount = results.filter(r => r === true).length;
                     if (successCount > 0) {
-                      console.log(`?�� Successfully synced ${successCount}/${localOnlyEvents.length} event(s) to server. Refreshing to get updated data...`);
+                      console.log(`Γ£ו Successfully synced ${successCount}/${localOnlyEvents.length} event(s) to server. Refreshing to get updated data...`);
                       // Refresh after a short delay to allow server to process
                       setTimeout(() => {
-                        console.log(`?��� Refreshing events from API after sync...`);
-                        fetchEventsRef(true, true).catch(err => {
-                          console.warn('?�???� Failed to refresh after sync:', err);
+                        console.log(`≡ƒפה Refreshing events from API after sync...`);
+                        fetchEvents(true, true).catch(err => {
+                          console.warn('Γתá∩╕ן Failed to refresh after sync:', err);
                         });
                       }, 1500); // 1.5 seconds to allow server to process
                     }
@@ -766,13 +766,13 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: If API returns empty but we have local events, use local events as fallback
                 // This prevents data loss when API is temporarily unavailable
                 if (apiEvents.length === 0 && localEvents.length > 0) {
-                  console.warn('?�???� API returned empty events but local events exist - using local events as fallback');
-                  console.log(`?��� Local events count: ${localEvents.length}, UserId: ${userId}`);
-                  console.log(`?��? This is normal if:`);
+                  console.warn('Γתá∩╕ן API returned empty events but local events exist - using local events as fallback');
+                  console.log(`≡ƒףך Local events count: ${localEvents.length}, UserId: ${userId}`);
+                  console.log(`≡ƒעí This is normal if:`);
                   console.log(`   - Events were created locally but not yet synced to server`);
                   console.log(`   - Server is temporarily unavailable`);
                   console.log(`   - User's events don't exist on server yet`);
-                  console.log(`?��� Attempting to sync local events to server...`);
+                  console.log(`≡ƒפה Attempting to sync local events to server...`);
                   // Get deletedEvents from stored data first
                   let deletedEventsForPreserve: any[] = [];
                   try {
@@ -789,13 +789,13 @@ export const useEventStore = create<EventStore>()(
                   const localEventsForUser = localEvents.filter((e: Event) => {
                     // CRITICAL: Don't preserve deleted events
                     if (deletedEventIdsForPreserve.has(e.id)) {
-                      console.log(`?��� Filtering out deleted event ${e.id} (${e.coupleName}) from preserved local events`);
+                      console.log(`≡ƒת½ Filtering out deleted event ${e.id} (${e.coupleName}) from preserved local events`);
                       return false;
                     }
                     return !userId || e.userId === userId;
                   });
                   if (localEventsForUser.length > 0) {
-                    console.log(`?��???� Preserving ${localEventsForUser.length} local events (API returned empty)`);
+                    console.log(`≡ƒ¢í∩╕ן Preserving ${localEventsForUser.length} local events (API returned empty)`);
                     // Save local events to localStorage (without deleted events)
                   localStorage.setItem('rsvp-events-storage', JSON.stringify({
                     state: {
@@ -825,17 +825,17 @@ export const useEventStore = create<EventStore>()(
                 );
                 
                 if (lostEvents.length > 0) {
-                  console.warn(`?�???� CRITICAL: About to lose ${lostEvents.length} events for current user! Preserving them...`);
-                  console.warn('?�???� Lost events:', lostEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                  console.warn(`Γתá∩╕ן CRITICAL: About to lose ${lostEvents.length} events for current user! Preserving them...`);
+                  console.warn('Γתá∩╕ן Lost events:', lostEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   // Add lost events back (only if they belong to current user)
                   lostEvents.forEach(lostEvent => {
                     if (!eventsToSave.find(e => e.id === lostEvent.id)) {
                       // CRITICAL: Only preserve if event belongs to current user
                       if (!userId || lostEvent.userId === userId || !lostEvent.userId || lostEvent.userId === 'anonymous') {
                         eventsToSave.push(lostEvent);
-                        console.log(`?�� Preserved lost event: ${lostEvent.id} (belongs to current user)`);
+                        console.log(`Γ£ו Preserved lost event: ${lostEvent.id} (belongs to current user)`);
                       } else {
-                        console.log(`?�??� Skipping event ${lostEvent.id} - belongs to different user (${lostEvent.userId} vs ${userId})`);
+                        console.log(`Γן¡∩╕ן Skipping event ${lostEvent.id} - belongs to different user (${lostEvent.userId} vs ${userId})`);
                       }
                     }
                   });
@@ -845,7 +845,7 @@ export const useEventStore = create<EventStore>()(
                     userId && e.userId && e.userId !== userId && e.userId !== 'anonymous' && !savedEventIds.has(e.id)
                   );
                   if (otherUserEvents.length > 0) {
-                    console.log(`?�???� Found ${otherUserEvents.length} events from other users (not preserving):`, 
+                    console.log(`Γה╣∩╕ן Found ${otherUserEvents.length} events from other users (not preserving):`, 
                       otherUserEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   }
                 }
@@ -859,7 +859,7 @@ export const useEventStore = create<EventStore>()(
                   ? eventsToSave.filter((e: Event) => {
                       // CRITICAL: Don't save deleted events
                       if (deletedEventIdsForSave.has(e.id)) {
-                        console.log(`?��� Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
+                        console.log(`≡ƒת½ Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
                         return false;
                       }
                       // If event belongs to admin, exclude it for regular users
@@ -872,7 +872,7 @@ export const useEventStore = create<EventStore>()(
                   : eventsToSave.filter((e: Event) => {
                       // CRITICAL: Don't save deleted events even if no userId filter
                       if (deletedEventIdsForSave.has(e.id)) {
-                        console.log(`?��� Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
+                        console.log(`≡ƒת½ Filtering out deleted event ${e.id} (${e.coupleName}) before save`);
                         return false;
                       }
                       return true;
@@ -897,8 +897,8 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: If filteredEvents is empty but we have local events, preserve them
                 if (filteredEvents.length === 0 && localEvents.length > 0) {
-                  console.warn('?�???� Filtered events is empty but local events exist - preserving local events');
-                  console.log('?��� Debug info:', {
+                  console.warn('Γתá∩╕ן Filtered events is empty but local events exist - preserving local events');
+                  console.log('≡ƒפם Debug info:', {
                     userId: userId,
                     localEventsCount: localEvents.length,
                     localEventUserIds: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })),
@@ -922,7 +922,7 @@ export const useEventStore = create<EventStore>()(
                       // CRITICAL: Only update events with missing or anonymous userId
                       // Do NOT reassign events that belong to other users (have a valid userId that's not current user)
                       if ((!e.userId || e.userId === 'anonymous') && userId) {
-                        console.log(`?��� Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                        console.log(`≡ƒפה Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
                         return { ...e, userId: userId };
                       }
                       return e;
@@ -931,7 +931,7 @@ export const useEventStore = create<EventStore>()(
                   const localEventsForUser = eventsToShow.filter((e: Event) => {
                     // CRITICAL: Don't show deleted events
                     if (deletedEventIds.has(e.id)) {
-                      console.log(`?��� Filtering out deleted event ${e.id} (${e.coupleName}) from localEventsForUser`);
+                      console.log(`≡ƒת½ Filtering out deleted event ${e.id} (${e.coupleName}) from localEventsForUser`);
                       return false;
                     }
                     // Exclude admin events for regular users
@@ -942,7 +942,7 @@ export const useEventStore = create<EventStore>()(
                   });
                   
                   if (localEventsForUser.length > 0) {
-                    console.log(`?��???� Preserving ${localEventsForUser.length} local events (filtered was empty)`);
+                    console.log(`≡ƒ¢í∩╕ן Preserving ${localEventsForUser.length} local events (filtered was empty)`);
                     
                     // CRITICAL: Update events in localStorage with correct userId
                     const updatedLocalEvents = localEvents.map((e: Event) => {
@@ -964,7 +964,7 @@ export const useEventStore = create<EventStore>()(
                     set({ events: [...localEventsForUser], isLoading: false });
                     return; // Exit early - preserve local events
                   } else {
-                    console.error('?�� CRITICAL: No events match userId even after update!', {
+                    console.error('Γ¥ל CRITICAL: No events match userId even after update!', {
                       userId,
                       events: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
                     });
@@ -982,10 +982,10 @@ export const useEventStore = create<EventStore>()(
                     const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
                     const newTime = event.updatedAt ? new Date(event.updatedAt).getTime() : 0;
                     if (newTime > existingTime) {
-                      console.warn(`?�???� Found duplicate event ${event.id}, keeping more recent version`);
+                      console.warn(`Γתá∩╕ן Found duplicate event ${event.id}, keeping more recent version`);
                       acc[existingIndex] = event; // Replace with more recent version
                     } else {
-                      console.warn(`?�???� Found duplicate event ${event.id}, keeping existing version`);
+                      console.warn(`Γתá∩╕ן Found duplicate event ${event.id}, keeping existing version`);
                     }
                   } else {
                     acc.push(event);
@@ -994,7 +994,7 @@ export const useEventStore = create<EventStore>()(
                 }, [] as Event[]);
                 
                 if (uniqueEvents.length < filteredEvents.length) {
-                  console.warn(`?�???� Removed ${filteredEvents.length - uniqueEvents.length} duplicate event(s)`);
+                  console.warn(`Γתá∩╕ן Removed ${filteredEvents.length - uniqueEvents.length} duplicate event(s)`);
                 }
                 
                 // CRITICAL: Create new array reference to force React re-render
@@ -1034,7 +1034,7 @@ export const useEventStore = create<EventStore>()(
                       ...updatedEvent,
                       guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
                     };
-                    console.log('?��� Updated currentEvent from API fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
+                    console.log('≡ƒפה Updated currentEvent from API fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
                     // CRITICAL: Log specific guest statuses to verify updates
                     const sampleGuests = updatedCurrentEvent.guests?.slice(0, 5).map(g => ({
                       id: g.id,
@@ -1042,15 +1042,15 @@ export const useEventStore = create<EventStore>()(
                       status: g.rsvpStatus,
                       source: g.source
                     }));
-                    console.log('?��� Sample guests in updated currentEvent:', sampleGuests);
+                    console.log('≡ƒפם Sample guests in updated currentEvent:', sampleGuests);
                     // Check for specific problematic guests
                     const problematicGuests = updatedCurrentEvent.guests?.filter(g => 
-                      (g.firstName?.includes('?�?�?�?�?�') && g.lastName?.includes('???�?????�')) ||
-                      (g.firstName?.includes('???�?�?�') && g.lastName?.includes('?�?�?????�'))
+                      (g.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && g.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                      (g.firstName?.includes('╫₧╫נ╫ץ╫¿') && g.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ'))
                     );
                     if (problematicGuests && problematicGuests.length > 0) {
                       problematicGuests.forEach(guest => {
-                        console.log(`?��� Found problematic guest in updated currentEvent: ${guest.firstName} ${guest.lastName}`, {
+                        console.log(`≡ƒפם Found problematic guest in updated currentEvent: ${guest.firstName} ${guest.lastName}`, {
                           id: guest.id,
                           status: guest.rsvpStatus,
                           source: (guest as any).source,
@@ -1059,23 +1059,26 @@ export const useEventStore = create<EventStore>()(
                         });
                       });
                     } else {
-                      console.log('?�???� No problematic guests found in updated currentEvent');
+                      console.log('Γתá∩╕ן No problematic guests found in updated currentEvent');
                     }
                   } else {
-                    console.warn('?�???� currentEvent not found in eventsWithNewReferences:', storeState.currentEvent.id);
+                    console.warn('Γתá∩╕ן currentEvent not found in eventsWithNewReferences:', storeState.currentEvent.id);
                   }
                 }
                 
                 set({ events: eventsWithNewReferences, currentEvent: updatedCurrentEvent, isLoading: false });
                 return; // Exit early - we got events from API
               } else {
-                console.warn('?�???� API fetch failed, using localStorage');
+                console.warn('Γתá∩╕ן API fetch failed, using localStorage');
                 apiError = true;
               }
             } catch (error) {
-              console.warn('?�???� API not available, using localStorage:', error);
+              console.warn('Γתá∩╕ן API not available, using localStorage:', error);
               apiError = true;
-            }                    // Check if there are events in localStorage
+            }
+          }
+
+          // Check if there are events in localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
@@ -1091,13 +1094,13 @@ export const useEventStore = create<EventStore>()(
                 const updatedEvents = allEvents.map((event: Event) => {
                   // If event has userEmail matching current user, update userId
                   if (event.userEmail && userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim() && event.userId !== userId) {
-                    console.log(`?��� Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
+                    console.log(`≡ƒפה Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
                     eventsUpdated = true;
                     return { ...event, userId };
                   }
                   // CRITICAL: If event has no userId or anonymous userId, and we have current userId, update it
                   if ((!event.userId || event.userId === 'anonymous') && userId) {
-                    console.log(`?��� Updating event ${event.id} userId from "${event.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                    console.log(`≡ƒפה Updating event ${event.id} userId from "${event.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
                     eventsUpdated = true;
                     return { ...event, userId, userEmail: userEmail || event.userEmail };
                   }
@@ -1112,7 +1115,7 @@ export const useEventStore = create<EventStore>()(
                         const oldUsers = oldParsed.state?.users || [];
                         const oldUser = oldUsers.find((u: any) => u.id === event.userId);
                         if (oldUser && oldUser.email && userEmail && oldUser.email.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
-                          console.log(`?��� Updating event ${event.id} userId from "${event.userId}" to "${userId}" (found matching email in old users)`);
+                          console.log(`≡ƒפה Updating event ${event.id} userId from "${event.userId}" to "${userId}" (found matching email in old users)`);
                           eventsUpdated = true;
                           return { ...event, userId, userEmail };
                         }
@@ -1125,7 +1128,7 @@ export const useEventStore = create<EventStore>()(
                 });
                 
                 if (eventsUpdated) {
-                  console.log('?�� Updated events with correct userId');
+                  console.log('Γ£ו Updated events with correct userId');
                   // Save updated events
                   localStorage.setItem('rsvp-events-storage', JSON.stringify({
                     state: {
@@ -1139,7 +1142,7 @@ export const useEventStore = create<EventStore>()(
                   // Log if events don't match userId
                   const mismatchedEvents = allEvents.filter(e => e.userId && e.userId !== userId && e.userId !== 'anonymous');
                   if (mismatchedEvents.length > 0) {
-                    console.warn('?�???� Found events with different userId:', mismatchedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                    console.warn('Γתá∩╕ן Found events with different userId:', mismatchedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   }
                 }
               }
@@ -1152,13 +1155,13 @@ export const useEventStore = create<EventStore>()(
                   if (!event.userId || event.userId === 'anonymous' || event.userId !== userId) {
                     // Check if event belongs to current user by email
                     if (event.userEmail && userEmail && event.userEmail.toLowerCase().trim() === userEmail.toLowerCase().trim()) {
-                      console.log(`?��� Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
+                      console.log(`≡ƒפה Updating event ${event.id} userId from "${event.userId}" to "${userId}" (email match)`);
                       eventsUpdated = true;
                       return { ...event, userId };
                     }
                     // If no userId or anonymous, and we have current userId, update it
                     if ((!event.userId || event.userId === 'anonymous') && userId) {
-                      console.log(`?��� Updating event ${event.id} userId from "${event.userId}" to "${userId}" (was anonymous/missing)`);
+                      console.log(`≡ƒפה Updating event ${event.id} userId from "${event.userId}" to "${userId}" (was anonymous/missing)`);
                       eventsUpdated = true;
                       return { ...event, userId, userEmail: userEmail || event.userEmail };
                     }
@@ -1176,7 +1179,7 @@ export const useEventStore = create<EventStore>()(
                       currentEvent: parsed.state.currentEvent || null
                     }
                   }));
-                  console.log('?�� Updated events with correct userId');
+                  console.log('Γ£ו Updated events with correct userId');
                 }
               }
               
@@ -1195,7 +1198,7 @@ export const useEventStore = create<EventStore>()(
                 if (isAdmin) {
                   // Admin sees all events
                   filteredEvents = allEvents;
-                  console.log('?��� Admin user - showing all events');
+                  console.log('≡ƒסס Admin user - showing all events');
                 } else {
                   // Regular user sees only their events (exclude admin events)
                   filteredEvents = allEvents.filter((event: Event) => {
@@ -1205,7 +1208,7 @@ export const useEventStore = create<EventStore>()(
                     }
                     return event.userId === userId;
                   });
-                  console.log('?��� Filtering events by userId:', {
+                  console.log('≡ƒפם Filtering events by userId:', {
                     userId,
                     totalEvents: allEvents.length,
                     filteredCount: filteredEvents.length,
@@ -1215,13 +1218,13 @@ export const useEventStore = create<EventStore>()(
                 }
               }
               
-              console.log('?��� Total events in storage:', allEvents.length);
-              console.log('?��� Filtered events for user:', filteredEvents.length, 'userId:', userId);
+              console.log('≡ƒףכ Total events in storage:', allEvents.length);
+              console.log('≡ƒףכ Filtered events for user:', filteredEvents.length, 'userId:', userId);
               
               // IMPORTANT: Set only filtered events in state for display
               // The persist middleware will handle saving correctly (only current user's events)
               // CRITICAL: Create new array reference to force React re-render
-              console.log('?��� Creating new events array reference from localStorage to force React re-render');
+              console.log('≡ƒפה Creating new events array reference from localStorage to force React re-render');
               
               // CRITICAL: Update currentEvent if it exists and matches one of the filtered events
               // This ensures the table updates immediately when guest status changes via link
@@ -1236,7 +1239,7 @@ export const useEventStore = create<EventStore>()(
                     ...updatedEvent,
                     guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
                   };
-                  console.log('?��� Updated currentEvent from localStorage fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
+                  console.log('≡ƒפה Updated currentEvent from localStorage fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
                 }
               }
               
@@ -1247,12 +1250,12 @@ export const useEventStore = create<EventStore>()(
           }
           
           // If no events found, don't create sample events
-          console.log('?�� No events found in localStorage');
+          console.log('≡ƒף¥ No events found in localStorage');
           // CRITICAL: Create new array reference (even if empty) to force React re-render
           set({ events: [], isLoading: false });
         } catch (error) {
-          console.error('?�� Error fetching events:', error);
-          set({ error: '???�?�?�?� ?�?�???�???� ?�?�?�?�?�???�?�', isLoading: false });
+          console.error('Γ¥ל Error fetching events:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ר╫ó╫ש╫á╫¬ ╫פ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥', isLoading: false });
         } finally {
           // CRITICAL: Always reset fetchInProgress flag, even on error
           fetchInProgress = false;
@@ -1260,13 +1263,13 @@ export const useEventStore = create<EventStore>()(
       },
 
       createEvent: async (eventData) => {
-        console.log('?��� createEvent called with:', eventData);
+        console.log('≡ƒפם createEvent called with:', eventData);
         set({ isLoading: true, error: null });
         try {
           // CRITICAL: Clean invitationImageUrl - remove local file paths
           let cleanedInvitationImageUrl = eventData.invitationImageUrl;
           if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
-            console.warn('?�???� Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
+            console.warn('Γתá∩╕ן Removing local file path from invitationImageUrl:', cleanedInvitationImageUrl);
             cleanedInvitationImageUrl = undefined; // Remove local file paths
           }
           
@@ -1277,18 +1280,18 @@ export const useEventStore = create<EventStore>()(
             {
               id: generateId(),
               eventId: eventId,
-              name: '?�?�?????� ?�?�???�???�?�',
-              message: `?��� ???�?�?� {{guest_name}}!
+              name: '╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬',
+              message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 30 * 24 * 60 * 60 * 1000), // 30 days before
               status: 'draft' as const,
@@ -1301,32 +1304,32 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
-              smsMessage: `?��� ???�?�?� {{guest_name}}!
+              smsMessage: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`
             },
             {
               id: generateId(),
-              name: '?�?�?�?�?�?� ?????�?�?�',
-              message: `?��� ???�?�?� {{guest_name}}!
+              name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ',
+              message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 14 * 24 * 60 * 60 * 1000), // 14 days before
               status: 'draft' as const,
@@ -1339,32 +1342,32 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
-              smsMessage: `?��� ???�?�?� {{guest_name}}!
+              smsMessage: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`
             },
             {
               id: generateId(),
-              name: '?�?�?�?�?�?� ???�?�???�?�',
-              message: `?��� ???�?�?� {{guest_name}}!
+              name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬',
+              message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days before
               status: 'draft' as const,
@@ -1377,35 +1380,35 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
-              smsMessage: `?��� ???�?�?� {{guest_name}}!
+              smsMessage: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�?�?�?�???� ???� {{couple_name}}!
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� 
-?�?�?�?�?�,
-{{couple_name}} ?���`
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ 
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`
             },
             {
               id: generateId(),
-              name: '?�?�?�?�?�?� ?�?�?�?�???�',
-              message: `?��� ???�?�?� {{first_name}}! 
+              name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ',
+              message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{first_name}}! 
 
-???�?� ?�?� ???�?�?�! ?�{{event_type}} ???� {{couple_name}}! 
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?�???� ?�?�?�???� 15 ?�???�?� ?�?????� ?�?�???�.
+╫נ╫á╫נ ╫פ╫ע╫ש╫ó╫ץ 15 ╫ף╫º╫ץ╫¬ ╫£╫ñ╫á╫ש ╫פ╫צ╫₧╫ƒ.
 
-?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�! ?���`,
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס! ≡ƒרך`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() - 24 * 60 * 60 * 1000), // 1 day before
               status: 'draft' as const,
@@ -1418,38 +1421,38 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
-              smsMessage: `???�?�?� {{first_name}}! 
+              smsMessage: `╫⌐╫£╫ץ╫¥ {{first_name}}! 
 
-???�?� ?�?� ???�?�?�! ?�{{event_type}} ???� {{couple_name}}! 
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?�???� ?�?�?�???� 15 ?�???�?� ?�?????� ?�?�???�.
+╫נ╫á╫נ ╫פ╫ע╫ש╫ó╫ץ 15 ╫ף╫º╫ץ╫¬ ╫£╫ñ╫á╫ש ╫פ╫צ╫₧╫ƒ.
 
-?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�!
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס!
 
-?�?�?�?�?�,
+╫ס╫ס╫¿╫¢╫פ,
 {{couple_name}}`
             },
             {
               id: generateId(),
-              name: '?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??',
-              message: `?��� ???�?�?� {{guest_name}}!
-???�?� ?�?� ???�?�?�! ?�?�?�?�???� ???� {{couple_name}}!
+              name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó',
+              message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?��� ?�???�?�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ץ╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�! ?���`,
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס! ≡ƒרך`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(new Date(eventData.eventDate).setHours(8, 0, 0, 0)), // Same day at 8 AM
               status: 'draft' as const,
@@ -1460,33 +1463,33 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: No buttons - send text-only message with links instead
               whatsappButtons: [],
               // SMS fallback with link
-              smsMessage: `?��� ???�?�?� {{guest_name}}!
-???�?� ?�?� ???�?�?�! ?�?�?�?�???� ???� {{couple_name}}!
+              smsMessage: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}!
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ╫ק╫¬╫ץ╫á╫פ ╫⌐╫£ {{couple_name}}!
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?��� ?�???�?�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ץ╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�! ?���`
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס! ≡ƒרך`
             },
             {
               id: generateId(),
-              name: '?�?�?�???� ?�?�?�?� ?�???�?�???�?�',
-              message: `?��� ???�?�?� {{guest_name}}! 
+              name: '╫פ╫ץ╫ף╫ó╫¬ ╫¬╫ץ╫ף╫פ ╫£╫₧╫ע╫ש╫ó╫ש╫¥',
+              message: `≡ƒשן ╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�?�?�?� ?�?�?� ???�?�???� ?�{{event_type}} ???� {{couple_name}}! 
+╫¬╫ץ╫ף╫פ ╫¿╫ס╫פ ╫⌐╫פ╫ע╫ó╫¬ ╫£{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?�?�?� ?�???� ?�?�?? ?�?�?�?�?� ?�?�?�?� ?�?�?�?�?�?� ?�?�?�???� ?�?�?�?� ?�???�?�?�?� ?�?�?�.
+╫פ╫ש╫פ ╫£╫á╫ץ ╫¢╫ש╫ú ╫£╫¿╫נ╫ץ╫¬ ╫נ╫ץ╫¬╫ת ╫ץ╫£╫פ╫ש╫ץ╫¬ ╫נ╫ש╫¬╫á╫ץ ╫ס╫ש╫ץ╫¥ ╫פ╫₧╫ש╫ץ╫ק╫ף ╫פ╫צ╫פ.
 
-?�?�?�?� ???� ?�?�?�?�?�?� ?�?�???�???�?�! ?��
+╫¬╫ץ╫ף╫פ ╫ó╫£ ╫פ╫ס╫¿╫¢╫ץ╫¬ ╫ץ╫פ╫₧╫¬╫á╫ץ╫¬! ≡ƒע¥
 
-?�???�???�?� ???�?�?�?�?�?? ?�?�???�?� ?�???�?�?�.
+╫¬╫₧╫ץ╫á╫ץ╫¬ ╫₧╫פ╫נ╫ש╫¿╫ץ╫ó ╫ש╫ץ╫ó╫£╫ץ ╫ס╫º╫¿╫ץ╫ס.
 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫ס╫נ╫פ╫ס╫פ,
+{{couple_name}} ≡ƒעץ`,
               channel: 'whatsapp' as const,
               scheduledDate: new Date(eventData.eventDate.getTime() + 24 * 60 * 60 * 1000), // 1 day after
               status: 'draft' as const,
@@ -1495,17 +1498,17 @@ export const useEventStore = create<EventStore>()(
               createdAt: new Date(),
               updatedAt: new Date(),
               // SMS fallback with link
-              smsMessage: `???�?�?� {{guest_name}}! 
+              smsMessage: `╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�?�?�?� ?�?�?� ???�?�???� ?�{{event_type}} ???� {{couple_name}}! 
+╫¬╫ץ╫ף╫פ ╫¿╫ס╫פ ╫⌐╫פ╫ע╫ó╫¬ ╫£{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?�?�?� ?�???� ?�?�?? ?�?�?�?�?� ?�?�?�?� ?�?�?�?�?�?� ?�?�?�???� ?�?�?�?� ?�???�?�?�?� ?�?�?�.
+╫פ╫ש╫פ ╫£╫á╫ץ ╫¢╫ש╫ú ╫£╫¿╫נ╫ץ╫¬ ╫נ╫ץ╫¬╫ת ╫ץ╫£╫פ╫ש╫ץ╫¬ ╫נ╫ש╫¬╫á╫ץ ╫ס╫ש╫ץ╫¥ ╫פ╫₧╫ש╫ץ╫ק╫ף ╫פ╫צ╫פ.
 
-?�?�?�?� ???� ?�?�?�?�?�?� ?�?�???�???�?�!
+╫¬╫ץ╫ף╫פ ╫ó╫£ ╫פ╫ס╫¿╫¢╫ץ╫¬ ╫ץ╫פ╫₧╫¬╫á╫ץ╫¬!
 
-?�???�???�?� ???�?�?�?�?�?? ?�?�???�?� ?�???�?�?�.
+╫¬╫₧╫ץ╫á╫ץ╫¬ ╫₧╫פ╫נ╫ש╫¿╫ץ╫ó ╫ש╫ץ╫ó╫£╫ץ ╫ס╫º╫¿╫ץ╫ס.
 
-?�?�?�?�?�,
+╫ס╫נ╫פ╫ס╫פ,
 {{couple_name}}`
             }
           ];
@@ -1519,16 +1522,16 @@ export const useEventStore = create<EventStore>()(
             const parsed = JSON.parse(userStorage);
             userId = parsed.state?.user?.id || '';
             userEmail = parsed.state?.user?.email || '';
-              console.log('?��? Current user info:', { userId, userEmail });
+              console.log('≡ƒסñ Current user info:', { userId, userEmail });
             } catch (e) {
-              console.error('?�� Error parsing user storage:', e);
+              console.error('Γ¥ל Error parsing user storage:', e);
             }
           }
           
           // CRITICAL: If no userId found, log warning
           if (!userId) {
-            console.warn('?�???� WARNING: No userId found! Event will be created with "anonymous" userId');
-            console.warn('?�???� This may cause events to disappear after refresh. Please ensure user is logged in.');
+            console.warn('Γתá∩╕ן WARNING: No userId found! Event will be created with "anonymous" userId');
+            console.warn('Γתá∩╕ן This may cause events to disappear after refresh. Please ensure user is logged in.');
           }
 
           // Calculate credits needed (minimum 50, based on guest count)
@@ -1547,7 +1550,7 @@ export const useEventStore = create<EventStore>()(
             updatedAt: new Date()
           };
           
-          console.log('?�� New event created with userId:', newEvent.userId, 'userEmail:', newEvent.userEmail);
+          console.log('≡ƒף¥ New event created with userId:', newEvent.userId, 'userEmail:', newEvent.userEmail);
           
           // CRITICAL: Check for duplicate events before creating
           const currentState = get();
@@ -1556,11 +1559,11 @@ export const useEventStore = create<EventStore>()(
           let finalEvent = newEvent;
           const duplicateIdEvent = currentState.events.find(e => e.id === newEvent.id);
           if (duplicateIdEvent) {
-            console.error(`?�� CRITICAL: Duplicate event ID detected! This should never happen.`);
-            console.error(`?�� Existing event ID: ${duplicateIdEvent.id}, New event ID: ${newEvent.id}`);
+            console.error(`Γ¥ל CRITICAL: Duplicate event ID detected! This should never happen.`);
+            console.error(`Γ¥ל Existing event ID: ${duplicateIdEvent.id}, New event ID: ${newEvent.id}`);
             // Generate a new ID and retry (safety mechanism)
             finalEvent = { ...newEvent, id: generateId() };
-            console.log(`?��� Generated new ID for event: ${finalEvent.id}`);
+            console.log(`≡ƒפה Generated new ID for event: ${finalEvent.id}`);
           }
           
           // Check for duplicate event by content (same couple and same date)
@@ -1571,27 +1574,27 @@ export const useEventStore = create<EventStore>()(
           );
           
           if (duplicateContentEvent) {
-            console.warn(`?�???� Duplicate event content detected! Event ID: ${duplicateContentEvent.id}, New ID: ${finalEvent.id}`);
-            console.warn(`?�???� Duplicate event details:`, {
+            console.warn(`Γתá∩╕ן Duplicate event content detected! Event ID: ${duplicateContentEvent.id}, New ID: ${finalEvent.id}`);
+            console.warn(`Γתá∩╕ן Duplicate event details:`, {
               existing: { id: duplicateContentEvent.id, coupleName: duplicateContentEvent.coupleName, eventDate: duplicateContentEvent.eventDate },
               new: { id: finalEvent.id, coupleName: finalEvent.coupleName, eventDate: finalEvent.eventDate }
             });
             // Don't create duplicate - return existing event
-            set({ isLoading: false, error: '?�?�?�?�?? ?�?�?� ?�?�?� ???�?�?�' });
+            set({ isLoading: false, error: '╫נ╫ש╫¿╫ץ╫ó ╫צ╫פ╫פ ╫¢╫ס╫¿ ╫º╫ש╫ש╫¥' });
             return;
           }
           
           // CRITICAL: Save to state first
           set(state => {
-            console.log('?��� Before createEvent - events count:', state.events.length);
-            console.log('?��� Creating event with unique ID:', finalEvent.id);
+            console.log('≡ƒפם Before createEvent - events count:', state.events.length);
+            console.log('≡ƒפם Creating event with unique ID:', finalEvent.id);
             // CRITICAL: Final double-check for duplicates before adding (safety net)
             const existingEvent = state.events.find(e => e.id === finalEvent.id);
             if (existingEvent) {
-              console.error(`?�� CRITICAL: Event with ID ${finalEvent.id} already exists in state! This should never happen.`);
+              console.error(`Γ¥ל CRITICAL: Event with ID ${finalEvent.id} already exists in state! This should never happen.`);
               // Generate a new ID as last resort
               const retryEvent = { ...finalEvent, id: generateId() };
-              console.log(`?��� Generated final new ID for event: ${retryEvent.id}`);
+              console.log(`≡ƒפה Generated final new ID for event: ${retryEvent.id}`);
               const updatedEvents = [...state.events, retryEvent];
               return {
                 events: updatedEvents,
@@ -1599,8 +1602,8 @@ export const useEventStore = create<EventStore>()(
               };
             }
             const updatedEvents = [...state.events, finalEvent];
-            console.log('?��� After createEvent - events count:', updatedEvents.length);
-            console.log('?��� New event created with 5 default campaigns:', finalEvent);
+            console.log('≡ƒפם After createEvent - events count:', updatedEvents.length);
+            console.log('≡ƒפם New event created with 5 default campaigns:', finalEvent);
             return {
               events: updatedEvents,
               isLoading: false
@@ -1622,14 +1625,14 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Ensure all events have unique IDs before saving
                 allEvents = ensureUniqueEventIds(allEvents);
               } catch (e) {
-                console.warn('?�???� Error parsing stored events:', e);
+                console.warn('Γתá∩╕ן Error parsing stored events:', e);
               }
             }
             
             // Add new event if not already present
             if (!allEvents.find(e => e.id === finalEvent.id)) {
               allEvents.push(finalEvent);
-              console.log('?��? Saved new event directly to localStorage:', finalEvent.id);
+              console.log('≡ƒע╛ Saved new event directly to localStorage:', finalEvent.id);
               
               // Get current state to preserve currentEvent
               const currentState = get();
@@ -1642,7 +1645,7 @@ export const useEventStore = create<EventStore>()(
                 }
               }));
               
-              console.log('?�� Event saved to localStorage successfully. Total events:', allEvents.length);
+              console.log('Γ£ו Event saved to localStorage successfully. Total events:', allEvents.length);
               
               // CRITICAL: Verify the event was saved correctly
               setTimeout(() => {
@@ -1653,7 +1656,7 @@ export const useEventStore = create<EventStore>()(
                     const verifyEvents = verifyParsed.state?.events || [];
                     const eventFound = verifyEvents.find((e: Event) => e.id === newEvent.id);
                     if (!eventFound) {
-                      console.error('?�� CRITICAL: Event was not found in localStorage after save! Re-saving...');
+                      console.error('Γ¥ל CRITICAL: Event was not found in localStorage after save! Re-saving...');
                       // Re-save the event
                       verifyEvents.push(newEvent);
                       localStorage.setItem('rsvp-events-storage', JSON.stringify({
@@ -1663,20 +1666,20 @@ export const useEventStore = create<EventStore>()(
                           currentEvent: verifyParsed.state?.currentEvent || null
                         }
                       }));
-                      console.log('?�� Event re-saved to localStorage');
+                      console.log('Γ£ו Event re-saved to localStorage');
                     } else {
-                      console.log('?�� Verified: Event found in localStorage');
+                      console.log('Γ£ו Verified: Event found in localStorage');
                     }
                   } catch (e) {
-                    console.error('?�� Error verifying event save:', e);
+                    console.error('Γ¥ל Error verifying event save:', e);
                   }
                 }
               }, 100); // Check after 100ms
             } else {
-              console.log('?�???� Event already exists in localStorage:', newEvent.id);
+              console.log('Γתá∩╕ן Event already exists in localStorage:', newEvent.id);
             }
           } catch (error) {
-            console.error('?�� Error saving event to localStorage:', error);
+            console.error('Γ¥ל Error saving event to localStorage:', error);
             // Try to save again as fallback
             try {
               const fallbackStored = localStorage.getItem('rsvp-events-storage');
@@ -1694,10 +1697,10 @@ export const useEventStore = create<EventStore>()(
                     currentEvent: null
                   }
                 }));
-                console.log('?�� Event saved via fallback method');
+                console.log('Γ£ו Event saved via fallback method');
               }
             } catch (fallbackError) {
-              console.error('?�� Fallback save also failed:', fallbackError);
+              console.error('Γ¥ל Fallback save also failed:', fallbackError);
             }
           }
           
@@ -1705,14 +1708,14 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Use syncEventToAPI to ensure guests are included
           try {
             await syncEventToAPI(finalEvent);
-            console.log('?�� Event synced to API successfully with all guests');
+            console.log('Γ£ו Event synced to API successfully with all guests');
           } catch (error) {
-            console.error('?�� Failed to sync event to API:', error);
+            console.error('Γ¥ל Failed to sync event to API:', error);
             // Continue - localStorage is already updated
             // But log error so user knows sync failed
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�???�?�?� ?�?�?�?�?�??', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ש╫ª╫ש╫¿╫¬ ╫פ╫נ╫ש╫¿╫ץ╫ó', isLoading: false });
         }
       },
 
@@ -1723,7 +1726,7 @@ export const useEventStore = create<EventStore>()(
           const cleanedUpdates = { ...updates };
           if (updates.invitationImageUrl) {
             if (updates.invitationImageUrl.startsWith('file://')) {
-              console.warn('?�???� Removing local file path from invitationImageUrl:', updates.invitationImageUrl);
+              console.warn('Γתá∩╕ן Removing local file path from invitationImageUrl:', updates.invitationImageUrl);
               cleanedUpdates.invitationImageUrl = undefined; // Remove local file paths
             }
           }
@@ -1750,14 +1753,14 @@ export const useEventStore = create<EventStore>()(
           if (updatedEvent) {
             try {
               await syncEventToAPI(updatedEvent);
-              console.log('?�� Event update synced to API successfully with all guests');
+              console.log('Γ£ו Event update synced to API successfully with all guests');
             } catch (error) {
-              console.warn('?�???� Failed to sync event update to API (will use localStorage):', error);
+              console.warn('Γתá∩╕ן Failed to sync event update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist
             }
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�?�?�??', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫פ╫נ╫ש╫¿╫ץ╫ó', isLoading: false });
         }
       },
 
@@ -1769,7 +1772,7 @@ export const useEventStore = create<EventStore>()(
           const eventsToDelete = state.events.filter(event => event.id === id);
           
           if (eventsToDelete.length > 0) {
-            console.log(`?���??� Deleting ${eventsToDelete.length} event(s) with ID ${id}`);
+            console.log(`≡ƒקס∩╕ן Deleting ${eventsToDelete.length} event(s) with ID ${id}`);
             
             // CRITICAL: Also delete from backend
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
@@ -1783,13 +1786,13 @@ export const useEventStore = create<EventStore>()(
                   }
                 });
                 if (deleteResponse.ok) {
-                  console.log(`?�� Event ${id} deleted from backend`);
+                  console.log(`Γ£ו Event ${id} deleted from backend`);
                 } else {
-                  console.warn(`?�???� Failed to delete event ${id} from backend:`, deleteResponse.status);
+                  console.warn(`Γתá∩╕ן Failed to delete event ${id} from backend:`, deleteResponse.status);
                 }
               }
             } catch (error) {
-              console.warn('?�???� Error deleting event from backend:', error);
+              console.warn('Γתá∩╕ן Error deleting event from backend:', error);
             }
             
             set(state => {
@@ -1826,31 +1829,31 @@ export const useEventStore = create<EventStore>()(
                   ];
                   
                   localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
-                  console.log(`?�� Removed event ${id} from localStorage`);
+                  console.log(`Γ£ו Removed event ${id} from localStorage`);
                 }
               }
             } catch (error) {
-              console.warn('?�???� Error removing event from localStorage:', error);
+              console.warn('Γתá∩╕ן Error removing event from localStorage:', error);
             }
             
-            console.log(`?�� Deleted ${eventsToDelete.length} event(s) with ID ${id}`);
+            console.log(`Γ£ו Deleted ${eventsToDelete.length} event(s) with ID ${id}`);
           } else {
-            console.warn(`?�???� No event found with ID ${id} to delete`);
+            console.warn(`Γתá∩╕ן No event found with ID ${id} to delete`);
             set({ isLoading: false });
           }
         } catch (error) {
-          console.error('?�� Error deleting event:', error);
-          set({ error: '???�?�?�?� ?�???�?�???� ?�?�?�?�?�??', isLoading: false });
+          console.error('Γ¥ל Error deleting event:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫₧╫ק╫ש╫º╫¬ ╫פ╫נ╫ש╫¿╫ץ╫ó', isLoading: false });
         }
       },
 
       setCurrentEvent: (event) => {
-        console.log('?��� setCurrentEvent called with:', event?.id);
+        console.log('≡ƒפם setCurrentEvent called with:', event?.id);
         set({ currentEvent: event });
       },
 
       addGuest: async (eventId, guestData) => {
-        console.log('?��� addGuest called with:', { eventId, guestData });
+        console.log('≡ƒפם addGuest called with:', { eventId, guestData });
         set({ isLoading: true, error: null });
         try {
           const newGuest: Guest = {
@@ -1860,11 +1863,11 @@ export const useEventStore = create<EventStore>()(
             lastName: cleanName(guestData.lastName)
           };
           
-          console.log('?��� Generated new guest:', newGuest);
+          console.log('≡ƒפם Generated new guest:', newGuest);
           
           set(state => {
-            console.log('?��� Current state events count:', state.events.length);
-            console.log('?��� Current event ID:', state.currentEvent?.id);
+            console.log('≡ƒפם Current state events count:', state.events.length);
+            console.log('≡ƒפם Current event ID:', state.currentEvent?.id);
             
             const updatedEvents = state.events.map(event =>
               event.id === eventId
@@ -1876,11 +1879,11 @@ export const useEventStore = create<EventStore>()(
               ? { ...state.currentEvent, guests: [...state.currentEvent.guests, newGuest] }
               : state.currentEvent;
             
-            console.log('?��� Before update - currentEvent guests count:', state.currentEvent?.guests?.length);
-            console.log('?��� After update - currentEvent guests count:', updatedCurrentEvent?.guests?.length);
+            console.log('≡ƒפם Before update - currentEvent guests count:', state.currentEvent?.guests?.length);
+            console.log('≡ƒפם After update - currentEvent guests count:', updatedCurrentEvent?.guests?.length);
             
-            console.log('?��� Updated events count:', updatedEvents.length);
-            console.log('?��� Updated current event guests count:', updatedCurrentEvent?.guests?.length);
+            console.log('≡ƒפם Updated events count:', updatedEvents.length);
+            console.log('≡ƒפם Updated current event guests count:', updatedCurrentEvent?.guests?.length);
             
             return {
               events: updatedEvents,
@@ -1893,14 +1896,14 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
           
-          console.log('?�� addGuest completed successfully');
+          console.log('Γ£ו addGuest completed successfully');
         } catch (error) {
-          console.error('?�� Error in addGuest:', error);
-          set({ error: '???�?�?�?� ?�?�?�?????� ???�?�???�', isLoading: false });
+          console.error('Γ¥ל Error in addGuest:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫פ╫ץ╫í╫ñ╫¬ ╫₧╫ץ╫צ╫₧╫ƒ', isLoading: false });
         }
       },
 
@@ -2024,14 +2027,14 @@ export const useEventStore = create<EventStore>()(
             const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
             
             if (!updatedGuest) {
-              console.warn('?�???� Guest not found in updated event, skipping API sync');
+              console.warn('Γתá∩╕ן Guest not found in updated event, skipping API sync');
               return;
             }
             
             // Retry logic for reliable sync
             const syncToAPI = async (retries = 3): Promise<void> => {
               try {
-                console.log('?��� Syncing guest update to API (minimal payload)...');
+                console.log('≡ƒלנ Syncing guest update to API (minimal payload)...');
                 
                 // Send only the guest update via lightweight endpoint to avoid 413 errors
                 const guestUpdatePayload = {
@@ -2052,7 +2055,7 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Validate payload before sending
                 if (!guestUpdatePayload.phoneNumber || !guestUpdatePayload.guestId || !guestUpdatePayload.eventId) {
-                  console.error('?�� Invalid guestUpdatePayload - missing required fields:', {
+                  console.error('Γ¥ל Invalid guestUpdatePayload - missing required fields:', {
                     hasPhoneNumber: !!guestUpdatePayload.phoneNumber,
                     hasGuestId: !!guestUpdatePayload.guestId,
                     hasEventId: !!guestUpdatePayload.eventId,
@@ -2062,7 +2065,7 @@ export const useEventStore = create<EventStore>()(
                   });
                 }
                 
-                console.log('?��? Sending guest update only (not full event):', {
+                console.log('≡ƒףñ Sending guest update only (not full event):', {
                   eventId: updatedEvent.id,
                   guestId: guestId,
                   updates: Object.keys(updates),
@@ -2084,7 +2087,7 @@ export const useEventStore = create<EventStore>()(
                 
                 if (response.ok) {
                   const result = await response.json();
-                  console.log('?�� Guest update synced to API successfully:', {
+                  console.log('Γ£ו Guest update synced to API successfully:', {
                     eventId: updatedEvent.id,
                     guestId: guestId,
                     syncedFields: Object.keys(updates)
@@ -2094,7 +2097,7 @@ export const useEventStore = create<EventStore>()(
                   // This is especially important for manual_update to ensure it's saved in files
                   if (updates.guestCount !== undefined || updates.source === 'manual_update') {
                     try {
-                      console.log('?��� Also updating event directly in server via /api/events/:eventId/guests for persistence...');
+                      console.log('≡ƒפה Also updating event directly in server via /api/events/:eventId/guests for persistence...');
                       const guestForServer = {
                         id: updatedGuest.id,
                         firstName: updatedGuest.firstName,
@@ -2125,22 +2128,22 @@ export const useEventStore = create<EventStore>()(
                       
                       if (directResponse.ok) {
                         const directResult = await directResponse.json();
-                        console.log('?�� Event updated directly in server:', {
+                        console.log('Γ£ו Event updated directly in server:', {
                           success: true,
                           message: directResult.message || 'Updated event with guests',
                           guestsCount: directResult.guestsCount
                         });
                       } else {
                         const errorText = await directResponse.text();
-                        console.warn('?�???� Direct update to /api/events/:eventId/guests failed:', directResponse.status, errorText);
+                        console.warn('Γתá∩╕ן Direct update to /api/events/:eventId/guests failed:', directResponse.status, errorText);
                       }
                     } catch (directError) {
-                      console.warn('?�???� Failed to update event directly in server:', directError);
+                      console.warn('Γתá∩╕ן Failed to update event directly in server:', directError);
                     }
                   }
                 } else {
                   const errorText = await response.text();
-                  console.error('?�� Failed to sync guest update to API:', {
+                  console.error('Γ¥ל Failed to sync guest update to API:', {
                     status: response.status,
                     statusText: response.statusText,
                     error: errorText,
@@ -2148,9 +2151,9 @@ export const useEventStore = create<EventStore>()(
                   });
                 }
               } catch (error) {
-                console.warn('?�???� Failed to sync guest update to API:', error);
+                console.warn('Γתá∩╕ן Failed to sync guest update to API:', error);
                 if (retries > 0) {
-                  console.log(`?��� Retrying sync (${retries} retries left)...`);
+                  console.log(`≡ƒפה Retrying sync (${retries} retries left)...`);
                   await new Promise(resolve => setTimeout(resolve, 1000));
                   return syncToAPI(retries - 1);
                 }
@@ -2159,7 +2162,7 @@ export const useEventStore = create<EventStore>()(
             
             // Sync immediately (don't await to avoid blocking UI)
             syncToAPI().catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
             
             // CRITICAL: Invalidate cache when guest is manually updated
@@ -2172,7 +2175,7 @@ export const useEventStore = create<EventStore>()(
                 if (userId) {
                   const cacheKey = CACHE_KEYS.EVENTS(userId);
                   cacheService.invalidate(cacheKey);
-                  console.log(`?���??� Invalidated cache for user ${userId} (manual guest update)`);
+                  console.log(`≡ƒקס∩╕ן Invalidated cache for user ${userId} (manual guest update)`);
                 }
               } catch (e) {
                 // Ignore parsing errors
@@ -2180,13 +2183,13 @@ export const useEventStore = create<EventStore>()(
             }
           }
         } catch (error) {
-          console.error('?�� Error in updateGuest:', error);
-          set({ error: '???�?�?�?� ?�???�?�?�?� ???�?�???�', isLoading: false });
+          console.error('Γ¥ל Error in updateGuest:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫₧╫ץ╫צ╫₧╫ƒ', isLoading: false });
         }
       },
 
       updateGuestResponse: async (eventId, guestId, updatedGuest) => {
-        console.log('?��� updateGuestResponse CALLED:', {
+        console.log('≡ƒתא updateGuestResponse CALLED:', {
           eventId,
           guestId,
           updatedGuest: {
@@ -2199,7 +2202,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           const currentState = get();
-          console.log(`?��� updateGuestResponse called:`, {
+          console.log(`≡ƒפה updateGuestResponse called:`, {
             eventId,
             guestId,
             oldStatus: currentState.events.find(e => e.id === eventId)?.guests?.find(g => g.id === guestId)?.rsvpStatus,
@@ -2217,7 +2220,7 @@ export const useEventStore = create<EventStore>()(
             // If update date is older than current time, use current time
             if (updateDate.getTime() < currentDate.getTime()) {
               updatedGuest.responseDate = currentDate;
-              console.log(`?��� Updated responseDate to current time for guest_link update`);
+              console.log(`≡ƒפה Updated responseDate to current time for guest_link update`);
             }
           }
           
@@ -2227,7 +2230,7 @@ export const useEventStore = create<EventStore>()(
           // If event not found in store, load it from API, update guest, and send to backend
           // The backend is the source of truth - all updates must go through it
           if (!existingEvent) {
-            console.warn(`?�???� Event ${eventId} not found in store - loading from API and updating via backend`);
+            console.warn(`Γתá∩╕ן Event ${eventId} not found in store - loading from API and updating via backend`);
             
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             
@@ -2241,8 +2244,8 @@ export const useEventStore = create<EventStore>()(
             const fullEvent = eventData.events?.find((e: any) => e.id === eventId);
             
             if (!fullEvent) {
-              console.error(`?�� Event ${eventId} not found in API`);
-              set({ isLoading: false, error: '?�?�?�?�?? ?�?� ???????�' });
+              console.error(`Γ¥ל Event ${eventId} not found in API`);
+              set({ isLoading: false, error: '╫נ╫ש╫¿╫ץ╫ó ╫£╫נ ╫á╫₧╫ª╫נ' });
               return;
             }
             
@@ -2268,7 +2271,7 @@ export const useEventStore = create<EventStore>()(
                     // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
                     if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
                       // Guest link update - always use the new value (direct user input)
-                      console.log(`?�� Applying guest_link guestCount update (API path): ${updatedGuest.guestCount} (overriding current: ${g.guestCount})`);
+                      console.log(`Γ£ו Applying guest_link guestCount update (API path): ${updatedGuest.guestCount} (overriding current: ${g.guestCount})`);
                       return updatedGuest.guestCount;
                     }
                     
@@ -2278,7 +2281,7 @@ export const useEventStore = create<EventStore>()(
                       const updateDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate).getTime() : Date.now();
                       
                       if (!isUpdateFromManual || currentDate >= updateDate) {
-                        console.log(`?��???� Preserving manual guestCount ${g.guestCount} (update ${updatedGuest.guestCount} would revert it)`);
+                        console.log(`≡ƒ¢í∩╕ן Preserving manual guestCount ${g.guestCount} (update ${updatedGuest.guestCount} would revert it)`);
                         return g.guestCount; // Preserve manual value
                       }
                     }
@@ -2296,7 +2299,7 @@ export const useEventStore = create<EventStore>()(
               updatedAt: new Date().toISOString()
             };
             
-            console.log(`?��? Sending full updated event to backend:`, {
+            console.log(`≡ƒףñ Sending full updated event to backend:`, {
               eventId: updatedFullEvent.id,
               guestId: guestId,
               updatedGuest: updatedFullEvent.guests.find((g: any) => g.id === guestId)
@@ -2317,7 +2320,7 @@ export const useEventStore = create<EventStore>()(
             }
             
             const result = await updateResponse.json();
-            console.log(`?�� Event updated successfully via backend:`, result);
+            console.log(`Γ£ו Event updated successfully via backend:`, result);
             
             // Update state with the updated event (even though user is not logged in, we can cache it)
             set(state => ({
@@ -2336,19 +2339,19 @@ export const useEventStore = create<EventStore>()(
             const event = state.events.find(e => e.id === eventId);
             const guest = event?.guests?.find(g => g.id === guestId);
             
-            const isProblematicGuest = (guest?.firstName?.includes('?�?�?�?�?�') && guest?.lastName?.includes('???�?????�')) ||
-                                      (guest?.firstName?.includes('???�?�?�') && guest?.lastName?.includes('?�?�?????�'));
+            const isProblematicGuest = (guest?.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && guest?.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                      (guest?.firstName?.includes('╫₧╫נ╫ץ╫¿') && guest?.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ'));
             
-            console.log(`?��� Before update - Event found: ${!!event}, Guest found: ${!!guest}`);
-            console.log(`?��� Events in store: ${state.events.length}`);
-            console.log(`?��� Guest status:`, guest?.rsvpStatus);
-            console.log(`?��� Guest count before update:`, guest?.guestCount);
-            console.log(`?��� Updated guest count:`, updatedGuest.guestCount);
-            console.log(`?��� Updated guest source:`, updatedGuest.source);
-            console.log(`?��� Is problematic guest:`, isProblematicGuest);
+            console.log(`≡ƒףכ Before update - Event found: ${!!event}, Guest found: ${!!guest}`);
+            console.log(`≡ƒףכ Events in store: ${state.events.length}`);
+            console.log(`≡ƒףכ Guest status:`, guest?.rsvpStatus);
+            console.log(`≡ƒףכ Guest count before update:`, guest?.guestCount);
+            console.log(`≡ƒףכ Updated guest count:`, updatedGuest.guestCount);
+            console.log(`≡ƒףכ Updated guest source:`, updatedGuest.source);
+            console.log(`≡ƒףכ Is problematic guest:`, isProblematicGuest);
             
             if (isProblematicGuest) {
-              console.log(`?��� PROBLEMATIC GUEST UPDATE IN STORE: ${guest?.firstName} ${guest?.lastName}`, {
+              console.log(`≡ƒפם PROBLEMATIC GUEST UPDATE IN STORE: ${guest?.firstName} ${guest?.lastName}`, {
                 id: guestId,
                 eventId,
                 currentStatus: guest?.rsvpStatus,
@@ -2399,13 +2402,13 @@ export const useEventStore = create<EventStore>()(
                         // Only allow overwrite if: new is also manual and newer, OR new is significantly newer (5+ seconds)
                         // CRITICAL: guest_link updates are handled separately and always applied
                         if (!isNewUpdateFromManual && !isSignificantlyNewer) {
-                          console.log(`?��???� Blocking update: current manual guestCount ${guest.guestCount} would be reverted to ${updatedGuest.guestCount} by non-manual or too-recent update`);
+                          console.log(`≡ƒ¢í∩╕ן Blocking update: current manual guestCount ${guest.guestCount} would be reverted to ${updatedGuest.guestCount} by non-manual or too-recent update`);
                           shouldApplyUpdate = false; // Don't apply this update - it would revert manual change
                         }
                       }
                       
                       if (shouldApplyUpdate && !isNewerUpdate) {
-                        console.log(`?��� Applying ${updatedGuest.source} update even though timestamp is older - user-initiated update must be applied`);
+                        console.log(`≡ƒפה Applying ${updatedGuest.source} update even though timestamp is older - user-initiated update must be applied`);
                       }
                       
                       if (shouldApplyUpdate) {
@@ -2440,7 +2443,7 @@ export const useEventStore = create<EventStore>()(
                           // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
                           if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
                             // Guest link update - always use the new value (direct user input)
-                            console.log(`?�� Applying guest_link guestCount update: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
+                            console.log(`Γ£ו Applying guest_link guestCount update: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
                             finalGuestCount = updatedGuest.guestCount;
                           } else if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
                             // Current manual value exists and is different from backend update - preserve it
@@ -2449,7 +2452,7 @@ export const useEventStore = create<EventStore>()(
                             
                             if (!isBackendFromManual || currentResponseDate >= updateResponseDate) {
                               // Manual value should be preserved - backend update is either not from manual or older
-                              console.log(`?��???� Preserving manual guestCount ${guest.guestCount} (backend update ${updatedGuest.guestCount} would revert it)`);
+                              console.log(`≡ƒ¢í∩╕ן Preserving manual guestCount ${guest.guestCount} (backend update ${updatedGuest.guestCount} would revert it)`);
                               finalGuestCount = guest.guestCount;
                             } else {
                               // Backend update is also from manual and is newer - use it
@@ -2491,7 +2494,7 @@ export const useEventStore = create<EventStore>()(
                           source: updatedGuest.source || guest.source
                         };
                       
-                        console.log(`?��? Merging guest (latest update wins - COMPLETELY REPLACING old values):`, {
+                        console.log(`≡ƒפº Merging guest (latest update wins - COMPLETELY REPLACING old values):`, {
                           old: { 
                             rsvpStatus: guest.rsvpStatus, 
                             guestCount: guest.guestCount,
@@ -2524,7 +2527,7 @@ export const useEventStore = create<EventStore>()(
                         
                         if (isManualUpdateEcho || isGuestLinkUpdate || isWhatsAppUpdate) {
                           // CRITICAL: Even if old update is newer, apply user-initiated updates
-                          console.log(`?��� Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
+                          console.log(`≡ƒפה Applying ${updatedGuest.source} update even though old update is newer - user-initiated update must be applied`);
                           
                           // CRITICAL: If guestCount is explicitly provided in the update, ALWAYS use it
                           // This ensures new manual changes are preserved when they come back from backend
@@ -2555,7 +2558,7 @@ export const useEventStore = create<EventStore>()(
                         }
                         
                         // Old update is newer and not from user-initiated source - keep old values
-                        console.log(`?�??� Keeping old guest values (old update is newer and not user-initiated):`, {
+                        console.log(`Γן¡∩╕ן Keeping old guest values (old update is newer and not user-initiated):`, {
                           old: { 
                             rsvpStatus: guest.rsvpStatus, 
                             guestCount: guest.guestCount,
@@ -2572,7 +2575,7 @@ export const useEventStore = create<EventStore>()(
                         // CRITICAL: If update is from guest_link, ALWAYS apply it (direct user input from guest response page)
                         // This ensures guest responses are never blocked, even if old update is newer
                         if (isGuestLinkUpdate) {
-                          console.log(`?�� Applying guest_link update even though old update is newer - direct user input must be applied`);
+                          console.log(`Γ£ו Applying guest_link update even though old update is newer - direct user input must be applied`);
                           const mergedGuest = { 
                             ...guest,
                             ...updatedGuest,
@@ -2606,7 +2609,7 @@ export const useEventStore = create<EventStore>()(
                       // CRITICAL: If update is from guest_link, ALWAYS apply it (direct user input from guest response page)
                       // This ensures guest responses are never blocked
                       if (isGuestLinkUpdate) {
-                        console.log(`?�� Applying guest_link update even though old update is newer - direct user input must be applied`);
+                        console.log(`Γ£ו Applying guest_link update even though old update is newer - direct user input must be applied`);
                         const mergedGuest = { 
                           ...guest,
                           ...updatedGuest,
@@ -2697,12 +2700,12 @@ export const useEventStore = create<EventStore>()(
                     // CRITICAL: guest_link updates ALWAYS take priority - they are direct user input from the guest response page
                     if (isUpdateFromGuestLink && updatedGuest.guestCount !== undefined) {
                       // Guest link update - always use the new value (direct user input)
-                      console.log(`?�� Applying guest_link guestCount update in currentEvent: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
+                      console.log(`Γ£ו Applying guest_link guestCount update in currentEvent: ${updatedGuest.guestCount} (overriding current: ${guest.guestCount})`);
                       finalGuestCount = updatedGuest.guestCount;
                     } else if (isCurrentFromManual && updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== guest.guestCount) {
                       // Current is manual and update would change it - preserve current unless update is also manual and newer
                       if (!isUpdateFromManual || oldResponseDate.getTime() >= newResponseDate.getTime()) {
-                        console.log(`?��???� Preserving manual guestCount ${guest.guestCount} in currentEvent (update ${updatedGuest.guestCount} would revert it)`);
+                        console.log(`≡ƒ¢í∩╕ן Preserving manual guestCount ${guest.guestCount} in currentEvent (update ${updatedGuest.guestCount} would revert it)`);
                         finalGuestCount = guest.guestCount; // Preserve manual value
                       } else {
                         // Update is also manual and newer - use it
@@ -2739,7 +2742,7 @@ export const useEventStore = create<EventStore>()(
                       source: updatedGuest.source || guest.source
                     };
                     
-                    console.log(`?��� Updating guest in currentEvent:`, {
+                    console.log(`≡ƒפה Updating guest in currentEvent:`, {
                       guestId,
                       oldStatus: guest.rsvpStatus,
                       newStatus: updatedGuestData.rsvpStatus,
@@ -2763,35 +2766,35 @@ export const useEventStore = create<EventStore>()(
                 guests: updatedCurrentEvent.guests.map(g => ({ ...g })), // New array AND new object references
                 updatedAt: newUpdatedAt // Force timestamp update
               };
-              console.log('?��� Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length, 'updatedAt:', newUpdatedAt.toISOString());
+              console.log('≡ƒפה Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length, 'updatedAt:', newUpdatedAt.toISOString());
             } else {
               // User is viewing a different event - don't update currentEvent
               // EventManagement useEffect will update currentEvent when events array changes
-              console.log('?�???� Update for event', eventId, 'but user is viewing event', state.currentEvent?.id || 'none', '- EventManagement will handle update');
+              console.log('Γה╣∩╕ן Update for event', eventId, 'but user is viewing event', state.currentEvent?.id || 'none', '- EventManagement will handle update');
             }
             
             // Verify the update
             const verifyEvent = updatedEvents.find(e => e.id === eventId);
             const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
             const verifyCurrentEventGuest = updatedCurrentEvent?.guests?.find(g => g.id === guestId);
-            console.log(`?�� STORE: After updateGuestResponse - Guest ID: ${guestId}`);
-            console.log(`?�� STORE: After updateGuestResponse - Guest name: ${verifyGuest?.firstName} ${verifyGuest?.lastName}`);
-            console.log(`?�� STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
-            console.log(`?�� STORE: After updateGuestResponse - Guest count in events array:`, verifyGuest?.guestCount);
-            console.log(`?�� STORE: After updateGuestResponse - Guest source in events array:`, (verifyGuest as any)?.source);
-            console.log(`?�� STORE: After updateGuestResponse - Guest count in currentEvent:`, verifyCurrentEventGuest?.guestCount);
-            console.log(`?�� STORE: After updateGuestResponse - Guest status in currentEvent:`, verifyCurrentEventGuest?.rsvpStatus);
-            console.log(`?�� STORE: After updateGuestResponse - Guest source in currentEvent:`, (verifyCurrentEventGuest as any)?.source);
-            console.log(`?�� STORE: Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
-            console.log(`?�� STORE: Event updatedAt:`, updatedEvent?.updatedAt);
-            console.log(`?�� STORE: CurrentEvent updatedAt:`, updatedCurrentEvent?.updatedAt);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest ID: ${guestId}`);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest name: ${verifyGuest?.firstName} ${verifyGuest?.lastName}`);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest count in events array:`, verifyGuest?.guestCount);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest source in events array:`, (verifyGuest as any)?.source);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest count in currentEvent:`, verifyCurrentEventGuest?.guestCount);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest status in currentEvent:`, verifyCurrentEventGuest?.rsvpStatus);
+            console.log(`Γ£ו STORE: After updateGuestResponse - Guest source in currentEvent:`, (verifyCurrentEventGuest as any)?.source);
+            console.log(`Γ£ו STORE: Updated currentEvent:`, updatedCurrentEvent?.id, 'guests:', updatedCurrentEvent?.guests?.length);
+            console.log(`Γ£ו STORE: Event updatedAt:`, updatedEvent?.updatedAt);
+            console.log(`Γ£ו STORE: CurrentEvent updatedAt:`, updatedCurrentEvent?.updatedAt);
             
             // CRITICAL: Check if update was applied correctly
             if (verifyGuest && verifyGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
-              console.error(`?�� MISMATCH: Guest status in events array (${verifyGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
+              console.error(`Γ¥ל MISMATCH: Guest status in events array (${verifyGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
             }
             if (verifyCurrentEventGuest && verifyCurrentEventGuest.rsvpStatus !== updatedGuest.rsvpStatus) {
-              console.error(`?�� MISMATCH: Guest status in currentEvent (${verifyCurrentEventGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
+              console.error(`Γ¥ל MISMATCH: Guest status in currentEvent (${verifyCurrentEventGuest.rsvpStatus}) doesn't match update (${updatedGuest.rsvpStatus})`);
             }
             
             // CRITICAL: Always create new array reference for events to force React re-render
@@ -2804,7 +2807,7 @@ export const useEventStore = create<EventStore>()(
                 // This forces EventManagement to detect the change and re-render the table
                 // CRITICAL: Use a new Date() object to ensure timestamp is always different
                 const newUpdatedAt = new Date();
-                console.log(`?��� Updating event ${eventId} updatedAt to force eventsHash change:`, newUpdatedAt.toISOString());
+                console.log(`≡ƒפה Updating event ${eventId} updatedAt to force eventsHash change:`, newUpdatedAt.toISOString());
                 return {
                   ...e,
                   updatedAt: newUpdatedAt, // Always use current timestamp to force hash change
@@ -2815,8 +2818,8 @@ export const useEventStore = create<EventStore>()(
               return e;
             });
             
-            console.log(`?��� Creating new events array reference to force React re-render`);
-            console.log(`?��� Updated event ${eventId} updatedAt to:`, new Date().toISOString());
+            console.log(`≡ƒפה Creating new events array reference to force React re-render`);
+            console.log(`≡ƒפה Updated event ${eventId} updatedAt to:`, new Date().toISOString());
             return {
               events: [...finalUpdatedEvents], // New array reference - CRITICAL for React re-render
               currentEvent: updatedCurrentEvent ? {
@@ -2837,7 +2840,7 @@ export const useEventStore = create<EventStore>()(
               if (userId) {
                 const cacheKey = CACHE_KEYS.EVENTS(userId);
                 cacheService.invalidate(cacheKey);
-                console.log(`?���??� Invalidated cache for user ${userId} (guest response update)`);
+                console.log(`≡ƒקס∩╕ן Invalidated cache for user ${userId} (guest response update)`);
               }
             } catch (e) {
               // Ignore parsing errors
@@ -2852,13 +2855,13 @@ export const useEventStore = create<EventStore>()(
             const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
             
             if (!updatedGuest) {
-              console.warn('?�???� Updated guest not found, cannot sync to API');
+              console.warn('Γתá∩╕ן Updated guest not found, cannot sync to API');
               return updatedEvent;
             }
             
             try {
-              console.log('?��� Syncing guest response update to API...');
-              console.log('?��? Sending guest update only (not full event to avoid 413):', {
+              console.log('≡ƒלנ Syncing guest response update to API...');
+              console.log('≡ƒףñ Sending guest update only (not full event to avoid 413):', {
                 eventId: updatedEvent.id,
                 guestId: guestId,
                 updatedGuest: {
@@ -2888,7 +2891,7 @@ export const useEventStore = create<EventStore>()(
                 timestamp: Date.now()
               };
               
-              console.log(`?��? Syncing guest update to backend:`, {
+              console.log(`≡ƒףñ Syncing guest update to backend:`, {
                 guestId: pendingUpdatePayload.guestId,
                 eventId: pendingUpdatePayload.eventId,
                 guestCount: pendingUpdatePayload.guestCount,
@@ -2904,24 +2907,24 @@ export const useEventStore = create<EventStore>()(
               
               // CRITICAL: Verify guestCount is included in payload
               if (updatedGuest.guestCount !== undefined && updatedGuest.guestCount !== null) {
-                console.log(`?�� Guest count included in sync payload: ${updatedGuest.guestCount}`);
+                console.log(`Γ£ו Guest count included in sync payload: ${updatedGuest.guestCount}`);
               }
               
               // Use batch processor for better performance (queues and batches updates)
               guestUpdateBatchProcessor.addUpdate(pendingUpdatePayload);
-              console.log('?�� Guest update added to batch queue (will be sent shortly)');
-                console.log('?�� Update will be processed by webhook service and synced to all devices');
+              console.log('Γ£ו Guest update added to batch queue (will be sent shortly)');
+                console.log('Γ£ו Update will be processed by webhook service and synced to all devices');
                 
               // CRITICAL: Update the event directly in the server via /api/events/:eventId/guests endpoint
               // This ensures the update is persisted immediately in the server
               // The table will then refresh from the server to get the latest data
               try {
-                const isProblematicGuest = (updatedGuest.firstName?.includes('?�?�?�?�?�') && updatedGuest.lastName?.includes('???�?????�')) ||
-                                          (updatedGuest.firstName?.includes('???�?�?�') && updatedGuest.lastName?.includes('?�?�?????�')) ||
-                                          (updatedGuest.firstName?.includes('???�?�?�') && updatedGuest.lastName?.includes('?�???�'));
+                const isProblematicGuest = (updatedGuest.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && updatedGuest.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                          (updatedGuest.firstName?.includes('╫₧╫נ╫ץ╫¿') && updatedGuest.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                          (updatedGuest.firstName?.includes('╫ó╫ש╫ף╫ץ') && updatedGuest.lastName?.includes('╫ף╫á╫ƒ'));
                 
-                console.log('?��� Updating event directly in server via /api/events/:eventId/guests...');
-                console.log('?��? Sending updated guest to server:', {
+                console.log('≡ƒפה Updating event directly in server via /api/events/:eventId/guests...');
+                console.log('≡ƒףñ Sending updated guest to server:', {
                   eventId: updatedEvent.id,
                   guestId: updatedGuest.id,
                   rsvpStatus: updatedGuest.rsvpStatus,
@@ -2931,7 +2934,7 @@ export const useEventStore = create<EventStore>()(
                 });
                 
                 if (isProblematicGuest) {
-                  console.log(`?��� PROBLEMATIC GUEST SENDING TO SERVER: ${updatedGuest.firstName} ${updatedGuest.lastName}`, {
+                  console.log(`≡ƒפם PROBLEMATIC GUEST SENDING TO SERVER: ${updatedGuest.firstName} ${updatedGuest.lastName}`, {
                     id: updatedGuest.id,
                     eventId: updatedEvent.id,
                     rsvpStatus: updatedGuest.rsvpStatus,
@@ -2964,7 +2967,7 @@ export const useEventStore = create<EventStore>()(
                   ...(updatedGuest.tableId && { tableId: updatedGuest.tableId })
                 };
                 
-                console.log('?��? Sending complete guest object to server:', {
+                console.log('≡ƒףñ Sending complete guest object to server:', {
                   id: guestForServer.id,
                   firstName: guestForServer.firstName,
                   lastName: guestForServer.lastName,
@@ -2985,11 +2988,11 @@ export const useEventStore = create<EventStore>()(
                 
                 if (apiUpdateResponse.ok) {
                   const apiResponseData = await apiUpdateResponse.json();
-                  const isProblematicGuest = (guestForServer.firstName?.includes('?�?�?�?�?�') && guestForServer.lastName?.includes('???�?????�')) ||
-                                            (guestForServer.firstName?.includes('???�?�?�') && guestForServer.lastName?.includes('?�?�?????�')) ||
-                                            (guestForServer.firstName?.includes('???�?�?�') && guestForServer.lastName?.includes('?�???�'));
+                  const isProblematicGuest = (guestForServer.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && guestForServer.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                            (guestForServer.firstName?.includes('╫₧╫נ╫ץ╫¿') && guestForServer.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                            (guestForServer.firstName?.includes('╫ó╫ש╫ף╫ץ') && guestForServer.lastName?.includes('╫ף╫á╫ƒ'));
                   
-                  console.log('?�� Event updated directly in server:', {
+                  console.log('Γ£ו Event updated directly in server:', {
                     success: true,
                     message: apiResponseData.message || 'Updated event with guests',
                     guestsCount: apiResponseData.guestsCount,
@@ -3002,7 +3005,7 @@ export const useEventStore = create<EventStore>()(
                   });
                   
                   if (isProblematicGuest) {
-                    console.log(`?��� PROBLEMATIC GUEST SENT TO SERVER SUCCESSFULLY: ${guestForServer.firstName} ${guestForServer.lastName}`, {
+                    console.log(`≡ƒפם PROBLEMATIC GUEST SENT TO SERVER SUCCESSFULLY: ${guestForServer.firstName} ${guestForServer.lastName}`, {
                       id: guestForServer.id,
                       rsvpStatus: guestForServer.rsvpStatus,
                       guestCount: guestForServer.guestCount,
@@ -3012,7 +3015,7 @@ export const useEventStore = create<EventStore>()(
                   }
                   
                   // CRITICAL: Verify the update was saved correctly
-                  console.log(`?�� VERIFIED: Guest ${guestForServer.id} (${guestForServer.firstName} ${guestForServer.lastName}) update sent to server:`, {
+                  console.log(`Γ£ו VERIFIED: Guest ${guestForServer.id} (${guestForServer.firstName} ${guestForServer.lastName}) update sent to server:`, {
                     rsvpStatus: guestForServer.rsvpStatus,
                     guestCount: guestForServer.guestCount,
                     source: guestForServer.source,
@@ -3023,14 +3026,14 @@ export const useEventStore = create<EventStore>()(
                   // The local update is already in the store and the table will update automatically
                   // The server update is confirmed, so the data is synced
                   // The webhook service will handle syncing to other devices
-                  console.log('?�� Server update confirmed - local update preserved in store');
+                  console.log('Γ£ו Server update confirmed - local update preserved in store');
                 } else {
                   const apiErrorText = await apiUpdateResponse.text();
-                  const isProblematicGuest = (guestForServer.firstName?.includes('?�?�?�?�?�') && guestForServer.lastName?.includes('???�?????�')) ||
-                                            (guestForServer.firstName?.includes('???�?�?�') && guestForServer.lastName?.includes('?�?�?????�')) ||
-                                            (guestForServer.firstName?.includes('???�?�?�') && guestForServer.lastName?.includes('?�???�'));
+                  const isProblematicGuest = (guestForServer.firstName?.includes('╫ף╫ץ╫¿╫ץ╫ƒ') && guestForServer.lastName?.includes('╫⌐╫ץ╫⌐╫á╫ש')) ||
+                                            (guestForServer.firstName?.includes('╫₧╫נ╫ץ╫¿') && guestForServer.lastName?.includes('╫¿╫ץ╫₧╫á╫ץ')) ||
+                                            (guestForServer.firstName?.includes('╫ó╫ש╫ף╫ץ') && guestForServer.lastName?.includes('╫ף╫á╫ƒ'));
                   
-                  console.error('?�� FAILED to update event directly in server:', {
+                  console.error('Γ¥ל FAILED to update event directly in server:', {
                     status: apiUpdateResponse.status,
                     statusText: apiUpdateResponse.statusText,
                     error: apiErrorText,
@@ -3041,7 +3044,7 @@ export const useEventStore = create<EventStore>()(
                   });
                   
                   if (isProblematicGuest) {
-                    console.error(`?��� PROBLEMATIC GUEST FAILED TO SEND TO SERVER: ${guestForServer.firstName} ${guestForServer.lastName}`, {
+                    console.error(`≡ƒפם PROBLEMATIC GUEST FAILED TO SEND TO SERVER: ${guestForServer.firstName} ${guestForServer.lastName}`, {
                       id: guestForServer.id,
                       status: apiUpdateResponse.status,
                       error: apiErrorText
@@ -3049,21 +3052,21 @@ export const useEventStore = create<EventStore>()(
                   }
                   
                   // Fallback: Still add to pendingUpdates for webhook service to process
-                  console.log('?�???� Falling back to pendingUpdates mechanism');
+                  console.log('Γתá∩╕ן Falling back to pendingUpdates mechanism');
                 }
               } catch (apiError) {
-                console.warn('?�???� Error updating event directly in server:', apiError);
+                console.warn('Γתá∩╕ן Error updating event directly in server:', apiError);
                 // Fallback: Still add to pendingUpdates for webhook service to process
-                console.log('?�???� Falling back to pendingUpdates mechanism');
+                console.log('Γתá∩╕ן Falling back to pendingUpdates mechanism');
               }
             } catch (error) {
-              console.warn('?�???� Failed to sync guest response update to API (will use localStorage):', error);
+              console.warn('Γתá∩╕ן Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events
             }
           }
         } catch (error) {
-          console.error('?�� Error in updateGuestResponse:', error);
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�?�?� ???�?�???�', isLoading: false });
+          console.error('Γ¥ל Error in updateGuestResponse:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫¬╫ע╫ץ╫ס╫¬ ╫₧╫ץ╫צ╫₧╫ƒ', isLoading: false });
         }
       },
 
@@ -3108,11 +3111,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�???� ???�?�???�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫₧╫ק╫ש╫º╫¬ ╫₧╫ץ╫צ╫₧╫ƒ', isLoading: false });
         }
       },
 
@@ -3145,11 +3148,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�?�?�?�?� ???�?�???�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ש╫ש╫ס╫ץ╫נ ╫á╫¬╫ץ╫á╫ש╫¥', isLoading: false });
         }
       },
 
@@ -3158,7 +3161,7 @@ export const useEventStore = create<EventStore>()(
         try {
           const event = get().events.find(e => e.id === eventId);
           if (!event) {
-            throw new Error('?�?�?�?�?? ?�?� ???????�');
+            throw new Error('╫נ╫ש╫¿╫ץ╫ó ╫£╫נ ╫á╫₧╫ª╫נ');
           }
 
           const exportData: ExcelExportData[] = event.guests.map(guest => ({
@@ -3176,7 +3179,7 @@ export const useEventStore = create<EventStore>()(
           console.log('Exporting data:', exportData);
           set({ isLoading: false });
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�?�???�?� ???�?�???�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ש╫ש╫ª╫ץ╫נ ╫á╫¬╫ץ╫á╫ש╫¥', isLoading: false });
         }
       },
 
@@ -3203,7 +3206,7 @@ export const useEventStore = create<EventStore>()(
             isLoading: false
           }));
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�???�?�?� ?�???????�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ש╫ª╫ש╫¿╫¬ ╫פ╫º╫₧╫ñ╫ש╫ש╫ƒ', isLoading: false });
         }
       },
 
@@ -3246,7 +3249,7 @@ export const useEventStore = create<EventStore>()(
           // Schedule the campaign using schedulerService
           schedulerService.scheduleCampaign(updatedCampaign, async () => {
             try {
-              console.log(`?�? Scheduled time reached for campaign: ${updatedCampaign.name}`);
+              console.log(`Γן░ Scheduled time reached for campaign: ${updatedCampaign.name}`);
               await get().sendCampaign(eventId, campaignId);
             } catch (error) {
               console.error('Error sending scheduled campaign:', error);
@@ -3263,11 +3266,11 @@ export const useEventStore = create<EventStore>()(
             }
           });
 
-          console.log(`?�� Scheduled campaign: ${updatedCampaign.name} for ${scheduledDate.toLocaleString('he-IL')}`);
+          console.log(`Γ£ו Scheduled campaign: ${updatedCampaign.name} for ${scheduledDate.toLocaleString('he-IL')}`);
           set({ isLoading: false });
         } catch (error) {
           console.error('Error scheduling campaign:', error);
-          set({ error: '???�?�?�?� ?�?�?�???�?� ?�???????�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫¬╫צ╫₧╫ץ╫ƒ ╫פ╫º╫₧╫ñ╫ש╫ש╫ƒ', isLoading: false });
           throw error;
         }
       },
@@ -3281,7 +3284,7 @@ export const useEventStore = create<EventStore>()(
           webhookService.stopPolling();
           webhookService.startPolling(8000); // Restart with optimized interval
         }
-        console.log('?��? System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
+        console.log('≡ƒףí System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
         try {
           const event = get().events.find(e => e.id === eventId);
@@ -3297,61 +3300,61 @@ export const useEventStore = create<EventStore>()(
           const guests = event.guests || [];
           
           // Check if this is the "event day reminder" campaign (contains QR code)
-          const isEventDayReminder = campaign.name === '?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??';
+          const isEventDayReminder = campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó';
           
           // CRITICAL: Filter guests based on campaign type
-          // 1. Some campaigns (?�?�?????� ?�?�???�???�?�, ?�?�?�?�?�?� ?????�?�?�, ?�?�?�?�?�?� ???�?�???�?�) should only be sent to guests with status 'pending' (?�?� ?????�) or 'maybe' (?�?�?�?� ???�?�??)
-          // 2. Other campaigns (?�?�?�?�?�?� ?�?�?�?�???�, ?�?�?�???� ?�?�?�?� ?�???�?�???�?�, ?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??) should only be sent to guests who confirmed (???�?�??)
-          // 3. Custom campaigns (default) should only be sent to guests with status 'pending' or 'maybe' (?�?� ?????� ?�???�?�?�?�)
-          const campaignsForNonResponded = ['?�?�?????� ?�?�???�???�?�', '?�?�?�?�?�?� ?????�?�?�', '?�?�?�?�?�?� ???�?�???�?�'];
-          const campaignsForConfirmed = ['?�?�?�?�?�?� ?�?�?�?�???�', '?�?�?�???� ?�?�?�?� ?�???�?�???�?�', '?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??'];
+          // 1. Some campaigns (╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬, ╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ, ╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬) should only be sent to guests with status 'pending' (╫£╫נ ╫ó╫á╫פ) or 'maybe' (╫נ╫ץ╫£╫ש ╫₧╫ע╫ש╫ó)
+          // 2. Other campaigns (╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ, ╫פ╫ץ╫ף╫ó╫¬ ╫¬╫ץ╫ף╫פ ╫£╫₧╫ע╫ש╫ó╫ש╫¥, ╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó) should only be sent to guests who confirmed (╫₧╫ע╫ש╫ó)
+          // 3. Custom campaigns (default) should only be sent to guests with status 'pending' or 'maybe' (╫£╫נ ╫ó╫á╫פ ╫ץ╫₧╫¬╫£╫ס╫ר)
+          const campaignsForNonResponded = ['╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬', '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ', '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬'];
+          const campaignsForConfirmed = ['╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ', '╫פ╫ץ╫ף╫ó╫¬ ╫¬╫ץ╫ף╫פ ╫£╫₧╫ע╫ש╫ó╫ש╫¥', '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó'];
           
           let filteredGuests;
           if (campaignsForNonResponded.includes(campaign.name)) {
-            // Only send to guests with status 'pending' (?�?� ?????�) or 'maybe' (?�?�?�?� ???�?�??)
+            // Only send to guests with status 'pending' (╫£╫נ ╫ó╫á╫פ) or 'maybe' (╫נ╫ץ╫£╫ש ╫₧╫ע╫ש╫ó)
             filteredGuests = guests.filter(guest => 
               guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
             );
-            console.log(`?��� Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
-            console.log(`?�� Filtering: Only sending to guests with status === 'pending' (?�?� ?????�) or 'maybe' (?�?�?�?� ???�?�??)`);
+            console.log(`≡ƒףך Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`Γ£ו Filtering: Only sending to guests with status === 'pending' (╫£╫נ ╫ó╫á╫פ) or 'maybe' (╫נ╫ץ╫£╫ש ╫₧╫ע╫ש╫ó)`);
           } else if (campaignsForConfirmed.includes(campaign.name)) {
-            // Only send to guests who confirmed (???�?�??)
+            // Only send to guests who confirmed (╫₧╫ע╫ש╫ó)
             filteredGuests = guests.filter(guest => guest.rsvpStatus === 'confirmed');
-            console.log(`?��� Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
-            console.log(`?�� Filtering: Only sending to guests with status === 'confirmed' (???�?�??)`);
+            console.log(`≡ƒףך Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
+            console.log(`Γ£ו Filtering: Only sending to guests with status === 'confirmed' (╫₧╫ע╫ש╫ó)`);
           } else {
-            // Default: send only to guests with status 'pending' or 'maybe' (?�?� ?????� ?�???�?�?�?�)
+            // Default: send only to guests with status 'pending' or 'maybe' (╫£╫נ ╫ó╫á╫פ ╫ץ╫₧╫¬╫£╫ס╫ר)
             // This ensures custom campaigns only target guests who haven't confirmed or declined
             filteredGuests = guests.filter(guest => 
               guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
             );
-            console.log(`?��� Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
-            console.log(`?�� Filtering: Only sending to guests with status === 'pending' (?�?� ?????�) or 'maybe' (???�?�?�?�)`);
+            console.log(`≡ƒףך Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
+            console.log(`Γ£ו Filtering: Only sending to guests with status === 'pending' (╫£╫נ ╫ó╫á╫פ) or 'maybe' (╫₧╫¬╫£╫ס╫ר)`);
           }
           
           // Determine template name based on campaign FIRST (before building templateParams)
           // CRITICAL: Override templateName based on campaign name to ensure correct template is used
-          // This ensures "?�?�?�?�?�?� ?�?�?�?�???�" always uses "today" template, even if campaign has different templateName
+          // This ensures "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" always uses "today" template, even if campaign has different templateName
           let templateNameForCampaign = campaign.templateName;
           
           // CRITICAL: Override template based on campaign name (takes priority over campaign.templateName)
           // Use template "aa" for the first three campaigns
-          if (campaign.name === '?�?�?????� ?�?�???�???�?�') {
+          if (campaign.name === '╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬') {
             templateNameForCampaign = 'aa'; // Template name in Meta Business Manager
-          } else if (campaign.name === '?�?�?�?�?�?� ?????�?�?�') {
-            // Use template 'aa' for "?�?�?�?�?�?� ?????�?�?�"
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ') {
+            // Use template 'aa' for "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ"
             templateNameForCampaign = 'aa';
-          } else if (campaign.name === '?�?�?�?�?�?� ???�?�???�?�') {
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬') {
             templateNameForCampaign = 'aa';
-          } else if (campaign.name === '?�?�?�?�?�?� ?�?�?�?�???�') {
-            // CRITICAL: Always use template 'today' for "?�?�?�?�?�?� ?�?�?�?�???�" campaign
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ') {
+            // CRITICAL: Always use template 'today' for "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" campaign
             templateNameForCampaign = 'today';
-            console.log('?��� Campaign "?�?�?�?�?�?� ?�?�?�?�???�" - using template "today"');
-          } else if (campaign.name === '?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??') {
-            // CRITICAL: Don't use template for "?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??" - send custom message content instead
+            console.log('≡ƒףכ Campaign "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" - using template "today"');
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó') {
+            // CRITICAL: Don't use template for "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó" - send custom message content instead
             // User wants to send the campaign message content, not a template placeholder
             templateNameForCampaign = undefined;
-            console.log('?��� Campaign "?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??" - will send custom message content, not template');
+            console.log('≡ƒףכ Campaign "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó" - will send custom message content, not template');
           } else if (!templateNameForCampaign) {
             // If no templateName in campaign and no matching campaign name, use default
             // (This is a fallback for custom campaigns)
@@ -3373,19 +3376,19 @@ export const useEventStore = create<EventStore>()(
             const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
             // Debug: Log the guest ID being used
-            console.log('?��� Campaign - Guest ID:', guest.id, 'for guest:', `${guest.firstName} ${guest.lastName}`);
-            console.log('?��� Campaign - Original message:', personalizedMessage);
+            console.log('≡ƒפק Campaign - Guest ID:', guest.id, 'for guest:', `${guest.firstName} ${guest.lastName}`);
+            console.log('≡ƒפק Campaign - Original message:', personalizedMessage);
             
             // Find the table number for this guest
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
-            const tableNumber = guestTable ? guestTable.number : '?�?� ?�?�?????�';
+            const tableNumber = guestTable ? guestTable.number : '╫£╫נ ╫פ╫ץ╫º╫ª╫פ';
             
             // Replace template variables with actual values
             // Use consistent variable names: {{guest_name}} instead of {{first_name}}
             // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
             const coupleName = event.coupleName || 
               (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
-               event.groomName || event.brideName || '?�?�?�?�');
+               event.groomName || event.brideName || '╫פ╫צ╫ץ╫ע');
             const groomName = event.groomName || '';
             const brideName = event.brideName || '';
             
@@ -3395,7 +3398,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '?�?�?�???�')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -3409,7 +3412,7 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{last_name\}\}/g, guest.lastName)
               .replace(/\{\{event_date\}\}/g, formatDate(event.eventDate))
               .replace(/\{\{event_time\}\}/g, event.eventTime || '')
-              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '?�?�?�???�')
+              .replace(/\{\{event_type\}\}/g, event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ')
               .replace(/\{\{venue\}\}/g, event.venue || '')
               .replace(/\{\{couple_name\}\}/g, coupleName)
               .replace(/\{\{groom_name\}\}/g, groomName)
@@ -3417,18 +3420,18 @@ export const useEventStore = create<EventStore>()(
               .replace(/\{\{table_number\}\}/g, tableNumber.toString())
               .replace(/\{\{guest_response_link\}\}/g, guestLink);
             
-            console.log('?��� Campaign - Final message:', personalizedMessage);
-            console.log('?��� Message length:', personalizedMessage.length, 'characters');
-            console.log('?��� SMS Message length:', personalizedSmsMessage.length, 'characters');
+            console.log('≡ƒפק Campaign - Final message:', personalizedMessage);
+            console.log('≡ƒףן Message length:', personalizedMessage.length, 'characters');
+            console.log('≡ƒףן SMS Message length:', personalizedSmsMessage.length, 'characters');
             
             // Generate QR code image URL for event day reminder
             let qrCodeImageUrl: string | undefined;
             if (isEventDayReminder) {
               try {
                 qrCodeImageUrl = await generateQRCodeImage(eventId, guest.id, 256);
-                console.log('?��? Generated QR code for guest:', guest.id, qrCodeImageUrl);
+                console.log('≡ƒף▒ Generated QR code for guest:', guest.id, qrCodeImageUrl);
               } catch (error) {
-                console.error('?�� Error generating QR code:', error);
+                console.error('Γ¥ל Error generating QR code:', error);
               }
             }
             
@@ -3447,7 +3450,7 @@ export const useEventStore = create<EventStore>()(
           // generateGuestResponseLink is already imported above, use it here
           const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }) => {
             const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
-            const tableNumber = guestTable ? guestTable.number?.toString() : '?�?� ?�?�?????�';
+            const tableNumber = guestTable ? guestTable.number?.toString() : '╫£╫נ ╫פ╫ץ╫º╫ª╫פ';
             // CRITICAL: Find the original row number of the guest in the event (not filtered)
             const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
             // Use helper function to ensure production URL (works on all devices)
@@ -3458,7 +3461,7 @@ export const useEventStore = create<EventStore>()(
             // CRITICAL: Handle undefined values - use groomName & brideName if coupleName is not available
             const templateCoupleName = event.coupleName || 
               (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
-               event.groomName || event.brideName || '?�?�?�?�');
+               event.groomName || event.brideName || '╫פ╫צ╫ץ╫ע');
             const templateGroomName = event.groomName || '';
             const templateBrideName = event.brideName || '';
             
@@ -3472,19 +3475,19 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 groom_name: templateGroomName, // Parameter 3 - groom_name comes BEFORE bride_name in Meta template
                 bride_name: templateBrideName, // Parameter 4 - bride_name comes AFTER groom_name in Meta template
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
                 couple_name: templateCoupleName, // Parameter 8 - at the end of the template
-                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("?�???�?�?�?� ???�?�?�?? ?�?�???�")
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("╫£╫ó╫ף╫¢╫ץ╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫ע╫ó╫פ")
                 language: 'he'
               };
               
               // DEBUG: Log template parameters
-              console.log(`?��� DEBUG Template Parameters for "${templateNameForCampaign}" (sendCampaign):`, {
+              console.log(`≡ƒפם DEBUG Template Parameters for "${templateNameForCampaign}" (sendCampaign):`, {
                 groom_name: templateParams.groom_name,
                 bride_name: templateParams.bride_name,
                 couple_name: templateParams.couple_name,
@@ -3502,7 +3505,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3522,13 +3525,13 @@ export const useEventStore = create<EventStore>()(
               // NOTE: guest_response_link is NOT included in this template
               // (Supporting both 'today' and 'reminer' for backward compatibility)
               const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
-              const tableNumber = guestTable ? guestTable.number?.toString() : '?�?� ?�?�?????�';
+              const tableNumber = guestTable ? guestTable.number?.toString() : '╫£╫נ ╫פ╫ץ╫º╫ª╫פ';
               
               templateParams = {
                 paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
                              'event_time', 'venue', 'table_number'],
                 first_name: guest.firstName, // Parameter 1 - note: uses first_name, not guest_name
-                event_type: event.eventTypeHebrew || '?�?�?�???�', // Parameter 2
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ', // Parameter 2
                 couple_name: templateCoupleName, // Parameter 3
                 event_date: formatDate(event.eventDate), // Parameter 4
                 event_time: event.eventTime || '', // Parameter 5
@@ -3542,7 +3545,7 @@ export const useEventStore = create<EventStore>()(
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3555,21 +3558,21 @@ export const useEventStore = create<EventStore>()(
             // CRITICAL: No buttons - send text-only message instead
             // Add response options as text in the message instead of buttons
             // This avoids WhatsApp button issues and works with the guest response page
-            console.log('?�� DEBUG: Creating text-only message (no buttons)');
-            console.log('?�� DEBUG: Guest link:', guestLink);
+            console.log('≡ƒף¥ DEBUG: Creating text-only message (no buttons)');
+            console.log('≡ƒף¥ DEBUG: Guest link:', guestLink);
             
             // Add response text to message if not already present
             // Add at the end of the message
-            const responseText = `\n\n?�?�???�?�:\n?�? ???�?�?? - ${guestLink}\n?�? ?�?� ?�?�?�?� ?�?�?�?�?? - ${guestLink}?status=declined`;
+            const responseText = `\n\n╫£╫פ╫⌐╫ש╫ס:\nΓאó ╫₧╫ע╫ש╫ó - ${guestLink}\nΓאó ╫£╫נ ╫נ╫ץ╫¢╫£ ╫£╫פ╫ע╫ש╫ó - ${guestLink}?status=declined`;
             
             // Check if message already contains response instructions
-            const hasResponseText = message.includes('?�?�???�?�') || message.includes('???�?�??') || message.includes('?�?� ?�?�?�?� ?�?�?�?�??');
+            const hasResponseText = message.includes('╫£╫פ╫⌐╫ש╫ס') || message.includes('╫₧╫ע╫ש╫ó') || message.includes('╫£╫נ ╫נ╫ץ╫¢╫£ ╫£╫פ╫ע╫ש╫ó');
             const finalMessage = hasResponseText ? message : message + responseText;
             
-            console.log('?�� DEBUG: Final message (with response text):', finalMessage.substring(0, 200) + '...');
+            console.log('≡ƒף¥ DEBUG: Final message (with response text):', finalMessage.substring(0, 200) + '...');
             
             const eventInvitationImageUrl = event.invitationImageUrl || qrCodeImageUrl || campaign.imageUrl;
-            console.log('?��???� sendCampaign - Image URL priority:', {
+            console.log('≡ƒצ╝∩╕ן sendCampaign - Image URL priority:', {
               eventInvitationImageUrl: event.invitationImageUrl,
               qrCodeImageUrl: qrCodeImageUrl,
               campaignImageUrl: campaign.imageUrl,
@@ -3601,12 +3604,12 @@ export const useEventStore = create<EventStore>()(
               buttons: undefined // CRITICAL: No buttons - send text-only message
             };
             
-            console.log('?�� DEBUG: Recipient created WITHOUT buttons (text-only)');
-            console.log('?�� DEBUG: Recipient channel:', guest.channel);
+            console.log('≡ƒף¥ DEBUG: Recipient created WITHOUT buttons (text-only)');
+            console.log('≡ƒף¥ DEBUG: Recipient channel:', guest.channel);
           });
           
-          console.log('?�� DEBUG: Total recipients created:', recipients.length);
-          console.log('?�� DEBUG: All recipients are text-only (no buttons)');
+          console.log('≡ƒף¥ DEBUG: Total recipients created:', recipients.length);
+          console.log('≡ƒף¥ DEBUG: All recipients are text-only (no buttons)');
 
           // CRITICAL FIX: Use event invitation image if available, otherwise use campaign image
           // Priority: event.invitationImageUrl > campaign.imageUrl
@@ -3615,18 +3618,18 @@ export const useEventStore = create<EventStore>()(
             ? undefined // QR codes will be in individual recipients
             : (event.invitationImageUrl || campaign.imageUrl || undefined);
           
-          console.log('?��???� Image URL priority check:', {
+          console.log('≡ƒצ╝∩╕ן Image URL priority check:', {
             eventInvitationImageUrl: event.invitationImageUrl,
             campaignImageUrl: campaign.imageUrl,
             finalImageUrl: imageUrlForCampaign,
             isEventDayReminder
           });
           
-          console.log('?��� DEBUG: ========== BEFORE SEND BULK MESSAGES ==========');
-          console.log('?��� DEBUG: Recipients count:', recipients.length);
-          console.log('?��� DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
+          console.log('≡ƒפר DEBUG: ========== BEFORE SEND BULK MESSAGES ==========');
+          console.log('≡ƒפר DEBUG: Recipients count:', recipients.length);
+          console.log('≡ƒפר DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
           recipients.forEach((r, idx) => {
-            console.log(`?��� DEBUG: Recipient ${idx}:`, {
+            console.log(`≡ƒפר DEBUG: Recipient ${idx}:`, {
               name: `${r.firstName} ${r.lastName}`,
               channel: r.channel,
               buttons: r.buttons,
@@ -3685,10 +3688,10 @@ export const useEventStore = create<EventStore>()(
           });
           
           // After sending campaign, ensure webhookService is actively listening
-          console.log(`?��? Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
-          console.log(`?��� System is now actively waiting for guest responses...`);
+          console.log(`≡ƒףñ Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
+          console.log(`≡ƒסג System is now actively waiting for guest responses...`);
           // Webhook polling status logged only when needed
-          console.log(`?�� Updated messageStatus for ${result.successful} guests to "sent"`);
+          console.log(`Γ£ו Updated messageStatus for ${result.successful} guests to "sent"`);
 
           set({
             events: updatedEvents,
@@ -3699,13 +3702,13 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = updatedEvents.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.warn('?�???� Failed to sync updated event to API:', err);
+              console.warn('Γתá∩╕ן Failed to sync updated event to API:', err);
             });
           }
 
           return result;
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�???????�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫£╫ש╫ק╫¬ ╫פ╫º╫₧╫ñ╫ש╫ש╫ƒ', isLoading: false });
           throw error;
         }
       },
@@ -3719,7 +3722,7 @@ export const useEventStore = create<EventStore>()(
           webhookService.stopPolling();
           webhookService.startPolling(8000);
         }
-        console.log('?��? Resending failed messages - System is now actively waiting for guest responses...');
+        console.log('≡ƒףí Resending failed messages - System is now actively waiting for guest responses...');
         set({ isLoading: true, error: null });
         try {
           const event = get().events.find(e => e.id === eventId);
@@ -3738,7 +3741,7 @@ export const useEventStore = create<EventStore>()(
           const failedGuests = guests.filter(guest => guest.messageStatus === 'failed');
           
           if (failedGuests.length === 0) {
-            console.log('?�???� No guests with failed messages found for this campaign');
+            console.log('Γה╣∩╕ן No guests with failed messages found for this campaign');
             set({ isLoading: false });
             return {
               totalSent: 0,
@@ -3748,20 +3751,20 @@ export const useEventStore = create<EventStore>()(
             };
           }
 
-          console.log(`?��� Resending campaign "${campaign.name}" to ${failedGuests.length} guests with failed messages`);
+          console.log(`≡ƒףך Resending campaign "${campaign.name}" to ${failedGuests.length} guests with failed messages`);
 
           // Determine template name based on campaign (same logic as sendCampaign)
           let templateNameForCampaign = campaign.templateName;
           
-          if (campaign.name === '?�?�?????� ?�?�???�???�?�') {
+          if (campaign.name === '╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬') {
             templateNameForCampaign = 'aa';
-          } else if (campaign.name === '?�?�?�?�?�?� ?????�?�?�') {
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ') {
             templateNameForCampaign = 'aa';
-          } else if (campaign.name === '?�?�?�?�?�?� ???�?�???�?�') {
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬') {
             templateNameForCampaign = 'aa';
-          } else if (campaign.name === '?�?�?�?�?�?� ?�?�?�?�???�') {
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ') {
             templateNameForCampaign = 'today';
-          } else if (campaign.name === '?�?�?�?�?�?� ?�?�?� ?�?�?�?�?�??') {
+          } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫ש╫ץ╫¥ ╫פ╫נ╫ש╫¿╫ץ╫ó') {
             templateNameForCampaign = undefined;
           } else if (!templateNameForCampaign) {
             templateNameForCampaign = undefined;
@@ -3793,12 +3796,12 @@ export const useEventStore = create<EventStore>()(
 
             // CRITICAL: No buttons - send text-only message instead
             // Add response options as text in the message instead of buttons
-            const responseText = `\n\n?�?�???�?�:\n?�? ???�?�?? - ${guestLink}\n?�? ?�?� ?�?�?�?� ?�?�?�?�?? - ${guestLink}?status=declined`;
-            const hasResponseText = personalizedMessage.includes('?�?�???�?�') || personalizedMessage.includes('???�?�??') || personalizedMessage.includes('?�?� ?�?�?�?� ?�?�?�?�??');
+            const responseText = `\n\n╫£╫פ╫⌐╫ש╫ס:\nΓאó ╫₧╫ע╫ש╫ó - ${guestLink}\nΓאó ╫£╫נ ╫נ╫ץ╫¢╫£ ╫£╫פ╫ע╫ש╫ó - ${guestLink}?status=declined`;
+            const hasResponseText = personalizedMessage.includes('╫£╫פ╫⌐╫ש╫ס') || personalizedMessage.includes('╫₧╫ע╫ש╫ó') || personalizedMessage.includes('╫£╫נ ╫נ╫ץ╫¢╫£ ╫£╫פ╫ע╫ש╫ó');
             const finalPersonalizedMessage = hasResponseText ? personalizedMessage : personalizedMessage + responseText;
 
             // Build template params (same logic as sendCampaign)
-            const templateCoupleName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : '?�?�?�?�');
+            const templateCoupleName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : '╫פ╫צ╫ץ╫ע');
             const templateGroomName = event.groomName || '';
             const templateBrideName = event.brideName || '';
             
@@ -3812,21 +3815,21 @@ export const useEventStore = create<EventStore>()(
                 paramsOrder: ['guest_name', 'event_type', 'groom_name', 'bride_name', 
                              'event_date', 'event_time', 'venue', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 groom_name: templateGroomName,
                 bride_name: templateBrideName,
                 event_date: formatDate(event.eventDate) || '',
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
                 couple_name: templateCoupleName,
-                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("?�???�?�?�?� ???�?�?�?? ?�?�???�")
+                guest_response_link: guestLink, // CRITICAL: Required for template "aa" URL button at index 0 ("╫£╫ó╫ף╫¢╫ץ╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫ע╫ó╫פ")
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'a') {
               templateParams = {
                 paramsOrder: ['guest_name', 'event_type', 'event_date', 'event_time', 'venue', 'guest_response_link', 'couple_name'],
                 guest_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
                 venue: event.venue || '',
@@ -3836,13 +3839,13 @@ export const useEventStore = create<EventStore>()(
               };
             } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
               const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
-              const tableNumber = guestTable ? guestTable.number?.toString() : '?�?� ?�?�?????�';
+              const tableNumber = guestTable ? guestTable.number?.toString() : '╫£╫נ ╫פ╫ץ╫º╫ª╫פ';
               
               templateParams = {
                 paramsOrder: ['first_name', 'event_type', 'couple_name', 'event_date', 
                              'event_time', 'venue', 'table_number'],
                 first_name: guest.firstName,
-                event_type: event.eventTypeHebrew || '?�?�?�???�',
+                event_type: event.eventTypeHebrew || '╫ק╫¬╫ץ╫á╫פ',
                 couple_name: templateCoupleName,
                 event_date: formatDate(event.eventDate),
                 event_time: event.eventTime || '',
@@ -3924,8 +3927,8 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          console.log(`?��? Resend completed! ${result.successful} messages sent successfully, ${result.failed} failed`);
-          console.log(`?�� Updated messageStatus for ${result.successful} guests from "failed" to "sent"`);
+          console.log(`≡ƒףñ Resend completed! ${result.successful} messages sent successfully, ${result.failed} failed`);
+          console.log(`Γ£ו Updated messageStatus for ${result.successful} guests from "failed" to "sent"`);
 
           set({
             events: updatedEvents,
@@ -3936,13 +3939,13 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = updatedEvents.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.warn('?�???� Failed to sync updated event to API:', err);
+              console.warn('Γתá∩╕ן Failed to sync updated event to API:', err);
             });
           }
 
           return result;
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�?�?� ?�?�???�?�???�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫£╫ש╫ק╫פ ╫ק╫ץ╫צ╫¿╫¬ ╫£╫¢╫⌐╫£╫ץ╫á╫ץ╫¬', isLoading: false });
           throw error;
         }
       },
@@ -3968,7 +3971,7 @@ export const useEventStore = create<EventStore>()(
           set({ isLoading: false });
           return result.successful > 0;
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�???� ?�?�?�???�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫£╫ש╫ק╫¬ ╫פ╫ץ╫ף╫ó╫¬ ╫ס╫ף╫ש╫º╫פ', isLoading: false });
           return false;
         }
       },
@@ -4011,11 +4014,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�???�?�?� ?????�???� ?�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ש╫ª╫ש╫¿╫¬ ╫í╫º╫ש╫ª╫¬ ╫נ╫ץ╫£╫¥', isLoading: false });
         }
       },
 
@@ -4046,11 +4049,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?????�???� ?�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫í╫º╫ש╫ª╫¬ ╫נ╫ץ╫£╫¥', isLoading: false });
         }
       },
 
@@ -4089,11 +4092,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ???�???�?� ???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫₧╫ש╫º╫ץ╫¥ ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4132,11 +4135,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�?� ???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫ע╫ץ╫ף╫£ ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4175,11 +4178,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ???�?�?�?� ???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫í╫ש╫ס╫ץ╫ס ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4218,11 +4221,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ???�?�?� ???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫ª╫ץ╫¿╫¬ ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4233,7 +4236,7 @@ export const useEventStore = create<EventStore>()(
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           
           // CRITICAL: First try to restore from backend (server is source of truth)
-          console.log(`?��� Attempting to restore event ${deletedEventId} from backend...`);
+          console.log(`≡ƒפה Attempting to restore event ${deletedEventId} from backend...`);
           const restoreResponse = await fetch(`${BACKEND_URL}/api/events/${deletedEventId}/restore`, {
             method: 'POST',
             headers: {
@@ -4243,12 +4246,12 @@ export const useEventStore = create<EventStore>()(
           
           if (restoreResponse.ok) {
             const restoreData = await restoreResponse.json();
-            console.log(`?�� Event restored from backend:`, restoreData.event);
-            console.log(`?��� Guests restored: ${restoreData.guestsRestored || restoreData.event.guests?.length || 0}`);
+            console.log(`Γ£ו Event restored from backend:`, restoreData.event);
+            console.log(`≡ƒףך Guests restored: ${restoreData.guestsRestored || restoreData.event.guests?.length || 0}`);
             
             // CRITICAL: Log guest details to verify they were restored
             if (restoreData.event.guests && restoreData.event.guests.length > 0) {
-              console.log(`?��� Restored guests with RSVP data:`, restoreData.event.guests.map((g: any) => ({
+              console.log(`≡ƒףכ Restored guests with RSVP data:`, restoreData.event.guests.map((g: any) => ({
                 id: g.id,
                 name: `${g.firstName} ${g.lastName}`,
                 phone: g.phoneNumber,
@@ -4267,7 +4270,7 @@ export const useEventStore = create<EventStore>()(
             return true;
           } else {
             // If backend restore fails, try local restore
-            console.warn(`?�???� Backend restore failed, trying local restore...`);
+            console.warn(`Γתá∩╕ן Backend restore failed, trying local restore...`);
             const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
             if (deletedEvent) {
               // Remove deletedAt property and restore the event
@@ -4280,9 +4283,9 @@ export const useEventStore = create<EventStore>()(
                 guests: deletedEvent.guests || [] // CRITICAL: Explicitly preserve guests array
               };
               
-              console.log(`?��� Restoring event locally with ${restoredEvent.guests.length} guests`);
+              console.log(`≡ƒףך Restoring event locally with ${restoredEvent.guests.length} guests`);
               if (restoredEvent.guests.length > 0) {
-                console.log(`?��� Guest details:`, restoredEvent.guests.map((g: any) => ({
+                console.log(`≡ƒףכ Guest details:`, restoredEvent.guests.map((g: any) => ({
                   id: g.id,
                   name: `${g.firstName} ${g.lastName}`,
                   phone: g.phoneNumber,
@@ -4303,18 +4306,18 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: Sync restored event to backend with all guests
               await syncEventToAPI(restoredEvent);
               
-              console.log(`?�� Event restored locally with ${restoredEvent.guests.length} guests`);
+              console.log(`Γ£ו Event restored locally with ${restoredEvent.guests.length} guests`);
               return true;
             }
             
             const errorData = await restoreResponse.json().catch(() => ({ error: restoreResponse.statusText }));
-            console.error(`?�� Failed to restore event:`, errorData);
-            set({ error: `???�?�?�?� ?�???�?�?�?� ?�?�?�?�?�??: ${errorData.error || '?�?�?�?�?�?? ?�?� ???????�'}`, isLoading: false });
+            console.error(`Γ¥ל Failed to restore event:`, errorData);
+            set({ error: `╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫ק╫צ╫ץ╫¿ ╫פ╫נ╫ש╫¿╫ץ╫ó: ${errorData.error || '╫פ╫נ╫ש╫¿╫ץ╫ó ╫£╫נ ╫á╫₧╫ª╫נ'}`, isLoading: false });
             return false;
           }
         } catch (error) {
-          console.error('?�� Error restoring event:', error);
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�?�?�?�?�??', isLoading: false });
+          console.error('Γ¥ל Error restoring event:', error);
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫⌐╫ק╫צ╫ץ╫¿ ╫פ╫נ╫ש╫¿╫ץ╫ó', isLoading: false });
           return false;
         }
       },
@@ -4329,7 +4332,7 @@ export const useEventStore = create<EventStore>()(
           }));
           return true;
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�???� ???�???�?� ???� ?�?�?�?�?�??', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫₧╫ק╫ש╫º╫פ ╫í╫ץ╫ñ╫ש╫¬ ╫⌐╫£ ╫פ╫נ╫ש╫¿╫ץ╫ó', isLoading: false });
           return false;
         }
       },
@@ -4341,13 +4344,13 @@ export const useEventStore = create<EventStore>()(
           if (stored) {
             const parsed = JSON.parse(stored);
             if (parsed.state && parsed.state.events) {
-              console.log('?��� Restoring events from localStorage:', parsed.state.events.length);
-              console.log('?��� Events data:', parsed.state.events);
+              console.log('≡ƒפה Restoring events from localStorage:', parsed.state.events.length);
+              console.log('≡ƒףכ Events data:', parsed.state.events);
               
               // CRITICAL: Log guest information for each event
               parsed.state.events.forEach((event: any, index: number) => {
                 const guestCount = event.guests?.length || 0;
-                console.log(`?��� Event ${index + 1}:`, {
+                console.log(`≡ƒףו Event ${index + 1}:`, {
                   id: event.id,
                   coupleName: event.coupleName,
                   guestsCount: guestCount,
@@ -4357,7 +4360,7 @@ export const useEventStore = create<EventStore>()(
                 
                 // Log guest details if available
                 if (guestCount > 0) {
-                  console.log(`?��� Guests for event ${event.id}:`, event.guests.map((g: any) => ({
+                  console.log(`≡ƒףכ Guests for event ${event.id}:`, event.guests.map((g: any) => ({
                     id: g.id,
                     name: `${g.firstName} ${g.lastName}`,
                     phone: g.phoneNumber,
@@ -4373,7 +4376,7 @@ export const useEventStore = create<EventStore>()(
               // Force complete restoration by updating the store directly
               // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
               set((state) => {
-                console.log('?��� Current state before restore:', state);
+                console.log('≡ƒפה Current state before restore:', state);
                 
                 // CRITICAL: Ensure all guests are preserved with their data
                 const restoredEvents = parsed.state.events.map((event: any) => ({
@@ -4388,16 +4391,16 @@ export const useEventStore = create<EventStore>()(
                 };
               });
               
-              console.log(`?�� Restored ${parsed.state.events.length} events from localStorage`);
+              console.log(`Γ£ו Restored ${parsed.state.events.length} events from localStorage`);
               const totalGuests = parsed.state.events.reduce((sum: number, e: any) => sum + (e.guests?.length || 0), 0);
-              console.log(`?�� Total guests restored: ${totalGuests}`);
+              console.log(`Γ£ו Total guests restored: ${totalGuests}`);
               
               return true;
             }
           }
           return false;
         } catch (error) {
-          console.error('?�� Error restoring events:', error);
+          console.error('Γ¥ל Error restoring events:', error);
           return false;
         }
       },
@@ -4408,7 +4411,7 @@ export const useEventStore = create<EventStore>()(
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
-            console.log('?��� Force refreshing from localStorage...', parsed);
+            console.log('≡ƒפה Force refreshing from localStorage...', parsed);
             
             if (parsed.state) {
               set(parsed.state);
@@ -4417,7 +4420,7 @@ export const useEventStore = create<EventStore>()(
           }
           return false;
         } catch (error) {
-          console.error('?�� Error force refreshing:', error);
+          console.error('Γ¥ל Error force refreshing:', error);
           return false;
         }
       },
@@ -4432,7 +4435,7 @@ export const useEventStore = create<EventStore>()(
           const stored = localStorage.getItem('rsvp-events-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
-            console.log('?�?? Cleaning up localStorage...', parsed);
+            console.log('≡ƒº╣ Cleaning up localStorage...', parsed);
             
             if (parsed.state && parsed.state.events) {
               // Remove duplicate events (keep only the most recent)
@@ -4441,7 +4444,7 @@ export const useEventStore = create<EventStore>()(
               );
               
               if (uniqueEvents.length !== parsed.state.events.length) {
-                console.log(`?�?? Removed ${parsed.state.events.length - uniqueEvents.length} duplicate events`);
+                console.log(`≡ƒº╣ Removed ${parsed.state.events.length - uniqueEvents.length} duplicate events`);
                 parsed.state.events = uniqueEvents;
                 localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
               }
@@ -4451,14 +4454,14 @@ export const useEventStore = create<EventStore>()(
           }
           return false;
         } catch (error) {
-          console.error('?�� Error cleaning up localStorage:', error);
+          console.error('Γ¥ל Error cleaning up localStorage:', error);
           return false;
         }
       },
 
       // Function to update existing events campaigns with consistent variable names
       updateExistingEventsCampaigns: () => {
-        console.log('?��� Updating existing events campaigns with consistent variable names...');
+        console.log('≡ƒפה Updating existing events campaigns with consistent variable names...');
         set(state => {
           const updatedEvents = state.events.map(event => {
             if (!event.campaigns || event.campaigns.length === 0) {
@@ -4467,24 +4470,24 @@ export const useEventStore = create<EventStore>()(
             
             // Update all campaigns to use consistent variable names
             const updatedCampaigns = event.campaigns.map(campaign => {
-              console.log(`?�� Updating campaign "${campaign.name}" for event "${event.coupleName}"`);
+              console.log(`Γ£ו Updating campaign "${campaign.name}" for event "${event.coupleName}"`);
               
               // Update message to use consistent variable names
               let updatedMessage = campaign.message
                 .replace(/\{\{first_name\}\}/g, '{{guest_name}}')
                 .replace(/\{\{last_name\}\}/g, '')
                 // Update ending to use couple_name instead of groom_name + bride_name
-                .replace(/?�?�?�?�?�,\s*\{\{groom_name\}\} ?�\{\{bride_name\}\}/g, '?�?�?�?�?�,\n{{couple_name}} ?���')
-                .replace(/?�?�?�?�?�,\s*\{\{groom_name\}\} ?�\{\{bride_name\}\}\s*?���/g, '?�?�?�?�?�,\n{{couple_name}} ?���');
+                .replace(/╫ס╫ס╫¿╫¢╫פ,\s*\{\{groom_name\}\} ╫ץ\{\{bride_name\}\}/g, '╫ס╫ס╫¿╫¢╫פ,\n{{couple_name}} ≡ƒעץ')
+                .replace(/╫ס╫ס╫¿╫¢╫פ,\s*\{\{groom_name\}\} ╫ץ\{\{bride_name\}\}\s*≡ƒעץ/g, '╫ס╫ס╫¿╫¢╫פ,\n{{couple_name}} ≡ƒעץ');
               
-              // Special handling for "?�?�?�?�?�?� ?�?�?�?�???�" campaign - remove guest_response_link and use first_name
-              if (campaign.name === '?�?�?�?�?�?� ?�?�?�?�???�') {
+              // Special handling for "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" campaign - remove guest_response_link and use first_name
+              if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ') {
                 updatedMessage = updatedMessage
                   .replace(/\{\{guest_name\}\}/g, '{{first_name}}')
-                  .replace(/?���\s*?�???�?�?� ???�?�?�??[^:]*:\s*\{\{guest_response_link\}\}/g, '?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??')
+                  .replace(/≡ƒפק\s*╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í[^:]*:\s*\{\{guest_response_link\}\}/g, '≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ')
                   .replace(/\{\{guest_response_link\}\}/g, '')
-                  .replace(/?�???�?�?� ???�?�?�??[^:]*:\s*\{\{guest_response_link\}\}/g, '?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??')
-                  .replace(/?�?�?�?�?�,\s*\{\{couple_name\}\}\s*?���/g, '')
+                  .replace(/╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í[^:]*:\s*\{\{guest_response_link\}\}/g, '╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ')
+                  .replace(/╫ס╫ס╫¿╫¢╫פ,\s*\{\{couple_name\}\}\s*≡ƒעץ/g, '')
                   .trim();
               }
               
@@ -4494,34 +4497,34 @@ export const useEventStore = create<EventStore>()(
                 updatedSmsMessage = updatedSmsMessage
                   .replace(/\{\{first_name\}\}/g, '{{guest_name}}')
                   .replace(/\{\{last_name\}\}/g, '')
-                  .replace(/?�?�?�?�?�,\s*\{\{groom_name\}\} ?�\{\{bride_name\}\}/g, '?�?�?�?�?�,\n{{couple_name}}');
+                  .replace(/╫ס╫ס╫¿╫¢╫פ,\s*\{\{groom_name\}\} ╫ץ\{\{bride_name\}\}/g, '╫ס╫ס╫¿╫¢╫פ,\n{{couple_name}}');
                 
-                // Special handling for "?�?�?�?�?�?� ?�?�?�?�???�" campaign SMS
-                if (campaign.name === '?�?�?�?�?�?� ?�?�?�?�???�') {
+                // Special handling for "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" campaign SMS
+                if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ') {
                   updatedSmsMessage = updatedSmsMessage
                     .replace(/\{\{guest_name\}\}/g, '{{first_name}}')
-                    .replace(/?���\s*?�???�?�?� ???�?�?�??[^:]*:\s*\{\{guest_response_link\}\}/g, '?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??')
+                    .replace(/≡ƒפק\s*╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í[^:]*:\s*\{\{guest_response_link\}\}/g, '≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ')
                     .replace(/\{\{guest_response_link\}\}/g, '')
-                    .replace(/?�???�?�?� ???�?�?�??[^:]*:\s*\{\{guest_response_link\}\}/g, '?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??');
+                    .replace(/╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í[^:]*:\s*\{\{guest_response_link\}\}/g, '╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ');
                 }
               }
               
               // Set templateName for campaigns that should use template 'aa'
               let updatedTemplateName = campaign.templateName;
-              if (campaign.name === '?�?�?????� ?�?�???�???�?�' || 
-                  campaign.name === '?�?�?�?�?�?� ?????�?�?�' || 
-                  campaign.name === '?�?�?�?�?�?� ???�?�???�?�') {
+              if (campaign.name === '╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬' || 
+                  campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ' || 
+                  campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬') {
                 // Force lowercase 'aa' - Meta is case-sensitive!
                 updatedTemplateName = 'aa'; // Template name in Meta Business Manager (lowercase!)
-                console.log(`   ?��� Set templateName to 'aa' (lowercase) for campaign "${campaign.name}"`);
+                console.log(`   ≡ƒףכ Set templateName to 'aa' (lowercase) for campaign "${campaign.name}"`);
               } else if (campaign.templateName === 'AA') {
                 // Fix old campaigns that might have 'AA' instead of 'aa'
                 updatedTemplateName = 'aa';
-                console.log(`   ?��� Fixed templateName from 'AA' to 'aa' for campaign "${campaign.name}"`);
-              } else if (campaign.name === '?�?�?�?�?�?� ?�?�?�?�???�') {
-                // "?�?�?�?�?�?� ?�?�?�?�???�" campaign uses template "today"
+                console.log(`   ≡ƒףכ Fixed templateName from 'AA' to 'aa' for campaign "${campaign.name}"`);
+              } else if (campaign.name === '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ') {
+                // "╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ" campaign uses template "today"
                 updatedTemplateName = 'today';
-                console.log(`   ?��� Set templateName to 'today' for campaign "${campaign.name}"`);
+                console.log(`   ≡ƒףכ Set templateName to 'today' for campaign "${campaign.name}"`);
               }
               
               return {
@@ -4540,19 +4543,19 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          console.log(`?�� Updated ${updatedEvents.length} events`);
+          console.log(`Γ£ו Updated ${updatedEvents.length} events`);
           return { events: updatedEvents };
         });
       },
 
       // Function to recreate campaigns with correct links
       recreateCampaigns: async (eventId: string) => {
-        console.log('?��� recreateCampaigns called with eventId:', eventId);
+        console.log('≡ƒפה recreateCampaigns called with eventId:', eventId);
         let event = get().events.find(e => e.id === eventId);
         
         // If event not found in store, try to fetch from API
         if (!event) {
-          console.log('?�???� Event not found in store, fetching from API...');
+          console.log('Γתá∩╕ן Event not found in store, fetching from API...');
           try {
             const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
             const response = await fetch(`${BACKEND_URL}/api/events/all`);
@@ -4561,7 +4564,7 @@ export const useEventStore = create<EventStore>()(
               if (data.success && data.events) {
                 event = data.events.find((e: Event) => e.id === eventId);
                 if (event) {
-                  console.log('?�� Found event in API, adding to store...');
+                  console.log('Γ£ו Found event in API, adding to store...');
                   // Add event to store temporarily for campaign recreation
                   set(state => ({
                     events: [...state.events, event as Event]
@@ -4570,41 +4573,41 @@ export const useEventStore = create<EventStore>()(
               }
             }
           } catch (apiError) {
-            console.error('?�� Error fetching event from API:', apiError);
+            console.error('Γ¥ל Error fetching event from API:', apiError);
           }
         }
         
         if (!event) {
-          console.log('?�� Event not found for campaign recreation');
-          throw new Error('?�?�?�?�?�?? ?�?� ???????�. ?�???� ?�?????� ?�?� ?�?�?? ?�?????� ???�?�.');
+          console.log('Γ¥ל Event not found for campaign recreation');
+          throw new Error('╫פ╫נ╫ש╫¿╫ץ╫ó ╫£╫נ ╫á╫₧╫ª╫נ. ╫נ╫á╫נ ╫¿╫ó╫á╫ƒ ╫נ╫¬ ╫פ╫ף╫ú ╫ץ╫á╫í╫פ ╫⌐╫ץ╫ס.');
         }
 
-        console.log('?��� Found event:', event.coupleName, 'with', event.campaigns?.length || 0, 'existing campaigns');
+        console.log('≡ƒףו Found event:', event.coupleName, 'with', event.campaigns?.length || 0, 'existing campaigns');
 
         // Convert eventDate to Date object if it's a string
         const eventDate = typeof event.eventDate === 'string' 
           ? new Date(event.eventDate) 
           : event.eventDate;
 
-        console.log('?���??� Deleting old campaigns and creating new ones...');
+        console.log('≡ƒקס∩╕ן Deleting old campaigns and creating new ones...');
 
         // Create new campaigns with correct guest links
         const newCampaigns: Campaign[] = [
           {
             id: generateId(),
             eventId: eventId,
-            name: '?�?�?????� ?�?�???�???�?�',
-            message: `?��� ???�?�?� {{guest_name}}! 
+            name: '╫פ╫צ╫₧╫á╫פ ╫¿╫נ╫⌐╫ץ╫á╫ש╫¬',
+            message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�{{event_type}} ???� {{groom_name}} ?�{{bride_name}}! 
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£{{event_type}} ╫⌐╫£ {{groom_name}} ╫ץ{{bride_name}}! 
 
-?��� {{event_date}} | ?��� {{event_time}}
-?��� {{venue}}
+≡ƒףו {{event_date}} | ≡ƒץנ {{event_time}}
+≡ƒףם {{venue}}
 
 {{guest_response_link}}
 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫ס╫ס╫¿╫¢╫פ,
+{{couple_name}} ≡ƒעץ`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() - 30 * 24 * 60 * 60 * 1000),
             status: 'draft' as const,
@@ -4614,18 +4617,18 @@ export const useEventStore = create<EventStore>()(
             templateName: 'aa', // Template name in Meta Business Manager
             // CRITICAL: No buttons - send text-only message with links instead
             whatsappButtons: [],
-            smsMessage: `???�?�?� {{guest_name}}! 
+            smsMessage: `╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�???�???� ?????�?�?� ?�?�?�???�?� ?�?�?�?� ?�{{event_type}} ???� {{groom_name}} ?�{{bride_name}}! 
+╫נ╫á╫ק╫á╫ץ ╫⌐╫₧╫ק╫ש╫¥ ╫£╫פ╫צ╫₧╫ש╫ƒ ╫נ╫ץ╫¬╫ת ╫£{{event_type}} ╫⌐╫£ {{groom_name}} ╫ץ{{bride_name}}! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� ?�???�???�?� ?�?�?�:
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ ╫ס╫º╫ש╫⌐╫ץ╫¿ ╫פ╫ס╫נ:
 {{guest_response_link}}
 
-?�?�?�?�?�,
+╫ס╫ס╫¿╫¢╫פ,
 {{couple_name}}`,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -4633,17 +4636,17 @@ export const useEventStore = create<EventStore>()(
           {
             id: generateId(),
             eventId: eventId,
-            name: '?�?�?�?�?�?� ?????�?�?�',
-            message: `???�?�?�! ?�?? ???�?�???�?�?� ?�?�?�?�?�??! ?���
+            name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫á╫ש╫ש╫פ',
+            message: `╫⌐╫£╫ץ╫¥! ╫¿╫º ╫⌐╫ס╫ץ╫ó╫ש╫ש╫¥ ╫£╫נ╫ש╫¿╫ץ╫ó! ≡ƒמך
 
-?��� {{event_date}}
-?��� {{venue}}
+≡ƒףו {{event_date}}
+≡ƒףם {{venue}}
 
-?�?� ???�?�?�?� ?�?� ?�?�???�?�?� ?�?�???�, ?�???� ?????� ?�?�?� ???�???�?�!
+╫נ╫¥ ╫ó╫ף╫ש╫ש╫ƒ ╫£╫נ ╫נ╫ש╫⌐╫¿╫¬╫¥ ╫פ╫ע╫ó╫פ, ╫נ╫á╫נ ╫ó╫⌐╫ץ ╫צ╫נ╫¬ ╫ó╫¢╫⌐╫ש╫ץ!
 
-?��� ?�?�???� ?�?�???� ?�?�???�?�?� ???�?�?�??: {{guest_response_link}}
+≡ƒפק ╫£╫נ╫⌐╫¿ ╫פ╫ע╫ó╫פ ╫ץ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í: {{guest_response_link}}
 
-???�?�?? ?�?�?�?�?� ?�?�?�?�!`,
+╫á╫¿╫ע╫⌐ ╫£╫¿╫נ╫ץ╫¬ ╫נ╫¬╫¢╫¥!`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() - 14 * 24 * 60 * 60 * 1000),
             status: 'draft' as const,
@@ -4653,42 +4656,42 @@ export const useEventStore = create<EventStore>()(
             templateName: 'a',
             // CRITICAL: No buttons - send text-only message with links instead
             whatsappButtons: [],
-            smsMessage: `???�?�?� {{guest_name}}! 
+            smsMessage: `╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�?�?�?�?�?�: ?�{{event_type}} ???� {{couple_name}} ???�???�?�! 
+╫¬╫צ╫¢╫ץ╫¿╫¬: ╫פ{{event_type}} ╫⌐╫£ {{couple_name}} ╫₧╫¬╫º╫¿╫ס! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�?� ???�?�?�?� ?�?� ?�???�?� ?�?�???�, ?�???� ?????� ?�?�?� ?�???�???�?�:
+╫נ╫¥ ╫ó╫ף╫ש╫ש╫ƒ ╫£╫נ ╫נ╫⌐╫¿╫¬ ╫פ╫ע╫ó╫פ, ╫נ╫á╫נ ╫ó╫⌐╫פ ╫צ╫נ╫¬ ╫ס╫º╫ש╫⌐╫ץ╫¿:
 {{guest_response_link}}
 
-???�?�?�?� ?�?�?�?�?� ?�?�?�?�!`,
+╫₧╫ק╫¢╫ש╫¥ ╫£╫¿╫נ╫ץ╫¬ ╫נ╫ץ╫¬╫ת!`,
             createdAt: new Date(),
             updatedAt: new Date()
           },
           {
             id: generateId(),
             eventId: eventId,
-            name: '?�?�?�?�?�?� ???�?�???�?�',
-            message: `?�? ???�?�?� {{guest_name}}!
+            name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫⌐╫ס╫ץ╫ó╫ש╫¬',
+            message: `Γן░ ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�?�?�?�?�?� ?�?�?�?�???�: ?�?�?� ???�?�?????�?� ?�?� ?�{{event_type}} ???� {{couple_name}}  ?�?�?�?�?�?? ?????? ?�???�?�?� ?�???� ?�???�?� ?�?�???�?�?�
+╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ: ╫נ╫¬╫¥ ╫₧╫ץ╫צ╫₧╫á╫ש╫¥ ╫נ╫£ ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}  ╫פ╫נ╫ש╫¿╫ץ╫ó ╫₧╫₧╫⌐ ╫ס╫º╫¿╫ץ╫ס ╫נ╫á╫ש ╫נ╫⌐╫¿╫ץ ╫פ╫ע╫ó╫¬╫¢╫¥
 
-?��� ?�?�?�?�?�: {{event_date}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
 
-?��� ?????�: {{event_time}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
 
-?��� ???�???�?�: {{venue}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� ???� ???�?? ?�???�?�??:
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ ╫ó╫ף ╫í╫ץ╫ú ╫פ╫⌐╫ס╫ץ╫ó:
 
-?��� {{guest_response_link}}
+≡ƒפק {{guest_response_link}}
 
-?�?�?�?�?�,
+╫ס╫ס╫¿╫¢╫פ,
 
-{{couple_name}} ?���`,
+{{couple_name}} ≡ƒעץ`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() - 7 * 24 * 60 * 60 * 1000),
             status: 'draft' as const,
@@ -4698,21 +4701,21 @@ export const useEventStore = create<EventStore>()(
             templateName: 'a',
             // CRITICAL: No buttons - send text-only message with links instead
             whatsappButtons: [],
-            smsMessage: `?�? ???�?�?� {{guest_name}}!
+            smsMessage: `Γן░ ╫⌐╫£╫ץ╫¥ {{guest_name}}!
 
-?�?�?�?�?�?� ?�?�?�?�???�: ?�?�?� ???�?�?????�?� ?�?� ?�{{event_type}} ???� {{couple_name}}  ?�?�?�?�?�?? ?????? ?�???�?�?� ?�???� ?�???�?� ?�?�???�?�?�
+╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ: ╫נ╫¬╫¥ ╫₧╫ץ╫צ╫₧╫á╫ש╫¥ ╫נ╫£ ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}  ╫פ╫נ╫ש╫¿╫ץ╫ó ╫₧╫₧╫⌐ ╫ס╫º╫¿╫ץ╫ס ╫נ╫á╫ש ╫נ╫⌐╫¿╫ץ ╫פ╫ע╫ó╫¬╫¢╫¥
 
-?��� ?�?�?�?�?�: {{event_date}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
 
-?��� ?????�: {{event_time}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
 
-?��� ???�???�?�: {{venue}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
 
-?�???� ?�???�/?� ?�?�???� ???� ???�?? ?�???�?�??:
+╫נ╫á╫נ ╫נ╫⌐╫¿/╫ש ╫פ╫ע╫ó╫פ ╫ó╫ף ╫í╫ץ╫ú ╫פ╫⌐╫ס╫ץ╫ó:
 
 {{guest_response_link}}
 
-?�?�?�?�?�,
+╫ס╫ס╫¿╫¢╫פ,
 
 {{couple_name}}`,
             createdAt: new Date(),
@@ -4721,21 +4724,21 @@ export const useEventStore = create<EventStore>()(
           {
             id: generateId(),
             eventId: eventId,
-            name: '?�?�?�?�?�?� ?�?�?�?�???�',
-            message: `?��� ???�?�?� {{first_name}}! 
+            name: '╫¬╫צ╫¢╫ץ╫¿╫¬ ╫נ╫ק╫¿╫ץ╫á╫פ',
+            message: `≡ƒמי ╫⌐╫£╫ץ╫¥ {{first_name}}! 
 
-???�?� ?�?� ???�?�?�! ?�{{event_type}} ???� {{couple_name}}! 
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?�???� ?�?�?�???� 15 ?�???�?� ?�?????� ?�?�???�.
+╫נ╫á╫נ ╫פ╫ע╫ש╫ó╫ץ 15 ╫ף╫º╫ץ╫¬ ╫£╫ñ╫á╫ש ╫פ╫צ╫₧╫ƒ.
 
-?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�! ?���`,
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס! ≡ƒרך`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() - 24 * 60 * 60 * 1000),
             status: 'draft' as const,
@@ -4745,22 +4748,22 @@ export const useEventStore = create<EventStore>()(
             templateName: 'today', // Template name in Meta is "today"
             // CRITICAL: No buttons - send text-only message with links instead
             whatsappButtons: [],
-            smsMessage: `???�?�?� {{first_name}}! 
+            smsMessage: `╫⌐╫£╫ץ╫¥ {{first_name}}! 
 
-???�?� ?�?� ???�?�?�! ?�{{event_type}} ???� {{couple_name}}! 
+╫₧╫ק╫¿ ╫צ╫פ ╫º╫ץ╫¿╫פ! ╫פ{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?��� ?�?�?�?�?�: {{event_date}}
-?��� ?????�: {{event_time}}
-?��� ???�???�?�: {{venue}}
-?��� ???�?�?�?�: {{table_number}}
+≡ƒףו ╫¬╫נ╫¿╫ש╫ת: {{event_date}}
+≡ƒץנ ╫⌐╫ó╫פ: {{event_time}}
+≡ƒףם ╫₧╫ש╫º╫ץ╫¥: {{venue}}
+≡ƒ¬ס ╫⌐╫ץ╫£╫ק╫ƒ: {{table_number}}
 
-?�???� ?�?�?�???� 15 ?�???�?� ?�?????� ?�?�???�.
+╫נ╫á╫נ ╫פ╫ע╫ש╫ó╫ץ 15 ╫ף╫º╫ץ╫¬ ╫£╫ñ╫á╫ש ╫פ╫צ╫₧╫ƒ.
 
-?��� ?�???�?�?� ???�?�?�?? ?�?�?�???� ?�?�??
+≡ƒפק ╫£╫ó╫ף╫¢╫ƒ ╫í╫ר╫ר╫ץ╫í ╫פ╫פ╫ע╫ó╫פ ╫£╫ק╫Ñ
 
-?�?� ?�???�?�?� ?�?�?�?�?� ?????� ?�?�?� ?�?�?�!
+╫£╫נ ╫£╫⌐╫¢╫ץ╫ק ╫£╫פ╫ס╫ש╫נ ╫₧╫ª╫ס ╫¿╫ץ╫ק ╫ר╫ץ╫ס!
 
-?�?�?�?�?�,
+╫ס╫ס╫¿╫¢╫פ,
 {{couple_name}}`,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -4768,35 +4771,35 @@ export const useEventStore = create<EventStore>()(
           {
             id: generateId(),
             eventId: eventId,
-            name: '?�?�?�???� ?�?�?�?� ?�???�?�???�?�',
-            message: `?��� ???�?�?� {{guest_name}}! 
+            name: '╫פ╫ץ╫ף╫ó╫¬ ╫¬╫ץ╫ף╫פ ╫£╫₧╫ע╫ש╫ó╫ש╫¥',
+            message: `≡ƒשן ╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�?�?�?� ?�?�?� ???�?�???� ?�{{event_type}} ???� {{couple_name}}! 
+╫¬╫ץ╫ף╫פ ╫¿╫ס╫פ ╫⌐╫פ╫ע╫ó╫¬ ╫£{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?�?�?� ?�???� ?�?�?? ?�?�?�?�?� ?�?�?�?� ?�?�?�?�?�?� ?�?�?�???� ?�?�?�?� ?�???�?�?�?� ?�?�?�.
+╫פ╫ש╫פ ╫£╫á╫ץ ╫¢╫ש╫ú ╫£╫¿╫נ╫ץ╫¬ ╫נ╫ץ╫¬╫ת ╫ץ╫£╫פ╫ש╫ץ╫¬ ╫נ╫ש╫¬╫á╫ץ ╫ס╫ש╫ץ╫¥ ╫פ╫₧╫ש╫ץ╫ק╫ף ╫פ╫צ╫פ.
 
-?�?�?�?� ???� ?�?�?�?�?�?� ?�?�???�???�?�! ?��
+╫¬╫ץ╫ף╫פ ╫ó╫£ ╫פ╫ס╫¿╫¢╫ץ╫¬ ╫ץ╫פ╫₧╫¬╫á╫ץ╫¬! ≡ƒע¥
 
-?�???�???�?� ???�?�?�?�?�?? ?�?�???�?� ?�???�?�?�.
+╫¬╫₧╫ץ╫á╫ץ╫¬ ╫₧╫פ╫נ╫ש╫¿╫ץ╫ó ╫ש╫ץ╫ó╫£╫ץ ╫ס╫º╫¿╫ץ╫ס.
 
-?�?�?�?�?�,
-{{couple_name}} ?���`,
+╫ס╫נ╫פ╫ס╫פ,
+{{couple_name}} ≡ƒעץ`,
             channel: 'whatsapp' as const,
             scheduledDate: new Date(eventDate.getTime() + 24 * 60 * 60 * 1000),
             status: 'draft' as const,
             sentCount: 0,
             responseCount: 0,
-            smsMessage: `???�?�?� {{guest_name}}! 
+            smsMessage: `╫⌐╫£╫ץ╫¥ {{guest_name}}! 
 
-?�?�?�?� ?�?�?� ???�?�???� ?�{{event_type}} ???� {{couple_name}}! 
+╫¬╫ץ╫ף╫פ ╫¿╫ס╫פ ╫⌐╫פ╫ע╫ó╫¬ ╫£{{event_type}} ╫⌐╫£ {{couple_name}}! 
 
-?�?�?� ?�???� ?�?�?? ?�?�?�?�?� ?�?�?�?� ?�?�?�?�?�?� ?�?�?�???� ?�?�?�?� ?�???�?�?�?� ?�?�?�.
+╫פ╫ש╫פ ╫£╫á╫ץ ╫¢╫ש╫ú ╫£╫¿╫נ╫ץ╫¬ ╫נ╫ץ╫¬╫ת ╫ץ╫£╫פ╫ש╫ץ╫¬ ╫נ╫ש╫¬╫á╫ץ ╫ס╫ש╫ץ╫¥ ╫פ╫₧╫ש╫ץ╫ק╫ף ╫פ╫צ╫פ.
 
-?�?�?�?� ???� ?�?�?�?�?�?� ?�?�???�???�?�!
+╫¬╫ץ╫ף╫פ ╫ó╫£ ╫פ╫ס╫¿╫¢╫ץ╫¬ ╫ץ╫פ╫₧╫¬╫á╫ץ╫¬!
 
-?�???�???�?� ???�?�?�?�?�?? ?�?�???�?� ?�???�?�?�.
+╫¬╫₧╫ץ╫á╫ץ╫¬ ╫₧╫פ╫נ╫ש╫¿╫ץ╫ó ╫ש╫ץ╫ó╫£╫ץ ╫ס╫º╫¿╫ץ╫ס.
 
-?�?�?�?�?�,
+╫ס╫נ╫פ╫ס╫פ,
 {{couple_name}}`,
             createdAt: new Date(),
             updatedAt: new Date()
@@ -4809,12 +4812,12 @@ export const useEventStore = create<EventStore>()(
         set(state => {
           const eventIndex = state.events.findIndex(e => e.id === eventId);
           if (eventIndex < 0) {
-            console.error('?�� CRITICAL: Event not found in store after adding!');
-            throw new Error('?�?�?�?�?�?? ?�?� ???????� ?�???�?�?� ?�???�?�???�?�');
+            console.error('Γ¥ל CRITICAL: Event not found in store after adding!');
+            throw new Error('╫פ╫נ╫ש╫¿╫ץ╫ó ╫£╫נ ╫á╫₧╫ª╫נ ╫ס╫₧╫נ╫ע╫¿ ╫פ╫á╫¬╫ץ╫á╫ש╫¥');
           }
           
           const existingEvent = state.events[eventIndex];
-          console.log('?��� Event before update:', {
+          console.log('≡ƒףך Event before update:', {
             id: existingEvent.id,
             name: existingEvent.coupleName,
             guestsCount: existingEvent.guests?.length || 0,
@@ -4836,12 +4839,12 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Verify event still exists after update
           if (!updatedEvent) {
-            console.error('?�� CRITICAL: Event disappeared after update!');
-            throw new Error('?�?�?�?�?�?? ?????�?� ?�?�?�?� ?�???�?�?�?� - ?�?� ?�?� ?�???�?� ?�???�?�?�!');
+            console.error('Γ¥ל CRITICAL: Event disappeared after update!');
+            throw new Error('╫פ╫נ╫ש╫¿╫ץ╫ó ╫á╫ó╫£╫¥ ╫£╫נ╫ק╫¿ ╫פ╫ó╫ף╫¢╫ץ╫ƒ - ╫צ╫פ ╫£╫נ ╫נ╫₧╫ץ╫¿ ╫£╫º╫¿╫ץ╫¬!');
           }
           
-          console.log('?��� Updated events in state');
-          console.log('?��� Event after update:', {
+          console.log('≡ƒפה Updated events in state');
+          console.log('≡ƒףך Event after update:', {
             id: updatedEvent.id,
             name: updatedEvent.coupleName,
             guestsCount: updatedEvent.guests?.length || 0,
@@ -4850,11 +4853,11 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Verify we didn't lose any data
           if (updatedEvent.guests?.length !== existingEvent.guests?.length) {
-            console.error('?�� CRITICAL: Guest count changed during campaign update!', {
+            console.error('Γ¥ל CRITICAL: Guest count changed during campaign update!', {
               before: existingEvent.guests?.length || 0,
               after: updatedEvent.guests?.length || 0
             });
-            throw new Error('?�?�?�?�?� ???�?�???� ?�?�?�?�?�?� ?�???�?�?� ???�?�?�?� ???????�?�???�?�!');
+            throw new Error('╫נ╫ץ╫ס╫ף╫ƒ ╫á╫¬╫ץ╫á╫ש ╫נ╫ץ╫¿╫ק╫ש╫¥ ╫ס╫₧╫פ╫£╫ת ╫ó╫ף╫¢╫ץ╫ƒ ╫º╫₧╫ñ╫ש╫ש╫á╫ש╫¥!');
           }
           
           return { events: updatedEvents };
@@ -4864,17 +4867,17 @@ export const useEventStore = create<EventStore>()(
         if (updatedEvent) {
           try {
             await syncEventToAPI(updatedEvent);
-            console.log('?�� Recreated campaigns synced to API successfully');
+            console.log('Γ£ו Recreated campaigns synced to API successfully');
           } catch (error) {
-            console.error('?�� Failed to sync recreated campaigns to API:', error);
+            console.error('Γ¥ל Failed to sync recreated campaigns to API:', error);
             // Don't throw - the campaigns were created locally, API sync is secondary
           }
         }
 
-        console.log('?��� Recreated campaigns with correct guest links');
-        console.log('?��� New campaigns created:', newCampaigns.length);
-        console.log('?��� Sample link from first campaign:', newCampaigns[0]?.message?.includes('?guest={{guest_id}}') ? 'CORRECT' : 'INCORRECT');
-        console.log('?��� Full message preview:', newCampaigns[0]?.message?.substring(0, 200) + '...');
+        console.log('≡ƒפה Recreated campaigns with correct guest links');
+        console.log('≡ƒףך New campaigns created:', newCampaigns.length);
+        console.log('≡ƒפק Sample link from first campaign:', newCampaigns[0]?.message?.includes('?guest={{guest_id}}') ? 'CORRECT' : 'INCORRECT');
+        console.log('≡ƒפק Full message preview:', newCampaigns[0]?.message?.substring(0, 200) + '...');
       },
 
       // Table management functions
@@ -4910,11 +4913,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�?�?????� ?�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫פ╫ץ╫í╫ñ╫¬ ╫פ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4951,11 +4954,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�?�?� ?�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫ó╫ף╫¢╫ץ╫ƒ ╫פ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -4994,11 +4997,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�???�?�???� ?�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫₧╫ק╫ש╫º╫¬ ╫פ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -5055,11 +5058,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�?????�?� ?�?�?�?�?� ?�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫פ╫º╫ª╫נ╫¬ ╫פ╫נ╫ץ╫¿╫ק ╫£╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -5109,11 +5112,11 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�???�?� ?�?�?�?�?� ???�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫פ╫í╫¿╫¬ ╫פ╫נ╫ץ╫¿╫ק ╫₧╫פ╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
@@ -5175,17 +5178,17 @@ export const useEventStore = create<EventStore>()(
           const updatedEvent = get().events.find(e => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
-              console.error('?�� Final sync attempt failed:', err);
+              console.error('Γ¥ל Final sync attempt failed:', err);
             });
           }
         } catch (error) {
-          set({ error: '???�?�?�?� ?�?�???�?�?� ?�?�?�?�?� ?�???�?�?�?�', isLoading: false });
+          set({ error: '╫⌐╫ע╫ש╫נ╫פ ╫ס╫פ╫ó╫ס╫¿╫¬ ╫פ╫נ╫ץ╫¿╫ק ╫£╫⌐╫ץ╫£╫ק╫ƒ', isLoading: false });
         }
       },
 
-      // Admin functions - ?�?? ?�?????�?�
+      // Admin functions - ╫¿╫º ╫£╫₧╫á╫פ╫£
       getAllEvents: () => {
-        // ?�?�?�???� ?�?� ?�?????�???? ?�?�?� ?????�?�
+        // ╫ס╫ף╫ש╫º╫פ ╫נ╫¥ ╫פ╫₧╫⌐╫¬╫₧╫⌐ ╫פ╫ץ╫נ ╫₧╫á╫פ╫£
         const userStorage = localStorage.getItem('rsvp-user-storage');
         let isAdmin = false;
         if (userStorage) {
@@ -5194,10 +5197,10 @@ export const useEventStore = create<EventStore>()(
         }
 
         if (!isAdmin) {
-          throw new Error('?�?? ?????�?� ?�?�?�?� ?�?�?�?�?� ?�?� ?�?� ?�?�?�?�?�???�?�');
+          throw new Error('╫¿╫º ╫₧╫á╫פ╫£ ╫ש╫¢╫ץ╫£ ╫£╫¿╫נ╫ץ╫¬ ╫נ╫¬ ╫¢╫£ ╫פ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥');
         }
 
-        // ???�?�?�?� ?�?� ?�?�?�?�?�???�?� ??-localStorage
+        // ╫º╫¿╫ש╫נ╫¬ ╫¢╫£ ╫פ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥ ╫₧-localStorage
         const stored = localStorage.getItem('rsvp-events-storage');
         if (!stored) {
           return [];
@@ -5240,24 +5243,24 @@ export const useEventStore = create<EventStore>()(
           }
 
           if (!userId) {
-            console.warn('?�???� No userId found - cannot clean up events');
+            console.warn('Γתá∩╕ן No userId found - cannot clean up events');
             return;
           }
 
-          console.log(`?�?? Starting cleanup for user ${userId}...`);
+          console.log(`≡ƒº╣ Starting cleanup for user ${userId}...`);
 
           // Get all events from localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
           if (!stored) {
-            console.log('?�???� No events in storage to clean up');
+            console.log('Γה╣∩╕ן No events in storage to clean up');
             return;
           }
 
           const parsed = JSON.parse(stored);
           const allEvents = parsed.state?.events || [];
           
-          console.log(`?��� Found ${allEvents.length} total events in storage`);
-          console.log('?��� Events details:', allEvents.map((e: Event) => ({ 
+          console.log(`≡ƒףכ Found ${allEvents.length} total events in storage`);
+          console.log('≡ƒףכ Events details:', allEvents.map((e: Event) => ({ 
             id: e.id, 
             userId: e.userId, 
             name: e.coupleName,
@@ -5271,7 +5274,7 @@ export const useEventStore = create<EventStore>()(
             .map((e: Event) => {
               // Update events with missing or anonymous userId to current userId
               if ((!e.userId || e.userId === 'anonymous') && userId) {
-                console.log(`?��� Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
+                console.log(`≡ƒפה Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}" (was anonymous/missing)`);
                 return { ...e, userId: userId };
               }
               return e;
@@ -5294,12 +5297,12 @@ export const useEventStore = create<EventStore>()(
             return e.userId && e.userId !== userId && e.userId !== 'anonymous';
           });
           
-          console.log(`?��� Analysis:`);
+          console.log(`≡ƒףך Analysis:`);
           console.log(`   - Current user events: ${userEvents.length}`);
           console.log(`   - Other users events: ${removedEvents.length}`);
           
           if (removedEvents.length > 0) {
-            console.log(`?�?? Removing ${removedEvents.length} events from other users:`, 
+            console.log(`≡ƒº╣ Removing ${removedEvents.length} events from other users:`, 
               removedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
             
             // Save cleaned events (ONLY current user's events)
@@ -5314,13 +5317,13 @@ export const useEventStore = create<EventStore>()(
             // Update state with filtered events (should match userEvents since we already filtered)
             set({ events: userEvents });
             
-            console.log(`?�� Cleaned up ${removedEvents.length} events. Kept ${userEvents.length} events for current user.`);
-            console.log(`?�� State updated with ${userEvents.length} events`);
+            console.log(`Γ£ו Cleaned up ${removedEvents.length} events. Kept ${userEvents.length} events for current user.`);
+            console.log(`Γ£ו State updated with ${userEvents.length} events`);
           } else {
-            console.log('?�???� No events from other users found - nothing to clean up');
+            console.log('Γה╣∩╕ן No events from other users found - nothing to clean up');
           }
         } catch (error) {
-          console.error('?�� Error cleaning up events:', error);
+          console.error('Γ¥ל Error cleaning up events:', error);
         }
       },
 
@@ -5332,21 +5335,21 @@ export const useEventStore = create<EventStore>()(
             : get().currentEvent;
           
           if (!eventToSync) {
-            console.warn('?�???� No event to sync:', eventId || 'currentEvent');
+            console.warn('Γתá∩╕ן No event to sync:', eventId || 'currentEvent');
             return;
           }
           
           // Only sync if event has guests (to avoid unnecessary syncs)
           if (!eventToSync.guests || eventToSync.guests.length === 0) {
-            console.log(`?�??� Skipping sync for event ${eventToSync.id} - no guests`);
+            console.log(`Γן¡∩╕ן Skipping sync for event ${eventToSync.id} - no guests`);
             return;
           }
           
-          console.log(`?��� Auto-syncing event ${eventToSync.id} with ${eventToSync.guests.length} guests...`);
+          console.log(`≡ƒפה Auto-syncing event ${eventToSync.id} with ${eventToSync.guests.length} guests...`);
           await syncEventToAPI(eventToSync);
-          console.log(`?�� Auto-synced event ${eventToSync.id} successfully`);
+          console.log(`Γ£ו Auto-synced event ${eventToSync.id} successfully`);
         } catch (error) {
-          console.warn('?�???� Failed to auto-sync event:', error);
+          console.warn('Γתá∩╕ן Failed to auto-sync event:', error);
           // Don't throw - this is a background sync, shouldn't block UI
         }
       },
@@ -5364,13 +5367,13 @@ export const useEventStore = create<EventStore>()(
           }
 
           if (!userId) {
-            throw new Error('?�?� ???????� userId - ?�???� ?�?�?�?�?� ???�?�??');
+            throw new Error('╫£╫נ ╫á╫₧╫ª╫נ userId - ╫נ╫á╫נ ╫פ╫¬╫ק╫ס╫¿ ╫₧╫ק╫ף╫⌐');
           }
 
           // Get all events from localStorage
           const stored = localStorage.getItem('rsvp-events-storage');
           if (!stored) {
-            throw new Error('?�?� ???????�?� ?�?�?�?�???�?� ?�-localStorage');
+            throw new Error('╫£╫נ ╫á╫₧╫ª╫נ╫ץ ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥ ╫ס-localStorage');
           }
 
           const parsed = JSON.parse(stored);
@@ -5380,10 +5383,10 @@ export const useEventStore = create<EventStore>()(
           const userEvents = allEvents.filter((e: Event) => e.userId === userId);
           
           if (userEvents.length === 0) {
-            throw new Error('?�?� ???????�?� ?�?�?�?�???�?� ?�?????�???? ?�???�?�?�?�');
+            throw new Error('╫£╫נ ╫á╫₧╫ª╫נ╫ץ ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥ ╫£╫₧╫⌐╫¬╫₧╫⌐ ╫פ╫á╫ץ╫¢╫ק╫ש');
           }
 
-          console.log(`?��� Syncing ${userEvents.length} events to API for user ${userId}...`);
+          console.log(`≡ƒפה Syncing ${userEvents.length} events to API for user ${userId}...`);
 
           const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
           let syncedCount = 0;
@@ -5397,15 +5400,15 @@ export const useEventStore = create<EventStore>()(
               // Use syncEventToAPI which sends the full event with all guests
               await syncEventToAPI(event);
                 syncedCount++;
-              console.log(`?�� Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
+              console.log(`Γ£ו Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
             } catch (error: any) {
                 failedCount++;
-              console.error(`?�� Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
+              console.error(`Γ¥ל Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
               // syncEventToAPI already handles 413 errors internally, so we just log the failure
             }
           }
 
-          console.log(`?�� Sync complete: ${syncedCount} synced, ${failedCount} failed`);
+          console.log(`Γ£ו Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
           // Refresh events from API after sync
           await get().fetchEvents(true);
@@ -5413,13 +5416,13 @@ export const useEventStore = create<EventStore>()(
           set({ isLoading: false });
           
           if (failedCount > 0) {
-            throw new Error(`?????�?�???� ${syncedCount} ?�?�?�?�???�?�, ${failedCount} ???�???�?�`);
+            throw new Error(`╫í╫á╫¢╫¿╫á╫ץ ${syncedCount} ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥, ${failedCount} ╫á╫¢╫⌐╫£╫ץ`);
           }
           
           return { synced: syncedCount, failed: failedCount };
         } catch (error) {
-          console.error('?�� Error syncing all events:', error);
-          set({ error: error instanceof Error ? error.message : '???�?�?�?� ?�?????�?�?�?� ?�?�?�?�???�?�', isLoading: false });
+          console.error('Γ¥ל Error syncing all events:', error);
+          set({ error: error instanceof Error ? error.message : '╫⌐╫ע╫ש╫נ╫פ ╫ס╫í╫á╫¢╫¿╫ץ╫ƒ ╫נ╫ש╫¿╫ץ╫ó╫ש╫¥', isLoading: false });
           throw error;
         }
       },
@@ -5439,7 +5442,7 @@ export const useEventStore = create<EventStore>()(
             currentUserId = parsed.state?.user?.id || '';
           }
         } catch (e) {
-          console.warn('?�???� Could not get userId in partialize:', e);
+          console.warn('Γתá∩╕ן Could not get userId in partialize:', e);
         }
 
         try {
@@ -5480,7 +5483,7 @@ export const useEventStore = create<EventStore>()(
               // This ensures newly created events are preserved
               currentEventsFromState.forEach((stateEvent: Event) => {
                 if (!mergedEvents.find((e: Event) => e.id === stateEvent.id)) {
-                  console.log('?��? Adding new event from state to storage:', stateEvent.id);
+                  console.log('≡ƒע╛ Adding new event from state to storage:', stateEvent.id);
                   mergedEvents.push(stateEvent);
                 }
               });
@@ -5498,7 +5501,7 @@ export const useEventStore = create<EventStore>()(
                     ?.filter((guest: Guest) => {
                       // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
                       if (deletedGuestIds.includes(guest.id)) {
-                        console.log(`?��� Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                        console.log(`≡ƒת½ Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
                         return false;
                       }
                       return true;
@@ -5511,7 +5514,7 @@ export const useEventStore = create<EventStore>()(
                 };
               });
               
-              console.log(`?��? Saving ${cleanedMergedEvents.length} events to localStorage (userId: ${currentUserId || 'none'})`);
+              console.log(`≡ƒע╛ Saving ${cleanedMergedEvents.length} events to localStorage (userId: ${currentUserId || 'none'})`);
               
               return {
                 events: cleanedMergedEvents, // Preserve all events (filtered by userId only if logged in), with deleted guests removed
@@ -5524,7 +5527,7 @@ export const useEventStore = create<EventStore>()(
           
           // If no storage exists, save current state (for first-time users)
           if (state.events && state.events.length > 0) {
-            console.log('?��? No storage found, saving current state events:', state.events.length);
+            console.log('≡ƒע╛ No storage found, saving current state events:', state.events.length);
             
             // CRITICAL: Get deletedGuests from state
             const currentDeletedGuests = state.deletedGuests || {};
@@ -5538,7 +5541,7 @@ export const useEventStore = create<EventStore>()(
                   ?.filter((guest: Guest) => {
                     // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
                     if (deletedGuestIds.includes(guest.id)) {
-                      console.log(`?��� Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                      console.log(`≡ƒת½ Filtering out deleted guest from localStorage: ${guest.firstName} ${guest.lastName} (${guest.id})`);
                       return false;
                     }
                     return true;
@@ -5559,7 +5562,7 @@ export const useEventStore = create<EventStore>()(
             };
           }
         } catch (error) {
-          console.error('?�� Error in partialize:', error);
+          console.error('Γ¥ל Error in partialize:', error);
         }
         
         // Fallback: if we can't merge, at least save what we have
@@ -5575,7 +5578,7 @@ export const useEventStore = create<EventStore>()(
               ?.filter((guest: Guest) => {
                 // CRITICAL: Filter out deleted guests - they should not be saved to localStorage
                 if (deletedGuestIds.includes(guest.id)) {
-                  console.log(`?��� Filtering out deleted guest from localStorage (fallback): ${guest.firstName} ${guest.lastName} (${guest.id})`);
+                  console.log(`≡ƒת½ Filtering out deleted guest from localStorage (fallback): ${guest.firstName} ${guest.lastName} (${guest.id})`);
                   return false;
                 }
                 return true;
@@ -5612,16 +5615,16 @@ if (typeof window !== 'undefined') {
       
       // Handle force refresh
       if (message.type === 'force-refresh' || message.action === 'force-refresh') {
-        console.log('?��� Cross-tab: Force refreshing events...');
+        console.log('≡ƒפה Cross-tab: Force refreshing events...');
         store.fetchEvents(true, true).catch(err => {
-          console.error('?�� Error refreshing events from cross-tab:', err);
+          console.error('Γ¥ל Error refreshing events from cross-tab:', err);
         });
         return;
       }
       
       // Handle store updates
       if (message.data?.state) {
-        console.log('?��� Cross-tab: Updating events from other tab...');
+        console.log('≡ƒפה Cross-tab: Updating events from other tab...');
         const newState = message.data.state;
         
         // Merge events intelligently (keep newer versions)
