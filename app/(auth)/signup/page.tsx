@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { he } from '@/lib/i18n/he'
 
+// Signup page - uses API route for user creation to avoid TypeScript errors
+
 export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,7 +35,7 @@ export default function SignupPage() {
       setError(signUpError.message)
       setLoading(false)
     } else if (data.user) {
-      // Create user profile via API route to avoid TypeScript errors
+      // Create user profile via API route (no direct insert to avoid TypeScript errors)
       try {
         const response = await fetch('/api/users/create', {
           method: 'POST',
