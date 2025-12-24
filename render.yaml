@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: whatsapp-backend
+    runtime: node
+    plan: free
+    buildCommand: cd whatsapp-backend && npm install
+    startCommand: cd whatsapp-backend && node server.js
+    envVars:
+      - key: PORT
+        value: "3002"
+      - key: NODE_ENV
+        value: production
+      - key: WEBHOOK_VERIFY_TOKEN
+        value: whatsapp_webhook_verify_token_2024
+
+  - type: static
+    name: rsvp-frontend
+    buildCommand: npm install && npm run build -- --mode production
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - src/**
+        - public/**
+        - index.html
+        - package.json
+        - vite.config.ts
+        - tsconfig.json
+        - tailwind.config.js
+        - postcss.config.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+
