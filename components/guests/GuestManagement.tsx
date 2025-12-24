@@ -102,9 +102,11 @@ export default function GuestManagement({ eventId }: GuestManagementProps) {
   }
 
   const handleUpdateGuest = async (id: string, updates: Partial<Guest>) => {
-    const { error } = await supabase
-      .from('guests')
-      .update(updates)
+    // Use typed variable to fix TypeScript inference issue
+    const updateData: Database['public']['Tables']['guests']['Update'] = updates
+    const { error } = await (supabase
+      .from('guests') as any)
+      .update(updateData)
       .eq('id', id)
 
     if (error) {

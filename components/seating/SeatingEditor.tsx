@@ -99,12 +99,14 @@ export default function SeatingEditor({ eventId }: SeatingEditorProps) {
   }
 
   const handleCreateTable = async (tableData: Omit<Table, 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
-    const { error } = await supabase
-      .from('tables')
-      .insert({
-        ...tableData,
-        event_id: eventId,
-      })
+    // Use typed variable to fix TypeScript inference issue
+    const insertData: Database['public']['Tables']['tables']['Insert'] = {
+      ...tableData,
+      event_id: eventId,
+    }
+    const { error } = await (supabase
+      .from('tables') as any)
+      .insert(insertData)
 
     if (error) {
       console.error('Error creating table:', error)
@@ -114,9 +116,11 @@ export default function SeatingEditor({ eventId }: SeatingEditorProps) {
   }
 
   const handleUpdateTable = async (id: string, updates: Partial<Table>) => {
-    const { error } = await supabase
-      .from('tables')
-      .update(updates)
+    // Use typed variable to fix TypeScript inference issue
+    const updateData: Database['public']['Tables']['tables']['Update'] = updates
+    const { error } = await (supabase
+      .from('tables') as any)
+      .update(updateData)
       .eq('id', id)
 
     if (error) {
@@ -151,13 +155,15 @@ export default function SeatingEditor({ eventId }: SeatingEditorProps) {
       .eq('guest_id', guestId)
 
     // Create new assignment
-    const { error } = await supabase
-      .from('table_assignments')
-      .insert({
-        event_id: eventId,
-        guest_id: guestId,
-        table_id: tableId,
-      })
+    // Use typed variable to fix TypeScript inference issue
+    const insertData: Database['public']['Tables']['table_assignments']['Insert'] = {
+      event_id: eventId,
+      guest_id: guestId,
+      table_id: tableId,
+    }
+    const { error } = await (supabase
+      .from('table_assignments') as any)
+      .insert(insertData)
 
     if (error) {
       console.error('Error assigning guest:', error)
