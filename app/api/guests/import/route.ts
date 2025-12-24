@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
+import type { Database } from '@/types/database.types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,9 +66,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert guests
-    const { error: insertError } = await supabase
-      .from('guests')
-      .insert(guests)
+    // Type assertion to fix TypeScript inference issue
+    const { error: insertError } = await (supabase
+      .from('guests') as any)
+      .insert(guests as Database['public']['Tables']['guests']['Insert'][])
+    
 
     if (insertError) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
