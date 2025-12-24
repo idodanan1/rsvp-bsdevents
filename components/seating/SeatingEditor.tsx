@@ -98,14 +98,15 @@ export default function SeatingEditor({ eventId }: SeatingEditorProps) {
     }
   }
 
-  const handleCreateTable = async (tableData: Omit<Table, 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
+  const handleCreateTable = async (tableData: Omit<Database['public']['Tables']['tables']['Insert'], 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
     // Type assertion to fix TypeScript inference issue
+    const insertData: Database['public']['Tables']['tables']['Insert'] = {
+      ...tableData,
+      event_id: eventId,
+    }
     const { error } = await (supabase
       .from('tables') as any)
-      .insert({
-        ...tableData,
-        event_id: eventId,
-      } as Database['public']['Tables']['tables']['Insert'])
+      .insert(insertData)
 
     if (error) {
       console.error('Error creating table:', error)
