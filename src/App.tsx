@@ -32,6 +32,7 @@ import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
 import { useCampaignStore } from './store/campaignStore';
+import { Campaign } from './types';
 import { webhookService } from './services/webhookService';
 import { schedulerService } from './services/schedulerService';
 import { crossTabSync } from './utils/crossTabSync';
@@ -106,7 +107,7 @@ function App() {
           // Get campaigns from campaignStore
           const campaignStore = useCampaignStore.getState();
           const scheduledCampaigns = campaignStore.campaigns.filter(
-            c => c.status === 'scheduled' && c.scheduledDate
+            (c: Campaign) => c.status === 'scheduled' && c.scheduledDate
           );
 
           // Reschedule each campaign
