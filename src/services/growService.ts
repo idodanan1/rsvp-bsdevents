@@ -26,6 +26,7 @@ export interface Transaction {
   credits: number;
   status: 'pending' | 'success' | 'failed';
   growTransactionId?: string;
+  stripePaymentId?: string;
   createdAt: Date;
 }
 
