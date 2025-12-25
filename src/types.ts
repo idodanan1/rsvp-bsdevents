@@ -30,10 +30,16 @@ export interface Campaign {
   id: string;
   name: string;
   message: string;
-  status: 'draft' | 'sent' | 'failed';
+  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
   sentCount?: number;
   sentDate?: Date | string;
+  scheduledDate?: Date | string;
   imageUrl?: string;
+  eventId?: string;
+  channel?: 'whatsapp' | 'sms';
+  responseCount?: number;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
 }
 
 export interface Event {
