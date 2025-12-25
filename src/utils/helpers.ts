@@ -1,5 +1,7 @@
 // Helper functions for the RSVP Management System
 import { Event, Guest } from '../types';
+import React from 'react';
+import { CheckCircle, XCircle, Clock, HelpCircle } from 'lucide-react';
 
 export interface EventStats {
   totalGuests: number;
@@ -63,6 +65,21 @@ export function formatDate(date: Date | string | undefined): string {
   });
 }
 
+export function formatDateTime(date: Date | string | undefined): string {
+  if (!date) return '';
+  
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  
+  return d.toLocaleString('he-IL', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 export function getStatusColor(status: string): string {
   switch (status) {
     case 'confirmed':
@@ -74,6 +91,25 @@ export function getStatusColor(status: string): string {
     case 'pending':
     default:
       return 'text-gray-600';
+  }
+}
+
+export function getStatusIcon(status: string): React.ReactElement {
+  switch (status) {
+    case 'confirmed':
+      return <CheckCircle className="w-4 h-4 text-green-600 inline mr-1" />;
+    case 'declined':
+      return <XCircle className="w-4 h-4 text-red-600 inline mr-1" />;
+    case 'maybe':
+      return <Clock className="w-4 h-4 text-yellow-600 inline mr-1" />;
+    case 'attended':
+      return <CheckCircle className="w-4 h-4 text-green-600 inline mr-1" />;
+    case 'not_attended':
+      return <XCircle className="w-4 h-4 text-red-600 inline mr-1" />;
+    case 'not_marked':
+    case 'pending':
+    default:
+      return <HelpCircle className="w-4 h-4 text-gray-600 inline mr-1" />;
   }
 }
 
