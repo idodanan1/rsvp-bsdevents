@@ -6,6 +6,7 @@ import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanN
 import { webhookService } from '../services/webhookService';
 // Import messageService dynamically to avoid circular dependency issues
 // import { messageService } from '../services/messageService';
+import type { MessageData, BulkMessageResult } from '../services/messageService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -2711,12 +2712,13 @@ const EventManagement: React.FC = () => {
         // This allows whatsappService to use template "aa" if needed (first message or retry after error 131047)
         // The templateParams are already set in the recipients array above
         
-        result = await messageService.sendBulkMessages({
+        // Use MessageData type since recipients are MessageRecipient[]
+        const messageData: MessageData = {
           message: baseMessage, // Base message for free-form messages
           templateName: undefined, // CRITICAL: No template - send as regular text message (will use template "aa" if first message)
-          templateParams: undefined, // CRITICAL: Template params are already in each recipient.templateParams
           recipients
-        });
+        };
+        result = await messageService.sendBulkMessages(messageData) as BulkMessageResult;
         
         console.log('📊 messageService.sendBulkMessages result:', result);
       } catch (error) {
@@ -2926,7 +2928,8 @@ const EventManagement: React.FC = () => {
         // CRITICAL: Import messageService dynamically to avoid circular dependency issues
         const { messageService } = await import('../services/messageService');
         
-        result = await messageService.sendBulkMessages({
+        // Use MessageData type since recipients are MessageRecipient[]
+        const messageData: MessageData = {
           message,
           imageUrl: finalImageUrl,
           // CRITICAL: Use template "new" (simple like curl - no components)
@@ -2954,7 +2957,8 @@ const EventManagement: React.FC = () => {
             // CRITICAL: Pass template params for template "new"
             templateParams: templateParamsForNew
           }]
-        });
+        };
+        result = await messageService.sendBulkMessages(messageData) as BulkMessageResult;
         
         console.log('📊 messageService.sendBulkMessages result:', result);
       } catch (error) {
