@@ -8,7 +8,9 @@ interface WhatsAppMessage {
       parameters?: Array<{ type: string; text?: string; image?: { link: string } }>
     }>
   }
-  text?: string
+  text?: {
+    body: string
+  }
 }
 
 export class WhatsAppClient {
