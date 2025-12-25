@@ -206,7 +206,10 @@ function App() {
     
     // Cleanup on unmount
     return () => {
-      webhookService.stopPolling();
+      // Type assertion for stopPolling method
+      if ((webhookService as any).stopPolling) {
+        (webhookService as any).stopPolling();
+      }
       schedulerService.clearAll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
