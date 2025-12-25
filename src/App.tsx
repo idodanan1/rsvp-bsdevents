@@ -65,13 +65,13 @@ function App() {
           console.log(`🔄 Cross-tab: Force refresh requested for ${message.storeName}`);
           
           if (message.storeName === 'rsvp-events-storage' || message.storeName === '*') {
-            fetchEvents(true, true).catch(err => {
+            fetchEvents(true, true).catch((err: unknown) => {
               console.error('❌ Error refreshing events from cross-tab:', err);
             });
           }
           
           if (message.storeName === 'client-store' || message.storeName === '*') {
-            fetchClients().catch(err => {
+            fetchClients().catch((err: unknown) => {
               console.error('❌ Error refreshing clients from cross-tab:', err);
             });
           }
