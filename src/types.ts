@@ -56,3 +56,23 @@ export interface Event {
   updatedAt?: Date | string;
 }
 
+export interface Reminder {
+  id: string;
+  clientId: string;
+  eventId?: string;
+  title: string;
+  description?: string;
+  reminderDate: Date | string;
+  reminderTime?: string;
+  type: 'call' | 'email' | 'meeting' | 'task' | 'follow-up' | 'other';
+  priority: 'low' | 'medium' | 'high';
+  isRecurring?: boolean;
+  recurringInterval?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  recurringEndDate?: Date | string;
+  notes?: string;
+  isCompleted?: boolean;
+  completedDate?: Date | string;
+  createdAt?: Date | string;
+  updatedAt?: Date | string;
+}
+
