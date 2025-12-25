@@ -3,6 +3,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ChevronLeft, ChevronRight, Calendar, Users, MapPin, Plus, Edit, Trash2 } from 'lucide-react';
 import { useEventStore } from '../store/eventStore';
 import { useNavigate } from 'react-router-dom';
+import { Event } from '../types';
 
 // Hebrew month names
 const hebrewMonths = [
@@ -31,14 +32,14 @@ const CalendarView: React.FC = () => {
 
   // קבלת אירועים לתאריך ספציפי
   const getEventsForDate = (date: Date): CalendarEvent[] => {
-    return events.map(event => ({
+    return events.map((event: Event) => ({
       id: event.id,
       title: event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע'),
       date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
       time: event.eventTime,
       location: event.venue,
       guestCount: event.guests?.length || 0
-    })).filter(calEvent => {
+    })).filter((calEvent: CalendarEvent) => {
       const eventDate = new Date(calEvent.date);
       return isSameDay(eventDate, date);
     });
@@ -46,14 +47,14 @@ const CalendarView: React.FC = () => {
 
   // קבלת אירועים לחודש הנוכחי
   const getEventsForMonth = (date: Date): CalendarEvent[] => {
-    return events.map(event => ({
+    return events.map((event: Event) => ({
       id: event.id,
       title: event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע'),
       date: event.eventDate instanceof Date ? event.eventDate.toISOString() : new Date(event.eventDate).toISOString(),
       time: event.eventTime,
       location: event.venue,
       guestCount: event.guests?.length || 0
-    })).filter(calEvent => {
+    })).filter((calEvent: CalendarEvent) => {
       const eventDate = new Date(calEvent.date);
       return isSameMonth(eventDate, date);
     });
@@ -242,7 +243,7 @@ const CalendarView: React.FC = () => {
                 
                 {/* אירועים ליום */}
                 <div className="flex-1 space-y-1">
-                  {dayEvents.slice(0, 2).map((event) => (
+                  {dayEvents.slice(0, 2).map((event: CalendarEvent) => (
                     <div
                       key={event.id}
                       className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded group hover:bg-blue-200 transition-colors"
@@ -340,7 +341,7 @@ const CalendarView: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {getEventsForDate(selectedDate).map((event) => (
+                  {getEventsForDate(selectedDate).map((event: CalendarEvent) => (
                     <div key={event.id} className="border border-gray-200 rounded-lg p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
