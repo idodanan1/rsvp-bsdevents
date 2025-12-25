@@ -201,18 +201,18 @@ const EventManagement: React.FC = () => {
       if (result.processed > 0) {
         console.log(`✅ Initial sync completed: ${result.processed} updates processed, ${result.failed} failed, ${result.remaining} remaining`);
         // Refresh events to show updated data
-        fetchEvents(false, true).catch(err => {
+        fetchEvents(false, true).catch((err: any) => {
           console.warn('⚠️ Failed to refresh events after initial sync:', err);
         });
       } else if (result.remaining > 0) {
         console.log(`ℹ️ No updates processed, but ${result.remaining} updates remain (may need manual processing)`);
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       console.warn('⚠️ Initial sync failed (non-critical):', err);
     });
     
     // Initial fetch
-    fetchEvents().catch(error => {
+    fetchEvents().catch((error: any) => {
       console.error('❌ Error initial fetch:', error);
     });
     
