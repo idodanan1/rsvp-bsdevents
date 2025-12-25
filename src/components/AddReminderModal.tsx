@@ -95,7 +95,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">בחר לקוח</option>
-                {clients.map(client => (
+                {clients.map((client: any) => (
                   <option key={client.id} value={client.id}>
                     {formatFullName(client.firstName, client.lastName)}
                   </option>
@@ -115,7 +115,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">ללא אירוע ספציפי</option>
-                {clientEvents.map(event => (
+                {clientEvents.map((event: any) => (
                   <option key={event.id} value={event.id}>
                     {event.eventName} - {new Date(event.eventDate).toLocaleDateString('he-IL')}
                   </option>
