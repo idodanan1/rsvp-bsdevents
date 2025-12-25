@@ -176,7 +176,7 @@ function App() {
                       console.error('Error sending scheduled campaign:', error);
                       // Update campaign status in event
                       await eventStore.updateEvent(event.id, {
-                        campaigns: event.campaigns?.map(c =>
+                        campaigns: event.campaigns?.map((c: Campaign) =>
                           c.id === campaign.id ? { ...c, status: 'failed' } : c
                         )
                       });
