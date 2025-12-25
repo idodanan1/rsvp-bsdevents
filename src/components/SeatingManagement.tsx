@@ -938,7 +938,7 @@ const SeatingManagement: React.FC = () => {
                   )}
                 </span>
                 <select
-                  onChange={(e) => {
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                     if (e.target.value) {
                       handleAssignGuest(guest.id, e.target.value);
                       e.target.value = '';
