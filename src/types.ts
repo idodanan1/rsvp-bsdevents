@@ -76,3 +76,19 @@ export interface Reminder {
   updatedAt?: Date | string;
 }
 
+export type VendorCategory = 
+  | 'venue' 
+  | 'catering' 
+  | 'photography' 
+  | 'videography' 
+  | 'music' 
+  | 'flowers' 
+  | 'decoration' 
+  | 'transportation' 
+  | 'hair_makeup'
+  | 'dress'
+  | 'suit'
+  | 'rings'
+  | 'invitations'
+  | 'other';
+
