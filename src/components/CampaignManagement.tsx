@@ -140,7 +140,7 @@ const CampaignManagement: React.FC = () => {
       name: campaign.name,
       message: campaign.message,
       imageUrl: campaign.imageUrl || '',
-      channel: campaign.channel,
+      channel: campaign.channel || 'whatsapp',
       scheduledDate: formatDate(campaign.scheduledDate).split(' ')[0],
       scheduledTime: campaign.scheduledDate.toTimeString().slice(0, 5),
       repeatType: 'none',

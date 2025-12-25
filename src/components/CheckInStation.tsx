@@ -4,6 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { useEventStore } from '../store/eventStore';
 import { parseQRUrl } from '../services/qrService';
 import { formatFullName } from '../utils/helpers';
+import { Event, Guest, Table } from '../types';
 import { CheckCircle, Table, Users, Camera, AlertCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -270,14 +271,14 @@ const CheckInStation: React.FC = () => {
       }
 
       // Find the event and guest
-      const event = events.find(e => e.id === eventId);
+      const event = events.find((e: Event) => e.id === eventId);
       if (!event) {
         setError('אירוע לא נמצא');
         toast.error('אירוע לא נמצא');
         return;
       }
 
-      const guest = event.guests.find(g => g.id === qrData.guestId);
+      const guest = event.guests.find((g: Guest) => g.id === qrData.guestId);
       if (!guest) {
         toast.error('אורח לא נמצא');
         return;
@@ -286,7 +287,7 @@ const CheckInStation: React.FC = () => {
       // Check if already marked as attended
       if (guest.actualAttendance === 'attended') {
         // Still show the info, but don't update again
-        const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+        const guestTable = event.tables?.find((table: Table) => table.guests.includes(guest.id));
         const tableNumber = guestTable ? guestTable.number : null;
         
         // Clear any existing timeout
