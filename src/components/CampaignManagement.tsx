@@ -834,7 +834,7 @@ const CampaignManagement: React.FC = () => {
                       <span className="text-sm text-gray-600">{getStatusText(campaign.status)}</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      {getChannelIcon(campaign.channel)}
+                      {getChannelIcon(campaign.channel || 'whatsapp')}
                       <span className="text-sm text-gray-600">
                         {campaign.channel === 'whatsapp' ? 'וואטסאפ' : 'SMS'}
                       </span>
@@ -991,7 +991,7 @@ const CampaignManagement: React.FC = () => {
               
               <div className="flex items-center space-x-4 text-sm">
                 <div className="flex items-center space-x-1">
-                  {getChannelIcon(selectedCampaign.channel)}
+                  {getChannelIcon(selectedCampaign.channel || 'whatsapp')}
                   <span>וואטסאפ</span>
                 </div>
                 <div className="flex items-center space-x-1">
