@@ -255,7 +255,7 @@ const BudgetManagement: React.FC = () => {
             <input
               type="number"
               value={totalBudgetInput}
-              onChange={(e) => setTotalBudgetInput(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTotalBudgetInput(e.target.value)}
               placeholder="הזן תקציב כולל"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
@@ -358,7 +358,7 @@ const BudgetManagement: React.FC = () => {
           <input
             type="number"
             value={totalBudgetInput}
-            onChange={(e) => setTotalBudgetInput(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTotalBudgetInput(e.target.value)}
             placeholder="תקציב חדש"
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
           />
@@ -641,7 +641,7 @@ const VendorModal: React.FC<{
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -653,7 +653,7 @@ const VendorModal: React.FC<{
               </label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value as VendorCategory })}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({ ...formData, category: e.target.value as VendorCategory })}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
@@ -673,7 +673,7 @@ const VendorModal: React.FC<{
                 <input
                   type="text"
                   value={formData.contactName}
-                  onChange={(e) => setFormData({ ...formData, contactName: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, contactName: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -684,7 +684,7 @@ const VendorModal: React.FC<{
                 <input
                   type="tel"
                   value={formData.phoneNumber}
-                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, phoneNumber: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 />
               </div>
@@ -697,7 +697,7 @@ const VendorModal: React.FC<{
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
@@ -710,7 +710,7 @@ const VendorModal: React.FC<{
                 <input
                   type="number"
                   value={formData.budget}
-                  onChange={(e) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, budget: parseFloat(e.target.value) || 0 })}
                   required
                   min="0"
                   step="0.01"
@@ -725,7 +725,7 @@ const VendorModal: React.FC<{
                   <input
                     type="number"
                     value={formData.paid}
-                    onChange={(e) => setFormData({ ...formData, paid: parseFloat(e.target.value) || 0 })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, paid: parseFloat(e.target.value) || 0 })}
                     min="0"
                     step="0.01"
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -740,7 +740,7 @@ const VendorModal: React.FC<{
               </label>
               <textarea
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, notes: e.target.value })}
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -812,7 +812,7 @@ const PaymentModal: React.FC<{
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                 required
                 min="0"
                 step="0.01"
@@ -827,7 +827,7 @@ const PaymentModal: React.FC<{
               </label>
               <textarea
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -909,7 +909,7 @@ const PaymentScheduleModal: React.FC<{
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)}
                 required
                 min="0"
                 step="0.01"
@@ -925,7 +925,7 @@ const PaymentScheduleModal: React.FC<{
               <input
                 type="date"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDueDate(e.target.value)}
                 required
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
@@ -937,7 +937,7 @@ const PaymentScheduleModal: React.FC<{
               </label>
               <textarea
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />

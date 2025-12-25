@@ -230,7 +230,7 @@ const UserManagement: React.FC = () => {
               type="text"
               placeholder="חפש משתמש לפי שם או אימייל..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
               className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
             />
           </div>
@@ -335,7 +335,7 @@ const UserManagement: React.FC = () => {
                           {!user.isAdmin && (
                             <button
                               type="button"
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 setSelectedUser(user);
@@ -442,7 +442,7 @@ const UserManagement: React.FC = () => {
                   type="number"
                   min="1"
                   value={creditsToAdd}
-                  onChange={(e) => setCreditsToAdd(parseInt(e.target.value) || 0)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreditsToAdd(parseInt(e.target.value) || 0)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                   placeholder="או הכנס כמות מותאמת אישית"
                 />

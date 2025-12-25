@@ -131,7 +131,7 @@ const ScheduleCalendar: React.FC<ScheduleCalendarProps> = ({
                 {dayCampaigns.slice(0, 3).map((campaign) => (
                   <div
                     key={campaign.id}
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent<HTMLDivElement>) => {
                       e.stopPropagation();
                       onCampaignClick(campaign);
                     }}

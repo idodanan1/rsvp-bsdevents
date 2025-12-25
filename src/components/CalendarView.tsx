@@ -229,7 +229,7 @@ const CalendarView: React.FC = () => {
                   </div>
                   {isCurrentMonth && (
                     <button
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         handleAddEvent(day);
                       }}
@@ -257,7 +257,7 @@ const CalendarView: React.FC = () => {
                         </span>
                         <div className="flex items-center space-x-1 space-x-reverse opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               handleEditEvent(event);
                             }}
@@ -267,7 +267,7 @@ const CalendarView: React.FC = () => {
                             <Edit className="w-3 h-3" />
                           </button>
                           <button
-                            onClick={(e) => {
+                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                               e.stopPropagation();
                               handleDeleteEvent(event);
                             }}

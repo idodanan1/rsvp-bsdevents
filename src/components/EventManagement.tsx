@@ -3974,7 +3974,7 @@ const EventManagement: React.FC = () => {
                   <td className="px-3 py-4 whitespace-nowrap text-sm font-medium w-24">
                     <div className="flex items-center space-x-1">
                       <button
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           console.log('🔘 Send to Single Guest button clicked!');
                           console.log('🔘 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
                           console.log('🔘 handleSendToSingleGuest function:', typeof handleSendToSingleGuest);

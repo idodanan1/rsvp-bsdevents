@@ -203,7 +203,7 @@ const Settings: React.FC = () => {
               <input
                 type="text"
                 value={settings.displayName}
-                onChange={(e) => updateSetting('displayName', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('displayName', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הזן שם תצוגה"
               />
@@ -216,7 +216,7 @@ const Settings: React.FC = () => {
               <input
                 type="email"
                 value={settings.email}
-                onChange={(e) => updateSetting('email', e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('email', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הזן אימייל"
                 dir="ltr"
@@ -242,7 +242,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.emailNotifications}
-                  onChange={(e) => updateSetting('emailNotifications', e.target.checked)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('emailNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -313,7 +313,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.language}
-                onChange={(e) => updateSetting('language', e.target.value as 'he' | 'en')}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('language', e.target.value as 'he' | 'en')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="he">עברית</option>
@@ -327,7 +327,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.dateFormat}
-                onChange={(e) => updateSetting('dateFormat', e.target.value as UserSettings['dateFormat'])}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('dateFormat', e.target.value as UserSettings['dateFormat'])}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="dd/mm/yyyy">יום/חודש/שנה (31/12/2024)</option>
@@ -342,7 +342,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.timeFormat}
-                onChange={(e) => updateSetting('timeFormat', e.target.value as '12h' | '24h')}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('timeFormat', e.target.value as '12h' | '24h')}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="24h">24 שעות (14:30)</option>
@@ -448,7 +448,7 @@ const Settings: React.FC = () => {
                 <Type className="w-5 h-5 text-gray-400" />
                 <select
                   value={settings.fontSize}
-                  onChange={(e) => updateSetting('fontSize', e.target.value as UserSettings['fontSize'])}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('fontSize', e.target.value as UserSettings['fontSize'])}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
                   <option value="small">קטן</option>

@@ -507,7 +507,7 @@ const Dashboard: React.FC = () => {
                     <div className="flex space-x-2">
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.preventDefault();
                           e.stopPropagation();
                           handleEditEvent(event);
@@ -540,7 +540,7 @@ const Dashboard: React.FC = () => {
                       </button>
                       <button
                         type="button"
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.preventDefault();
                           e.stopPropagation();
                           console.log('View button clicked for event:', event);
@@ -586,7 +586,7 @@ const Dashboard: React.FC = () => {
                         הודעות
                       </Link>
                       <button
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation();
                           navigate(`/event/${event.id}/seating`);
                         }}
@@ -595,7 +595,7 @@ const Dashboard: React.FC = () => {
                         הושבה
                       </button>
                       <button
-                        onClick={(e) => {
+                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                           e.stopPropagation();
                           handleDeleteEvent(event.id, event.coupleName);
                         }}
@@ -646,7 +646,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="date"
                       value={selectedEventForEdit.eventDate ? new Date(selectedEventForEdit.eventDate).toISOString().split('T')[0] : ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         eventDate: new Date(e.target.value)
                       })}
@@ -663,7 +663,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="text"
                       value={selectedEventForEdit.groomName || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         groomName: e.target.value
                       })}
@@ -677,7 +677,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="text"
                       value={selectedEventForEdit.brideName || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         brideName: e.target.value
                       })}
@@ -694,7 +694,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="text"
                       value={selectedEventForEdit.groomParentsName || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         groomParentsName: e.target.value
                       })}
@@ -708,7 +708,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="text"
                       value={selectedEventForEdit.brideParentsName || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         brideParentsName: e.target.value
                       })}
@@ -725,7 +725,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="time"
                       value={selectedEventForEdit.eventTime || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         eventTime: e.target.value
                       })}
@@ -739,7 +739,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="text"
                       value={selectedEventForEdit.venue || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         venue: e.target.value
                       })}
@@ -756,7 +756,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="tel"
                       value={selectedEventForEdit.couplePhone || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         couplePhone: e.target.value
                       })}
@@ -770,7 +770,7 @@ const Dashboard: React.FC = () => {
                     <input
                       type="email"
                       value={selectedEventForEdit.coupleEmail || ''}
-                      onChange={(e) => setSelectedEventForEdit({
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSelectedEventForEdit({
                         ...selectedEventForEdit,
                         coupleEmail: e.target.value
                       })}
@@ -785,7 +785,7 @@ const Dashboard: React.FC = () => {
                   </label>
                   <select
                     value={selectedEventForEdit.eventType || 'wedding'}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const eventTypeMap: Record<string, string> = {
                         'wedding': 'חתונה',
                         'bar_mitzvah': 'בר מצווה',
@@ -929,7 +929,7 @@ const Dashboard: React.FC = () => {
                     type="url"
                     placeholder="https://example.com/image.jpg או https://i.imgur.com/xxxxx.jpg"
                     value={selectedEventForEdit.invitationImageUrl || ''}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       const url = e.target.value.trim();
                       
                       // Reject file:// URLs - user should use file upload instead

@@ -246,7 +246,7 @@ const MessageTemplates: React.FC = () => {
                   <input
                     type="text"
                     value={templateForm.name}
-                    onChange={(e) => setTemplateForm({...templateForm, name: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTemplateForm({...templateForm, name: e.target.value})}
                     className="input-field"
                     placeholder="הזן שם לתבנית"
                     required
@@ -270,7 +270,7 @@ const MessageTemplates: React.FC = () => {
                 </label>
                 <textarea
                   value={templateForm.content}
-                  onChange={(e) => setTemplateForm({...templateForm, content: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setTemplateForm({...templateForm, content: e.target.value})}
                   className="input-field h-32"
                   placeholder="הזן את תוכן התבנית... ניתן להשתמש במשתנים: {firstName}, {coupleName}, {eventDate}, {eventTime}"
                   required
@@ -287,7 +287,7 @@ const MessageTemplates: React.FC = () => {
                 <input
                   type="url"
                   value={templateForm.imageUrl}
-                  onChange={(e) => setTemplateForm({...templateForm, imageUrl: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTemplateForm({...templateForm, imageUrl: e.target.value})}
                   className="input-field"
                   placeholder="https://example.com/image.jpg"
                 />
@@ -313,7 +313,7 @@ const MessageTemplates: React.FC = () => {
                   type="checkbox"
                   id="isDefault"
                   checked={templateForm.isDefault}
-                  onChange={(e) => setTemplateForm({...templateForm, isDefault: e.target.checked})}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTemplateForm({...templateForm, isDefault: e.target.checked})}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label htmlFor="isDefault" className="mr-2 block text-sm text-gray-700">

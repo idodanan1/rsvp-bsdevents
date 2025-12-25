@@ -1994,7 +1994,7 @@ const GuestResponse = () => {
                   min="1"
                   max="50"
                   value={formData.guestCount > 10 ? formData.guestCount : (formData.guestCount || '')}
-                  onChange={(e) => {
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                     const value = parseInt(e.target.value) || 1;
                     setFormData(prev => ({ ...prev, guestCount: Math.max(1, Math.min(50, value)) }));
                   }}
@@ -2010,7 +2010,7 @@ const GuestResponse = () => {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="הוסף הערה או בקשה מיוחדת..."
                   rows={3}
                   className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none resize-none"
@@ -2092,7 +2092,7 @@ const GuestResponse = () => {
                 </label>
                 <textarea
                   value={formData.notes}
-                  onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                   placeholder="הוסף הערה או בקשה מיוחדת..."
                   rows={3}
                   className="w-full px-4 py-2 border-2 border-amber-200 rounded-xl focus:border-amber-400 focus:outline-none resize-none"

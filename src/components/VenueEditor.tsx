@@ -1248,7 +1248,7 @@ const VenueEditor: React.FC = () => {
                   {/* Show seating button in seating mode */}
                   {seatingMode && (
                     <button
-                      onClick={(e) => {
+                      onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                         e.stopPropagation();
                         handleTableClick(table.id);
                       }}
@@ -1414,7 +1414,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="number"
                     value={newTable.number}
-                    onChange={(e) => setNewTable({...newTable, number: parseInt(e.target.value) || 1})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({...newTable, number: parseInt(e.target.value) || 1})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="1"
                   />
@@ -1427,7 +1427,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="text"
                     value={newTable.name}
-                    onChange={(e) => setNewTable({...newTable, name: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({...newTable, name: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="למשל: שולחן משפחה"
                   />
@@ -1440,7 +1440,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="number"
                     value={newTable.capacity}
-                    onChange={(e) => setNewTable({...newTable, capacity: parseInt(e.target.value) || 8})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({...newTable, capacity: parseInt(e.target.value) || 8})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="1"
                     max="20"
@@ -1453,7 +1453,7 @@ const VenueEditor: React.FC = () => {
                   </label>
                   <textarea
                     value={newTable.notes}
-                    onChange={(e) => setNewTable({...newTable, notes: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewTable({...newTable, notes: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="הערות נוספות על השולחן..."
@@ -1503,7 +1503,7 @@ const VenueEditor: React.FC = () => {
                   </label>
                   <select
                     value={newElement.type}
-                    onChange={(e) => setNewElement({...newElement, type: e.target.value as any})}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setNewElement({...newElement, type: e.target.value as any})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="entrance">כניסה</option>
@@ -1521,7 +1521,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="text"
                     value={newElement.name}
-                    onChange={(e) => setNewElement({...newElement, name: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewElement({...newElement, name: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="למשל: כניסה ראשית"
                   />
@@ -1535,7 +1535,7 @@ const VenueEditor: React.FC = () => {
                     <input
                       type="number"
                       value={newElement.width}
-                      onChange={(e) => setNewElement({...newElement, width: parseInt(e.target.value) || 100})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewElement({...newElement, width: parseInt(e.target.value) || 100})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="20"
                       max="500"
@@ -1549,7 +1549,7 @@ const VenueEditor: React.FC = () => {
                     <input
                       type="number"
                       value={newElement.height}
-                      onChange={(e) => setNewElement({...newElement, height: parseInt(e.target.value) || 60})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewElement({...newElement, height: parseInt(e.target.value) || 60})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="20"
                       max="500"
@@ -1565,7 +1565,7 @@ const VenueEditor: React.FC = () => {
                     <input
                       type="number"
                       value={newElement.x}
-                      onChange={(e) => setNewElement({...newElement, x: parseInt(e.target.value) || 50})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewElement({...newElement, x: parseInt(e.target.value) || 50})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="0"
                     />
@@ -1578,7 +1578,7 @@ const VenueEditor: React.FC = () => {
                     <input
                       type="number"
                       value={newElement.y}
-                      onChange={(e) => setNewElement({...newElement, y: parseInt(e.target.value) || 50})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewElement({...newElement, y: parseInt(e.target.value) || 50})}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       min="0"
                     />
@@ -1744,7 +1744,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="number"
                     value={editingTable.number}
-                    onChange={(e) => setEditingTable({...editingTable, number: parseInt(e.target.value) || 1})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({...editingTable, number: parseInt(e.target.value) || 1})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="1"
                   />
@@ -1757,7 +1757,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="text"
                     value={editingTable.name || ''}
-                    onChange={(e) => setEditingTable({...editingTable, name: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({...editingTable, name: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="למשל: שולחן משפחה"
                   />
@@ -1770,7 +1770,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="number"
                     value={editingTable.capacity}
-                    onChange={(e) => setEditingTable({...editingTable, capacity: parseInt(e.target.value) || 8})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({...editingTable, capacity: parseInt(e.target.value) || 8})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="1"
                     max="20"
@@ -1783,7 +1783,7 @@ const VenueEditor: React.FC = () => {
                   </label>
                   <textarea
                     value={editingTable.notes || ''}
-                    onChange={(e) => setEditingTable({...editingTable, notes: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingTable({...editingTable, notes: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
                     placeholder="הערות נוספות על השולחן..."
@@ -1839,7 +1839,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="text"
                     value={newGuest.firstName}
-                    onChange={(e) => setNewGuest({...newGuest, firstName: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewGuest({...newGuest, firstName: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="הכנס שם מלא"
                     required
@@ -1853,7 +1853,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="tel"
                     value={newGuest.phone}
-                    onChange={(e) => setNewGuest({...newGuest, phone: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewGuest({...newGuest, phone: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="הכנס מספר טלפון"
                   />
@@ -1866,7 +1866,7 @@ const VenueEditor: React.FC = () => {
                   <input
                     type="number"
                     value={newGuest.guestCount}
-                    onChange={(e) => setNewGuest({...newGuest, guestCount: parseInt(e.target.value) || 1})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewGuest({...newGuest, guestCount: parseInt(e.target.value) || 1})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="1"
                     max="20"

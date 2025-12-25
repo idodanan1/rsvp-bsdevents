@@ -1186,7 +1186,7 @@ const ClientDashboard: React.FC = () => {
                   type="text"
                   placeholder="חפש לפי שם או טלפון..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
                   className="pr-10 pl-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full"
                 />
               </div>
@@ -1200,7 +1200,7 @@ const ClientDashboard: React.FC = () => {
                   </label>
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFilterStatus(e.target.value as any)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="all">הכל</option>
@@ -1218,7 +1218,7 @@ const ClientDashboard: React.FC = () => {
                   </label>
                   <select
                     value={messageFilterStatus}
-                    onChange={(e) => setMessageFilterStatus(e.target.value as any)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setMessageFilterStatus(e.target.value as any)}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="all">הכל</option>

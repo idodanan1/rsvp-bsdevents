@@ -19,7 +19,7 @@ const AccessibilityStatement: React.FC<AccessibilityStatementProps> = ({ isOpen,
     >
       <div
         className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <h1 id="accessibility-statement-title" className="text-2xl font-bold text-gray-800">

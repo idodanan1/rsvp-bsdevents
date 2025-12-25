@@ -450,7 +450,7 @@ const SeatingManagement: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <select
                     value={targetTableId}
-                    onChange={(e) => setTargetTableId(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTargetTableId(e.target.value)}
                     className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
                   >
                     <option value="">בחר שולחן</option>
@@ -558,7 +558,7 @@ const SeatingManagement: React.FC = () => {
               type="text"
               placeholder="חיפוש אורחים..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
               className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -603,7 +603,7 @@ const SeatingManagement: React.FC = () => {
                     {!guest.tableId && (
                       <select
                         value={targetTableId}
-                        onChange={(e) => setTargetTableId(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setTargetTableId(e.target.value)}
                         className="text-xs border border-gray-300 rounded px-2 py-1"
                       >
                         <option value="">בחר שולחן</option>
@@ -661,7 +661,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={newTable.number}
-                  onChange={(e) => setNewTable({ ...newTable, number: parseInt(e.target.value) || 0 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({ ...newTable, number: parseInt(e.target.value) || 0 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="1"
                 />
@@ -673,7 +673,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="text"
                   value={newTable.name}
-                  onChange={(e) => setNewTable({ ...newTable, name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({ ...newTable, name: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="שולחן משפחה"
                 />
@@ -685,7 +685,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={newTable.capacity}
-                  onChange={(e) => setNewTable({ ...newTable, capacity: parseInt(e.target.value) || 8 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTable({ ...newTable, capacity: parseInt(e.target.value) || 8 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="8"
                 />
@@ -696,7 +696,7 @@ const SeatingManagement: React.FC = () => {
                 </label>
                 <textarea
                   value={newTable.notes}
-                  onChange={(e) => setNewTable({ ...newTable, notes: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewTable({ ...newTable, notes: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   rows={3}
                   placeholder="הערות נוספות..."
@@ -734,7 +734,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={bulkTables.startNumber}
-                  onChange={(e) => setBulkTables({ ...bulkTables, startNumber: parseInt(e.target.value) || 1 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkTables({ ...bulkTables, startNumber: parseInt(e.target.value) || 1 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="1"
                 />
@@ -746,7 +746,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={bulkTables.count}
-                  onChange={(e) => setBulkTables({ ...bulkTables, count: parseInt(e.target.value) || 10 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkTables({ ...bulkTables, count: parseInt(e.target.value) || 10 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="10"
                 />
@@ -758,7 +758,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={bulkTables.capacity}
-                  onChange={(e) => setBulkTables({ ...bulkTables, capacity: parseInt(e.target.value) || 8 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkTables({ ...bulkTables, capacity: parseInt(e.target.value) || 8 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="8"
                 />
@@ -770,7 +770,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="text"
                   value={bulkTables.namePrefix}
-                  onChange={(e) => setBulkTables({ ...bulkTables, namePrefix: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBulkTables({ ...bulkTables, namePrefix: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   placeholder="שולחן"
                 />
@@ -896,7 +896,7 @@ const SeatingManagement: React.FC = () => {
               {availableSeats > 0 && (
                 <div className="mt-4">
                   <select
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       if (e.target.value) {
                         handleAssignGuest(e.target.value, table.id);
                         e.target.value = '';
@@ -976,7 +976,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={editingTable.number}
-                  onChange={(e) => setEditingTable({ ...editingTable, number: parseInt(e.target.value) || 0 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({ ...editingTable, number: parseInt(e.target.value) || 0 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 />
               </div>
@@ -987,7 +987,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="text"
                   value={editingTable.name || ''}
-                  onChange={(e) => setEditingTable({ ...editingTable, name: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({ ...editingTable, name: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 />
               </div>
@@ -998,7 +998,7 @@ const SeatingManagement: React.FC = () => {
                 <input
                   type="number"
                   value={editingTable.capacity}
-                  onChange={(e) => setEditingTable({ ...editingTable, capacity: parseInt(e.target.value) || 8 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditingTable({ ...editingTable, capacity: parseInt(e.target.value) || 8 })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                 />
               </div>
@@ -1008,7 +1008,7 @@ const SeatingManagement: React.FC = () => {
                 </label>
                 <textarea
                   value={editingTable.notes || ''}
-                  onChange={(e) => setEditingTable({ ...editingTable, notes: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditingTable({ ...editingTable, notes: e.target.value })}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   rows={3}
                 />

@@ -547,7 +547,7 @@ const CampaignManagement: React.FC = () => {
                   <input
                     type="text"
                     value={newCampaign.name}
-                    onChange={(e) => setNewCampaign({...newCampaign, name: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCampaign({...newCampaign, name: e.target.value})}
                     className="input-field"
                     placeholder="הזן שם לקמפיין"
                     required
@@ -571,7 +571,7 @@ const CampaignManagement: React.FC = () => {
                 </label>
                 <textarea
                   value={newCampaign.message}
-                  onChange={(e) => setNewCampaign({...newCampaign, message: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewCampaign({...newCampaign, message: e.target.value})}
                   className="input-field h-32"
                   placeholder="הזן את תוכן ההודעה... ניתן להשתמש במשתנים: {firstName}, {coupleName}, {groomName}, {brideName}, {eventType}, {eventDate}, {eventTime}, {venue}"
                   required
@@ -588,7 +588,7 @@ const CampaignManagement: React.FC = () => {
                 <input
                   type="url"
                   value={newCampaign.imageUrl}
-                  onChange={(e) => setNewCampaign({...newCampaign, imageUrl: e.target.value})}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCampaign({...newCampaign, imageUrl: e.target.value})}
                   className="input-field"
                   placeholder="https://example.com/image.jpg"
                 />
@@ -617,7 +617,7 @@ const CampaignManagement: React.FC = () => {
                   <input
                     type="date"
                     value={newCampaign.scheduledDate}
-                    onChange={(e) => setNewCampaign({...newCampaign, scheduledDate: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCampaign({...newCampaign, scheduledDate: e.target.value})}
                     className="input-field"
                     required
                   />
@@ -630,7 +630,7 @@ const CampaignManagement: React.FC = () => {
                   <input
                     type="time"
                     value={newCampaign.scheduledTime}
-                    onChange={(e) => setNewCampaign({...newCampaign, scheduledTime: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewCampaign({...newCampaign, scheduledTime: e.target.value})}
                     className="input-field"
                     required
                   />
@@ -683,7 +683,7 @@ const CampaignManagement: React.FC = () => {
                   <input
                     type="date"
                     value={scheduleData.scheduledDate}
-                    onChange={(e) => setScheduleData({...scheduleData, scheduledDate: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScheduleData({...scheduleData, scheduledDate: e.target.value})}
                     className="input-field"
                     required
                   />
@@ -696,7 +696,7 @@ const CampaignManagement: React.FC = () => {
                   <input
                     type="time"
                     value={scheduleData.scheduledTime}
-                    onChange={(e) => setScheduleData({...scheduleData, scheduledTime: e.target.value})}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScheduleData({...scheduleData, scheduledTime: e.target.value})}
                     className="input-field"
                     required
                   />
@@ -709,7 +709,7 @@ const CampaignManagement: React.FC = () => {
                 </label>
                 <select
                   value={scheduleData.repeatType}
-                  onChange={(e) => setScheduleData({...scheduleData, repeatType: e.target.value as any})}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setScheduleData({...scheduleData, repeatType: e.target.value as any})}
                   className="input-field"
                 >
                   <option value="none">ללא חזרה</option>
@@ -752,7 +752,7 @@ const CampaignManagement: React.FC = () => {
                     <input
                       type="date"
                       value={scheduleData.repeatEndDate}
-                      onChange={(e) => setScheduleData({...scheduleData, repeatEndDate: e.target.value})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScheduleData({...scheduleData, repeatEndDate: e.target.value})}
                       className="input-field"
                     />
                   </div>
@@ -765,7 +765,7 @@ const CampaignManagement: React.FC = () => {
                       type="number"
                       min="1"
                       value={scheduleData.repeatInterval}
-                      onChange={(e) => setScheduleData({...scheduleData, repeatInterval: parseInt(e.target.value) || 1})}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setScheduleData({...scheduleData, repeatInterval: parseInt(e.target.value) || 1})}
                       className="input-field"
                     />
                   </div>

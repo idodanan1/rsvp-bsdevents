@@ -341,7 +341,7 @@ const CreateEvent: React.FC = () => {
           <select
             name="eventType"
             value={formData.eventType}
-            onChange={(e) => handleEventTypeChange(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleEventTypeChange(e.target.value)}
             className="input-field"
           >
             <option value="wedding">חתונה</option>

@@ -354,7 +354,7 @@ const Accessibility: React.FC = () => {
         >
           <div
             className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
           >
             <h2 id="keyboard-shortcuts-title" className="text-2xl font-bold text-gray-800 mb-4">
               קיצורי מקלדת

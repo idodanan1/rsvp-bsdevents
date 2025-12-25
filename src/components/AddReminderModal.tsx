@@ -91,7 +91,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
               <select
                 required
                 value={formData.clientId}
-                onChange={(e) => setFormData(prev => ({ ...prev, clientId: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, clientId: e.target.value }))}
                 className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">בחר לקוח</option>
@@ -111,7 +111,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
               </label>
               <select
                 value={formData.eventId}
-                onChange={(e) => setFormData(prev => ({ ...prev, eventId: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, eventId: e.target.value }))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">ללא אירוע ספציפי</option>
@@ -134,7 +134,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 type="text"
                 required
                 value={formData.title}
-                onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                 className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="כותרת התזכורת"
               />
@@ -149,7 +149,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
               <FileText className="absolute right-3 top-3 text-gray-400 w-5 h-5" />
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 rows={3}
                 className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="תיאור מפורט של התזכורת..."
@@ -168,7 +168,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                   type="date"
                   required
                   value={formData.reminderDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, reminderDate: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, reminderDate: e.target.value }))}
                   className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -183,7 +183,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 <input
                   type="time"
                   value={formData.reminderTime}
-                  onChange={(e) => setFormData(prev => ({ ...prev, reminderTime: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, reminderTime: e.target.value }))}
                   className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -197,7 +197,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
               </label>
               <select
                 value={formData.type}
-                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Reminder['type'] }))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, type: e.target.value as Reminder['type'] }))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="call">שיחה</option>
@@ -217,7 +217,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 <AlertCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value as Reminder['priority'] }))}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, priority: e.target.value as Reminder['priority'] }))}
                   className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="low">נמוכה</option>
@@ -234,7 +234,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
               type="checkbox"
               id="isRecurring"
               checked={formData.isRecurring}
-              onChange={(e) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
             <label htmlFor="isRecurring" className="mr-2 block text-sm text-gray-900">
@@ -250,7 +250,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 </label>
                 <select
                   value={formData.recurringInterval}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recurringInterval: e.target.value as Reminder['recurringInterval'] }))}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData(prev => ({ ...prev, recurringInterval: e.target.value as Reminder['recurringInterval'] }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="daily">יומי</option>
@@ -267,7 +267,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
                 <input
                   type="date"
                   value={formData.recurringEndDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recurringEndDate: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(prev => ({ ...prev, recurringEndDate: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -280,7 +280,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
             </label>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               rows={2}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="הערות נוספות..."
