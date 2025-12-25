@@ -203,7 +203,7 @@ const CampaignManagement: React.FC = () => {
       
       // Add error details if any failed
       if (result.failed > 0 && result.results) {
-        const failedResults = result.results.filter((r: { recipientId: string; success: boolean; error?: string }) => !r.success);
+        const failedResults = result.results.filter((r: { recipientId: string; success: boolean; error?: string; recipientName?: string; phoneNumber?: string }) => !r.success);
         if (failedResults.length > 0) {
           message += '\n\n🔍 פרטי שגיאות:';
           
