@@ -160,7 +160,7 @@ function App() {
           for (const event of events) {
             if (event.campaigns) {
               const eventScheduledCampaigns = event.campaigns.filter(
-                c => c.status === 'scheduled' && c.scheduledDate
+                (c: Campaign) => c.status === 'scheduled' && c.scheduledDate
               );
 
               for (const campaign of eventScheduledCampaigns) {
