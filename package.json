@@ -1,6 +1,6 @@
 {
   "name": "rsvp-saas",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -30,11 +30,13 @@
     "qrcode": "^1.5.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "react-hot-toast": "^2.4.0",
     "react-router-dom": "^7.11.0",
     "tailwind-merge": "^2.2.0",
     "tailwindcss": "^3.4.0",
     "xlsx": "^0.18.5",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
