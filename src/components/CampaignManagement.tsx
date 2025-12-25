@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { useCampaignStore } from '../store/campaignStore';
 import { formatDate, formatDateTime } from '../utils/helpers';
+import { Event } from '../types';
 import { messageService } from '../services/messageService';
 import { 
   ArrowRight, 
@@ -75,7 +76,7 @@ const CampaignManagement: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      const event = events.find(e => e.id === id);
+      const event = events.find((e: Event) => e.id === id);
       if (event) {
         setCurrentEvent(event);
       } else {
