@@ -498,7 +498,7 @@ export const useEventStore = create<EventStore>()(
                 const currentState = get();
                 if (currentState.events && currentState.events.length > 0) {
                   currentState.events.forEach((stateEvent: Event) => {
-                    if (!localEvents.find(e => e.id === stateEvent.id)) {
+                    if (!localEvents.find((e: Event) => e.id === stateEvent.id)) {
                       localEvents.push(stateEvent);
                     }
                   });
@@ -541,7 +541,7 @@ export const useEventStore = create<EventStore>()(
                   }
                   
                   // CRITICAL: Find existing event in local state to preserve manual guestCount changes
-                  const existingEvent = state.events.find(e => e.id === apiEvent.id);
+                  const existingEvent = state.events.find((e: Event) => e.id === apiEvent.id);
                   
                   // CRITICAL: Server is source of truth - use API data directly
                   // Filter out deleted guests and clean names
@@ -814,22 +814,22 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Use finalEvents (from server) as source of truth
                 // Server contains the latest data from all devices
                 const eventsToSave = finalEvents.length > 0 ? finalEvents : localEvents;
-                const localEventIds = new Set(localEvents.map(e => e.id));
-                const savedEventIds = new Set(eventsToSave.map(e => e.id));
+                const localEventIds = new Set(localEvents.map((e: Event) => e.id));
+                const savedEventIds = new Set(eventsToSave.map((e: Event) => e.id));
                 
                 // CRITICAL FIX: Only check for lost events that belong to current user
                 // Don't preserve events from other users!
-                const lostEvents = localEvents.filter(e => 
+                const lostEvents = localEvents.filter((e: Event) => 
                   !savedEventIds.has(e.id) && 
                   (!userId || e.userId === userId || !e.userId || e.userId === 'anonymous')
                 );
                 
                 if (lostEvents.length > 0) {
                   console.warn(`⚠️ CRITICAL: About to lose ${lostEvents.length} events for current user! Preserving them...`);
-                  console.warn('⚠️ Lost events:', lostEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                  console.warn('⚠️ Lost events:', lostEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   // Add lost events back (only if they belong to current user)
                   lostEvents.forEach(lostEvent => {
-                    if (!eventsToSave.find(e => e.id === lostEvent.id)) {
+                    if (!eventsToSave.find((e: Event) => e.id === lostEvent.id)) {
                       // CRITICAL: Only preserve if event belongs to current user
                       if (!userId || lostEvent.userId === userId || !lostEvent.userId || lostEvent.userId === 'anonymous') {
                         eventsToSave.push(lostEvent);
@@ -841,12 +841,12 @@ export const useEventStore = create<EventStore>()(
                   });
                 } else {
                   // Log events that don't belong to current user (for debugging)
-                  const otherUserEvents = localEvents.filter(e => 
+                  const otherUserEvents = localEvents.filter((e: Event) => 
                     userId && e.userId && e.userId !== userId && e.userId !== 'anonymous' && !savedEventIds.has(e.id)
                   );
                   if (otherUserEvents.length > 0) {
                     console.log(`ℹ️ Found ${otherUserEvents.length} events from other users (not preserving):`, 
-                      otherUserEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                      otherUserEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   }
                 }
                 
@@ -901,9 +901,9 @@ export const useEventStore = create<EventStore>()(
                   console.log('🔍 Debug info:', {
                     userId: userId,
                     localEventsCount: localEvents.length,
-                    localEventUserIds: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })),
+                    localEventUserIds: localEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName })),
                     finalEventsCount: finalEvents.length,
-                    finalEventUserIds: finalEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                    finalEventUserIds: finalEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName }))
                   });
                   
                   // CRITICAL FIX: If events don't have matching userId, update them to current userId
@@ -966,7 +966,7 @@ export const useEventStore = create<EventStore>()(
                   } else {
                     console.error('❌ CRITICAL: No events match userId even after update!', {
                       userId,
-                      events: localEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName }))
+                      events: localEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName }))
                     });
                   }
                 }
@@ -1012,8 +1012,8 @@ export const useEventStore = create<EventStore>()(
                 // Only update state if data actually changed (for silent updates)
                 if (silent) {
                   const currentEvents = get().events;
-                  const currentEventsJson = JSON.stringify(currentEvents.map(e => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
-                  const newEventsJson = JSON.stringify(eventsWithNewReferences.map(e => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
+                  const currentEventsJson = JSON.stringify(currentEvents.map((e: Event) => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
+                  const newEventsJson = JSON.stringify(eventsWithNewReferences.map((e: Event) => ({ id: e.id, updatedAt: e.updatedAt, guestsCount: e.guests?.length || 0 })));
                   
                   if (currentEventsJson === newEventsJson && currentEvents.length === eventsWithNewReferences.length) {
                     // Data hasn't changed, skip update to prevent unnecessary re-renders
@@ -1027,7 +1027,7 @@ export const useEventStore = create<EventStore>()(
                 let updatedCurrentEvent = storeState.currentEvent;
                 
                 if (storeState.currentEvent) {
-                  const updatedEvent = eventsWithNewReferences.find(e => e.id === storeState.currentEvent.id);
+                  const updatedEvent = eventsWithNewReferences.find((e: Event) => e.id === storeState.currentEvent.id);
                   if (updatedEvent) {
                     // Create new object reference to force React re-render
                     updatedCurrentEvent = {
@@ -1139,9 +1139,9 @@ export const useEventStore = create<EventStore>()(
                   allEvents = updatedEvents;
                 } else {
                   // Log if events don't match userId
-                  const mismatchedEvents = allEvents.filter(e => e.userId && e.userId !== userId && e.userId !== 'anonymous');
+                  const mismatchedEvents = allEvents.filter((e: Event) => e.userId && e.userId !== userId && e.userId !== 'anonymous');
                   if (mismatchedEvents.length > 0) {
-                    console.warn('⚠️ Found events with different userId:', mismatchedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+                    console.warn('⚠️ Found events with different userId:', mismatchedEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName })));
                   }
                 }
               }
@@ -1211,8 +1211,8 @@ export const useEventStore = create<EventStore>()(
                     userId,
                     totalEvents: allEvents.length,
                     filteredCount: filteredEvents.length,
-                    eventUserIds: allEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })),
-                    adminEventsExcluded: allEvents.filter(e => e.userId === 'admin-fixed-id').length
+                    eventUserIds: allEvents.map((e: Event) => ({ id: e.id, userId: e.userId, name: e.coupleName })),
+                    adminEventsExcluded: allEvents.filter((e: Event) => e.userId === 'admin-fixed-id').length
                   });
                 }
               }
@@ -1231,7 +1231,7 @@ export const useEventStore = create<EventStore>()(
               let updatedCurrentEvent = storeStateForLocalStorage.currentEvent;
               
               if (storeStateForLocalStorage.currentEvent) {
-                const updatedEvent = filteredEvents.find(e => e.id === storeStateForLocalStorage.currentEvent.id);
+                const updatedEvent = filteredEvents.find((e: Event) => e.id === storeStateForLocalStorage.currentEvent.id);
                 if (updatedEvent) {
                   // Create new object reference to force React re-render
                   updatedCurrentEvent = {
