@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { useCampaignStore } from '../store/campaignStore';
 import { formatDate, formatDateTime } from '../utils/helpers';
-import { Event } from '../types';
+import { Event, Campaign, Guest } from '../types';
 import { messageService } from '../services/messageService';
 import { 
   ArrowRight, 
@@ -203,13 +203,13 @@ const CampaignManagement: React.FC = () => {
       
       // Add error details if any failed
       if (result.failed > 0 && result.results) {
-        const failedResults = result.results.filter(r => !r.success);
+        const failedResults = result.results.filter((r: { recipientId: string; success: boolean; error?: string }) => !r.success);
         if (failedResults.length > 0) {
           message += '\n\n🔍 פרטי שגיאות:';
           
           // Group errors by type to show patterns
           const errorTypes: Record<string, number> = {};
-          failedResults.forEach(failed => {
+          failedResults.forEach((failed: { recipientId: string; success: boolean; error?: string; recipientName?: string; phoneNumber?: string }) => {
             if (failed.error) {
               const errorKey = failed.error.substring(0, 100); // First 100 chars as key
               errorTypes[errorKey] = (errorTypes[errorKey] || 0) + 1;
@@ -218,7 +218,7 @@ const CampaignManagement: React.FC = () => {
           
           // Show unique error types first
           const uniqueErrors = Object.keys(errorTypes).slice(0, 3);
-          uniqueErrors.forEach((errorKey, index) => {
+          uniqueErrors.forEach((errorKey: string, index: number) => {
             message += `\n\n${index + 1}. שגיאה נפוצה (${errorTypes[errorKey]} הודעות):`;
             const errorMsg = errorKey.length > 400 
               ? errorKey.substring(0, 400) + '...' 
@@ -227,7 +227,7 @@ const CampaignManagement: React.FC = () => {
           });
           
           // Show first 3 individual errors
-          failedResults.slice(0, 3).forEach((failed, index) => {
+          failedResults.slice(0, 3).forEach((failed: { recipientId: string; success: boolean; error?: string; recipientName?: string; phoneNumber?: string }, index: number) => {
             message += `\n\n${index + 1 + uniqueErrors.length}. ${failed.recipientName} (${failed.phoneNumber}):`;
             if (failed.error) {
               // Show first 300 characters of error to avoid too long message
@@ -268,7 +268,7 @@ const CampaignManagement: React.FC = () => {
       if (!currentEvent) return;
       
       // Count failed guests before resending
-      const failedGuestsCount = currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0;
+      const failedGuestsCount = currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0;
       
       if (failedGuestsCount === 0) {
         alert('ℹ️ אין אורחים עם הודעות שנכשלו לשליחה חוזרת');
@@ -351,7 +351,7 @@ const CampaignManagement: React.FC = () => {
       const scheduledDateTime = new Date(`${scheduleData.scheduledDate}T${scheduleData.scheduledTime}`);
       
       // Check if this is an event campaign (has eventId) or a standalone campaign
-      if (schedulingCampaign.eventId || currentEvent.campaigns?.some(c => c.id === schedulingCampaign.id)) {
+      if (schedulingCampaign.eventId || currentEvent.campaigns?.some((c: Campaign) => c.id === schedulingCampaign.id)) {
         // Schedule through eventStore
         await scheduleEventCampaign(currentEvent.id, schedulingCampaign.id, scheduledDateTime);
         console.log(`✅ Scheduled event campaign: ${schedulingCampaign.name} for ${scheduledDateTime.toLocaleString('he-IL')}`);
@@ -411,7 +411,7 @@ const CampaignManagement: React.FC = () => {
     setScheduleData(prev => ({
       ...prev,
       repeatDays: prev.repeatDays.includes(dayId)
-        ? prev.repeatDays.filter(id => id !== dayId)
+        ? prev.repeatDays.filter((id: number) => id !== dayId)
         : [...prev.repeatDays, dayId]
     }));
   };
@@ -500,7 +500,7 @@ const CampaignManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">נשלחו</p>
               <p className="text-3xl font-bold text-green-600">
-                {eventCampaigns?.filter(c => c.status === 'sent').length || 0}
+                {eventCampaigns?.filter((c: Campaign) => c.status === 'sent').length || 0}
               </p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-600" />
@@ -512,7 +512,7 @@ const CampaignManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">מתוזמנים</p>
               <p className="text-3xl font-bold text-yellow-600">
-                {eventCampaigns?.filter(c => c.status === 'scheduled').length || 0}
+                {eventCampaigns?.filter((c: Campaign) => c.status === 'scheduled').length || 0}
               </p>
             </div>
             <Clock className="w-8 h-8 text-yellow-600" />
@@ -524,7 +524,7 @@ const CampaignManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">הודעות נשלחו</p>
               <p className="text-3xl font-bold text-purple-600">
-                {eventCampaigns?.reduce((sum, c) => sum + (c.sentCount || 0), 0) || 0}
+                {eventCampaigns?.reduce((sum: number, c: Campaign) => sum + (c.sentCount || 0), 0) || 0}
               </p>
             </div>
             <Send className="w-8 h-8 text-purple-600" />
@@ -726,7 +726,7 @@ const CampaignManagement: React.FC = () => {
                     ימי שבוע
                   </label>
                   <div className="grid grid-cols-7 gap-2">
-                    {weekDays.map(day => (
+                    {weekDays.map((day: { id: number; name: string; short: string }) => (
                       <button
                         key={day.id}
                         type="button"
@@ -823,7 +823,7 @@ const CampaignManagement: React.FC = () => {
             }}
           />
         ) : (
-          eventCampaigns.map((campaign) => (
+          eventCampaigns.map((campaign: Campaign) => (
             <div key={campaign.id} className="card">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -926,13 +926,13 @@ const CampaignManagement: React.FC = () => {
                       onClick={() => handleResendFailed(campaign.id)}
                       className="btn-secondary text-sm flex items-center space-x-1 bg-orange-600 hover:bg-orange-700 text-white"
                       disabled={isLoading}
-                      title={`שלח שוב ל-${currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0} אורחים שההודעה נכשלה להם`}
+                      title={`שלח שוב ל-${currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0} אורחים שההודעה נכשלה להם`}
                     >
                       <XCircle className="w-4 h-4" />
                       <span>שליחה חוזרת לכשלונות</span>
-                      {(currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0) > 0 && (
+                      {(currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0) > 0 && (
                         <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 mr-1">
-                          {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length || 0}
+                          {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0}
                         </span>
                       )}
                     </button>
