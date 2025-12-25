@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBudgetStore } from '../store/budgetStore';
 import { useEventStore } from '../store/eventStore';
 import { useUserStore } from '../store/userStore';
-import { VendorCategory } from '../types';
+import { VendorCategory } from '../types/index';
 import {
   Plus,
   Edit,
