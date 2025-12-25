@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBudgetStore } from '../store/budgetStore';
 import { useEventStore } from '../store/eventStore';
 import { useUserStore } from '../store/userStore';
-import { VendorCategory } from '../types/index';
+import { VendorCategory, Event } from '../types/index';
 import {
   Plus,
   Edit,
@@ -78,10 +78,10 @@ const BudgetManagement: React.FC = () => {
       return events; // Admin sees all events
     }
     // Regular user sees only their events
-    return events.filter(e => e.userId === user.id);
+    return events.filter((e: Event) => e.userId === user.id);
   }, [events, user]);
 
-  const event = selectedEventId ? filteredEvents.find(e => e.id === selectedEventId) : null;
+  const event = selectedEventId ? filteredEvents.find((e: Event) => e.id === selectedEventId) : null;
   const budget = selectedEventId ? getBudgetByEventId(selectedEventId) : null;
   const stats = budget ? calculateBudgetStats(budget.id) : null;
 
@@ -188,7 +188,7 @@ const BudgetManagement: React.FC = () => {
   // SECURITY CHECK: Verify user has access to this event
   if (!event) {
     // Check if event exists but user doesn't have access
-    const eventExists = events.find(e => e.id === selectedEventId);
+    const eventExists = events.find((e: Event) => e.id === selectedEventId);
     if (eventExists && user) {
       const isAdmin = user.isAdmin === true || user.id === 'admin-fixed-id';
       if (!isAdmin && eventExists.userId !== user.id) {
