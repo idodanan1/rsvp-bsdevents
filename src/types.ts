@@ -46,6 +46,10 @@ export interface Event {
   id: string;
   name: string;
   coupleName: string;
+  groomName?: string;
+  brideName?: string;
+  groomParentsName?: string;
+  brideParentsName?: string;
   eventDate: Date | string;
   eventTime?: string;
   venue: string;
