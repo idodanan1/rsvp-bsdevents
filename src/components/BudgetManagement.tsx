@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useBudgetStore } from '../store/budgetStore';
 import { useEventStore } from '../store/eventStore';
 import { useUserStore } from '../store/userStore';
-import { VendorCategory, Event } from '../types/index';
+import { VendorCategory, Event, Vendor } from '../types/index';
 import {
   Plus,
   Edit,
@@ -404,7 +404,7 @@ const BudgetManagement: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {budget.vendors.map((vendor) => {
+            {budget.vendors.map((vendor: Vendor) => {
               const category = VENDOR_CATEGORIES.find(c => c.value === vendor.category);
               return (
                 <div key={vendor.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
