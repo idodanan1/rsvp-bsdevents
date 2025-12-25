@@ -405,7 +405,7 @@ const BudgetManagement: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {budget.vendors.map((vendor: Vendor) => {
-              const category = VENDOR_CATEGORIES.find(c => c.value === vendor.category);
+              const category = VENDOR_CATEGORIES.find((c: { value: VendorCategory; label: string; icon: string }) => c.value === vendor.category);
               return (
                 <div key={vendor.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
@@ -496,7 +496,7 @@ const BudgetManagement: React.FC = () => {
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <p className="text-sm font-medium text-gray-700 mb-2">לוח תשלומים:</p>
                       <div className="space-y-2">
-                        {vendor.paymentSchedule.map((payment) => (
+                        {vendor.paymentSchedule.map((payment: any) => (
                           <div
                             key={payment.id}
                             className={`flex items-center justify-between p-2 rounded-lg ${
@@ -560,7 +560,7 @@ const BudgetManagement: React.FC = () => {
       {/* Payment Modal */}
       {showPaymentModal && selectedVendor && (
         <PaymentModal
-          vendorName={budget.vendors.find(v => v.id === selectedVendor)?.name || ''}
+          vendorName={budget.vendors.find((v: Vendor) => v.id === selectedVendor)?.name || ''}
           onSave={(amount, notes) => handleAddPayment(amount, notes)}
           onClose={() => {
             setShowPaymentModal(false);
@@ -572,7 +572,7 @@ const BudgetManagement: React.FC = () => {
       {/* Payment Schedule Modal */}
       {showPaymentScheduleModal && selectedVendor && (
         <PaymentScheduleModal
-          vendorName={budget.vendors.find(v => v.id === selectedVendor)?.name || ''}
+          vendorName={budget.vendors.find((v: Vendor) => v.id === selectedVendor)?.name || ''}
           onSave={(payment) => {
             if (budget) {
               addPaymentSchedule(budget.id, selectedVendor, payment);
