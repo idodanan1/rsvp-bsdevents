@@ -141,7 +141,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set((state: any) => {
             const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
+                const vendorIndex = budget.vendors.findIndex((v: any) => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const oldVendor = budget.vendors[vendorIndex];
@@ -226,7 +226,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set((state: any) => {
             const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
+                const vendorIndex = budget.vendors.findIndex((v: any) => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const vendor = budget.vendors[vendorIndex];
@@ -271,7 +271,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set((state: any) => {
             const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
+                const vendorIndex = budget.vendors.findIndex((v: any) => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const vendor = budget.vendors[vendorIndex];
@@ -317,7 +317,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set((state: any) => {
             const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
+                const vendorIndex = budget.vendors.findIndex((v: any) => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const vendor = budget.vendors[vendorIndex];
@@ -382,7 +382,7 @@ export const useBudgetStore = create<BudgetStore>()(
           set((state: any) => {
             const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
+                const vendorIndex = budget.vendors.findIndex((v: any) => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const vendor = budget.vendors[vendorIndex];

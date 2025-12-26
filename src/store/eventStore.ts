@@ -246,7 +246,7 @@ class GuestUpdateBatchProcessor {
     
     // Remove any existing update for the same guest from queue
     this.updateQueue = this.updateQueue.filter(
-      u => !(u.eventId === update.eventId && u.guestId === update.guestId)
+      (u: any) => !(u.eventId === update.eventId && u.guestId === update.guestId)
     );
     
     // Add new update to queue
@@ -978,7 +978,7 @@ export const useEventStore = create<EventStore>()(
                 // This prevents duplicate events from appearing in the UI
                 const uniqueEvents = filteredEvents.reduce((acc, event) => {
                   // Check if event with same ID already exists
-                  const existingIndex = acc.findIndex(e => e.id === event.id);
+                  const existingIndex = acc.findIndex((e: any) => e.id === event.id);
                   if (existingIndex >= 0) {
                     // If duplicate found, keep the one with more recent updatedAt
                     const existing = acc[existingIndex];
@@ -1035,11 +1035,11 @@ export const useEventStore = create<EventStore>()(
                     // Create new object reference to force React re-render
                     updatedCurrentEvent = {
                       ...updatedEvent,
-                      guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+                      guests: updatedEvent.guests ? updatedEvent.guests.map((g: any) => ({ ...g })) : []
                     };
                     console.log('🔄 Updated currentEvent from API fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
                     // CRITICAL: Log specific guest statuses to verify updates
-                    const sampleGuests = updatedCurrentEvent.guests?.slice(0, 5).map(g => ({
+                    const sampleGuests = updatedCurrentEvent.guests?.slice(0, 5).map((g: any) => ({
                       id: g.id,
                       name: `${g.firstName} ${g.lastName}`,
                       status: g.rsvpStatus,
@@ -1047,7 +1047,7 @@ export const useEventStore = create<EventStore>()(
                     }));
                     console.log('🔍 Sample guests in updated currentEvent:', sampleGuests);
                     // Check for specific problematic guests
-                    const problematicGuests = updatedCurrentEvent.guests?.filter(g => 
+                    const problematicGuests = updatedCurrentEvent.guests?.filter((g: any) => 
                       (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
                       (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו'))
                     );
@@ -1239,7 +1239,7 @@ export const useEventStore = create<EventStore>()(
                   // Create new object reference to force React re-render
                   updatedCurrentEvent = {
                     ...updatedEvent,
-                    guests: updatedEvent.guests ? updatedEvent.guests.map(g => ({ ...g })) : []
+                    guests: updatedEvent.guests ? updatedEvent.guests.map((g: any) => ({ ...g })) : []
                   };
                   console.log('🔄 Updated currentEvent from localStorage fetch:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length);
                 }
@@ -1559,7 +1559,7 @@ export const useEventStore = create<EventStore>()(
           
           // Check for duplicate ID (should never happen with improved generateId, but safety check)
           let finalEvent = newEvent;
-          const duplicateIdEvent = currentState.events.find(e => e.id === newEvent.id);
+          const duplicateIdEvent = currentState.events.find((e: any) => e.id === newEvent.id);
           if (duplicateIdEvent) {
             console.error(`❌ CRITICAL: Duplicate event ID detected! This should never happen.`);
             console.error(`❌ Existing event ID: ${duplicateIdEvent.id}, New event ID: ${newEvent.id}`);
@@ -1569,7 +1569,7 @@ export const useEventStore = create<EventStore>()(
           }
           
           // Check for duplicate event by content (same couple and same date)
-          const duplicateContentEvent = currentState.events.find(e => 
+          const duplicateContentEvent = currentState.events.find((e: any) => 
             e.coupleName === finalEvent.coupleName && 
             e.eventDate && finalEvent.eventDate && 
             Math.abs(new Date(e.eventDate).getTime() - finalEvent.eventDate.getTime()) < 1000 // Same couple and same date (within 1 second)
