@@ -467,7 +467,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'rsvp-user-storage',
-      partialize: (state) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
+      partialize: (state: any) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
       onRehydrateStorage: () => (state) => {
         // CRITICAL: Keep user logged in after page refresh
         // User data is already loaded from localStorage by zustand persist

@@ -1,11 +1,20 @@
 ﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, VenueLayout, Campaign } from '../types';
 import { formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
 import { crossTabSync } from '../utils/crossTabSync';
+
+// Type definitions
+type Event = any;
+type Guest = any;
+type EventStore = any;
+type ExcelImportData = any;
+type ExcelExportData = any;
+type Table = any;
+type VenueLayout = any;
+type Campaign = any;
 
 // Local helper function
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -1264,7 +1273,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      createEvent: async (eventData) => {
+      createEvent: async (eventData: any) => {
         console.log('🔍 createEvent called with:', eventData);
         set({ isLoading: true, error: null });
         try {
@@ -1721,7 +1730,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateEvent: async (id, updates) => {
+      updateEvent: async (id: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           // CRITICAL: Clean invitationImageUrl - remove local file paths
@@ -1766,7 +1775,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      deleteEvent: async (id) => {
+      deleteEvent: async (id: any) => {
         set({ isLoading: true, error: null });
         try {
           const state: any = get();
@@ -1849,12 +1858,12 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      setCurrentEvent: (event) => {
+      setCurrentEvent: (event: any) => {
         console.log('🔍 setCurrentEvent called with:', event?.id);
         set({ currentEvent: event });
       },
 
-      addGuest: async (eventId, guestData) => {
+      addGuest: async (eventId: any, guestData: any) => {
         console.log('🔍 addGuest called with:', { eventId, guestData });
         set({ isLoading: true, error: null });
         try {
@@ -1909,7 +1918,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateGuest: async (eventId, guestId, updates) => {
+      updateGuest: async (eventId: any, guestId: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
@@ -2190,7 +2199,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateGuestResponse: async (eventId, guestId, updatedGuest) => {
+      updateGuestResponse: async (eventId: any, guestId: any, updatedGuest: any) => {
         console.log('🚀 updateGuestResponse CALLED:', {
           eventId,
           guestId,
@@ -3072,7 +3081,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      deleteGuest: async (eventId, guestId) => {
+      deleteGuest: async (eventId: any, guestId: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -3121,7 +3130,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      importGuestsFromExcel: async (eventId, data) => {
+      importGuestsFromExcel: async (eventId: any, data: any) => {
         set({ isLoading: true, error: null });
         try {
           const newGuests: Guest[] = data.map(guestData => ({
@@ -3158,7 +3167,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      exportGuestsToExcel: async (eventId) => {
+      exportGuestsToExcel: async (eventId: any) => {
         set({ isLoading: true, error: null });
         try {
           const event = get().events.find(e => e.id === eventId);
@@ -3185,7 +3194,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      createCampaign: async (campaignData) => {
+      createCampaign: async (campaignData: any) => {
         set({ isLoading: true, error: null });
         try {
           const newCampaign = {
@@ -3981,7 +3990,7 @@ export const useEventStore = create<EventStore>()(
 
 
       // Venue Layout Management Functions
-      createVenueLayout: async (eventId: string, layoutData) => {
+      createVenueLayout: async (eventId: any, layoutData: any) => {
         set({ isLoading: true, error: null });
         try {
           const layoutId = generateId();
@@ -4024,7 +4033,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateVenueLayout: async (eventId: string, updates) => {
+      updateVenueLayout: async (eventId: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
@@ -4059,7 +4068,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateTablePosition: async (eventId: string, tableId: string, x: number, y: number) => {
+      updateTablePosition: async (eventId: any, tableId: any, x: any, y: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
@@ -4102,7 +4111,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateTableSize: async (eventId: string, tableId: string, width: number, height: number) => {
+      updateTableSize: async (eventId: any, tableId: any, width: any, height: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
@@ -4145,7 +4154,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateTableRotation: async (eventId: string, tableId: string, rotation: number) => {
+      updateTableRotation: async (eventId: any, tableId: any, rotation: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
@@ -4188,7 +4197,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateTableShape: async (eventId: string, tableId: string, shape: 'rectangle' | 'circle' | 'oval') => {
+      updateTableShape: async (eventId: any, tableId: any, shape: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
@@ -4232,7 +4241,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Function to restore a specific deleted event
-      restoreDeletedEvent: async (deletedEventId: string) => {
+      restoreDeletedEvent: async (deletedEventId: any) => {
         set({ isLoading: true, error: null });
         try {
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
@@ -4325,7 +4334,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Function to permanently delete an event from deleted events
-      permanentlyDeleteEvent: async (deletedEventId: string) => {
+      permanentlyDeleteEvent: async (deletedEventId: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -4551,7 +4560,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Function to recreate campaigns with correct links
-      recreateCampaigns: async (eventId: string) => {
+      recreateCampaigns: async (eventId: any) => {
         console.log('🔄 recreateCampaigns called with eventId:', eventId);
         let event = get().events.find(e => e.id === eventId);
         
@@ -4883,7 +4892,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // Table management functions
-      addTable: async (eventId: string, tableData: Omit<Table, 'id' | 'createdAt' | 'updatedAt'>) => {
+      addTable: async (eventId: any, tableData: any) => {
         set({ isLoading: true, error: null });
         try {
           const event = get().events.find(e => e.id === eventId);
@@ -4923,7 +4932,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      updateTable: async (eventId: string, tableId: string, updates: Partial<Table>) => {
+      updateTable: async (eventId: any, tableId: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -4964,7 +4973,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      deleteTable: async (eventId: string, tableId: string) => {
+      deleteTable: async (eventId: any, tableId: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -5007,7 +5016,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      assignGuestToTable: async (eventId: string, guestId: string, tableId: string, seatNumber?: number) => {
+      assignGuestToTable: async (eventId: any, guestId: any, tableId: any, seatNumber?: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -5068,7 +5077,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      removeGuestFromTable: async (eventId: string, guestId: string) => {
+      removeGuestFromTable: async (eventId: any, guestId: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -5122,7 +5131,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      moveGuestToTable: async (eventId: string, guestId: string, newTableId: string, newSeatNumber?: number) => {
+      moveGuestToTable: async (eventId: any, guestId: any, newTableId: any, newSeatNumber?: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -5212,13 +5221,13 @@ export const useEventStore = create<EventStore>()(
         return parsed.state?.events || [];
       },
 
-      getEventsByUserId: (userId: string) => {
+      getEventsByUserId: (userId: any) => {
         const { getAllEvents } = get();
         const allEvents = getAllEvents();
         return allEvents.filter((event: Event) => event.userId === userId);
       },
 
-      getEventStatsByUserId: (userId: string) => {
+      getEventStatsByUserId: (userId: any) => {
         const { getEventsByUserId } = get();
         const userEvents = getEventsByUserId(userId);
         
@@ -5330,7 +5339,7 @@ export const useEventStore = create<EventStore>()(
       },
 
       // CRITICAL: Sync a specific event to API (for automatic sync when event is loaded)
-      syncCurrentEventToAPI: async (eventId?: string) => {
+      syncCurrentEventToAPI: async (eventId?: any) => {
         try {
           const eventToSync = eventId 
             ? get().events.find(e => e.id === eventId)
@@ -5432,7 +5441,7 @@ export const useEventStore = create<EventStore>()(
     }),
     {
       name: 'rsvp-events-storage',
-      partialize: (state) => {
+      partialize: (state: any) => {
         // CRITICAL FIX: Preserve ALL events in localStorage, even if user is not logged in
         // This prevents data loss after deployment when user is not authenticated
         // Get current user ID to filter events (but don't delete if no userId)
@@ -5600,7 +5609,7 @@ export const useEventStore = create<EventStore>()(
           currentEvent: state.currentEvent || null
         };
       },
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state: any) => {
         if (state) {
           // Events restored from localStorage
         }

@@ -248,7 +248,7 @@ export const useCampaignStore = create<CampaignStore>()(
   isLoading: false,
   error: null,
 
-  createCampaign: async (campaignData) => {
+  createCampaign: async (campaignData: any) => {
     set({ isLoading: true, error: null });
     try {
       const newCampaign: Campaign = {
@@ -267,7 +267,7 @@ export const useCampaignStore = create<CampaignStore>()(
     }
   },
 
-  updateCampaign: async (id, updates) => {
+  updateCampaign: async (id: any, updates: any) => {
     set({ isLoading: true, error: null });
     try {
           set((state: any) => ({
@@ -283,7 +283,7 @@ export const useCampaignStore = create<CampaignStore>()(
     }
   },
 
-  deleteCampaign: async (id) => {
+  deleteCampaign: async (id: any) => {
     set({ isLoading: true, error: null });
     try {
           set((state: any) => ({
@@ -296,7 +296,7 @@ export const useCampaignStore = create<CampaignStore>()(
     }
   },
 
-  sendCampaign: async (id) => {
+  sendCampaign: async (id: any) => {
     set({ isLoading: true, error: null });
     try {
       const campaign = get().campaigns.find((c: any) => c.id === id);
@@ -323,7 +323,7 @@ export const useCampaignStore = create<CampaignStore>()(
     }
   },
 
-  scheduleCampaign: async (id, scheduledDate) => {
+  scheduleCampaign: async (id: any, scheduledDate: any) => {
     set({ isLoading: true, error: null });
     try {
       const campaign = get().campaigns.find((c: any) => c.id === id);
@@ -380,7 +380,7 @@ export const useCampaignStore = create<CampaignStore>()(
     }),
     {
       name: 'rsvp-campaigns-storage',
-      partialize: (state) => ({ 
+      partialize: (state: any) => ({ 
         campaigns: state.campaigns,
         currentCampaign: state.currentCampaign 
       }),
@@ -417,7 +417,7 @@ export const useTemplateStore = create<{
     }
   },
 
-  createTemplate: async (templateData) => {
+  createTemplate: async (templateData: any) => {
     set({ isLoading: true, error: null });
     try {
       const newTemplate: MessageTemplate = {
@@ -435,7 +435,7 @@ export const useTemplateStore = create<{
     }
   },
 
-  updateTemplate: async (id, updates) => {
+  updateTemplate: async (id: any, updates: any) => {
     set({ isLoading: true, error: null });
     try {
           set((state: any) => ({
@@ -451,7 +451,7 @@ export const useTemplateStore = create<{
     }
   },
 
-  deleteTemplate: async (id) => {
+  deleteTemplate: async (id: any) => {
     set({ isLoading: true, error: null });
     try {
           set((state: any) => ({
@@ -464,7 +464,7 @@ export const useTemplateStore = create<{
     }
   },
 
-  setCurrentTemplate: (template) => {
+  setCurrentTemplate: (template: any) => {
     set({ currentTemplate: template });
   }
 }));

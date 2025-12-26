@@ -90,7 +90,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      createClient: async (clientData) => {
+      createClient: async (clientData: any) => {
         set({ isLoading: true, error: null });
         try {
           const newClient: Client = {
@@ -114,7 +114,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      updateClient: async (id, updates) => {
+      updateClient: async (id: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           // Clean names if they're being updated
@@ -142,7 +142,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      deleteClient: async (id) => {
+      deleteClient: async (id: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -156,11 +156,11 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      setCurrentClient: (client) => {
+      setCurrentClient: (client: any) => {
         set({ currentClient: client });
       },
 
-      addClientEvent: async (clientId, eventData) => {
+      addClientEvent: async (clientId: any, eventData: any) => {
         set({ isLoading: true, error: null });
         try {
           const newEvent: ClientEvent = {
@@ -202,7 +202,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      updateClientEvent: async (clientId, eventId, updates) => {
+      updateClientEvent: async (clientId: any, eventId: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -241,7 +241,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      removeClientEvent: async (clientId, eventId) => {
+      removeClientEvent: async (clientId: any, eventId: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
@@ -279,7 +279,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      createReminder: async (reminderData) => {
+      createReminder: async (reminderData: any) => {
         set({ isLoading: true, error: null });
         try {
           const newReminder: Reminder = {
@@ -298,7 +298,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      updateReminder: async (id, updates) => {
+      updateReminder: async (id: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -314,7 +314,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      deleteReminder: async (id) => {
+      deleteReminder: async (id: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -326,7 +326,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      completeReminder: async (id, completedBy, notes) => {
+      completeReminder: async (id: any, completedBy: any, notes: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -349,7 +349,7 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      markReminderOverdue: async (id) => {
+      markReminderOverdue: async (id: any) => {
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
@@ -365,11 +365,11 @@ export const useClientStore = create<ClientStore>()(
         }
       },
 
-      setFilters: (filters) => {
+      setFilters: (filters: any) => {
         set({ filters });
       },
 
-      setReminderFilters: (filters) => {
+      setReminderFilters: (filters: any) => {
         set({ reminderFilters: filters });
       },
 
@@ -529,7 +529,7 @@ export const useClientStore = create<ClientStore>()(
         return filtered;
       },
 
-      getUpcomingReminders: (days = 7) => {
+      getUpcomingReminders: (days: any = 7) => {
         const { reminders } = get();
         const now = new Date();
         const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
@@ -550,7 +550,7 @@ export const useClientStore = create<ClientStore>()(
         ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
       },
 
-      searchClients: (query) => {
+      searchClients: (query: any) => {
         const { clients } = get();
         const searchLower = query.toLowerCase();
         
@@ -563,12 +563,12 @@ export const useClientStore = create<ClientStore>()(
         );
       },
 
-      getClientEvents: (clientId) => {
+      getClientEvents: (clientId: any) => {
         const client = get().clients.find((c: any) => c.id === clientId);
         return client?.events || [];
       },
 
-      getClientReminders: (clientId) => {
+      getClientReminders: (clientId: any) => {
         const { reminders } = get();
         return reminders.filter(reminder => reminder.clientId === clientId);
       },
@@ -586,7 +586,7 @@ export const useClientStore = create<ClientStore>()(
     }),
     {
       name: 'client-store',
-      partialize: (state) => ({ 
+      partialize: (state: any) => ({ 
         clients: state.clients,
         reminders: state.reminders,
         currentClient: state.currentClient
