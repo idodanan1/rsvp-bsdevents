@@ -5037,50 +5037,73 @@ app.get('/api/events/:eventId', async (req, res) => {
     const isUserId = eventId && typeof eventId === 'string' && (eventId.startsWith('user_') || eventId === 'admin-fixed-id');
     if (isUserId) {
       const userId = eventId;
-      console.log(`📋 [USER_ID_BRANCH] Treating ${eventId} as userId, filtering events...`);
+      console.log(`📋 [USER_ID_BRANCH] Fetching events for user: ${userId}`);
       
-      // CRITICAL: Read directly from file instead of relying on eventsData
-      let events = [];
-      let deletedEvents = [];
       try {
-        if (fs.existsSync(eventsFilePath)) {
-          const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
-          events = fileData.events || [];
-          deletedEvents = fileData.deletedEvents || [];
-          console.log(`📋 [USER_ID_BRANCH] Read ${events.length} events directly from file for userId filter`);
-        } else {
-          // Fallback: try loadEvents() and use eventsData
-    loadEvents();
-          events = eventsData.events || [];
-          deletedEvents = eventsData.deletedEvents || [];
-          console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback: ${events.length} events`);
+        // Use Supabase to fetch events
+        if (!supabaseDb.isSupabaseConfigured()) {
+          console.error('❌ [USER_ID_BRANCH] Supabase is not configured');
+          return res.status(200).json([]);
         }
+        
+        let userEvents = [];
+        
+        // Regular user - fetch only their events using user_id column
+        console.log(`📋 [USER_ID_BRANCH] Fetching events for userId: ${userId} using user_id column`);
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('❌ [USER_ID_BRANCH] Supabase Error:', error);
+          return res.status(200).json([]);
+        }
+        
+        // If no events found, return empty array
+        if (!data || data.length === 0) {
+          console.log(`📋 [USER_ID_BRANCH] No events found for userId: ${userId}`);
+          return res.status(200).json([]);
+        }
+        
+        // Convert each Supabase event to frontend format with guests
+        for (const supabaseEvent of data) {
+          try {
+            const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
+            const frontendGuests = supabaseGuests.map((g) => supabaseDb.convertSupabaseGuestToFrontend(g));
+            const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
+            userEvents.push(frontendEvent);
+          } catch (guestError) {
+            console.error(`❌ [USER_ID_BRANCH] Error fetching guests for event ${supabaseEvent.id}:`, guestError);
+            // Still add the event without guests rather than failing completely
+            const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, []);
+            userEvents.push(frontendEvent);
+          }
+        }
+        
+        // Ensure we always return an array
+        if (!Array.isArray(userEvents)) {
+          console.warn('⚠️ [USER_ID_BRANCH] userEvents is not an array, converting to array');
+          userEvents = [];
+        }
+        
+        console.log(`✅ [USER_ID_BRANCH] Successfully fetched ${userEvents.length} events for user ${userId}`);
+        
+        // Return clean array of events (200 status even if empty)
+        return res.status(200).json(userEvents);
       } catch (error) {
-        console.error(`❌ [USER_ID_BRANCH] Error reading events file:`, error);
-        // Fallback: try loadEvents() and use eventsData
-        loadEvents();
-        events = eventsData.events || [];
-        deletedEvents = eventsData.deletedEvents || [];
-        console.log(`📋 [USER_ID_BRANCH] Using eventsData fallback after error: ${events.length} events`);
+        console.error('❌ [USER_ID_BRANCH] Error fetching events:', error);
+        console.error('❌ [USER_ID_BRANCH] Error details:', {
+          message: error.message,
+          stack: error.stack,
+          userId: userId
+        });
+        
+        // Return empty array on error to prevent frontend crash
+        console.error('❌ [USER_ID_BRANCH] Returning empty array due to error');
+        return res.status(200).json([]);
       }
-      
-      // Filter events by userId
-      // CRITICAL: Admin user (admin-fixed-id) should see ALL events
-      const userEvents = userId === 'admin-fixed-id' 
-        ? events  // Admin sees all events
-        : events.filter(e => e.userId === userId);  // Regular users see only their events
-      const userDeletedEvents = userId === 'admin-fixed-id'
-        ? deletedEvents  // Admin sees all deleted events
-        : deletedEvents.filter(e => e.userId === userId);  // Regular users see only their deleted events
-      
-      console.log(`📋 [USER_ID_BRANCH] Fetched ${userEvents.length} events for user ${userId} (${userId === 'admin-fixed-id' ? 'admin - all events' : 'regular user - filtered'})`);
-      
-      res.json({
-        success: true,
-        events: userEvents,
-        deletedEvents: userDeletedEvents
-      });
-      return;
     }
     
     // CRITICAL: Log that we're NOT treating as userId
