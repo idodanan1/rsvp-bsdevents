@@ -2392,7 +2392,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
+      sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult | SendMessageResult | any> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         // טעינת השירות בצורה דינמית
         const { webhookService } = await import('../services/webhookService');
@@ -2828,14 +2828,14 @@ export const useEventStore = create<EventStore>()(
             });
           }
 
-          return result;
+          return result as BulkMessageResult;
         } catch (error: any) {
           set({ error: 'שגיאה בשליחת הקמפיין', isLoading: false });
           throw error;
         }
       },
 
-      resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
+      resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult | SendMessageResult | any> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         // טעינת השירות בצורה דינמית
         const { webhookService } = await import('../services/webhookService');
@@ -3070,7 +3070,7 @@ export const useEventStore = create<EventStore>()(
             });
           }
 
-          return result;
+          return result as BulkMessageResult;
         } catch (error: any) {
           set({ error: 'שגיאה בשליחה חוזרת לכשלונות', isLoading: false });
           throw error;
