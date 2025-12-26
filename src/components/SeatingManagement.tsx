@@ -23,7 +23,7 @@ const SeatingManagement: React.FC = () => {
 
   useEffect(() => {
     if (eventId) {
-      const event = events.find(e => e.id === eventId);
+      const event = events.find((e: any) => e.id === eventId);
       if (event) {
         setCurrentEvent(event);
       }
@@ -243,7 +243,7 @@ const SeatingManagement: React.FC = () => {
 
         const eventDate = new Date(event.eventDate);
     const dateStr = eventDate.toLocaleDateString('he-IL');
-    const sortedTables = [...(event.tables || [])].sort((a, b) => a.number - b.number);
+    const sortedTables = [...(event.tables || [])].sort((a: any, b: any) => a.number - b.number);
 
         reportDiv.innerHTML = `
           <div style="background-color: #fff; color: #FFD700; padding: 30px; margin: -20px -20px 20px -20px; text-align: center; position: relative; border: 2px solid #FFD700;">
@@ -590,7 +590,7 @@ const SeatingManagement: React.FC = () => {
                     </span>
                     {guest.tableId && (
                       <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
-                        יושב בשולחן {tables.find(t => t.id === guest.tableId)?.number}
+                        יושב בשולחן {tables.find((t: any) => t.id === guest.tableId)?.number}
                       </span>
                     )}
                     {!guest.tableId && (
@@ -804,7 +804,7 @@ const SeatingManagement: React.FC = () => {
 
       {/* Tables Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        {tables.map((table) => {
+        {tables.map((table: any) => {
           const tableGuests = getTableGuests(table.id);
           const availableSeats = getAvailableSeats(table);
           // CRITICAL: Calculate total guest count (sum of guestCount, not number of records)
@@ -927,7 +927,7 @@ const SeatingManagement: React.FC = () => {
             אורחים ללא שולחן ({unassignedGuests.length})
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {unassignedGuests.map((guest) => (
+            {unassignedGuests.map((guest: any) => (
               <div key={guest.id} className="flex items-center justify-between bg-white rounded-lg p-3 border-2 border-amber-200 shadow-sm hover:shadow-md transition-shadow">
                 <span className="text-sm font-semibold text-gray-900 flex-1 mr-2">
                   {formatFullName(guest.firstName, guest.lastName)}
@@ -948,7 +948,7 @@ const SeatingManagement: React.FC = () => {
                   defaultValue=""
                 >
                   <option value="">בחר שולחן</option>
-                  {tables.map((table) => {
+                  {tables.map((table: any) => {
                     const availableSeats = getAvailableSeats(table);
                     return availableSeats > 0 ? (
                       <option key={table.id} value={table.id}>
