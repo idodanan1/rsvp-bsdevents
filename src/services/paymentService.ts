@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
 
 export interface PaymentIntentResponse {
@@ -20,24 +18,47 @@ export interface Transaction {
 class PaymentService {
   async createPaymentIntent(amount: number, credits: number, userId: string): Promise<PaymentIntentResponse> {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/payments/create-intent`, {
-        amount,
-        credits,
-        userId,
-        currency: 'ils',
+      const response = await fetch(`${BACKEND_URL}/api/payments/create-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount,
+          credits,
+          userId,
+          currency: 'ils',
+        }),
       });
 
-      return response.data;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'שגיאה ביצירת תשלום');
+      }
+
+      const data = await response.json();
+      return data;
     } catch (error: any) {
       console.error('❌ Error creating payment intent:', error);
-      throw new Error(error.response?.data?.error || 'שגיאה ביצירת תשלום');
+      throw new Error(error.message || 'שגיאה ביצירת תשלום');
     }
   }
 
   async getTransactions(userId: string): Promise<Transaction[]> {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/payments/transactions/${userId}`);
-      return response.data.transactions || [];
+      const response = await fetch(`${BACKEND_URL}/api/payments/transactions/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = await response.json();
+      return data.transactions || [];
     } catch (error: any) {
       console.error('❌ Error fetching transactions:', error);
       return [];
@@ -46,14 +67,25 @@ class PaymentService {
 
   async getAllTransactions(): Promise<Transaction[]> {
     try {
-      const response = await axios.get(`${BACKEND_URL}/api/payments/transactions`);
-      return response.data?.transactions || [];
-    } catch (error: any) {
-      // אם השרת לא רץ או אין endpoint, החזר רשימה ריקה
-      if (error.code === 'ERR_NETWORK' || error.response?.status === 404) {
-        console.warn('⚠️ Backend לא זמין או endpoint לא קיים - מחזיר רשימה ריקה');
+      const response = await fetch(`${BACKEND_URL}/api/payments/transactions`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn('⚠️ Backend לא זמין או endpoint לא קיים - מחזיר רשימה ריקה');
+          return [];
+        }
         return [];
       }
+
+      const data = await response.json();
+      return data?.transactions || [];
+    } catch (error: any) {
+      console.warn('⚠️ Backend לא זמין או endpoint לא קיים - מחזיר רשימה ריקה');
       console.error('❌ Error fetching all transactions:', error);
       return [];
     }
