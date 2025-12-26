@@ -632,7 +632,8 @@ const UserManagement: React.FC = () => {
                             )}
                           </div>
                         </div>
-                        <button
+                        {/* Restore Event Button - Function not implemented */}
+                        {/* <button
                           onClick={() => handleRestoreEvent(event.id)}
                           disabled={isLoading}
                           className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
@@ -648,7 +649,7 @@ const UserManagement: React.FC = () => {
                               <span>שחזר אירוע</span>
                             </>
                           )}
-                        </button>
+                        </button> */}
                       </div>
                     </div>
                   ))}
