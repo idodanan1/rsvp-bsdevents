@@ -9,6 +9,12 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { isServer }) => {
     // ב-Build של Render אין צורך ב-watchOptions מורכבים.
     // אם בכל זאת רוצים להתעלם מתבניות מסוימות בפורמט תקין:

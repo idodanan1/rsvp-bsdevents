@@ -1560,7 +1560,7 @@ const EventManagement: React.FC = () => {
       'אחוז הגעה'
     ];
 
-    const dataRows = [];
+    const dataRows: any[] = [];
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
