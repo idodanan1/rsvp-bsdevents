@@ -762,7 +762,7 @@ export const useEventStore = create<EventStore>()(
                       // Refresh after a short delay to allow server to process
                       setTimeout(() => {
                         console.log(`🔄 Refreshing events from API after sync...`);
-                        fetchEvents(true, true).catch(err => {
+                        get().fetchEvents(true, true).catch((err: any) => {
                           console.warn('⚠️ Failed to refresh after sync:', err);
                         });
                       }, 1500); // 1.5 seconds to allow server to process
