@@ -284,7 +284,7 @@ class ReminderService {
     console.log(`✅ Completing reminder: ${reminder.title}`);
     
     if (reminder.isRecurring && reminder.recurringInterval) {
-      this.scheduleRecurringReminder(reminder, reminder.recurringInterval, reminder.recurringEndDate);
+      this.scheduleRecurringReminder(reminder, reminder.recurringInterval, reminder.recurringEndDate ? new Date(reminder.recurringEndDate) : undefined);
     }
   }
 
@@ -303,17 +303,17 @@ class ReminderService {
       'Created At'
     ];
 
-    const rows = reminders.map(reminder => [
+    const rows = reminders.map((reminder: any) => [
       reminder.id,
       reminder.clientId,
       reminder.title,
       reminder.description || '',
-      reminder.reminderDate.toISOString(),
+      (reminder.reminderDate instanceof Date ? reminder.reminderDate : new Date(reminder.reminderDate)).toISOString(),
       reminder.type,
       reminder.status,
       reminder.priority,
       reminder.isRecurring ? 'Yes' : 'No',
-      reminder.createdAt.toISOString()
+      (reminder.createdAt instanceof Date ? reminder.createdAt : new Date(reminder.createdAt || Date.now())).toISOString()
     ]);
 
     const csvContent = [headers, ...rows]
