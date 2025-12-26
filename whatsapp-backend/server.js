@@ -1743,22 +1743,6 @@ async function handleIncomingMessage(message) {
       await updateGuestStatusByPhone(message.from, 'declined');
       console.log('✅ Decline status update sent to Supabase');
       
-      // Note: Verification would require querying Supabase, skipping for now
-      // const verifyUpdate = await supabaseDb.getPendingGuestUpdates(true); 
-        (u.phoneNumber === message.from.replace(/^0/, '972').replace(/[^0-9]/g, '').replace(/^972/, '0') || 
-         u.originalPhoneNumber === message.from.replace(/[^0-9]/g, '')) &&
-        u.status === 'declined'
-      );
-      if (verifyUpdate) {
-        console.log('✅ Verified: Decline update is in pendingUpdates array');
-      } else {
-        console.error('❌ ERROR: Decline update NOT found in pendingUpdates!');
-        console.log('📋 Current pendingUpdates:', pendingUpdates.map(u => ({
-          phone: u.phoneNumber,
-          status: u.status
-        })));
-      }
-      
       // CRITICAL: Send "thanks" message after decline (if not already sent)
       const normalizedPhone = message.from.replace(/[^0-9]/g, '');
       if (!hasReceivedThanks(normalizedPhone)) {
