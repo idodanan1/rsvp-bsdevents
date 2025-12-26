@@ -52,6 +52,47 @@ export function calculateEventStats(event: Event): EventStats {
   };
 }
 
+export function calculateGlobalStats(events: Event[]): any {
+  const allGuests = events.flatMap((event: any) => event.guests || []);
+  
+  const totalGuests = allGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  const confirmed = allGuests
+    .filter((g: any) => g.rsvpStatus === 'confirmed')
+    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  const declined = allGuests
+    .filter((g: any) => g.rsvpStatus === 'declined')
+    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  const maybe = allGuests
+    .filter((g: any) => g.rsvpStatus === 'maybe')
+    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  const pending = allGuests
+    .filter((g: any) => g.rsvpStatus === 'pending')
+    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  
+  const responseRate = totalGuests > 0 
+    ? Math.round(((confirmed + declined + maybe) / totalGuests) * 100) 
+    : 0;
+
+  const now = new Date();
+  const activeEvents = events.filter((event: any) => {
+    const eventDate = event.eventDate ? new Date(event.eventDate) : null;
+    return eventDate && eventDate >= now;
+  }).length;
+
+  return {
+    totalGuests,
+    confirmed,
+    declined,
+    maybe,
+    pending,
+    responseRate,
+    averageResponseRate: responseRate,
+    totalConfirmed: confirmed,
+    totalEvents: events.length,
+    activeEvents
+  };
+}
+
 export function formatDate(date: Date | string | undefined): string {
   if (!date) return '';
   
@@ -75,6 +116,18 @@ export function formatDateTime(date: Date | string | undefined): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+export function formatTime(date: Date | string | undefined): string {
+  if (!date) return '';
+  
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  
+  return d.toLocaleTimeString('he-IL', {
     hour: '2-digit',
     minute: '2-digit'
   });
