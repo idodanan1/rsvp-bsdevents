@@ -1593,16 +1593,10 @@ const EventManagement: React.FC = () => {
 
     // Add totals row
     // CRITICAL: Use guestCount for accurate totals (not just guest count)
-    const totalAttended = currentEvent.guests
-      .filter((g: any) => g.actualAttendance === 'attended')
-      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
-    const totalNotAttended = currentEvent.guests
-      .filter((g: any) => g.actualAttendance === 'not_attended')
-      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
-    const totalNotMarked = currentEvent.guests
-      .filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked')
-      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
-    const totalGuests = currentEvent.guests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
+    const totalAttended = currentEvent.guests?.filter((g: any) => g.actualAttendance === 'attended').reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0) || 0;
+    const totalNotAttended = currentEvent.guests?.filter((g: any) => g.actualAttendance === 'not_attended').reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0) || 0;
+    const totalNotMarked = currentEvent.guests?.filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked').reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0) || 0;
+    const totalGuests = currentEvent.guests?.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0) || 0;
     const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
 
     dataRows.push([
@@ -3234,13 +3228,13 @@ const EventManagement: React.FC = () => {
                   // Calculate seated guests count (only confirmed guests who are seated)
                   const seatedConfirmedGuestsCount = currentEvent.tables?.reduce((acc: number, table: Table) => {
                     return acc + (table.guests?.reduce((sum: number, guestId: string) => {
-                      const guest = currentEvent.guests.find((g: any) => g.id === guestId);
+                      const guest = currentEvent.guests?.find((g: any) => g.id === guestId);
                       // Only count confirmed guests (those who are coming)
                       if (guest && guest.rsvpStatus === 'confirmed') {
                         return sum + (guest.guestCount || 1);
                       }
                       return sum;
-                    }, 0);
+                    }, 0) || 0);
                   }, 0) || 0;
                   
                   // Remaining to seat = total confirmed - seated confirmed
@@ -3261,7 +3255,7 @@ const EventManagement: React.FC = () => {
                   // Calculate total guests count in tables (sum of guestCount)
                   return currentEvent.tables?.reduce((acc: number, table: Table) => {
                     return acc + (table.guests?.reduce((sum: number, guestId: string) => {
-                      const guest = currentEvent.guests.find((g: any) => g.id === guestId);
+                      const guest = currentEvent.guests?.find((g: any) => g.id === guestId);
                       return sum + (guest?.guestCount || 1);
                     }, 0) || 0);
                   }, 0) || 0;
