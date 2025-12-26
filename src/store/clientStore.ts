@@ -127,7 +127,7 @@ export const useClientStore = create<ClientStore>()(
           }
           
           set((state: any) => ({
-            clients: state.clients.map(client =>
+            clients: state.clients.map((client: any) =>
               client.id === id
                 ? { ...client, ...cleanedUpdates, updatedAt: new Date() }
                 : client
@@ -146,9 +146,9 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            clients: state.clients.filter(client => client.id !== id),
+            clients: state.clients.filter((client: any) => client.id !== id),
             currentClient: state.currentClient?.id === id ? null : state.currentClient,
-            reminders: state.reminders.filter(reminder => reminder.clientId !== id),
+            reminders: state.reminders.filter((reminder: any) => reminder.clientId !== id),
             isLoading: false
           }));
         } catch (error) {
@@ -171,7 +171,7 @@ export const useClientStore = create<ClientStore>()(
           };
           
           set((state: any) => {
-            const updatedClients = state.clients.map(client =>
+            const updatedClients = state.clients.map((client: any) =>
               client.id === clientId
                 ? { 
                     ...client, 
@@ -206,11 +206,11 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedClients = state.clients.map(client =>
+            const updatedClients = state.clients.map((client: any) =>
               client.id === clientId
                 ? {
                     ...client,
-                    events: client.events.map(event =>
+                    events: client.events.map((event: any) =>
                       event.id === eventId
                         ? { ...event, ...updates, updatedAt: new Date() }
                         : event
@@ -225,7 +225,7 @@ export const useClientStore = create<ClientStore>()(
               currentClient: state.currentClient?.id === clientId 
                 ? {
                     ...state.currentClient,
-                    events: state.currentClient.events.map(event =>
+                    events: state.currentClient.events.map((event: any) =>
                       event.id === eventId
                         ? { ...event, ...updates, updatedAt: new Date() }
                         : event
@@ -245,14 +245,14 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const client = state.clients.find(c => c.id === clientId);
-            const eventToRemove = client?.events.find(e => e.id === eventId);
+            const client = state.clients.find((c: any) => c.id === clientId);
+            const eventToRemove = client?.events.find((e: any) => e.id === eventId);
             
-            const updatedClients = state.clients.map(client =>
+            const updatedClients = state.clients.map((client: any) =>
               client.id === clientId
                 ? {
                     ...client,
-                    events: client.events.filter(event => event.id !== eventId),
+                    events: client.events.filter((event: any) => event.id !== eventId),
                     totalEvents: Math.max(0, client.totalEvents - 1),
                     totalGuests: Math.max(0, client.totalGuests - (eventToRemove?.guestCount || 0)),
                     updatedAt: new Date()
@@ -265,7 +265,7 @@ export const useClientStore = create<ClientStore>()(
               currentClient: state.currentClient?.id === clientId 
                 ? {
                     ...state.currentClient,
-                    events: state.currentClient.events.filter(event => event.id !== eventId),
+                    events: state.currentClient.events.filter((event: any) => event.id !== eventId),
                     totalEvents: Math.max(0, state.currentClient.totalEvents - 1),
                     totalGuests: Math.max(0, state.currentClient.totalGuests - (eventToRemove?.guestCount || 0)),
                     updatedAt: new Date()
@@ -302,7 +302,7 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            reminders: state.reminders.map(reminder =>
+            reminders: state.reminders.map((reminder: any) =>
               reminder.id === id
                 ? { ...reminder, ...updates, updatedAt: new Date() }
                 : reminder
@@ -318,7 +318,7 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            reminders: state.reminders.filter(reminder => reminder.id !== id),
+            reminders: state.reminders.filter((reminder: any) => reminder.id !== id),
             isLoading: false
           }));
         } catch (error) {
@@ -330,7 +330,7 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            reminders: state.reminders.map(reminder =>
+            reminders: state.reminders.map((reminder: any) =>
               reminder.id === id
                 ? { 
                     ...reminder, 
@@ -353,7 +353,7 @@ export const useClientStore = create<ClientStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            reminders: state.reminders.map(reminder =>
+            reminders: state.reminders.map((reminder: any) =>
               reminder.id === id
                 ? { ...reminder, status: 'overdue', updatedAt: new Date() }
                 : reminder
@@ -386,22 +386,22 @@ export const useClientStore = create<ClientStore>()(
         const now = new Date();
         
         const totalClients = clients.length;
-        const activeClients = clients.filter(c => c.isActive).length;
-        const totalEvents = clients.reduce((sum, c) => sum + c.totalEvents, 0);
-        const upcomingEvents = clients.reduce((sum, c) => 
-          sum + c.events.filter(e => e.status === 'upcoming' && new Date(e.eventDate) > now).length, 0
+        const activeClients = clients.filter((c: any) => c.isActive).length;
+        const totalEvents = clients.reduce((sum: number, c: any) => sum + c.totalEvents, 0);
+        const upcomingEvents = clients.reduce((sum: number, c: any) => 
+          sum + c.events.filter((e: any) => e.status === 'upcoming' && new Date(e.eventDate) > now).length, 0
         );
-        const completedEvents = clients.reduce((sum, c) => 
-          sum + c.events.filter(e => e.status === 'completed').length, 0
+        const completedEvents = clients.reduce((sum: number, c: any) => 
+          sum + c.events.filter((e: any) => e.status === 'completed').length, 0
         );
-        const totalGuests = clients.reduce((sum, c) => sum + c.totalGuests, 0);
+        const totalGuests = clients.reduce((sum: number, c: any) => sum + c.totalGuests, 0);
         const averageResponseRate = clients.length > 0 
-          ? clients.reduce((sum, c) => 
-              sum + c.events.reduce((eventSum, e) => eventSum + e.responseRate, 0) / c.events.length, 0
+          ? clients.reduce((sum: number, c: any) => 
+              sum + c.events.reduce((eventSum: number, e: any) => eventSum + e.responseRate, 0) / c.events.length, 0
             ) / clients.length
           : 0;
-        const pendingReminders = reminders.filter(r => r.status === 'pending').length;
-        const overdueReminders = reminders.filter(r => r.status === 'overdue').length;
+        const pendingReminders = reminders.filter((r: any) => r.status === 'pending').length;
+        const overdueReminders = reminders.filter((r: any) => r.status === 'overdue').length;
 
         return {
           totalClients,
@@ -468,7 +468,7 @@ export const useClientStore = create<ClientStore>()(
         }
 
         if (filters.hasOverdueReminders) {
-          const overdueReminderIds = get().getOverdueReminders().map(r => r.clientId);
+          const overdueReminderIds = get().getOverdueReminders().map((r: any) => r.clientId);
           filtered = filtered.filter(client => overdueReminderIds.includes(client.id));
         }
 
@@ -564,7 +564,7 @@ export const useClientStore = create<ClientStore>()(
       },
 
       getClientEvents: (clientId) => {
-        const client = get().clients.find(c => c.id === clientId);
+        const client = get().clients.find((c: any) => c.id === clientId);
         return client?.events || [];
       },
 
