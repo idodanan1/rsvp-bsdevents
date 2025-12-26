@@ -332,7 +332,7 @@ class ReminderService {
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.replace(/"/g, ''));
       if (values.length === headers.length) {
-        const reminder: Reminder = {
+        const reminder: any = {
           id: values[0] || `imported-${Date.now()}-${i}`,
           clientId: values[1],
           eventId: values[2] || undefined,
@@ -341,7 +341,7 @@ class ReminderService {
           reminderDate: new Date(values[5]),
           reminderTime: values[6] || undefined,
           type: values[7] as Reminder['type'],
-          status: values[8] as Reminder['status'],
+          status: values[8] as any,
           priority: values[9] as Reminder['priority'],
           isRecurring: values[10] === 'Yes',
           recurringInterval: values[11] as Reminder['recurringInterval'] || undefined,
