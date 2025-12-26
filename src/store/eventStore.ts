@@ -2775,7 +2775,7 @@ export const useEventStore = create<EventStore>()(
             if (event.id !== eventId) return event;
             
             const updatedGuests = event.guests?.map((guest: any) => {
-              const messageResult = result.results.find((r: any) => r.recipientId === guest.id);
+              const messageResult = (result as any).results.find((r: any) => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
                 // Update messageStatus
                 let messageStatus: 'sent' | 'delivered' | 'failed' = 'sent';
@@ -2802,7 +2802,7 @@ export const useEventStore = create<EventStore>()(
               guests: updatedGuests,
               campaigns: event.campaigns?.map((c: any) =>
                 c.id === campaignId
-                  ? { ...c, status: 'sent', sentCount: result.successful, updatedAt: new Date() }
+                  ? { ...c, status: 'sent', sentCount: (result as any).successful, updatedAt: new Date() }
                   : c
               ),
               updatedAt: new Date()
@@ -2810,10 +2810,10 @@ export const useEventStore = create<EventStore>()(
           });
           
           // After sending campaign, ensure webhookService is actively listening
-          console.log(`📤 Campaign sent successfully! ${result.successful} messages sent, ${result.failed} failed`);
+          console.log(`📤 Campaign sent successfully! ${(result as any).successful} messages sent, ${(result as any).failed} failed`);
           console.log(`👂 System is now actively waiting for guest responses...`);
           // Webhook polling status logged only when needed
-          console.log(`✅ Updated messageStatus for ${result.successful} guests to "sent"`);
+          console.log(`✅ Updated messageStatus for ${(result as any).successful} guests to "sent"`);
 
           set({
             events: updatedEvents,
@@ -3029,7 +3029,7 @@ export const useEventStore = create<EventStore>()(
                 return guest;
               }
               
-              const messageResult = result.results.find((r: any) => r.recipientId === guest.id);
+              const messageResult = (result as any).results.find((r: any) => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
                 return {
                   ...guest,
@@ -3054,8 +3054,8 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          console.log(`📤 Resend completed! ${result.successful} messages sent successfully, ${result.failed} failed`);
-          console.log(`✅ Updated messageStatus for ${result.successful} guests from "failed" to "sent"`);
+          console.log(`📤 Resend completed! ${(result as any).successful} messages sent successfully, ${(result as any).failed} failed`);
+          console.log(`✅ Updated messageStatus for ${(result as any).successful} guests from "failed" to "sent"`);
 
           set({
             events: updatedEvents,
@@ -3096,7 +3096,7 @@ export const useEventStore = create<EventStore>()(
           const result = await messageService.sendBulkMessages(messageData);
           
           set({ isLoading: false });
-          return result.successful > 0;
+          return (result as any).successful > 0;
         } catch (error: any) {
           set({ error: 'שגיאה בשליחת הודעת בדיקה', isLoading: false });
           return false;
