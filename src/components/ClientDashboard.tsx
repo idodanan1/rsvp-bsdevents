@@ -90,7 +90,7 @@ const ClientDashboard: React.FC = () => {
     }
     
     // Try to find event in current events (for fast initial display)
-    const event = events.find(e => e.id === eventId);
+    const event = events.find((e: any) => e.id === eventId);
     if (event) {
       const displayName = event.coupleName || 
         (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 
@@ -608,7 +608,7 @@ const ClientDashboard: React.FC = () => {
       // Then also load from public API as backup
       console.log(`🔍 User is logged in (${userId}) - using fetchEvents for full event data`);
           fetchEvents().then(() => {
-            const foundEvent = events.find(e => e.id === eventId);
+            const foundEvent = events.find((e: any) => e.id === eventId);
             if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
@@ -754,7 +754,7 @@ const ClientDashboard: React.FC = () => {
   // Silent update - no visual indicators
   useEffect(() => {
     if (eventId && events.length > 0) {
-      const foundEvent = events.find(e => e.id === eventId);
+      const foundEvent = events.find((e: any) => e.id === eventId);
       if (foundEvent) {
         setCurrentEvent((prev: any) => {
           if (!prev) {

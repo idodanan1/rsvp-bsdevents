@@ -61,7 +61,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
   const handleRemoveTag = (tagToRemove: string) => {
     setFormData(prev => ({
       ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
+      tags: prev.tags.filter((tag: any) => tag !== tagToRemove)
     }));
   };
 
@@ -76,7 +76,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
     setFormData(prev => {
       if (serviceId === 'all') {
         // אם בוחרים "הכל יחד", נבחר את כל התחומים
-        const allServiceIds = serviceAreas.filter(s => s.id !== 'all').map(s => s.id);
+        const allServiceIds = serviceAreas.filter((s: any) => s.id !== 'all').map((s: any) => s.id);
         return {
           ...prev,
           serviceAreas: prev.serviceAreas.length === allServiceIds.length ? [] : allServiceIds
@@ -84,8 +84,8 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
       } else {
         // אם בוחרים תחום ספציפי, נסיר "הכל יחד" אם הוא נבחר
         const newServiceAreas = prev.serviceAreas.includes(serviceId)
-          ? prev.serviceAreas.filter(id => id !== serviceId)
-          : [...prev.serviceAreas.filter(id => id !== 'all'), serviceId];
+          ? prev.serviceAreas.filter((id: any) => id !== serviceId)
+          : [...prev.serviceAreas.filter((id: any) => id !== 'all'), serviceId];
         
         return {
           ...prev,
@@ -198,10 +198,10 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
               תחומי שירות
             </label>
             <div className="grid grid-cols-2 gap-3 mb-4">
-              {serviceAreas.map((service) => {
+              {serviceAreas.map((service: any) => {
                 const IconComponent = service.icon;
                 const isSelected = formData.serviceAreas.includes(service.id);
-                const isAllSelected = service.id === 'all' && formData.serviceAreas.length === serviceAreas.filter(s => s.id !== 'all').length;
+                const isAllSelected = service.id === 'all' && formData.serviceAreas.length === serviceAreas.filter((s: any) => s.id !== 'all').length;
                 
                 return (
                   <button
@@ -225,7 +225,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
             </div>
             {formData.serviceAreas.length > 0 && (
               <div className="text-sm text-gray-600 mb-4">
-                נבחרו: {formData.serviceAreas.map(id => serviceAreas.find(s => s.id === id)?.name).join(', ')}
+                נבחרו: {formData.serviceAreas.map((id: any) => serviceAreas.find((s: any) => s.id === id)?.name).join(', ')}
               </div>
             )}
           </div>
@@ -235,7 +235,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
               תגיות
             </label>
             <div className="flex flex-wrap gap-2 mb-2">
-              {formData.tags.map((tag, index) => (
+              {formData.tags.map((tag: any, index: number) => (
                 <span
                   key={index}
                   className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"

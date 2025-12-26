@@ -133,7 +133,7 @@ const VenueEditor: React.FC = () => {
 
   useEffect(() => {
     if (eventId) {
-      const event = events.find(e => e.id === eventId);
+      const event = events.find((e: any) => e.id === eventId);
       if (event) {
         setCurrentEvent(event);
         
@@ -152,7 +152,7 @@ const VenueEditor: React.FC = () => {
           ];
           
           // Add each default table to venue layout
-          const tablesWithGuests = defaultTables.map(table => ({
+          const tablesWithGuests = defaultTables.map((table: any) => ({
               ...table,
               guests: []
           }));
@@ -165,7 +165,7 @@ const VenueEditor: React.FC = () => {
           });
         }
         
-        const unassigned = event.guests.filter(guest => !guest.tableId);
+        const unassigned = event.guests?.filter((guest: any) => !guest.tableId) || [];
         setUnassignedGuests(unassigned);
       }
     }
@@ -176,7 +176,7 @@ const VenueEditor: React.FC = () => {
     if (!eventId || !currentEvent?.venueLayout?.tables || currentEvent.venueLayout.tables.length === 0) return;
     const tables = currentEvent.venueLayout.tables;
     
-    const needsUpdate = tables.some(table => 
+    const needsUpdate = tables.some((table: any) => 
       table.x === undefined || 
       table.y === undefined || 
       table.width === undefined || 
@@ -186,7 +186,7 @@ const VenueEditor: React.FC = () => {
     );
     
     if (needsUpdate) {
-      tables.forEach((table, index) => {
+      tables.forEach((table: any, index: number) => {
         if (table.x === undefined || table.y === undefined) {
           updateTablePosition(eventId, table.id, 
             (index % 4) * 150 + 50, 
@@ -214,7 +214,7 @@ const VenueEditor: React.FC = () => {
     
     const rect = canvasRef.current?.getBoundingClientRect();
     if (rect && currentEvent?.venueLayout?.tables) {
-      const table = currentEvent.venueLayout.tables.find(t => t.id === tableId);
+      const table = currentEvent.venueLayout.tables.find((t: any) => t.id === tableId);
       setDragStart({
         x: e.clientX - rect.left - (table?.x || 0),
         y: e.clientY - rect.top - (table?.y || 0)
@@ -279,7 +279,7 @@ const VenueEditor: React.FC = () => {
       } else if (draggedElement === 'partition' && draggedPartitionId) {
         updatedVenueElements = {
           ...venueElements,
-          partitions: venueElements.partitions.map(p => 
+          partitions: venueElements.partitions.map((p: any) => 
             p.id === draggedPartitionId 
               ? { ...p, x: Math.max(0, newX), y: Math.max(0, newY) }
               : p
@@ -322,7 +322,7 @@ const VenueEditor: React.FC = () => {
   const handleAddTable = async () => {
     if (!eventId || !currentEvent?.venueLayout) return;
     
-    const existingNumbers = (currentEvent.venueLayout.tables || []).map(t => t.number);
+    const existingNumbers = (currentEvent.venueLayout.tables || []).map((t: any) => t.number);
     const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
     const nextNumber = maxNumber + 1;
     
@@ -383,7 +383,7 @@ const VenueEditor: React.FC = () => {
   const handleAddTableFromTemplate = async (template: typeof tableTemplates[0]) => {
     if (!eventId || !currentEvent?.venueLayout) return;
     
-    const existingNumbers = (currentEvent.venueLayout.tables || []).map(t => t.number);
+    const existingNumbers = (currentEvent.venueLayout.tables || []).map((t: any) => t.number);
     const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
     const nextNumber = maxNumber + 1;
     
@@ -528,7 +528,7 @@ const VenueEditor: React.FC = () => {
     setSeatingMode(!seatingMode);
     if (!seatingMode) {
       // Enter seating mode - show unassigned guests
-      const unassigned = currentEvent?.guests?.filter(guest => !guest.tableId) || [];
+      const unassigned = currentEvent?.guests?.filter((guest: any) => !guest.tableId) || [];
       setUnassignedGuests(unassigned);
     }
   };
@@ -622,7 +622,7 @@ const VenueEditor: React.FC = () => {
       await assignGuestToTable(eventId, guestId, tableId);
       
       // Update unassigned guests list
-      const unassigned = currentEvent?.guests?.filter(guest => !guest.tableId) || [];
+      const unassigned = currentEvent?.guests?.filter((guest: any) => !guest.tableId) || [];
       setUnassignedGuests(unassigned);
       
       // Close modal
@@ -640,7 +640,7 @@ const VenueEditor: React.FC = () => {
       await removeGuestFromTable(eventId, guestId);
       
       // Update unassigned guests list
-      const unassigned = currentEvent?.guests?.filter(guest => !guest.tableId) || [];
+      const unassigned = currentEvent?.guests?.filter((guest: any) => !guest.tableId) || [];
       setUnassignedGuests(unassigned);
     } catch (error) {
       console.error('Error removing guest from table:', error);
@@ -672,7 +672,7 @@ const VenueEditor: React.FC = () => {
         currentX = venueElements.dj.x;
         currentY = venueElements.dj.y;
       } else if (elementType === 'partition' && elementId) {
-        const partition = venueElements.partitions.find(p => p.id === elementId);
+        const partition = venueElements.partitions.find((p: any) => p.id === elementId);
         if (partition) {
           currentX = partition.x;
           currentY = partition.y;
@@ -905,7 +905,7 @@ const VenueEditor: React.FC = () => {
                 <div className="p-4">
                   <h3 className="text-sm font-semibold text-gray-800 mb-3">בחר תבנית שולחן</h3>
                   <div className="grid grid-cols-1 gap-2">
-                    {tableTemplates.map((template) => (
+                    {tableTemplates.map((template: any) => (
                       <button
                         key={template.id}
                         onClick={() => handleAddTableFromTemplate(template)}
@@ -1006,7 +1006,7 @@ const VenueEditor: React.FC = () => {
                     <span className="text-sm font-medium text-gray-800">אורחים יושבים</span>
                   </div>
                   <span className="text-xl font-bold text-purple-600">
-                    {event?.guests?.filter(guest => guest.tableId).reduce((total, guest) => total + guest.guestCount, 0) || 0}
+                    {event?.guests?.filter((guest: any) => guest.tableId).reduce((total: number, guest: any) => total + (guest.guestCount || 0), 0) || 0}
                   </span>
                 </div>
               </div>
@@ -1019,7 +1019,7 @@ const VenueEditor: React.FC = () => {
                     <span className="text-sm font-medium text-gray-800">אורחים ללא שולחן</span>
                   </div>
                   <span className="text-xl font-bold text-orange-600">
-                    {event?.guests?.filter(guest => !guest.tableId).reduce((total, guest) => total + guest.guestCount, 0) || 0}
+                    {event?.guests?.filter((guest: any) => !guest.tableId).reduce((total: number, guest: any) => total + (guest.guestCount || 0), 0) || 0}
                   </span>
                 </div>
               </div>
@@ -1032,7 +1032,7 @@ const VenueEditor: React.FC = () => {
                     <span className="text-sm font-medium text-gray-800">סה"כ מושבים</span>
                   </div>
                   <span className="text-xl font-bold text-indigo-600">
-                    {tables?.reduce((total, table) => total + table.capacity, 0) || 0}
+                    {tables?.reduce((total: number, table: any) => total + table.capacity, 0) || 0}
                   </span>
                 </div>
               </div>
@@ -1046,8 +1046,8 @@ const VenueEditor: React.FC = () => {
                   </div>
                   <span className="text-xl font-bold text-gray-600">
                     {(() => {
-                      const totalCapacity = tables?.reduce((total, table) => total + table.capacity, 0) || 0;
-                      const seatedGuests = event?.guests?.filter(guest => guest.tableId).reduce((total, guest) => total + guest.guestCount, 0) || 0;
+                      const totalCapacity = tables?.reduce((total: number, table: any) => total + table.capacity, 0) || 0;
+                      const seatedGuests = event?.guests?.filter((guest: any) => guest.tableId).reduce((total: number, guest: any) => total + (guest.guestCount || 0), 0) || 0;
                       return totalCapacity > 0 ? Math.round((seatedGuests / totalCapacity) * 100) : 0;
                     })()}%
                   </span>
@@ -1185,7 +1185,7 @@ const VenueEditor: React.FC = () => {
             )}
 
             {/* Partitions */}
-            {venueElements.partitions.map((partition) => (
+            {venueElements.partitions.map((partition: any) => (
               partition.visible && (
                 <div
                   key={partition.id}
@@ -1207,7 +1207,7 @@ const VenueEditor: React.FC = () => {
 
             {/* Enhanced Tables */}
             {tables.length > 0 ? (
-              tables.map((table) => (
+              tables.map((table: any) => (
               <div key={table.id} className="absolute z-50" style={{ zIndex: 1000 }}>
                 {/* Table */}
               <div
@@ -1343,7 +1343,7 @@ const VenueEditor: React.FC = () => {
                   <div>
                     <div className="text-sm font-semibold text-green-700">יושבים</div>
                     <div className="text-3xl font-bold text-green-600">
-                      {currentEvent?.guests?.filter(g => g.tableId).reduce((sum, guest) => sum + (guest.guestCount || 1), 0) || 0}
+                      {currentEvent?.guests?.filter((g: any) => g.tableId).reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0) || 0}
                     </div>
                   </div>
                   <CheckCircle className="w-8 h-8 text-green-500" />
@@ -1355,7 +1355,7 @@ const VenueEditor: React.FC = () => {
                   <div>
                     <div className="text-sm font-semibold text-orange-700">נותרו להושיב</div>
                     <div className="text-3xl font-bold text-orange-600">
-                      {currentEvent?.guests?.filter(g => !g.tableId).length || 0}
+                      {currentEvent?.guests?.filter((g: any) => !g.tableId).length || 0}
                     </div>
                   </div>
                   <Users className="w-8 h-8 text-orange-500" />
@@ -1613,7 +1613,7 @@ const VenueEditor: React.FC = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  הושב אורחים לשולחן {currentEvent?.tables?.find(t => t.id === selectedTable)?.number}
+                  הושב אורחים לשולחן {currentEvent?.tables?.find((t: any) => t.id === selectedTable)?.number}
                 </h3>
                 <button
                   onClick={() => {
@@ -1631,12 +1631,12 @@ const VenueEditor: React.FC = () => {
                   <div className="text-sm font-medium text-blue-800">מידע על השולחן</div>
                   <div className="text-sm text-blue-600">
                     {(() => {
-                      const table = currentEvent?.tables?.find(t => t.id === selectedTable);
+                      const table = currentEvent?.tables?.find((t: any) => t.id === selectedTable);
                       if (!table) return '0';
-                      const tableGuests = currentEvent?.guests?.filter(g => g.tableId === table.id) || [];
-                      const totalGuestCount = tableGuests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+                      const tableGuests = currentEvent?.guests?.filter((g: any) => g.tableId === table.id) || [];
+                      const totalGuestCount = tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
                       return totalGuestCount;
-                    })()} / {currentEvent?.tables?.find(t => t.id === selectedTable)?.capacity} מושבים
+                    })()} / {currentEvent?.tables?.find((t: any) => t.id === selectedTable)?.capacity} מושבים
                   </div>
                 </div>
               </div>
@@ -1676,7 +1676,7 @@ const VenueEditor: React.FC = () => {
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-gray-700 mb-2">אורחים בשולחן זה</h4>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {currentEvent?.guests?.filter(g => g.tableId === selectedTable).map((guest) => (
+                  {currentEvent?.guests?.filter((g: any) => g.tableId === selectedTable).map((guest: any) => (
                     <div
                       key={guest.id}
                       className="p-3 bg-green-50 rounded-lg border border-green-200"
@@ -1697,7 +1697,7 @@ const VenueEditor: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  {(!currentEvent?.guests?.filter(g => g.tableId === selectedTable) || currentEvent?.guests?.filter(g => g.tableId === selectedTable).length === 0) && (
+                  {(!currentEvent?.guests?.filter((g: any) => g.tableId === selectedTable) || currentEvent?.guests?.filter((g: any) => g.tableId === selectedTable).length === 0) && (
                     <div className="text-center text-gray-500 py-4">
                       אין אורחים בשולחן זה
                     </div>
@@ -1818,7 +1818,7 @@ const VenueEditor: React.FC = () => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">
-                  הוסף אורח לשולחן {currentEvent?.tables?.find(t => t.id === selectedTableForGuest)?.number}
+                  הוסף אורח לשולחן {currentEvent?.tables?.find((t: any) => t.id === selectedTableForGuest)?.number}
                 </h3>
                 <button
                   onClick={() => {

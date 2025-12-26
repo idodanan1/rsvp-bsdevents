@@ -2070,7 +2070,7 @@ const EventManagement: React.FC = () => {
       }
     ];
     
-    exampleData.forEach((data) => {
+    exampleData.forEach((data: any) => {
       const row = worksheet.addRow(data);
       
       // Style data row
@@ -2474,8 +2474,8 @@ const EventManagement: React.FC = () => {
 
         // Find duplicates (phone numbers that appear more than once)
         const duplicates = Object.entries(phoneCounts)
-          .filter(([phone, data]) => data.count > 1)
-          .map(([phone, data]) => ({ phone, ...data }));
+          .filter(([phone, data]: [any, any]) => data.count > 1)
+          .map(([phone, data]: [any, any]) => ({ phone, ...data }));
 
         // Check for duplicates with existing guests in the system
         const existingGuests = currentEvent.guests || [];

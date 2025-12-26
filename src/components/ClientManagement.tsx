@@ -321,7 +321,7 @@ const ClientManagement: React.FC = () => {
                   key={service.id}
                   onClick={() => {
                     if (selectedServiceAreas.includes(service.id)) {
-                      setSelectedServiceAreas(prev => prev.filter(id => id !== service.id));
+                      setSelectedServiceAreas(prev => prev.filter((id: any) => id !== service.id));
                     } else {
                       setSelectedServiceAreas(prev => [...prev, service.id]);
                     }
@@ -448,7 +448,7 @@ const ClientManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {reminders.filter(r => r.clientId === client.id).length}
+                        {reminders.filter((r: any) => r.clientId === client.id).length}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -599,7 +599,7 @@ const ClientManagement: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredReminders.map((reminder) => {
-                    const client = clients.find(c => c.id === reminder.clientId);
+                    const client = clients.find((c: any) => c.id === reminder.clientId);
                     return (
                       <tr key={reminder.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
