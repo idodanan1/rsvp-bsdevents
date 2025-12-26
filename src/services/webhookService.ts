@@ -8,6 +8,9 @@ export interface SyncResult {
 }
 
 class WebhookService {
+  pollingActive: boolean = false;
+  private pollingInterval: NodeJS.Timeout | null = null;
+
   async syncAllUpdates(onlyToday: boolean = false): Promise<SyncResult> {
     try {
       const url = `${BACKEND_URL}/api/guests/sync-updates?onlyToday=${onlyToday}`;
@@ -53,6 +56,32 @@ class WebhookService {
       console.error('Error getting pending updates count:', error);
       return 0;
     }
+  }
+
+  startPolling(interval: number = 8000): void {
+    if (this.pollingActive) {
+      this.stopPolling();
+    }
+    
+    this.pollingActive = true;
+    console.log(`🔄 Starting webhook polling every ${interval}ms`);
+    
+    this.pollingInterval = setInterval(async () => {
+      try {
+        await this.syncAllUpdates(false);
+      } catch (error) {
+        console.error('Error during polling:', error);
+      }
+    }, interval);
+  }
+
+  stopPolling(): void {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+    this.pollingActive = false;
+    console.log('🛑 Stopped webhook polling');
   }
 }
 
