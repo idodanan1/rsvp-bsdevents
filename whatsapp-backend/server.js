@@ -3,11 +3,34 @@ const cors = require('cors');
 const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const stripe = require('stripe');
-const mongoose = require('mongoose');
+const { createClient } = require('@supabase/supabase-js');
 const supabaseDb = require('./supabase-db');
 require('dotenv').config();
+
+// ========================================
+// CRITICAL: Supabase Environment Variables Check
+// ========================================
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('❌ ========== CRITICAL ERROR: Supabase Configuration Missing ==========');
+  console.error('❌ SUPABASE_URL:', SUPABASE_URL ? '✅ Set' : '❌ MISSING');
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ MISSING');
+  console.error('💡 Please set these environment variables in Render:');
+  console.error('   1. Go to Render Dashboard → Your Service → Environment');
+  console.error('   2. Add SUPABASE_URL: https://your-project.supabase.co');
+  console.error('   3. Add SUPABASE_SERVICE_ROLE_KEY: (from Supabase Dashboard → Settings → API)');
+  console.error('❌ Server will continue but database operations will fail!');
+  console.error('❌ ================================================================');
+  process.exit(1);
+}
+
+// Initialize Supabase client with service role key (bypasses RLS)
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+console.log('✅ Supabase client initialized successfully');
+console.log('📊 Supabase URL:', SUPABASE_URL);
 
 // CRITICAL: Log all environment variables related to WhatsApp (for debugging)
 console.log('🔍 ========== ENVIRONMENT VARIABLES DEBUG ==========');
@@ -58,8 +81,33 @@ app.use((req, res, next) => {
   next();
 });
 
-// Temporary storage for guest status updates (in production, use a database)
-const pendingUpdates = [];
+// ========================================
+// Pending Updates - Now using Supabase pending_guest_updates table
+// ========================================
+// Helper function to add pending update to Supabase
+async function addPendingUpdate(updateData) {
+  if (!supabaseDb.isSupabaseConfigured()) {
+    console.warn('⚠️ Supabase not configured, cannot add pending update');
+    return;
+  }
+  
+  try {
+    await supabaseDb.addPendingGuestUpdate({
+      guest_id: updateData.guestId || null,
+      event_id: updateData.eventId,
+      phone_number: updateData.phoneNumber || updateData.originalPhoneNumber,
+      rsvp_status: updateData.status || null,
+      guest_count: updateData.guestCount || null,
+      actual_attendance: updateData.actualAttendance || null,
+      source: updateData.source || 'manual',
+      response_date: updateData.responseDate || new Date().toISOString(),
+      notes: updateData.notes || null
+    });
+    console.log('✅ Added pending update to Supabase:', updateData);
+  } catch (error) {
+    console.error('❌ Error adding pending update to Supabase:', error);
+  }
+}
 
 // Track guests waiting for response (for "thanks" message logic)
 // Format: "phoneNumber" -> timestamp when waiting started
@@ -426,398 +474,18 @@ const stripeClient = process.env.STRIPE_SECRET_KEY ? stripe(process.env.STRIPE_S
 // Temporary storage for transactions (in production, use a database)
 const transactions = [];
 
-// MongoDB Connection and User Model
-// MongoDB connection string - use environment variable or default to local MongoDB
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/rsvp-system';
+// ========================================
+// MongoDB REMOVED - Now using Supabase
+// ========================================
+// All user management is now handled by Supabase Auth
+// Events and Guests are stored in Supabase tables
+// See supabase-db.js for database operations
 
-// Log MongoDB URI status (without exposing credentials)
-console.log('🔍 Checking MongoDB configuration...');
-if (process.env.MONGODB_URI) {
-  const uriParts = MONGODB_URI.split('@');
-  if (uriParts.length > 1) {
-    console.log('✅ MONGODB_URI is set in environment variables');
-    console.log('📊 MongoDB URI configured:', uriParts[1]); // Show only the host part
-    // Check if it contains the database name
-    if (MONGODB_URI.includes('/rsvp-system') || MONGODB_URI.includes('/?') || MONGODB_URI.includes('?retryWrites')) {
-      console.log('✅ Database name appears to be configured in URI');
-    } else {
-      console.warn('⚠️  Database name might be missing from URI. Expected format: mongodb+srv://.../rsvp-system?...');
-    }
-  } else {
-    console.log('✅ MONGODB_URI is set in environment variables');
-    console.log('📊 MongoDB URI configured:', MONGODB_URI);
-  }
-} else {
-  console.error('❌ MONGODB_URI NOT SET in environment variables!');
-  console.log('💡 Using default local MongoDB: mongodb://localhost:27017/rsvp-system');
-  console.log('💡 To use MongoDB Atlas, set MONGODB_URI in your .env file or Render Environment Variables');
-}
-
-// User Schema
-const userSchema = new mongoose.Schema({
-  id: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  name: { type: String, required: true, trim: true },
-  password: { type: String, required: true }, // In production, hash this with bcrypt
-  phoneNumber: { type: String, required: true, trim: true }, // Phone number for verification
-  phoneVerified: { type: Boolean, default: false }, // Whether phone is verified
-  credits: { type: Number, default: 0 },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now },
-  isAdmin: { type: Boolean, default: false }
-});
-
-// Create indexes (unique already creates index, so we only add non-unique indexes)
-userSchema.index({ phoneNumber: 1 });
-
-const User = mongoose.model('User', userSchema);
-
-// Phone Verification Code Schema
-const verificationCodeSchema = new mongoose.Schema({
-  phoneNumber: { type: String, required: true, index: true },
-  code: { type: String, required: true },
-  purpose: { type: String, required: true, enum: ['signup', 'reset-password', 'login'] },
-  expiresAt: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
-  attempts: { type: Number, default: 0 },
-  maxAttempts: { type: Number, default: 5 },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const VerificationCode = mongoose.model('VerificationCode', verificationCodeSchema);
-
-// User Session Schema - Track active sessions/devices per user
-const userSessionSchema = new mongoose.Schema({
-  userId: { type: String, required: true, index: true },
-  sessionId: { type: String, required: true, unique: true },
-  deviceInfo: { type: String }, // Browser/device info
-  ipAddress: { type: String },
-  lastActivity: { type: Date, default: Date.now, index: true },
-  createdAt: { type: Date, default: Date.now },
-  expiresAt: { type: Date, default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) } // 30 days
-});
-
-// Auto-delete expired sessions
-userSessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
-const UserSession = mongoose.model('UserSession', userSessionSchema);
-
-// Connect to MongoDB
-let isMongoConnected = false;
-let mongoConnectionAttempts = 0;
-const MAX_CONNECTION_ATTEMPTS = 10; // Increased attempts for Render
-
-async function connectMongoDB() {
-  try {
-    if (isMongoConnected || mongoose.connection.readyState === 1) {
-      isMongoConnected = true;
-      return;
-    }
-    
-    // Check if MONGODB_URI is set
-    if (!MONGODB_URI || MONGODB_URI === 'mongodb://localhost:27017/rsvp-system') {
-      console.log('⚠️  MONGODB_URI not configured. Using default local MongoDB.');
-      console.log('💡 To use MongoDB Atlas, set MONGODB_URI in Render Environment Variables');
-      // Don't try to connect if URI is not set
-      return;
-    }
-    
-    // Validate URI format
-    if (!MONGODB_URI.includes('mongodb+srv://') && !MONGODB_URI.includes('mongodb://')) {
-      console.error('❌ Invalid MONGODB_URI format. Must start with mongodb:// or mongodb+srv://');
-      return;
-    }
-    
-    // Check if URI contains placeholder values
-    if (MONGODB_URI.includes('<db_username>') || MONGODB_URI.includes('<db_password>')) {
-      console.error('❌ MONGODB_URI contains placeholder values (<db_username> or <db_password>)');
-      console.error('💡 Please replace <db_username> and <db_password> with your actual MongoDB Atlas credentials');
-      return;
-    }
-    
-    mongoConnectionAttempts++;
-    console.log(`🔌 Attempting to connect to MongoDB (attempt ${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})...`);
-    
-    // Show URI preview (without password)
-    const uriPreview = MONGODB_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@');
-    console.log(`📊 MONGODB_URI preview: ${uriPreview.split('@')[1] || 'configured'}`);
-    
-    // Ensure database name is in URI
-    let connectionUri = MONGODB_URI;
-    if (!connectionUri.includes('/rsvp-system') && !connectionUri.includes('/?') && !connectionUri.includes('?retryWrites')) {
-      // Add database name if not present
-      const separator = connectionUri.includes('?') ? '&' : '?';
-      connectionUri = connectionUri.replace(/\/$/, '') + '/rsvp-system' + (connectionUri.includes('?') ? '' : separator + 'retryWrites=true&w=majority');
-      console.log('📝 Added database name to connection URI');
-    }
-    
-    await mongoose.connect(connectionUri, {
-      serverSelectionTimeoutMS: 30000, // Increased timeout for Render
-      socketTimeoutMS: 45000,
-      connectTimeoutMS: 30000,
-    });
-    
-    isMongoConnected = true;
-    mongoConnectionAttempts = 0;
-    console.log('✅ Connected to MongoDB successfully!');
-    
-    // Set up connection event handlers
-    mongoose.connection.on('error', (err) => {
-      console.error('❌ MongoDB connection error:', err.message);
-      isMongoConnected = false;
-    });
-    
-    mongoose.connection.on('disconnected', () => {
-      console.warn('⚠️  MongoDB disconnected. Attempting to reconnect...');
-      isMongoConnected = false;
-      // Try to reconnect after 5 seconds
-      setTimeout(() => {
-        if (!isMongoConnected && mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
-          connectMongoDB();
-        }
-      }, 5000);
-    });
-    
-    // Migrate users from file to MongoDB if file exists
-    await migrateUsersFromFile();
-  } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    console.error('❌ Error details:', {
-      name: error.name,
-      code: error.code,
-      message: error.message
-    });
-    isMongoConnected = false;
-    
-    // Provide specific help for authentication errors
-    if (error.message && error.message.includes('bad auth') || error.message.includes('Authentication failed')) {
-      console.error('');
-      console.error('🔐 AUTHENTICATION ERROR - How to fix:');
-      console.error('');
-      console.error('1. Go to MongoDB Atlas → Database Access');
-      console.error('2. Find your database user and check the username');
-      console.error('3. Click "Edit" on the user and reset the password if needed');
-      console.error('4. Copy the NEW password');
-      console.error('5. Go to Render → Environment Variables');
-      console.error('6. Update MONGODB_URI with the correct password');
-      console.error('');
-      console.error('📝 MONGODB_URI format should be:');
-      console.error('   mongodb+srv://USERNAME:PASSWORD@cluster0.rywfr9c.mongodb.net/rsvp-system?retryWrites=true&w=majority');
-      console.error('');
-      console.error('⚠️  IMPORTANT: If password contains special characters, encode them:');
-      console.error('   @ → %40, # → %23, % → %25, ! → %21, : → %3A, / → %2F');
-      console.error('');
-      console.error('💡 TIP: Get connection string from MongoDB Atlas:');
-      console.error('   Database → Connect → Connect your application → Copy connection string');
-      console.error('   Replace <password> with your actual password');
-      console.error('');
-    }
-    
-    if (mongoConnectionAttempts < MAX_CONNECTION_ATTEMPTS) {
-      const retryDelay = Math.min(5000 * mongoConnectionAttempts, 30000); // Exponential backoff, max 30s
-      console.log(`🔄 Retrying connection in ${retryDelay/1000} seconds... (${mongoConnectionAttempts}/${MAX_CONNECTION_ATTEMPTS})`);
-      setTimeout(() => {
-        connectMongoDB();
-      }, retryDelay);
-    } else {
-      console.error('❌ Failed to connect to MongoDB after multiple attempts');
-      console.log('⚠️  The server will continue running, but user management features will be unavailable');
-      console.log('💡 Please check:');
-      console.log('   1. MONGODB_URI is set correctly in Render Environment Variables');
-      console.log('   2. MongoDB Atlas Network Access allows 0.0.0.0/0 (all IPs)');
-      console.log('   3. MongoDB Atlas Database User credentials are correct');
-      console.log('   4. MongoDB Atlas cluster is running');
-      // Reset attempts after a while to allow retry
-      setTimeout(() => {
-        mongoConnectionAttempts = 0;
-        console.log('🔄 Resetting connection attempts counter. Will try again...');
-      }, 60000); // Reset after 1 minute
-    }
-  }
-}
-
-// Migrate users from file to MongoDB (one-time migration)
-async function migrateUsersFromFile() {
-  try {
-    const usersFilePath = path.join(__dirname, 'users.json');
-    if (!fs.existsSync(usersFilePath)) {
-      return;
-    }
-    
-    const usersData = JSON.parse(fs.readFileSync(usersFilePath, 'utf8'));
-    const fileUsers = usersData.users || [];
-    const filePasswords = usersData.passwords || {};
-    
-    if (fileUsers.length === 0) {
-      return;
-    }
-    
-    // Check if users already exist in MongoDB
-    const existingCount = await User.countDocuments();
-    if (existingCount > 0) {
-      console.log('📋 Users already exist in MongoDB, skipping migration');
-      return;
-    }
-    
-    // Migrate users
-    for (const user of fileUsers) {
-      const normalizedEmail = user.email.toLowerCase().trim();
-      const password = filePasswords[normalizedEmail];
-      
-      if (password) {
-        const userDoc = new User({
-          id: user.id,
-          email: normalizedEmail,
-          name: user.name,
-          password: password,
-          credits: user.credits || 0,
-          createdAt: user.createdAt ? new Date(user.createdAt) : new Date(),
-          updatedAt: user.updatedAt ? new Date(user.updatedAt) : new Date(),
-          isAdmin: user.isAdmin || false
-        });
-        
-        try {
-          await userDoc.save();
-          console.log(`✅ Migrated user: ${user.email}`);
-        } catch (error) {
-          if (error.code !== 11000) { // Skip duplicate key errors
-            console.error(`❌ Error migrating user ${user.email}:`, error.message);
-          }
-        }
-      }
-    }
-    
-    console.log(`✅ Migration complete: ${fileUsers.length} users migrated to MongoDB`);
-  } catch (error) {
-    console.error('❌ Error during migration:', error);
-  }
-}
-
-// Initialize MongoDB connection (non-blocking)
-connectMongoDB().catch(err => {
-  console.error('❌ Failed to initialize MongoDB connection:', err);
-});
-
-// Also try to reconnect periodically if not connected
-setInterval(() => {
-  if (!isMongoConnected && mongoose.connection.readyState !== 1) {
-    console.log('🔄 Attempting to reconnect to MongoDB...');
-    connectMongoDB();
-  }
-}, 30000); // Try every 30 seconds
-
-// Temporary storage for events (in production, use a database)
-// Load events from file if exists
-const eventsFilePath = path.join(__dirname, 'events.json');
-let eventsData = {
-  events: [],
-  deletedEvents: []
-};
-
-// Load events from file on startup
-try {
-  console.log(`📂 Events file path: ${eventsFilePath}`);
-  console.log(`📂 __dirname: ${__dirname}`);
-  console.log(`📂 File exists: ${fs.existsSync(eventsFilePath)}`);
-  
-  if (fs.existsSync(eventsFilePath)) {
-    const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
-    eventsData.events = fileData.events || [];
-    eventsData.deletedEvents = fileData.deletedEvents || [];
-    console.log(`✅ Loaded ${eventsData.events.length} events from file`);
-  } else {
-    console.log('📝 No events file found - starting with empty events');
-    // CRITICAL: Create empty events file on startup to ensure file exists
-    // This helps with Render's file system persistence
-    try {
-      const dir = path.dirname(eventsFilePath);
-      if (!fs.existsSync(dir)) {
-        console.log(`📁 Creating directory: ${dir}`);
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
-      console.log(`✅ Created empty events file at startup: ${eventsFilePath}`);
-    } catch (createError) {
-      console.error('❌ Error creating events file:', createError);
-    }
-  }
-} catch (error) {
-  console.error('❌ Error loading events file:', error);
-  eventsData = { events: [], deletedEvents: [] };
-  // Try to create empty file as fallback
-  try {
-    const dir = path.dirname(eventsFilePath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
-    console.log(`✅ Created empty events file after error: ${eventsFilePath}`);
-  } catch (createError) {
-    console.error('❌ Error creating events file after error:', createError);
-  }
-}
-
-// Load events from file (reload from disk)
-function loadEvents() {
-  try {
-    if (fs.existsSync(eventsFilePath)) {
-      const fileData = JSON.parse(fs.readFileSync(eventsFilePath, 'utf8'));
-      eventsData.events = fileData.events || [];
-      eventsData.deletedEvents = fileData.deletedEvents || [];
-      console.log(`✅ Reloaded ${eventsData.events.length} events from file`);
-    }
-    return eventsData.events;
-  } catch (error) {
-    console.error('❌ Error loading events file:', error);
-    return eventsData.events || [];
-  }
-}
-
-// Save events to file
-function saveEvents() {
-  try {
-    // CRITICAL: Log what we're saving for debugging
-    const totalGuests = eventsData.events.reduce((sum, e) => sum + (e.guests?.length || 0), 0);
-    console.log(`💾 Saving ${eventsData.events.length} events to file (total ${totalGuests} guests)`);
-    
-    // Log guest counts per event
-    eventsData.events.forEach(e => {
-      const guestCount = e.guests?.length || 0;
-      if (guestCount > 0) {
-        console.log(`💾 Event ${e.id}: ${guestCount} guests`);
-      }
-    });
-    
-    console.log(`💾 File path: ${eventsFilePath}`);
-    console.log(`💾 File exists before save: ${fs.existsSync(eventsFilePath)}`);
-    
-    // CRITICAL: Ensure directory exists before writing file
-    const dir = path.dirname(eventsFilePath);
-    if (!fs.existsSync(dir)) {
-      console.log(`📁 Creating directory: ${dir}`);
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    
-    // CRITICAL: Write file - this will create it if it doesn't exist
-    fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2), 'utf8');
-    console.log(`💾 Saved ${eventsData.events.length} events to file`);
-    console.log(`💾 File exists after save: ${fs.existsSync(eventsFilePath)}`);
-    
-    // CRITICAL: Verify what was saved
-    if (fs.existsSync(eventsFilePath)) {
-      const savedContent = fs.readFileSync(eventsFilePath, 'utf8');
-      const savedData = JSON.parse(savedContent);
-      const savedTotalGuests = savedData.events?.reduce((sum, e) => sum + (e.guests?.length || 0), 0) || 0;
-      console.log(`💾 Verified: Saved file contains ${savedData.events?.length || 0} events with ${savedTotalGuests} total guests`);
-    } else {
-      console.error(`❌ File was not created! Path: ${eventsFilePath}`);
-    }
-  } catch (error) {
-    console.error('❌ Error saving events file:', error);
-    console.error('❌ Error stack:', error.stack);
-    console.error('❌ File path:', eventsFilePath);
-    console.error('❌ __dirname:', __dirname);
-  }
-}
+// ========================================
+// File-based event storage REMOVED - Now using Supabase
+// ========================================
+// All events and guests are now stored in Supabase tables
+// See supabase-db.js for database operations
 
 // Admin user (fixed)
 const ADMIN_EMAIL = 'idodanan1@gmail.com';
@@ -2073,10 +1741,10 @@ async function handleIncomingMessage(message) {
     
     try {
       await updateGuestStatusByPhone(message.from, 'declined');
-      console.log('✅ Decline status update sent to pendingUpdates');
+      console.log('✅ Decline status update sent to Supabase');
       
-      // Verify it was added
-      const verifyUpdate = pendingUpdates.find(u => 
+      // Note: Verification would require querying Supabase, skipping for now
+      // const verifyUpdate = await supabaseDb.getPendingGuestUpdates(true); 
         (u.phoneNumber === message.from.replace(/^0/, '972').replace(/[^0-9]/g, '').replace(/^972/, '0') || 
          u.originalPhoneNumber === message.from.replace(/[^0-9]/g, '')) &&
         u.status === 'declined'
@@ -2277,10 +1945,9 @@ async function updateGuestCountByPhone(phoneNumber, guestCount) {
       console.log(`✅ Added guestId (${foundGuest.id}) and eventId (${foundEvent.id}) to guest count update`);
     }
     
-    // Add guest count update (frontend will process this separately from status update)
-    pendingUpdates.push(guestCountUpdate);
-    console.log('✅ Guest count update stored (separate from status):', guestCountUpdate);
-    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
+    // Add guest count update to Supabase (frontend will process this separately from status update)
+    await addPendingUpdate(guestCountUpdate);
+    console.log('✅ Guest count update stored in Supabase (separate from status):', guestCountUpdate);
   } catch (error) {
     console.error('❌ Error updating guest count:', error);
   }
@@ -2812,9 +2479,9 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
       console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for guest ${foundGuest?.id || formattedPhone} to prevent conflicts`);
     }
     
-    // Add the new update (always add, since we removed all previous ones)
-      pendingUpdates.push(updateData);
-      console.log('✅ ========== GUEST STATUS UPDATE STORED ==========');
+    // Add to Supabase (this will automatically remove existing updates for this guest/phone)
+    await addPendingUpdate(updateData);
+    console.log('✅ ========== GUEST STATUS UPDATE STORED IN SUPABASE ==========');
       console.log('✅ Phone (formatted):', formattedPhone);
       console.log('✅ Phone (original):', originalPhone);
     console.log('✅ Guest ID:', foundGuest?.id || 'not found');
@@ -3192,84 +2859,56 @@ app.options('/api/guests/pending-updates', (req, res) => {
   res.sendStatus(200);
 });
 
-app.get('/api/guests/pending-updates', (req, res) => {
+app.get('/api/guests/pending-updates', async (req, res) => {
   // CRITICAL: Set CORS headers FIRST, before any other operations
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
-  // Return pending updates (but don't clear them immediately - let frontend process them first)
-  const updates = [...pendingUpdates];
-  
-  // CRITICAL: Return ALL updates, not just recent ones (for manual sync)
-  // Check if client wants all updates or just recent ones
-  const includeAll = req.query.all === 'true' || req.query.all === '1';
-  
-  let updatesToReturn = updates;
-  if (!includeAll) {
-    // Return new updates (not older than 5 minutes) by default
-  const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    updatesToReturn = updates.filter(u => u.timestamp > fiveMinutesAgo);
-  }
-  
-  // Format updates for frontend
-  const formattedUpdates = updatesToReturn.map(u => ({
-    phoneNumber: u.phoneNumber || u.originalPhoneNumber,
-    guestId: u.guestId, // CRITICAL: Include guestId to ensure correct guest is updated
-    eventId: u.eventId, // CRITICAL: Include eventId to ensure correct event is used
-    status: u.status, // May be undefined for guest count updates
-    responseDate: u.responseDate || new Date(u.timestamp).toISOString(),
-    guestCount: u.guestCount, // Include guest count if present
-    actualAttendance: u.actualAttendance, // Include actual attendance if present
-    source: u.source // Include source - 'whatsapp' for button clicks, 'guest_link' for link responses, undefined if not set (will NOT send yes message)
-  }));
-  
-  // CRITICAL: Don't clear old updates automatically - let process-all-updates handle them
-  // Only clear very old updates (older than 24 hours) to prevent memory leaks
-  const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-  const filteredUpdates = pendingUpdates.filter(u => u.timestamp > oneDayAgo);
-  if (filteredUpdates.length < pendingUpdates.length) {
-    const removedCount = pendingUpdates.length - filteredUpdates.length;
-    console.log(`🧹 Removed ${removedCount} very old update(s) (older than 24 hours)`);
-  pendingUpdates.length = 0;
-  pendingUpdates.push(...filteredUpdates);
-  }
-  
-  // IMPORTANT: Don't remove updates here - let the DELETE endpoint handle it
-  // This ensures updates are available for webhookService to process
-  // Only remove very old updates (older than 1 hour) to prevent memory leaks
-  
-  console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates (total in memory: ${pendingUpdates.length}, includeAll: ${includeAll})`);
-  if (formattedUpdates.length > 0) {
-    console.log('📤 Updates being returned:', formattedUpdates.map(u => ({ 
-      phone: u.phoneNumber, 
-      status: u.status, 
-      guestCount: u.guestCount,
-      responseDate: u.responseDate,
-      age: Math.round((Date.now() - (u.timestamp || Date.now())) / 1000) + ' seconds ago'
-    })));
-  } else {
-    // Log even when no updates to help debugging
-    if (pendingUpdates.length > 0) {
-      console.log(`📭 No ${includeAll ? '' : 'recent '}updates (${pendingUpdates.length} total${includeAll ? '' : ', but older than 5 minutes'})`);
-      console.log('📋 All pending updates:', pendingUpdates.map(u => ({
-        phone: u.phoneNumber,
-        status: u.status,
-        guestCount: u.guestCount,
-        age: Math.round((Date.now() - u.timestamp) / 1000) + ' seconds ago'
-      })));
-    } else {
-      console.log('📭 No pending updates at all');
+  try {
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Supabase is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' 
+      });
     }
+    
+    // Check if client wants all updates or just recent ones
+    const includeAll = req.query.all === 'true' || req.query.all === '1';
+    
+    // Get pending updates from Supabase
+    const updates = await supabaseDb.getPendingGuestUpdates(includeAll);
+    
+    // Format updates for frontend
+    const formattedUpdates = updates.map((u: any) => ({
+      phoneNumber: u.phone_number,
+      guestId: u.guest_id,
+      eventId: u.event_id,
+      status: u.rsvp_status,
+      responseDate: u.response_date || u.created_at,
+      guestCount: u.guest_count,
+      actualAttendance: u.actual_attendance,
+      source: u.source || 'manual',
+      notes: u.notes
+    }));
+    
+    console.log(`📤 GET /api/guests/pending-updates - Returning ${formattedUpdates.length} pending updates from Supabase (includeAll: ${includeAll})`);
+    
+    res.json({
+      success: true,
+      updates: formattedUpdates,
+      updatesCount: formattedUpdates.length,
+      totalPending: formattedUpdates.length
+    });
+  } catch (error) {
+    console.error('❌ Error fetching pending updates from Supabase:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בקבלת עדכונים ממתינים',
+      details: error.message 
+    });
   }
-  
-  res.json({
-    success: true,
-    updates: formattedUpdates, // Return formatted updates, not raw
-    updatesCount: formattedUpdates.length,
-    totalPending: pendingUpdates.length
-  });
 });
 
 // DELETE endpoint to remove a specific pending update
@@ -3756,81 +3395,63 @@ app.options('/api/guests/add-pending-update', (req, res) => {
 });
 
 // New endpoint to directly add a pending update (used by frontend for guest_link)
-app.post('/api/guests/add-pending-update', (req, res) => {
+app.post('/api/guests/add-pending-update', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes } = req.body;
-  console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes });
-
-  // CRITICAL: Allow updates with either status OR guestCount OR notes (or any combination)
-  // This allows guestCount-only updates from WhatsApp without requiring status
-  // Also allows notes-only updates from guest_link
-  if (!phoneNumber || !guestId || !eventId || (status === undefined && guestCount === undefined && notes === undefined)) {
-    return res.status(400).json({ error: 'Missing required fields: phoneNumber, guestId, eventId, and at least one of status, guestCount, or notes' });
-  }
-
-  const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
-  const originalPhone = phoneNumber.replace(/[^0-9]/g, '');
-
-  const updateData = {
-    phoneNumber: formattedPhone,
-    originalPhoneNumber: originalPhone,
-    guestId: guestId,
-    eventId: eventId,
-    guestCount: guestCount,
-    notes: notes,
-    responseDate: responseDate,
-    timestamp: Date.now(),
-    source: source || 'manual_add'
-  };
-  
-  // Only include status if it was provided (allows guestCount-only or notes-only updates)
-  if (status !== undefined && status !== null) {
-    updateData.status = status;
-  }
-
-  // CRITICAL: Remove ALL existing updates for this guest (by guestId if available, otherwise by phone number) to prevent conflicts
-  const updatesToRemove = [];
-  for (let i = pendingUpdates.length - 1; i >= 0; i--) {
-    const existingUpdate = pendingUpdates[i];
-    const isSameGuest = (guestId && existingUpdate.guestId && existingUpdate.guestId === guestId) ||
-                        (guestId && existingUpdate.guestId && existingUpdate.guestId === guestId && existingUpdate.eventId === eventId);
-    const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
-                        (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
-    if (isSameGuest || isSamePhone) {
-      updatesToRemove.push(i);
+  try {
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Supabase is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' 
+      });
     }
-  }
 
-  if (updatesToRemove.length > 0) {
-    for (const index of updatesToRemove) {
-      pendingUpdates.splice(index, 1);
+    const { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes } = req.body;
+    console.log('📥 POST /api/guests/add-pending-update received:', { phoneNumber, guestId, eventId, status, guestCount, responseDate, source, notes });
+
+    // CRITICAL: Allow updates with either status OR guestCount OR notes (or any combination)
+    if (!phoneNumber || !guestId || !eventId || (status === undefined && guestCount === undefined && notes === undefined)) {
+      return res.status(400).json({ error: 'Missing required fields: phoneNumber, guestId, eventId, and at least one of status, guestCount, or notes' });
     }
-    console.log(`🗑️ Removed ${updatesToRemove.length} previous update(s) for guest ${guestId || formattedPhone} to prevent conflicts`);
-  }
 
-  pendingUpdates.push(updateData);
-  console.log('✅ Added new update to pendingUpdates via direct endpoint:', updateData);
-  res.json({ success: true, message: 'Update added to pendingUpdates', totalPending: pendingUpdates.length });
+    const formattedPhone = phoneNumber.replace(/[^0-9]/g, '').replace(/^972/, '0');
+
+    // Add to Supabase (this will automatically remove existing updates for this guest)
+    await supabaseDb.addPendingGuestUpdate({
+      guest_id: guestId,
+      event_id: eventId,
+      phone_number: formattedPhone,
+      rsvp_status: status || null,
+      guest_count: guestCount || null,
+      source: source || 'manual_add',
+      response_date: responseDate || new Date().toISOString(),
+      notes: notes || null
+    });
+
+    console.log('✅ Added new update to Supabase via direct endpoint');
+    res.json({ success: true, message: 'Update added to Supabase' });
+  } catch (error) {
+    console.error('❌ Error adding pending update to Supabase:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בהוספת עדכון ממתין',
+      details: error.message 
+    });
+  }
 });
 
 // Health check
 app.get('/api/health', (req, res) => {
-  const mongoReady = mongoose.connection.readyState === 1;
-  const mongoStatus = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
-  
   res.json({ 
     status: 'OK', 
     message: 'WhatsApp Backend is running',
-    mongodb: {
-      connected: isMongoConnected && mongoReady,
-      readyState: mongoose.connection.readyState,
-      status: mongoStatus,
-      hasUri: !!process.env.MONGODB_URI,
-      connectionAttempts: mongoConnectionAttempts
+    supabase: {
+      configured: supabaseDb.isSupabaseConfigured(),
+      hasUrl: !!SUPABASE_URL,
+      hasKey: !!SUPABASE_SERVICE_ROLE_KEY
     },
     timestamp: new Date().toISOString()
   });
@@ -5614,11 +5235,44 @@ app.options('/api/events/:eventId', (req, res) => {
 // Get all events (for admin or public access)
 app.get('/api/events', async (req, res) => {
   try {
-    res.json({
-      success: true,
-      events: eventsData.events,
-      deletedEvents: eventsData.deletedEvents
-    });
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+    
+    // Use Supabase only
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Supabase is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' 
+      });
+    }
+    
+    try {
+      const supabaseEvents = await supabaseDb.getEventsByUserId(userId);
+      const events = [];
+      
+      for (const supabaseEvent of supabaseEvents) {
+        const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
+        const frontendGuests = supabaseGuests.map((g: any) => supabaseDb.convertSupabaseGuestToFrontend(g));
+        const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
+        events.push(frontendEvent);
+      }
+      
+      return res.json({
+        success: true,
+        events: events,
+        total: events.length
+      });
+    } catch (error) {
+      console.error('❌ Error fetching events from Supabase:', error);
+      res.status(500).json({ 
+        success: false,
+        error: 'שגיאה בקבלת אירועים',
+        details: error.message 
+      });
+    }
   } catch (error) {
     console.error('❌ Error fetching all events:', error);
     res.status(500).json({ error: 'שגיאה בקבלת אירועים' });
@@ -5638,108 +5292,64 @@ app.post('/api/events/sync', async (req, res) => {
       return res.status(400).json({ error: 'userId is required' });
     }
     
-    console.log(`💾 Syncing ${events.length} events for user ${userId}`);
-    
-    // CRITICAL: Read events directly from file to ensure we have latest data
-    const eventsFilePath = path.join(__dirname, 'events.json');
-    let fileData;
-    
-    if (fs.existsSync(eventsFilePath)) {
-      const fileContent = fs.readFileSync(eventsFilePath, 'utf8');
-      fileData = JSON.parse(fileContent);
-    } else {
-      fileData = { events: [], deletedEvents: [] };
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Supabase is not configured. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.' 
+      });
     }
     
-    // Get existing events for this user (to preserve guests)
-    const existingEventsForUser = fileData.events.filter(e => e.userId === userId);
-    console.log(`📋 Found ${existingEventsForUser.length} existing events for user ${userId}`);
+    console.log(`💾 Syncing ${events.length} events for user ${userId} to Supabase`);
     
-    // Remove old events for this user from in-memory data
-    eventsData.events = eventsData.events.filter(e => e.userId !== userId);
+    // Get existing events for this user from Supabase
+    const existingEvents = await supabaseDb.getEventsByUserId(userId);
+    console.log(`📋 Found ${existingEvents.length} existing events for user ${userId} in Supabase`);
     
-    // CRITICAL: Merge incoming events with existing events to preserve guests and campaigns
-    // For each incoming event, check if it exists and merge guests and campaigns
-    const mergedEvents = events.map(incomingEvent => {
-      const existingEvent = existingEventsForUser.find(e => e.id === incomingEvent.id);
-      
-      if (existingEvent) {
-        // CRITICAL: Preserve campaigns from existing event if incoming event doesn't have them
-        let finalCampaigns = existingEvent.campaigns || [];
-        if (incomingEvent.campaigns && Array.isArray(incomingEvent.campaigns) && incomingEvent.campaigns.length > 0) {
-          // Use incoming campaigns if provided
-          finalCampaigns = incomingEvent.campaigns;
-        } else if (!finalCampaigns || finalCampaigns.length === 0) {
-          // CRITICAL: Auto-create campaigns if they don't exist
-          console.log(`🔄 No campaigns found for event ${incomingEvent.id} during sync, creating default campaigns...`);
-          finalCampaigns = createDefaultCampaigns(incomingEvent.id, existingEvent.eventDate || incomingEvent.eventDate);
-          console.log(`✅ Created ${finalCampaigns.length} default campaigns for event ${incomingEvent.id}`);
-        }
-        
-        // Event exists - merge to preserve guests and campaigns
-        const mergedEvent = {
-          ...existingEvent,
+    // Sync each event to Supabase
+    for (const incomingEvent of events) {
+      try {
+        // Convert frontend event format to Supabase format
+        const supabaseEventData = supabaseDb.convertFrontendEventToSupabase({
           ...incomingEvent,
-          // CRITICAL: Preserve important fields from existing event if not in incoming event
-          groomName: incomingEvent.groomName !== undefined ? incomingEvent.groomName : existingEvent.groomName,
-          brideName: incomingEvent.brideName !== undefined ? incomingEvent.brideName : existingEvent.brideName,
-          groomParentsName: incomingEvent.groomParentsName !== undefined ? incomingEvent.groomParentsName : existingEvent.groomParentsName,
-          brideParentsName: incomingEvent.brideParentsName !== undefined ? incomingEvent.brideParentsName : existingEvent.brideParentsName,
-          coupleName: incomingEvent.coupleName !== undefined ? incomingEvent.coupleName : existingEvent.coupleName,
-          eventDate: incomingEvent.eventDate !== undefined ? incomingEvent.eventDate : existingEvent.eventDate,
-          eventTime: incomingEvent.eventTime !== undefined ? incomingEvent.eventTime : existingEvent.eventTime,
-          venue: incomingEvent.venue !== undefined ? incomingEvent.venue : existingEvent.venue,
-          eventType: incomingEvent.eventType !== undefined ? incomingEvent.eventType : existingEvent.eventType,
-          eventTypeHebrew: incomingEvent.eventTypeHebrew !== undefined ? incomingEvent.eventTypeHebrew : (existingEvent.eventTypeHebrew || 'חתונה'),
-          invitationImageUrl: incomingEvent.invitationImageUrl !== undefined ? incomingEvent.invitationImageUrl : existingEvent.invitationImageUrl,
-          // CRITICAL: Preserve guests from existing event if incoming event doesn't have them
-          guests: incomingEvent.guests && incomingEvent.guests.length > 0 
-            ? incomingEvent.guests 
-            : (existingEvent.guests || []),
-          // CRITICAL: Preserve campaigns
-          campaigns: finalCampaigns,
-          updatedAt: new Date().toISOString()
-        };
+          userId: userId
+        });
         
-        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.guests?.length || 0} existing guests, ${incomingEvent.guests?.length || 0} incoming guests → ${mergedEvent.guests?.length || 0} final guests`);
-        console.log(`🔄 Merged event ${incomingEvent.id}: ${existingEvent.campaigns?.length || 0} existing campaigns, ${incomingEvent.campaigns?.length || 0} incoming campaigns → ${mergedEvent.campaigns?.length || 0} final campaigns`);
+        // Upsert event to Supabase
+        await supabaseDb.upsertEvent(supabaseEventData);
+        console.log(`✅ Upserted event ${incomingEvent.id} to Supabase`);
         
-        return mergedEvent;
-      } else {
-        // New event - use as is, but create campaigns if missing
-        let finalCampaigns = incomingEvent.campaigns || [];
-        if (!finalCampaigns || finalCampaigns.length === 0) {
-          console.log(`🔄 No campaigns found for new event ${incomingEvent.id} during sync, creating default campaigns...`);
-          finalCampaigns = createDefaultCampaigns(incomingEvent.id, incomingEvent.eventDate);
-          console.log(`✅ Created ${finalCampaigns.length} default campaigns for new event ${incomingEvent.id}`);
+        // Upsert guests if provided
+        if (incomingEvent.guests && Array.isArray(incomingEvent.guests) && incomingEvent.guests.length > 0) {
+          const supabaseGuests = incomingEvent.guests.map((g: any) => 
+            supabaseDb.convertFrontendGuestToSupabase({
+              ...g,
+              eventId: incomingEvent.id
+            })
+          );
+          
+          await supabaseDb.upsertGuests(supabaseGuests);
+          console.log(`✅ Upserted ${supabaseGuests.length} guests for event ${incomingEvent.id} to Supabase`);
         }
-        
-        console.log(`➕ New event ${incomingEvent.id}: ${incomingEvent.guests?.length || 0} guests`);
-        return {
-          ...incomingEvent,
-          campaigns: finalCampaigns,
-          eventTypeHebrew: incomingEvent.eventTypeHebrew || 'חתונה',
-          updatedAt: new Date().toISOString()
-        };
+      } catch (error) {
+        console.error(`❌ Error syncing event ${incomingEvent.id}:`, error);
+        // Continue with other events even if one fails
       }
-    });
+    }
     
-    // Add merged events
-    eventsData.events.push(...mergedEvents);
-    
-    // Save to file
-    saveEvents();
-    
-    console.log(`✅ Synced ${events.length} events for user ${userId}`);
+    console.log(`✅ Synced ${events.length} events for user ${userId} to Supabase`);
     
     res.json({
       success: true,
-      message: `Synced ${events.length} events`,
-      totalEvents: eventsData.events.length
+      message: `Synced ${events.length} events to Supabase`,
+      totalEvents: events.length
     });
   } catch (error) {
     console.error('❌ Error syncing events:', error);
-    res.status(500).json({ error: 'שגיאה בסנכרון אירועים' });
+    res.status(500).json({ 
+      success: false,
+      error: 'שגיאה בסנכרון אירועים',
+      details: error.message 
+    });
   }
 });
 
@@ -6010,26 +5620,8 @@ app.post('/api/events', async (req, res) => {
                 source: 'guest_link'
               };
               
-              // Remove old updates for this guest
-              const updatesToRemove = [];
-              for (let i = pendingUpdates.length - 1; i >= 0; i--) {
-                const existingUpdate = pendingUpdates[i];
-                const isSameGuest = (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id) ||
-                                    (newGuest.id && existingUpdate.guestId && existingUpdate.guestId === newGuest.id && existingUpdate.eventId === event.id);
-                const isSamePhone = (existingUpdate.phoneNumber === formattedPhone || existingUpdate.originalPhoneNumber === originalPhone) ||
-                                    (existingUpdate.phoneNumber === originalPhone || existingUpdate.originalPhoneNumber === formattedPhone);
-                if (isSameGuest || isSamePhone) {
-                  updatesToRemove.push(i);
-                }
-              }
-              
-              if (updatesToRemove.length > 0) {
-                for (const index of updatesToRemove) {
-                  pendingUpdates.splice(index, 1);
-                }
-              }
-              
-              pendingUpdates.push(updateData);
+              // Add to Supabase (this will automatically remove existing updates for this guest/phone)
+              await addPendingUpdate(updateData);
               console.log(`✅ FORCED ADD: Added guest update to pendingUpdates (was skipped but has valid status):`, updateData);
             }
           }

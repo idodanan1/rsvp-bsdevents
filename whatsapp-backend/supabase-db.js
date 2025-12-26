@@ -2,7 +2,7 @@ const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 // Initialize Supabase client
-const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -363,6 +363,111 @@ function convertFrontendGuestToSupabase(frontendGuest) {
   };
 }
 
+// ========================================
+// Pending Guest Updates Functions
+// ========================================
+
+// Get pending guest updates
+async function getPendingGuestUpdates(includeAll = false) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured');
+  }
+
+  try {
+    let query = supabase
+      .from('pending_guest_updates')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!includeAll) {
+      // Only get updates from last 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      query = query.gte('created_at', fiveMinutesAgo);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('❌ Error fetching pending guest updates from Supabase:', error);
+    throw error;
+  }
+}
+
+// Add pending guest update
+async function addPendingGuestUpdate(updateData) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured');
+  }
+
+  try {
+    // Remove existing updates for this guest/phone to prevent duplicates
+    if (updateData.guest_id) {
+      await supabase
+        .from('pending_guest_updates')
+        .delete()
+        .eq('guest_id', updateData.guest_id);
+    } else if (updateData.phone_number) {
+      await supabase
+        .from('pending_guest_updates')
+        .delete()
+        .eq('phone_number', updateData.phone_number);
+    }
+
+    // Insert new update
+    const { data, error } = await supabase
+      .from('pending_guest_updates')
+      .insert({
+        guest_id: updateData.guest_id || null,
+        event_id: updateData.event_id,
+        phone_number: updateData.phone_number,
+        rsvp_status: updateData.rsvp_status || null,
+        guest_count: updateData.guest_count || null,
+        actual_attendance: updateData.actual_attendance || null,
+        source: updateData.source || 'manual',
+        response_date: updateData.response_date || new Date().toISOString(),
+        notes: updateData.notes || null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('❌ Error adding pending guest update to Supabase:', error);
+    throw error;
+  }
+}
+
+// Delete pending guest updates
+async function deletePendingGuestUpdates(filters) {
+  if (!isSupabaseConfigured()) {
+    throw new Error('Supabase is not configured');
+  }
+
+  try {
+    let query = supabase.from('pending_guest_updates').delete();
+
+    if (filters.guest_id) {
+      query = query.eq('guest_id', filters.guest_id);
+    }
+    if (filters.phone_number) {
+      query = query.eq('phone_number', filters.phone_number);
+    }
+    if (filters.event_id) {
+      query = query.eq('event_id', filters.event_id);
+    }
+
+    const { error } = await query;
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('❌ Error deleting pending guest updates from Supabase:', error);
+    throw error;
+  }
+}
+
 module.exports = {
   isSupabaseConfigured,
   getAllEvents,
@@ -379,7 +484,10 @@ module.exports = {
   convertSupabaseEventToFrontend,
   convertFrontendEventToSupabase,
   convertSupabaseGuestToFrontend,
-  convertFrontendGuestToSupabase
+  convertFrontendGuestToSupabase,
+  getPendingGuestUpdates,
+  addPendingGuestUpdate,
+  deletePendingGuestUpdates
 };
 
 
