@@ -29,7 +29,7 @@ const MessageTemplates: React.FC = () => {
     name: '',
     content: '',
     imageUrl: '',
-    channel: 'whatsapp' as 'whatsapp',
+    channel: 'whatsapp' as any,
     isDefault: false
   });
 
@@ -39,7 +39,7 @@ const MessageTemplates: React.FC = () => {
         name: editingTemplate.name,
         content: editingTemplate.content,
         imageUrl: editingTemplate.imageUrl || '',
-        channel: 'whatsapp',
+        channel: (editingTemplate.channel || 'whatsapp') as any,
         isDefault: editingTemplate.isDefault
       });
     }
@@ -56,7 +56,7 @@ const MessageTemplates: React.FC = () => {
         name: templateForm.name,
         content: templateForm.content,
         imageUrl: templateForm.imageUrl || undefined,
-        channel: templateForm.channel,
+        channel: templateForm.channel as any,
         isDefault: templateForm.isDefault
       });
       
@@ -64,7 +64,7 @@ const MessageTemplates: React.FC = () => {
         name: '',
         content: '',
         imageUrl: '',
-        channel: 'whatsapp',
+        channel: 'whatsapp' as any,
         isDefault: false
       });
       setShowCreateTemplate(false);
@@ -84,7 +84,7 @@ const MessageTemplates: React.FC = () => {
         name: templateForm.name,
         content: templateForm.content,
         imageUrl: templateForm.imageUrl || undefined,
-        channel: templateForm.channel,
+        channel: templateForm.channel as any,
         isDefault: templateForm.isDefault
       });
       
@@ -93,7 +93,7 @@ const MessageTemplates: React.FC = () => {
         name: '',
         content: '',
         imageUrl: '',
-        channel: 'whatsapp',
+        channel: 'whatsapp' as any,
         isDefault: false
       });
     } catch (error: any) {
@@ -116,7 +116,7 @@ const MessageTemplates: React.FC = () => {
       name: `${template.name} (עותק)`,
       content: template.content,
       imageUrl: template.imageUrl || '',
-      channel: template.channel === 'manual' ? 'whatsapp' : template.channel as 'whatsapp' | 'sms',
+      channel: (template.channel === 'manual' ? 'whatsapp' : template.channel) as any,
       isDefault: false
     });
     setShowCreateTemplate(true);
