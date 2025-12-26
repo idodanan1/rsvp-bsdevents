@@ -8,7 +8,7 @@ class SchedulerService {
   // Schedule a single campaign
   scheduleCampaign(campaign: Campaign, callback: () => void): void {
     const now = new Date();
-    const scheduledTime = new Date(campaign.scheduledDate);
+    const scheduledTime = campaign.scheduledDate ? new Date(campaign.scheduledDate) : new Date();
     
     if (scheduledTime <= now) {
       // If time has passed, execute immediately
@@ -37,7 +37,7 @@ class SchedulerService {
   ): void {
     const scheduleNext = () => {
       const now = new Date();
-      let nextRun = new Date(campaign.scheduledDate);
+      let nextRun = campaign.scheduledDate ? new Date(campaign.scheduledDate) : new Date();
 
       switch (repeatType) {
         case 'daily':
