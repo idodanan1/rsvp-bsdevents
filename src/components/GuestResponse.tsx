@@ -34,10 +34,10 @@ const GuestResponse = () => {
       if (allMatches && allMatches.length > 0) {
         console.log(`🔍 Found ${allMatches.length} eventId matches in hash:`, allMatches);
         // Extract all eventIds from matches
-        const eventIds = allMatches.map(m => {
+        const eventIds = allMatches.map((m: any) => {
           const idMatch = m.match(/\/([a-z0-9]{10,})/i);
           return idMatch ? idMatch[1] : null;
-        }).filter(id => id !== null);
+        }).filter((id: any) => id !== null);
         
         if (eventIds.length > 0) {
           // Get the last eventId found (most likely the correct one)
@@ -189,7 +189,7 @@ const GuestResponse = () => {
       if (allGuestMatches.length > 0) {
         console.log(`🔍 Found ${allGuestMatches.length} guestId matches in hash:`, allGuestMatches);
         // Extract all guestIds from matches - get the ID part before any URL or other characters
-        const guestIds = allGuestMatches.map(m => {
+        const guestIds = allGuestMatches.map((m: any) => {
           // Extract the ID part after 'guest='
           const idMatch = m.match(/guest=([a-z0-9-]+)/i);
           if (idMatch && idMatch[1]) {
@@ -245,7 +245,7 @@ const GuestResponse = () => {
             }
           }
           return null;
-        }).filter(id => id !== null && id !== undefined && id.length >= 10);
+        }).filter((id: any) => id !== null && id !== undefined && id.length >= 10);
         
         if (guestIds.length > 0) {
           // Get the last guestId found (most likely the correct one)
@@ -403,7 +403,7 @@ const GuestResponse = () => {
     
     // CRITICAL: Log all guests in the event to verify guestId matching
     if (eventId && events.length > 0) {
-      const event = events.find(e => e.id === eventId);
+      const event = events.find((e: any) => e.id === eventId);
       if (event) {
         console.log(`🔍 Event ${eventId} has ${event.guests?.length || 0} guests`);
         if (guestId) {
@@ -767,10 +767,10 @@ const GuestResponse = () => {
     // CRITICAL: First find event by eventId (this is the primary identifier)
     // Then verify the guest exists in that specific event
     // This ensures we always use the correct event, even if guests have the same ID across events
-    event = events.find(e => e.id === eventId);
+    event = events.find((e: any) => e.id === eventId);
     if (event) {
       // Verify guest exists in this specific event
-      const guestInEvent = event.guests?.find(g => g.id === guestId);
+      const guestInEvent = event.guests?.find((g: any) => g.id === guestId);
       if (!guestInEvent) {
         console.warn(`⚠️ Guest ${guestId} not found in event ${eventId}, but event exists`);
         // Still use the event - guest might be added later or ID might be wrong
@@ -780,11 +780,11 @@ const GuestResponse = () => {
     }
   } else if (eventId) {
     // If no guestId, just find by eventId (but prefer the most recent one if duplicates exist)
-    const matchingEvents = events.filter(e => e.id === eventId);
+    const matchingEvents = events.filter((e: any) => e.id === eventId);
     if (matchingEvents.length > 1) {
       console.warn(`⚠️ Found ${matchingEvents.length} duplicate events with ID ${eventId}, using most recent`);
       // Sort by updatedAt or createdAt, most recent first
-      event = matchingEvents.sort((a, b) => {
+      event = matchingEvents.sort((a: any, b: any) => {
         const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
         const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
         return bTime - aTime;
@@ -857,7 +857,7 @@ const GuestResponse = () => {
     if (eventId && (!currentEvent || currentEvent.id !== eventId)) {
       console.log(`⚠️ Current event (${currentEvent?.id}) doesn't match eventId from URL (${eventId}), searching in store...`);
       const storeState = useEventStore.getState();
-      const eventFromStore = storeState.events.find(e => e.id === eventId);
+      const eventFromStore = storeState.events.find((e: any) => e.id === eventId);
       if (eventFromStore) {
         console.log(`✅ Found event ${eventId} in store: ${eventFromStore.coupleName}`);
         currentEvent = eventFromStore;
@@ -1156,11 +1156,11 @@ const GuestResponse = () => {
         const storeState = storeModule.useEventStore.getState();
         
         // Verify the update was applied
-        const refreshedEvent = storeState.events.find(e => e.id === currentEvent.id);
+        const refreshedEvent = storeState.events.find((e: any) => e.id === currentEvent.id);
         if (!refreshedEvent) {
           console.error('❌ Event not found in store after update!', currentEvent.id);
         } else {
-          const refreshedGuest = refreshedEvent.guests?.find(g => g.id === guestToUpdate.id);
+          const refreshedGuest = refreshedEvent.guests?.find((g: any) => g.id === guestToUpdate.id);
           if (!refreshedGuest) {
             console.error('❌ Guest not found in event after update!', guestToUpdate.id);
           } else {
@@ -1214,8 +1214,8 @@ const GuestResponse = () => {
           console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
           // Verify the update was loaded from server
           const verifyState = storeState;
-          const verifyEvent = verifyState.events.find(e => e.id === currentEvent.id);
-          const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestToUpdate.id);
+          const verifyEvent = verifyState.events.find((e: any) => e.id === currentEvent.id);
+          const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestToUpdate.id);
           if (verifyGuest) {
             console.log(`✅ VERIFIED: Guest ${guestToUpdate.id} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
               rsvpStatus: verifyGuest.rsvpStatus,
@@ -1779,7 +1779,7 @@ const GuestResponse = () => {
                 </button>
                 
                 <button
-                  onClick={async (e) => {
+                  onClick={async (e: any) => {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('🟡 "אולי" button clicked!');
@@ -1861,7 +1861,7 @@ const GuestResponse = () => {
                 </button>
                 
                 <button
-                  onClick={async (e) => {
+                  onClick={async (e: any) => {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('🔴 "לא נוכל להגיע" button clicked!');
@@ -1966,7 +1966,7 @@ const GuestResponse = () => {
               </div>
               
               <div className="grid grid-cols-3 gap-3 max-w-lg mx-auto mb-4">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count: any) => (
                   <button
                     key={count}
                     onClick={() => {
@@ -2020,7 +2020,7 @@ const GuestResponse = () => {
               {/* Submit button */}
               <div className="text-center">
                 <button
-                  onClick={async (e) => {
+                  onClick={async (e: any) => {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('✅ "אישור" button clicked for attending with guestCount:', formData.guestCount);
@@ -2102,7 +2102,7 @@ const GuestResponse = () => {
               {/* Confirm button */}
               <div className="text-center">
                 <button
-                  onClick={async (e) => {
+                  onClick={async (e: any) => {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('✅ "אישור" button clicked for', formData.response, 'with guestCount:', formData.guestCount);
