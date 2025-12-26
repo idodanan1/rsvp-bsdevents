@@ -422,7 +422,7 @@ export const useClientStore = create<ClientStore>()(
 
         if (filters.searchTerm) {
           const searchLower = filters.searchTerm.toLowerCase();
-          filtered = filtered.filter(client =>
+          filtered = filtered.filter((client: any) =>
             client.firstName.toLowerCase().includes(searchLower) ||
             client.lastName.toLowerCase().includes(searchLower) ||
             client.phoneNumber.includes(searchLower) ||
@@ -432,26 +432,26 @@ export const useClientStore = create<ClientStore>()(
         }
 
         if (filters.tags && filters.tags.length > 0) {
-          filtered = filtered.filter(client =>
-            client.tags?.some(tag => filters.tags!.includes(tag))
+          filtered = filtered.filter((client: any) =>
+            client.tags?.some((tag: any) => filters.tags!.includes(tag))
           );
         }
 
         if (filters.status && filters.status.length > 0) {
-          filtered = filtered.filter(client =>
+          filtered = filtered.filter((client: any) =>
             filters.status!.includes(client.isActive ? 'active' : 'inactive')
           );
         }
 
         if (filters.eventType && filters.eventType.length > 0) {
-          filtered = filtered.filter(client =>
-            client.events.some(event => filters.eventType!.includes(event.eventType))
+          filtered = filtered.filter((client: any) =>
+            client.events.some((event: any) => filters.eventType!.includes(event.eventType))
           );
         }
 
         if (filters.dateRange) {
-          filtered = filtered.filter(client =>
-            client.events.some(event => {
+          filtered = filtered.filter((client: any) =>
+            client.events.some((event: any) => {
               const eventDate = new Date(event.eventDate);
               return eventDate >= filters.dateRange!.start && eventDate <= filters.dateRange!.end;
             })
@@ -460,8 +460,8 @@ export const useClientStore = create<ClientStore>()(
 
         if (filters.hasUpcomingEvents) {
           const now = new Date();
-          filtered = filtered.filter(client =>
-            client.events.some(event => 
+          filtered = filtered.filter((client: any) =>
+            client.events.some((event: any) => 
               event.status === 'upcoming' && new Date(event.eventDate) > now
             )
           );
@@ -469,11 +469,11 @@ export const useClientStore = create<ClientStore>()(
 
         if (filters.hasOverdueReminders) {
           const overdueReminderIds = get().getOverdueReminders().map((r: any) => r.clientId);
-          filtered = filtered.filter(client => overdueReminderIds.includes(client.id));
+          filtered = filtered.filter((client: any) => overdueReminderIds.includes(client.id));
         }
 
         if (filters.serviceAreas && filters.serviceAreas.length > 0) {
-          filtered = filtered.filter(client => {
+          filtered = filtered.filter((client: any) => {
             if (!client.serviceAreas || client.serviceAreas.length === 0) return false;
             
             // Check if client has any of the selected service areas
@@ -492,27 +492,27 @@ export const useClientStore = create<ClientStore>()(
         let filtered = [...reminders];
 
         if (reminderFilters.clientId) {
-          filtered = filtered.filter(reminder => reminder.clientId === reminderFilters.clientId);
+          filtered = filtered.filter((reminder: any) => reminder.clientId === reminderFilters.clientId);
         }
 
         if (reminderFilters.eventId) {
-          filtered = filtered.filter(reminder => reminder.eventId === reminderFilters.eventId);
+          filtered = filtered.filter((reminder: any) => reminder.eventId === reminderFilters.eventId);
         }
 
         if (reminderFilters.type && reminderFilters.type.length > 0) {
-          filtered = filtered.filter(reminder => reminderFilters.type!.includes(reminder.type));
+          filtered = filtered.filter((reminder: any) => reminderFilters.type!.includes(reminder.type));
         }
 
         if (reminderFilters.status && reminderFilters.status.length > 0) {
-          filtered = filtered.filter(reminder => reminderFilters.status!.includes(reminder.status));
+          filtered = filtered.filter((reminder: any) => reminderFilters.status!.includes(reminder.status));
         }
 
         if (reminderFilters.priority && reminderFilters.priority.length > 0) {
-          filtered = filtered.filter(reminder => reminderFilters.priority!.includes(reminder.priority));
+          filtered = filtered.filter((reminder: any) => reminderFilters.priority!.includes(reminder.priority));
         }
 
         if (reminderFilters.dateRange) {
-          filtered = filtered.filter(reminder => {
+          filtered = filtered.filter((reminder: any) => {
             const reminderDate = new Date(reminder.reminderDate);
             return reminderDate >= reminderFilters.dateRange!.start && 
                    reminderDate <= reminderFilters.dateRange!.end;
@@ -521,7 +521,7 @@ export const useClientStore = create<ClientStore>()(
 
         if (reminderFilters.isOverdue) {
           const now = new Date();
-          filtered = filtered.filter(reminder => 
+          filtered = filtered.filter((reminder: any) => 
             reminder.status === 'pending' && new Date(reminder.reminderDate) < now
           );
         }
@@ -534,7 +534,7 @@ export const useClientStore = create<ClientStore>()(
         const now = new Date();
         const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
         
-        return reminders.filter(reminder =>
+        return reminders.filter((reminder: any) =>
           reminder.status === 'pending' &&
           new Date(reminder.reminderDate) >= now &&
           new Date(reminder.reminderDate) <= futureDate
@@ -545,7 +545,7 @@ export const useClientStore = create<ClientStore>()(
         const { reminders } = get();
         const now = new Date();
         
-        return reminders.filter(reminder =>
+        return reminders.filter((reminder: any) =>
           reminder.status === 'pending' && new Date(reminder.reminderDate) < now
         ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
       },
@@ -554,7 +554,7 @@ export const useClientStore = create<ClientStore>()(
         const { clients } = get();
         const searchLower = query.toLowerCase();
         
-        return clients.filter(client =>
+        return clients.filter((client: any) =>
           client.firstName.toLowerCase().includes(searchLower) ||
           client.lastName.toLowerCase().includes(searchLower) ||
           client.phoneNumber.includes(searchLower) ||
@@ -570,7 +570,7 @@ export const useClientStore = create<ClientStore>()(
 
       getClientReminders: (clientId: any) => {
         const { reminders } = get();
-        return reminders.filter(reminder => reminder.clientId === clientId);
+        return reminders.filter((reminder: any) => reminder.clientId === clientId);
       },
 
       syncWithEvents: async () => {

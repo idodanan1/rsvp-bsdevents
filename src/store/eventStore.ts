@@ -1014,11 +1014,11 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Create deep copy of events with new references for all nested objects
                 // This ensures React detects ALL changes, including nested guest changes
-                const eventsWithNewReferences = uniqueEvents.map(event => ({
+                const eventsWithNewReferences = uniqueEvents.map((event: any) => ({
                   ...event,
-                  guests: event.guests ? event.guests.map(guest => ({ ...guest })) : [],
-                  campaigns: event.campaigns ? event.campaigns.map(campaign => ({ ...campaign })) : [],
-                  tables: event.tables ? event.tables.map(table => ({ ...table })) : []
+                  guests: event.guests ? event.guests.map((guest: any) => ({ ...guest })) : [],
+                  campaigns: event.campaigns ? event.campaigns.map((campaign: any) => ({ ...campaign })) : [],
+                  tables: event.tables ? event.tables.map((table: any) => ({ ...table })) : []
                 }));
                 
                 // Only update state if data actually changed (for silent updates)
@@ -1061,7 +1061,7 @@ export const useEventStore = create<EventStore>()(
                       (g.firstName?.includes('מאור') && g.lastName?.includes('רומנו'))
                     );
                     if (problematicGuests && problematicGuests.length > 0) {
-                      problematicGuests.forEach(guest => {
+                      problematicGuests.forEach((guest: any) => {
                         console.log(`🔍 Found problematic guest in updated currentEvent: ${guest.firstName} ${guest.lastName}`, {
                           id: guest.id,
                           status: guest.rsvpStatus,
@@ -1745,7 +1745,7 @@ export const useEventStore = create<EventStore>()(
           let updatedEvent: Event | null = null;
           
           set((state: any) => {
-            const updatedEvents = state.events.map(event => {
+            const updatedEvents = state.events.map((event: any) => {
               if (event.id === id) {
                 updatedEvent = { ...event, ...cleanedUpdates, updatedAt: new Date() };
                 return updatedEvent;
@@ -1780,7 +1780,7 @@ export const useEventStore = create<EventStore>()(
         try {
           const state: any = get();
           // CRITICAL: Find ALL events with this ID (in case of duplicates)
-          const eventsToDelete = state.events.filter(event => event.id === id);
+          const eventsToDelete = state.events.filter((event: any) => event.id === id);
           
           if (eventsToDelete.length > 0) {
             console.log(`🗑️ Deleting ${eventsToDelete.length} event(s) with ID ${id}`);
@@ -1880,7 +1880,7 @@ export const useEventStore = create<EventStore>()(
             console.log('🔍 Current state events count:', state.events.length);
             console.log('🔍 Current event ID:', state.currentEvent?.id);
             
-            const updatedEvents = state.events.map(event =>
+            const updatedEvents = state.events.map((event: any) =>
               event.id === eventId
                 ? { ...event, guests: [...event.guests, newGuest] }
                 : event
@@ -1942,7 +1942,7 @@ export const useEventStore = create<EventStore>()(
             const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
             const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
             
-            const updatedGuests = event.guests.map(guest => {
+            const updatedGuests = event.guests.map((guest: any) => {
               if (guest.id === guestId) {
                 // If updating critical fields, ensure we have a timestamp
                 const now = new Date();
@@ -1986,7 +1986,7 @@ export const useEventStore = create<EventStore>()(
             // If tableId changed, update tables array
             let updatedTables = event.tables || [];
             if (updates.tableId !== undefined && newTableId !== oldTableId) {
-              updatedTables = event.tables?.map(table => {
+              updatedTables = event.tables?.map((table: any) => {
                 // Remove guest from old table
                 const tableGuestsWithoutGuest = table.guests.filter(id => id !== guestId);
                 
@@ -2348,7 +2348,7 @@ export const useEventStore = create<EventStore>()(
           
           set((state: any) => {
             const event = state.events.find((e: any) => e.id === eventId);
-            const guest = event?.guests?.find(g => g.id === guestId);
+            const guest = event?.guests?.find((g: any) => g.id === guestId);
             
             const isProblematicGuest = (guest?.firstName?.includes('דורון') && guest?.lastName?.includes('שושני')) ||
                                       (guest?.firstName?.includes('מאור') && guest?.lastName?.includes('רומנו'));
@@ -2375,11 +2375,11 @@ export const useEventStore = create<EventStore>()(
             
             // CRITICAL: Create new array reference to force React re-render
             // Always create a completely new events array to ensure React detects the change
-            const updatedEvents = state.events.map(event => {
+            const updatedEvents = state.events.map((event: any) => {
               if (event.id === eventId) {
                 updatedEvent = {
                   ...event,
-                  guests: event.guests.map(guest => {
+                  guests: event.guests.map((guest: any) => {
                     if (guest.id === guestId) {
                       // CRITICAL: Use timestamp-based conflict resolution - latest update wins
                       const newResponseDate = updatedGuest.responseDate ? new Date(updatedGuest.responseDate) : new Date();
@@ -2654,7 +2654,7 @@ export const useEventStore = create<EventStore>()(
                 // CRITICAL: Remove _updateTimestamp before returning to avoid storing internal properties
                 const cleanedEvent = {
                   ...updatedEvent,
-                  guests: updatedEvent.guests.map(g => {
+                  guests: updatedEvent.guests.map((g: any) => {
                     const cleanedGuest = { ...g };
                     delete (cleanedGuest as any)._updateTimestamp;
                     return cleanedGuest;
@@ -2668,7 +2668,7 @@ export const useEventStore = create<EventStore>()(
               // CRITICAL: Remove _updateTimestamp before returning to avoid storing internal properties
               const cleanedEvent = {
                 ...event,
-                guests: event.guests ? event.guests.map(g => {
+                guests: event.guests ? event.guests.map((g: any) => {
                   const cleanedGuest = { ...g };
                   delete (cleanedGuest as any)._updateTimestamp;
                   return cleanedGuest;
@@ -2689,7 +2689,7 @@ export const useEventStore = create<EventStore>()(
               const isManualUpdateEcho = updatedGuest.source === 'manual_update' || updatedGuest.source === 'guest_link' || updatedGuest.source === 'whatsapp';
               updatedCurrentEvent = {
                 ...state.currentEvent,
-                guests: state.currentEvent.guests.map(guest => {
+                guests: state.currentEvent.guests.map((guest: any) => {
                   if (guest.id === guestId) {
                     // Use timestamp-based conflict resolution - latest update wins
                     // CRITICAL: For manual_update, guest_link, and whatsapp, always use new values to ensure update is applied
@@ -2774,7 +2774,7 @@ export const useEventStore = create<EventStore>()(
               const newUpdatedAt = new Date();
               updatedCurrentEvent = {
                 ...updatedCurrentEvent,
-                guests: updatedCurrentEvent.guests.map(g => ({ ...g })), // New array AND new object references
+                guests: updatedCurrentEvent.guests.map((g: any) => ({ ...g })), // New array AND new object references
                 updatedAt: newUpdatedAt // Force timestamp update
               };
               console.log('🔄 Updated existing currentEvent for event:', eventId, 'guests:', updatedCurrentEvent.guests.length, 'updatedAt:', newUpdatedAt.toISOString());
@@ -2785,9 +2785,9 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Verify the update
-            const verifyEvent = updatedEvents.find(e => e.id === eventId);
-            const verifyGuest = verifyEvent?.guests?.find(g => g.id === guestId);
-            const verifyCurrentEventGuest = updatedCurrentEvent?.guests?.find(g => g.id === guestId);
+            const verifyEvent = updatedEvents.find((e: any) => e.id === eventId);
+            const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestId);
+            const verifyCurrentEventGuest = updatedCurrentEvent?.guests?.find((g: any) => g.id === guestId);
             console.log(`✅ STORE: After updateGuestResponse - Guest ID: ${guestId}`);
             console.log(`✅ STORE: After updateGuestResponse - Guest name: ${verifyGuest?.firstName} ${verifyGuest?.lastName}`);
             console.log(`✅ STORE: After updateGuestResponse - Guest status:`, verifyGuest?.rsvpStatus);
@@ -2812,7 +2812,7 @@ export const useEventStore = create<EventStore>()(
             // This ensures React detects changes even if array contents are similar
             // CRITICAL: Also ensure updatedAt is ALWAYS updated to force eventsHash change
             // CRITICAL: For manual_update and guest_link updates, ALWAYS update updatedAt to ensure table refresh
-            const finalUpdatedEvents = updatedEvents.map(e => {
+            const finalUpdatedEvents = updatedEvents.map((e: any) => {
               if (e.id === eventId) {
                 // CRITICAL: Always update updatedAt timestamp to ensure eventsHash changes
                 // This forces EventManagement to detect the change and re-render the table
@@ -2823,7 +2823,7 @@ export const useEventStore = create<EventStore>()(
                   ...e,
                   updatedAt: newUpdatedAt, // Always use current timestamp to force hash change
                   // CRITICAL: Also ensure guests array is a new reference
-                  guests: e.guests.map(g => ({ ...g }))
+                  guests: e.guests.map((g: any) => ({ ...g }))
                 };
               }
               return e;
@@ -3085,11 +3085,11 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedEvents = state.events.map(event =>
+            const updatedEvents = state.events.map((event: any) =>
               event.id === eventId
                 ? {
                     ...event,
-                    guests: event.guests.filter(guest => guest.id !== guestId)
+                    guests: event.guests.filter((guest: any) => guest.id !== guestId)
                   }
                 : event
             );
@@ -3170,12 +3170,12 @@ export const useEventStore = create<EventStore>()(
       exportGuestsToExcel: async (eventId: any) => {
         set({ isLoading: true, error: null });
         try {
-          const event = get().events.find(e => e.id === eventId);
+          const event = get().events.find((e: any) => e.id === eventId);
           if (!event) {
             throw new Error('אירוע לא נמצא');
           }
 
-          const exportData: ExcelExportData[] = event.guests.map(guest => ({
+          const exportData: ExcelExportData[] = event.guests.map((guest: any) => ({
             firstName: guest.firstName,
             lastName: guest.lastName,
             phoneNumber: guest.phoneNumber,
@@ -3224,7 +3224,7 @@ export const useEventStore = create<EventStore>()(
       scheduleCampaign: async (eventId: string, campaignId: string, scheduledDate: Date): Promise<void> => {
         set({ isLoading: true, error: null });
         try {
-          const event = get().events.find(e => e.id === eventId);
+          const event = get().events.find((e: any) => e.id === eventId);
           if (!event) {
             throw new Error('Event not found');
           }
@@ -3298,7 +3298,7 @@ export const useEventStore = create<EventStore>()(
         console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
         try {
-          const event = get().events.find(e => e.id === eventId);
+          const event = get().events.find((e: any) => e.id === eventId);
           if (!event) {
             throw new Error('Event not found');
           }
@@ -3323,20 +3323,20 @@ export const useEventStore = create<EventStore>()(
           let filteredGuests;
           if (campaignsForNonResponded.includes(campaign.name)) {
             // Only send to guests with status 'pending' (לא ענה) or 'maybe' (אולי מגיע)
-            filteredGuests = guests.filter(guest => 
+            filteredGuests = guests.filter((guest: any) => 
               guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
             );
             console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
             console.log(`✅ Filtering: Only sending to guests with status === 'pending' (לא ענה) or 'maybe' (אולי מגיע)`);
           } else if (campaignsForConfirmed.includes(campaign.name)) {
             // Only send to guests who confirmed (מגיע)
-            filteredGuests = guests.filter(guest => guest.rsvpStatus === 'confirmed');
+            filteredGuests = guests.filter((guest: any) => guest.rsvpStatus === 'confirmed');
             console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'confirmed')`);
             console.log(`✅ Filtering: Only sending to guests with status === 'confirmed' (מגיע)`);
           } else {
             // Default: send only to guests with status 'pending' or 'maybe' (לא ענה ומתלבט)
             // This ensures custom campaigns only target guests who haven't confirmed or declined
-            filteredGuests = guests.filter(guest => 
+            filteredGuests = guests.filter((guest: any) => 
               guest.rsvpStatus === 'pending' || guest.rsvpStatus === 'maybe'
             );
             console.log(`📊 Campaign "${campaign.name}": ${filteredGuests.length} of ${guests.length} guests will receive the message (filtered: only guests with status 'pending' or 'maybe')`);
@@ -3381,7 +3381,7 @@ export const useEventStore = create<EventStore>()(
             let personalizedSmsMessage = campaign.smsMessage || campaign.message;
             
             // CRITICAL: Find the original row number of the guest in the event (not filtered)
-            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
+            const originalRowNumber = event.guests.findIndex((g: any) => g.id === guest.id) + 1;
             // Replace the generic link with guest-specific link
             // Use helper function to ensure production URL (works on all devices)
             const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
@@ -3391,7 +3391,7 @@ export const useEventStore = create<EventStore>()(
             console.log('🔗 Campaign - Original message:', personalizedMessage);
             
             // Find the table number for this guest
-            const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+            const guestTable = event.tables?.find((table: any) => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
             
             // Replace template variables with actual values
@@ -3459,11 +3459,11 @@ export const useEventStore = create<EventStore>()(
           // Order: {{1}} = first_name, {{2}} = event_type, {{3}} = groom_name, {{4}} = bride_name,
           //        {{5}} = event_date, {{6}} = event_time, {{7}} = venue, {{8}} = guest_response_link
           // generateGuestResponseLink is already imported above, use it here
-          const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }) => {
-            const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+          const recipients: MessageRecipient[] = personalizedMessages.map(({ guest, message, smsMessage, qrCodeImageUrl }: any) => {
+            const guestTable = event.tables?.find((table: any) => table.guests.includes(guest.id));
             const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
             // CRITICAL: Find the original row number of the guest in the event (not filtered)
-            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
+            const originalRowNumber = event.guests.findIndex((g: any) => g.id === guest.id) + 1;
             // Use helper function to ensure production URL (works on all devices)
             const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
@@ -3535,7 +3535,7 @@ export const useEventStore = create<EventStore>()(
               // 7. table_number
               // NOTE: guest_response_link is NOT included in this template
               // (Supporting both 'today' and 'reminer' for backward compatibility)
-              const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+              const guestTable = event.tables?.find((table: any) => table.guests.includes(guest.id));
               const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
               
               templateParams = {
@@ -3639,7 +3639,7 @@ export const useEventStore = create<EventStore>()(
           console.log('🔘 DEBUG: ========== BEFORE SEND BULK MESSAGES ==========');
           console.log('🔘 DEBUG: Recipients count:', recipients.length);
           console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
-          recipients.forEach((r, idx) => {
+          recipients.forEach((r: any, idx: any) => {
             console.log(`🔘 DEBUG: Recipient ${idx}:`, {
               name: `${r.firstName} ${r.lastName}`,
               channel: r.channel,
@@ -3660,10 +3660,10 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Update messageStatus for each guest based on send results
           // Update guests with "sent" status if message was sent successfully
-          const updatedEvents = get().events.map(event => {
+          const updatedEvents = get().events.map((event: any) => {
             if (event.id !== eventId) return event;
             
-            const updatedGuests = event.guests?.map(guest => {
+            const updatedGuests = event.guests?.map((guest: any) => {
               const messageResult = result.results.find(r => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
                 // Update messageStatus
@@ -3710,7 +3710,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // Sync updated events to backend
-          const updatedEvent = updatedEvents.find(e => e.id === eventId);
+          const updatedEvent = updatedEvents.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.warn('⚠️ Failed to sync updated event to API:', err);
@@ -3736,7 +3736,7 @@ export const useEventStore = create<EventStore>()(
         console.log('📡 Resending failed messages - System is now actively waiting for guest responses...');
         set({ isLoading: true, error: null });
         try {
-          const event = get().events.find(e => e.id === eventId);
+          const event = get().events.find((e: any) => e.id === eventId);
           if (!event) {
             throw new Error('Event not found');
           }
@@ -3749,7 +3749,7 @@ export const useEventStore = create<EventStore>()(
           const guests = event.guests || [];
           
           // CRITICAL: Filter only guests with failed message status
-          const failedGuests = guests.filter(guest => guest.messageStatus === 'failed');
+          const failedGuests = guests.filter((guest: any) => guest.messageStatus === 'failed');
           
           if (failedGuests.length === 0) {
             console.log('ℹ️ No guests with failed messages found for this campaign');
@@ -3788,7 +3788,7 @@ export const useEventStore = create<EventStore>()(
           const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
             let personalizedMessage = campaign.message;
             // CRITICAL: Find the original row number of the guest in the event (not filtered)
-            const originalRowNumber = event.guests.findIndex(g => g.id === guest.id) + 1;
+            const originalRowNumber = event.guests.findIndex((g: any) => g.id === guest.id) + 1;
             const guestLink = generateGuestResponseLink(eventId, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
             
             // Replace template variables
@@ -3849,7 +3849,7 @@ export const useEventStore = create<EventStore>()(
                 language: 'he'
               };
             } else if (templateNameForCampaign === 'today' || templateNameForCampaign === 'reminer' || templateNameForCampaign === 'reminder') {
-              const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+              const guestTable = event.tables?.find((table: any) => table.guests.includes(guest.id));
               const tableNumber = guestTable ? guestTable.number?.toString() : 'לא הוקצה';
               
               templateParams = {
@@ -3904,10 +3904,10 @@ export const useEventStore = create<EventStore>()(
           const result = await messageService.sendBulkMessages(messageData);
           
           // Update messageStatus for each guest based on send results
-          const updatedEvents = get().events.map(event => {
+          const updatedEvents = get().events.map((event: any) => {
             if (event.id !== eventId) return event;
             
-            const updatedGuests = event.guests?.map(guest => {
+            const updatedGuests = event.guests?.map((guest: any) => {
               // Only update guests that were in the failed list
               if (!failedGuests.find(fg => fg.id === guest.id)) {
                 return guest;
@@ -3947,7 +3947,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // Sync updated events to backend
-          const updatedEvent = updatedEvents.find(e => e.id === eventId);
+          const updatedEvent = updatedEvents.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.warn('⚠️ Failed to sync updated event to API:', err);
@@ -4473,8 +4473,8 @@ export const useEventStore = create<EventStore>()(
       // Function to update existing events campaigns with consistent variable names
       updateExistingEventsCampaigns: () => {
         console.log('🔄 Updating existing events campaigns with consistent variable names...');
-        set(state => {
-          const updatedEvents = state.events.map(event => {
+        set((state: any) => {
+          const updatedEvents = state.events.map((event: any) => {
             if (!event.campaigns || event.campaigns.length === 0) {
               return event;
             }
@@ -4820,8 +4820,8 @@ export const useEventStore = create<EventStore>()(
         // Update the event with new campaigns
         // CRITICAL: Only update campaigns, preserve all other event data
         let updatedEvent: Event | undefined;
-        set(state => {
-          const eventIndex = state.events.findIndex(e => e.id === eventId);
+        set((state: any) => {
+          const eventIndex = state.events.findIndex((e: any) => e.id === eventId);
           if (eventIndex < 0) {
             console.error('❌ CRITICAL: Event not found in store after adding!');
             throw new Error('האירוע לא נמצא במאגר הנתונים');
@@ -4895,7 +4895,7 @@ export const useEventStore = create<EventStore>()(
       addTable: async (eventId: any, tableData: any) => {
         set({ isLoading: true, error: null });
         try {
-          const event = get().events.find(e => e.id === eventId);
+          const event = get().events.find((e: any) => e.id === eventId);
           if (!event) {
             throw new Error('Event not found');
           }
