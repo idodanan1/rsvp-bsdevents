@@ -20,28 +20,28 @@ export interface EventStats {
 export function calculateEventStats(event: Event): EventStats {
   const guests = event.guests || [];
   
-  const totalGuests = guests.reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+  const totalGuests = guests.reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const confirmed = guests
-    .filter(g => g.rsvpStatus === 'confirmed')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.rsvpStatus === 'confirmed')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const declined = guests
-    .filter(g => g.rsvpStatus === 'declined')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.rsvpStatus === 'declined')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const maybe = guests
-    .filter(g => g.rsvpStatus === 'maybe')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.rsvpStatus === 'maybe')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const pending = guests
-    .filter(g => g.rsvpStatus === 'pending')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.rsvpStatus === 'pending')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const attended = guests
-    .filter(g => g.actualAttendance === 'attended')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.actualAttendance === 'attended')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const notAttended = guests
-    .filter(g => g.actualAttendance === 'not_attended')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => g.actualAttendance === 'not_attended')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const notMarked = guests
-    .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
-    .reduce((sum, guest) => sum + (guest.guestCount || 1), 0);
+    .filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked')
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
 
   return {
     totalGuests,
@@ -58,19 +58,19 @@ export function calculateEventStats(event: Event): EventStats {
 export function calculateGlobalStats(events: Event[]): any {
   const allGuests = events.flatMap((event: any) => event.guests || []);
   
-  const totalGuests = allGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+  const totalGuests = allGuests.reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const confirmed = allGuests
     .filter((g: any) => g.rsvpStatus === 'confirmed')
-    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const declined = allGuests
     .filter((g: any) => g.rsvpStatus === 'declined')
-    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const maybe = allGuests
     .filter((g: any) => g.rsvpStatus === 'maybe')
-    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   const pending = allGuests
     .filter((g: any) => g.rsvpStatus === 'pending')
-    .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
+    .reduce((sum: any, guest: any) => sum + (guest.guestCount || 1), 0);
   
   const responseRate = totalGuests > 0 
     ? Math.round(((confirmed + declined + maybe) / totalGuests) * 100) 
