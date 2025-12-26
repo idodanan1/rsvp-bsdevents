@@ -60,7 +60,7 @@ const CheckInStation: React.FC = () => {
         setAvailableCameras(devices);
         
         // Find back camera index
-        const backCameraIndex = devices.findIndex(device => 
+        const backCameraIndex = devices.findIndex((device: any) => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('rear') ||
           device.label.toLowerCase().includes('environment')
@@ -271,14 +271,14 @@ const CheckInStation: React.FC = () => {
       }
 
       // Find the event and guest
-      const event = events.find((e: Event) => e.id === eventId);
+      const event = events.find((e: any) => e.id === eventId);
       if (!event) {
         setError('אירוע לא נמצא');
         toast.error('אירוע לא נמצא');
         return;
       }
 
-      const guest = event.guests.find((g: Guest) => g.id === qrData.guestId);
+      const guest = event.guests?.find((g: any) => g.id === qrData.guestId);
       if (!guest) {
         toast.error('אורח לא נמצא');
         return;
@@ -287,7 +287,7 @@ const CheckInStation: React.FC = () => {
       // Check if already marked as attended
       if (guest.actualAttendance === 'attended') {
         // Still show the info, but don't update again
-        const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guest.id));
+        const guestTable = event.tables?.find((table: any) => table.guests?.includes(guest.id));
         const tableNumber = guestTable ? guestTable.number : null;
         
         // Clear any existing timeout
@@ -318,7 +318,7 @@ const CheckInStation: React.FC = () => {
       }
 
       // Find table number
-      const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guest.id));
+      const guestTable = event.tables?.find((table: any) => table.guests?.includes(guest.id));
       const tableNumber = guestTable ? guestTable.number : null;
 
       // Update guest status to attended
@@ -365,7 +365,7 @@ const CheckInStation: React.FC = () => {
     }
   };
 
-  const event = events.find(e => e.id === eventId);
+  const event = events.find((e: any) => e.id === eventId);
 
   if (!event) {
     return (
