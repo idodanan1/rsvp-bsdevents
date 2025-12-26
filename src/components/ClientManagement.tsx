@@ -121,7 +121,7 @@ const ClientManagement: React.FC = () => {
     }
   };
 
-  const getPriorityColor = (priority: Reminder['priority']) => {
+  const getPriorityColor = (priority: any) => {
     switch (priority) {
       case 'urgent': return 'text-red-600 bg-red-100';
       case 'high': return 'text-orange-600 bg-orange-100';
@@ -131,7 +131,7 @@ const ClientManagement: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: Reminder['status']) => {
+  const getStatusColor = (status: any) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100';
       case 'pending': return 'text-blue-600 bg-blue-100';
@@ -141,7 +141,7 @@ const ClientManagement: React.FC = () => {
     }
   };
 
-  const getTypeIcon = (type: Reminder['type']) => {
+  const getTypeIcon = (type: any) => {
     switch (type) {
       case 'call': return <Phone className="w-4 h-4" />;
       case 'email': return <Mail className="w-4 h-4" />;
