@@ -4736,14 +4736,14 @@ export const useEventStore = create<EventStore>()(
 
 // Set up cross-tab synchronization listener for eventStore
 if (typeof window !== 'undefined') {
-  crossTabSync.subscribe('rsvp-events-storage', (message) => {
+  crossTabSync.subscribe('rsvp-events-storage', (message: any) => {
     if (message.type === 'store-update' || message.type === 'force-refresh') {
       const store = useEventStore.getState();
       
       // Handle force refresh
       if (message.type === 'force-refresh' || message.action === 'force-refresh') {
         console.log('🔄 Cross-tab: Force refreshing events...');
-        store.fetchEvents(true, true).catch(err => {
+        store.fetchEvents(true, true).catch((err: any) => {
           console.error('❌ Error refreshing events from cross-tab:', err);
         });
         return;
@@ -4763,7 +4763,7 @@ if (typeof window !== 'undefined') {
         
         // Merge incoming events, keeping the newer version
         const mergedEvents = incomingEvents.map((incomingEvent: Event) => {
-          const currentEvent = currentEventsMap.get(incomingEvent.id);
+          const currentEvent = currentEventsMap.get(incomingEvent.id) as any;
           if (currentEvent) {
             // Compare timestamps
             const currentUpdatedAt = currentEvent.updatedAt 
