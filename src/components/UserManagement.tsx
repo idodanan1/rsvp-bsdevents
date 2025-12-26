@@ -1,32 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '../store/userStore';
 import { useEventStore } from '../store/eventStore';
-import { User } from '../types';
 import { Users, Plus, Search, CreditCard, Calendar, UserCheck, Mail, Eye, EyeOff, RefreshCw, X, Phone } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-interface UserWithStats extends User {
-  totalEvents: number;
-  totalGuests: number;
-  totalCreditsUsed: number;
-  password?: string;
-}
+type User = any;
+type UserWithStats = any;
 
 const UserManagement: React.FC = () => {
   const { user: currentUser, getAllUsers, getAllUsersWithPasswords, addCreditsToUser } = useUserStore();
   const { getAllEvents, getEventStatsByUserId, getEventsByUserId, recreateCampaigns, fetchEvents } = useEventStore();
   
-  const [users, setUsers] = useState<UserWithStats[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const [creditsToAdd, setCreditsToAdd] = useState<number>(50);
   const [isLoading, setIsLoading] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, boolean>>({});
   const [showRecreateCampaignsModal, setShowRecreateCampaignsModal] = useState(false);
-  const [selectedUserForCampaigns, setSelectedUserForCampaigns] = useState<UserWithStats | null>(null);
+  const [selectedUserForCampaigns, setSelectedUserForCampaigns] = useState<any | null>(null);
   const [userEvents, setUserEvents] = useState<any[]>([]);
   const [showRestoreEventModal, setShowRestoreEventModal] = useState(false);
-  const [selectedUserForRestore, setSelectedUserForRestore] = useState<UserWithStats | null>(null);
+  const [selectedUserForRestore, setSelectedUserForRestore] = useState<any | null>(null);
   const [deletedEvents, setDeletedEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -44,7 +39,7 @@ const UserManagement: React.FC = () => {
       const allUsersWithPasswords = await getAllUsersWithPasswords();
       const allEvents = getAllEvents();
       
-      const usersWithStats: UserWithStats[] = allUsersWithPasswords.map(user => {
+      const usersWithStats: any[] = allUsersWithPasswords.map((user: any) => {
         const stats = getEventStatsByUserId(user.id);
         return {
           ...user,
@@ -90,7 +85,7 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleOpenRecreateCampaigns = async (user: UserWithStats) => {
+  const handleOpenRecreateCampaigns = async (user: any) => {
     console.log('🔄 Opening recreate campaigns modal for user:', user.name, user.id);
     try {
       setIsLoading(true);
@@ -186,7 +181,7 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const filteredUsers = users.filter(u =>
+  const filteredUsers = users.filter((u: any) =>
     u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -259,7 +254,7 @@ const UserManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  filteredUsers.map((user: any) => (
                     <tr key={user.id} className="hover:bg-gray-50" onClick={(e) => e.stopPropagation()}>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3">
@@ -424,7 +419,7 @@ const UserManagement: React.FC = () => {
                   כמות רשומות להוספה
                 </label>
                 <div className="flex space-x-2 mb-2">
-                  {[10, 25, 50, 100].map((amount) => (
+                  {[10, 25, 50, 100].map((amount: any) => (
                     <button
                       key={amount}
                       onClick={() => setCreditsToAdd(amount)}
