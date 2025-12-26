@@ -50,7 +50,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const updated = { ...budget, ...updates, updatedAt: new Date() };
                 // Recalculate remaining
@@ -60,7 +60,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -76,7 +76,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            budgets: state.budgets.filter(b => b.id !== budgetId),
+            budgets: state.budgets.filter((b: any) => b.id !== budgetId),
             currentBudget: state.currentBudget?.id === budgetId ? null : state.currentBudget,
             isLoading: false,
           }));
@@ -89,7 +89,7 @@ export const useBudgetStore = create<BudgetStore>()(
         const state: any = get();
         // SECURITY: This function should be used with filtered events only
         // The component should verify user has access to the event before calling this
-        return state.budgets.find(b => b.eventId === eventId) || null;
+        return state.budgets.find((b: any) => b.eventId === eventId) || null;
       },
 
       setCurrentBudget: (budget: Budget | null) => {
@@ -109,7 +109,7 @@ export const useBudgetStore = create<BudgetStore>()(
           };
 
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const updated = {
                   ...budget,
@@ -123,7 +123,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -139,7 +139,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
@@ -156,8 +156,8 @@ export const useBudgetStore = create<BudgetStore>()(
                 newVendors[vendorIndex] = updatedVendor;
 
                 // Recalculate allocated and spent
-                const allocated = newVendors.reduce((sum, v) => sum + v.budget, 0);
-                const spent = newVendors.reduce((sum, v) => sum + v.paid, 0);
+                const allocated = newVendors.reduce((sum: number, v: any) => sum + v.budget, 0);
+                const spent = newVendors.reduce((sum: number, v: any) => sum + v.paid, 0);
 
                 return {
                   ...budget,
@@ -171,7 +171,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -187,14 +187,14 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
-                const vendor = budget.vendors.find(v => v.id === vendorId);
+                const vendor = budget.vendors.find((v: any) => v.id === vendorId);
                 if (!vendor) return budget;
 
-                const newVendors = budget.vendors.filter(v => v.id !== vendorId);
-                const allocated = newVendors.reduce((sum, v) => sum + v.budget, 0);
-                const spent = newVendors.reduce((sum, v) => sum + v.paid, 0);
+                const newVendors = budget.vendors.filter((v: any) => v.id !== vendorId);
+                const allocated = newVendors.reduce((sum: number, v: any) => sum + v.budget, 0);
+                const spent = newVendors.reduce((sum: number, v: any) => sum + v.paid, 0);
 
                 return {
                   ...budget,
@@ -208,7 +208,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -224,7 +224,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
@@ -240,7 +240,7 @@ export const useBudgetStore = create<BudgetStore>()(
                 const newVendors = [...budget.vendors];
                 newVendors[vendorIndex] = updatedVendor;
 
-                const spent = newVendors.reduce((sum, v) => sum + v.paid, 0);
+                const spent = newVendors.reduce((sum: number, v: any) => sum + v.paid, 0);
 
                 return {
                   ...budget,
@@ -253,7 +253,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -269,7 +269,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
@@ -299,7 +299,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -315,7 +315,7 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
@@ -337,8 +337,8 @@ export const useBudgetStore = create<BudgetStore>()(
 
                 // Update vendor paid amount
                 const paidAmount = newPaymentSchedule
-                  .filter(p => p.paid)
-                  .reduce((sum, p) => sum + p.amount, 0);
+                  .filter((p: any) => p.paid)
+                  .reduce((sum: number, p: any) => sum + p.amount, 0);
 
                 const updatedVendor = {
                   ...vendor,
@@ -351,7 +351,7 @@ export const useBudgetStore = create<BudgetStore>()(
                 const newVendors = [...budget.vendors];
                 newVendors[vendorIndex] = updatedVendor;
 
-                const spent = newVendors.reduce((sum, v) => sum + v.paid, 0);
+                const spent = newVendors.reduce((sum: number, v: any) => sum + v.paid, 0);
 
                 return {
                   ...budget,
@@ -364,7 +364,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -380,22 +380,22 @@ export const useBudgetStore = create<BudgetStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const updatedBudgets = state.budgets.map(budget => {
+            const updatedBudgets = state.budgets.map((budget: any) => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
                 if (vendorIndex === -1) return budget;
 
                 const vendor = budget.vendors[vendorIndex];
                 const paymentSchedule = vendor.paymentSchedule || [];
-                const payment = paymentSchedule.find(p => p.id === paymentId);
+                const payment = paymentSchedule.find((p: any) => p.id === paymentId);
                 if (!payment) return budget;
 
-                const newPaymentSchedule = paymentSchedule.filter(p => p.id !== paymentId);
+                const newPaymentSchedule = paymentSchedule.filter((p: any) => p.id !== paymentId);
 
                 // Recalculate paid amount if payment was already paid
                 const paidAmount = newPaymentSchedule
-                  .filter(p => p.paid)
-                  .reduce((sum, p) => sum + p.amount, 0);
+                  .filter((p: any) => p.paid)
+                  .reduce((sum: number, p: any) => sum + p.amount, 0);
 
                 const updatedVendor = {
                   ...vendor,
@@ -408,7 +408,7 @@ export const useBudgetStore = create<BudgetStore>()(
                 const newVendors = [...budget.vendors];
                 newVendors[vendorIndex] = updatedVendor;
 
-                const spent = newVendors.reduce((sum, v) => sum + v.paid, 0);
+                const spent = newVendors.reduce((sum: number, v: any) => sum + v.paid, 0);
 
                 return {
                   ...budget,
@@ -421,7 +421,7 @@ export const useBudgetStore = create<BudgetStore>()(
               return budget;
             });
 
-            const updatedBudget = updatedBudgets.find(b => b.id === budgetId);
+            const updatedBudget = updatedBudgets.find((b: any) => b.id === budgetId);
             return {
               budgets: updatedBudgets,
               currentBudget: updatedBudget || state.currentBudget,
@@ -435,7 +435,7 @@ export const useBudgetStore = create<BudgetStore>()(
 
       calculateBudgetStats: (budgetId: string) => {
         const state: any = get();
-        const budget = state.budgets.find(b => b.id === budgetId);
+        const budget = state.budgets.find((b: any) => b.id === budgetId);
         if (!budget) {
           return {
             totalBudget: 0,

@@ -297,7 +297,7 @@ class GuestUpdateBatchProcessor {
       const batch = updatesToSend.slice(i, i + BATCH_CONCURRENCY);
       
       await Promise.all(
-        batch.map(async (update) => {
+        batch.map(async (update: any) => {
           try {
             const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
               method: 'POST',
@@ -535,7 +535,7 @@ export const useEventStore = create<EventStore>()(
                 
                 // Use API events as-is (server is source of truth)
                 // BUT preserve manual guestCount changes that haven't been synced yet
-                const allEvents = apiEvents.map(apiEvent => {
+                const allEvents = apiEvents.map((apiEvent: any) => {
                   // CRITICAL: Clean invitationImageUrl - remove local file paths
                   let cleanedInvitationImageUrl = apiEvent.invitationImageUrl;
                   if (cleanedInvitationImageUrl && cleanedInvitationImageUrl.startsWith('file://')) {
@@ -566,7 +566,7 @@ export const useEventStore = create<EventStore>()(
                       })
                       .map((g: Guest) => {
                         // CRITICAL: Check if we have a manual guestCount change that should be preserved
-                        const existingGuest = existingEvent?.guests?.find(eg => eg.id === g.id);
+                        const existingGuest = existingEvent?.guests?.find((eg: any) => eg.id === g.id);
                         
                         // CRITICAL: Check if this is a problematic guest (דורון שושני, מאור רומנו, עידו דנן)
                         const isProblematicGuest = (g.firstName?.includes('דורון') && g.lastName?.includes('שושני')) ||
@@ -726,7 +726,7 @@ export const useEventStore = create<EventStore>()(
                 // These are new events created locally that need to be synced
                 const localOnlyEvents = localEvents.filter((e: Event) => 
                   e.userId === userId && 
-                  !apiEvents.find(ae => ae.id === e.id) &&
+                  !apiEvents.find((ae: any) => ae.id === e.id) &&
                   !deletedEventIds.has(e.id) // Don't sync deleted events
                 );
                 
@@ -747,7 +747,7 @@ export const useEventStore = create<EventStore>()(
                   
                   // Wait for all syncs to complete, then refresh to get events from server
                   Promise.all(syncPromises).then(results => {
-                    const successCount = results.filter(r => r === true).length;
+                    const successCount = results.filter((r: any) => r === true).length;
                     if (successCount > 0) {
                       console.log(`✅ Successfully synced ${successCount}/${localOnlyEvents.length} event(s) to server. Refreshing to get updated data...`);
                       // Refresh after a short delay to allow server to process
