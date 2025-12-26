@@ -151,7 +151,7 @@ const Settings: React.FC = () => {
     }
   };
 
-  const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
+  const updateSetting = (key: any, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
@@ -203,7 +203,7 @@ const Settings: React.FC = () => {
               <input
                 type="text"
                 value={settings.displayName}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('displayName', e.target.value)}
+                onChange={(e: any) => updateSetting('displayName', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הזן שם תצוגה"
               />
@@ -216,7 +216,7 @@ const Settings: React.FC = () => {
               <input
                 type="email"
                 value={settings.email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('email', e.target.value)}
+                onChange={(e: any) => updateSetting('email', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 placeholder="הזן אימייל"
                 dir="ltr"
@@ -242,7 +242,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.emailNotifications}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('emailNotifications', e.target.checked)}
+                  onChange={(e: any) => updateSetting('emailNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -258,7 +258,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.smsNotifications}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('smsNotifications', e.target.checked)}
+                  onChange={(e: any) => updateSetting('smsNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -274,7 +274,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.whatsappNotifications}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('whatsappNotifications', e.target.checked)}
+                  onChange={(e: any) => updateSetting('whatsappNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -290,7 +290,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.reminderNotifications}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('reminderNotifications', e.target.checked)}
+                  onChange={(e: any) => updateSetting('reminderNotifications', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -313,7 +313,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.language}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('language', e.target.value as 'he' | 'en')}
+                onChange={(e: any) => updateSetting('language', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="he">עברית</option>
@@ -327,7 +327,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.dateFormat}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('dateFormat', e.target.value as UserSettings['dateFormat'])}
+                onChange={(e: any) => updateSetting('dateFormat', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="dd/mm/yyyy">יום/חודש/שנה (31/12/2024)</option>
@@ -342,7 +342,7 @@ const Settings: React.FC = () => {
               </label>
               <select
                 value={settings.timeFormat}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateSetting('timeFormat', e.target.value as '12h' | '24h')}
+                onChange={(e: any) => updateSetting('timeFormat', e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               >
                 <option value="24h">24 שעות (14:30)</option>
@@ -366,7 +366,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.showEmail}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('showEmail', e.target.checked)}
+                  onChange={(e: any) => updateSetting('showEmail', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -379,7 +379,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.showPhone}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('showPhone', e.target.checked)}
+                  onChange={(e: any) => updateSetting('showPhone', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -448,7 +448,7 @@ const Settings: React.FC = () => {
                 <Type className="w-5 h-5 text-gray-400" />
                 <select
                   value={settings.fontSize}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('fontSize', e.target.value as UserSettings['fontSize'])}
+                  onChange={(e: any) => updateSetting('fontSize', e.target.value)}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 >
                   <option value="small">קטן</option>
@@ -474,7 +474,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.autoSync}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('autoSync', e.target.checked)}
+                  onChange={(e: any) => updateSetting('autoSync', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
@@ -487,7 +487,7 @@ const Settings: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={settings.autoBackup}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateSetting('autoBackup', e.target.checked)}
+                  onChange={(e: any) => updateSetting('autoBackup', e.target.checked)}
                   className="sr-only peer"
                 />
                 <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-teal-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
