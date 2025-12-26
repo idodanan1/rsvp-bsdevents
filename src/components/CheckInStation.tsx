@@ -5,7 +5,7 @@ import { useEventStore } from '../store/eventStore';
 import { parseQRUrl } from '../services/qrService';
 import { formatFullName } from '../utils/helpers';
 import { Event, Guest, Table } from '../types';
-import { CheckCircle, Table, Users, Camera, AlertCircle, RotateCcw } from 'lucide-react';
+import { CheckCircle, Table as TableIcon, Users, Camera, AlertCircle, RotateCcw } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ScannedGuest {
@@ -480,7 +480,7 @@ const CheckInStation: React.FC = () => {
                     {scannedGuest.tableNumber && (
                       <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-3 mt-2">
                         <div className="flex items-center justify-center">
-                          <Table className="h-6 w-6 ml-2 text-yellow-600" />
+                          <TableIcon className="h-6 w-6 ml-2 text-yellow-600" />
                           <div className="text-center">
                             <p className="text-sm font-medium text-gray-700 mb-0.5">מספר השולחן שלך:</p>
                             <p className="text-3xl font-bold text-yellow-700">{scannedGuest.tableNumber}</p>
