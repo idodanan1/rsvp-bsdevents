@@ -2835,7 +2835,7 @@ export const useEventStore = create<EventStore>()(
         }
       },
 
-      resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult | SendMessageResult | any> => {
+      resendFailedMessages: async (eventId: string, campaignId: string): Promise<any> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         // טעינת השירות בצורה דינמית
         const { webhookService } = await import('../services/webhookService');
