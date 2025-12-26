@@ -666,7 +666,7 @@ const ClientDashboard: React.FC = () => {
               
               // Merge guests: update existing, add new, keep prev if not in fetch
               const mergedGuests = prevGuests.map((prevGuest: any) => {
-                const fetchGuest = fetchGuestsMap.get(prevGuest.id);
+                const fetchGuest = fetchGuestsMap.get(prevGuest.id) as any;
                 return fetchGuest || prevGuest; // Use fetch data if exists, otherwise keep prev
               });
               
@@ -791,19 +791,20 @@ const ClientDashboard: React.FC = () => {
           // Check if any guest data changed
           let hasChanged = false;
           for (const [guestId, newGuest] of newGuestsMap) {
-            const prevGuest = prevGuestsMap.get(guestId);
+            const prevGuest: any = prevGuestsMap.get(guestId) as any;
+            const newGuestTyped: any = newGuest as any;
             if (!prevGuest) {
               hasChanged = true;
               break;
             }
             
             // Check critical fields
-            if (prevGuest.rsvpStatus !== newGuest.rsvpStatus ||
-                prevGuest.guestCount !== newGuest.guestCount ||
-                prevGuest.actualAttendance !== newGuest.actualAttendance ||
-                prevGuest.firstName !== newGuest.firstName ||
-                prevGuest.lastName !== newGuest.lastName ||
-                prevGuest.phoneNumber !== newGuest.phoneNumber) {
+            if (prevGuest.rsvpStatus !== newGuestTyped.rsvpStatus ||
+                prevGuest.guestCount !== newGuestTyped.guestCount ||
+                prevGuest.actualAttendance !== newGuestTyped.actualAttendance ||
+                prevGuest.firstName !== newGuestTyped.firstName ||
+                prevGuest.lastName !== newGuestTyped.lastName ||
+                prevGuest.phoneNumber !== newGuestTyped.phoneNumber) {
               hasChanged = true;
               break;
             }
