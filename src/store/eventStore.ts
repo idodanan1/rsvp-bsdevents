@@ -2487,7 +2487,7 @@ export const useEventStore = create<EventStore>()(
           const { generateGuestResponseLink } = await import('../utils/helpers');
           
           // Create personalized messages for each guest (using filtered guests)
-          const personalizedMessages = await Promise.all(filteredGuests.map(async (guest) => {
+          const personalizedMessages = await Promise.all(filteredGuests.map(async (guest: any) => {
             let personalizedMessage = campaign.message;
             let personalizedSmsMessage = campaign.smsMessage || campaign.message;
             
@@ -2901,7 +2901,7 @@ export const useEventStore = create<EventStore>()(
           const { generateGuestResponseLink, formatDate } = await import('../utils/helpers');
           
           // Create personalized messages for each failed guest
-          const personalizedMessages = await Promise.all(failedGuests.map(async (guest) => {
+          const personalizedMessages = await Promise.all(failedGuests.map(async (guest: any) => {
             let personalizedMessage = campaign.message;
             // CRITICAL: Find the original row number of the guest in the event (not filtered)
             const originalRowNumber = event.guests.findIndex((g: any) => g.id === guest.id) + 1;
