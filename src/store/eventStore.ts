@@ -2203,7 +2203,7 @@ export const useEventStore = create<EventStore>()(
             const updatedCurrentEvent = state.currentEvent?.id === eventId 
               ? {
                   ...state.currentEvent,
-                  guests: state.currentEvent.guests.filter(guest => guest.id !== guestId)
+                  guests: state.currentEvent.guests.filter((guest: any) => guest.id !== guestId)
                 }
               : state.currentEvent;
             
@@ -2345,7 +2345,7 @@ export const useEventStore = create<EventStore>()(
           schedulerService.cancelCampaign(campaignId);
 
           // Update campaign with scheduled date and status
-          const updatedCampaigns = event.campaigns?.map(c =>
+          const updatedCampaigns = event.campaigns?.map((c: any) =>
             c.id === campaignId
               ? { ...c, scheduledDate, status: 'scheduled' as const }
               : c
@@ -2373,7 +2373,7 @@ export const useEventStore = create<EventStore>()(
               // Update campaign status to failed
               const currentEvent = get().events.find(e => e.id === eventId);
               if (currentEvent) {
-                const failedCampaigns = currentEvent.campaigns?.map(c =>
+                const failedCampaigns = currentEvent.campaigns?.map((c: any) =>
                   c.id === campaignId ? { ...c, status: 'failed' as const } : c
                 );
                 await get().updateEvent(eventId, {
@@ -2795,7 +2795,7 @@ export const useEventStore = create<EventStore>()(
             return {
               ...event,
               guests: updatedGuests,
-              campaigns: event.campaigns?.map(c =>
+              campaigns: event.campaigns?.map((c: any) =>
                 c.id === campaignId
                   ? { ...c, status: 'sent', sentCount: result.successful, updatedAt: new Date() }
                   : c
@@ -3182,7 +3182,7 @@ export const useEventStore = create<EventStore>()(
               event.id === eventId 
                 ? { 
                     ...event, 
-                    tables: event.tables.map(table => 
+                    tables: event.tables.map((table: any) => 
                       table.id === tableId 
                         ? { ...table, x, y, updatedAt: new Date() }
                         : table
@@ -3194,7 +3194,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables.map(table => 
+                  tables: state.currentEvent.tables.map((table: any) => 
                     table.id === tableId 
                       ? { ...table, x, y, updatedAt: new Date() }
                       : table
@@ -3225,7 +3225,7 @@ export const useEventStore = create<EventStore>()(
               event.id === eventId 
                 ? { 
                     ...event, 
-                    tables: event.tables.map(table => 
+                    tables: event.tables.map((table: any) => 
                       table.id === tableId 
                         ? { ...table, width, height, updatedAt: new Date() }
                         : table
@@ -3237,7 +3237,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables.map(table => 
+                  tables: state.currentEvent.tables.map((table: any) => 
                     table.id === tableId 
                       ? { ...table, width, height, updatedAt: new Date() }
                       : table
@@ -3268,7 +3268,7 @@ export const useEventStore = create<EventStore>()(
               event.id === eventId 
                 ? { 
                     ...event, 
-                    tables: event.tables.map(table => 
+                    tables: event.tables.map((table: any) => 
                       table.id === tableId 
                         ? { ...table, rotation, updatedAt: new Date() }
                         : table
@@ -3280,7 +3280,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables.map(table => 
+                  tables: state.currentEvent.tables.map((table: any) => 
                     table.id === tableId 
                       ? { ...table, rotation, updatedAt: new Date() }
                       : table
@@ -3311,7 +3311,7 @@ export const useEventStore = create<EventStore>()(
               event.id === eventId 
                 ? { 
                     ...event, 
-                    tables: event.tables.map(table => 
+                    tables: event.tables.map((table: any) => 
                       table.id === tableId 
                         ? { ...table, shape, updatedAt: new Date() }
                         : table
@@ -3323,7 +3323,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables.map(table => 
+                  tables: state.currentEvent.tables.map((table: any) => 
                     table.id === tableId 
                       ? { ...table, shape, updatedAt: new Date() }
                       : table
@@ -3586,7 +3586,7 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Update all campaigns to use consistent variable names
-            const updatedCampaigns = event.campaigns.map(campaign => {
+            const updatedCampaigns = event.campaigns.map((campaign: any) => {
               console.log(`✅ Updating campaign "${campaign.name}" for event "${event.coupleName}"`);
               
               // Update message to use consistent variable names
@@ -3942,7 +3942,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Preserve ALL event data, only update campaigns
-          const updatedEvents = state.events.map(e => 
+          const updatedEvents = state.events.map((e: any) => 
             e.id === eventId 
               ? { 
                   ...e, // Preserve all existing fields
@@ -4015,7 +4015,7 @@ export const useEventStore = create<EventStore>()(
           };
 
           set((state: any) => ({
-            events: state.events.map(e => 
+            events: state.events.map((e: any) => 
               e.id === eventId 
                 ? { ...e, tables: [...(e.tables || []), newTable] }
                 : e
@@ -4042,11 +4042,11 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            events: state.events.map(e => 
+            events: state.events.map((e: any) => 
               e.id === eventId 
                 ? { 
                     ...e, 
-                    tables: e.tables?.map(t => 
+                    tables: e.tables?.map((t: any) => 
                       t.id === tableId 
                         ? { ...t, ...updates, updatedAt: new Date() }
                         : t
@@ -4057,7 +4057,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables?.map(t => 
+                  tables: state.currentEvent.tables?.map((t: any) => 
                     t.id === tableId 
                       ? { ...t, ...updates, updatedAt: new Date() }
                       : t
@@ -4083,12 +4083,12 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            events: state.events.map(e => 
+            events: state.events.map((e: any) => 
               e.id === eventId 
                 ? { 
                     ...e, 
                     tables: e.tables?.filter(t => t.id !== tableId) || [],
-                    guests: e.guests?.map(guest => 
+                    guests: e.guests?.map((guest: any) => 
                       guest.tableId === tableId 
                         ? { ...guest, tableId: undefined }
                         : guest
@@ -4100,7 +4100,7 @@ export const useEventStore = create<EventStore>()(
               ? { 
                   ...state.currentEvent, 
                   tables: state.currentEvent.tables?.filter(t => t.id !== tableId) || [],
-                  guests: state.currentEvent.guests?.map(guest => 
+                  guests: state.currentEvent.guests?.map((guest: any) => 
                     guest.tableId === tableId 
                       ? { ...guest, tableId: undefined }
                       : guest
@@ -4133,14 +4133,14 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Update guest's tableId
-            const updatedGuests = event.guests?.map(guest => 
+            const updatedGuests = event.guests?.map((guest: any) => 
               guest.id === guestId 
                 ? { ...guest, tableId: tableId, seatNumber: seatNumber }
                 : guest
             ) || [];
             
             // Update tables: remove guest from old table, add to new table
-            const updatedTables = event.tables?.map(table => {
+            const updatedTables = event.tables?.map((table: any) => {
               // Remove guest from old table if it was assigned
               const oldTableGuests = table.guests.filter((id: any) => id !== guestId);
               
@@ -4159,7 +4159,7 @@ export const useEventStore = create<EventStore>()(
             };
             
             return {
-              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              events: state.events.map((e: any) => e.id === eventId ? updatedEvent : e),
               currentEvent: state.currentEvent?.id === eventId 
                 ? { 
                     ...state.currentEvent, 
@@ -4194,14 +4194,14 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Update guest's tableId to undefined
-            const updatedGuests = event.guests?.map(guest => 
+            const updatedGuests = event.guests?.map((guest: any) => 
               guest.id === guestId 
                 ? { ...guest, tableId: undefined, seatNumber: undefined }
                 : guest
             ) || [];
             
             // Remove guest from all tables
-            const updatedTables = event.tables?.map(table => ({
+            const updatedTables = event.tables?.map((table: any) => ({
               ...table,
               guests: table.guests.filter((id: any) => id !== guestId)
             })) || [];
@@ -4213,7 +4213,7 @@ export const useEventStore = create<EventStore>()(
             };
             
             return {
-              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              events: state.events.map((e: any) => e.id === eventId ? updatedEvent : e),
               currentEvent: state.currentEvent?.id === eventId 
                 ? { 
                     ...state.currentEvent, 
@@ -4252,14 +4252,14 @@ export const useEventStore = create<EventStore>()(
             const oldTableId = currentGuest?.tableId;
             
             // Update guest's tableId
-            const updatedGuests = event.guests?.map(guest => 
+            const updatedGuests = event.guests?.map((guest: any) => 
               guest.id === guestId 
                 ? { ...guest, tableId: newTableId, seatNumber: newSeatNumber }
                 : guest
             ) || [];
             
             // Update tables: remove guest from old table, add to new table
-            const updatedTables = event.tables?.map(table => {
+            const updatedTables = event.tables?.map((table: any) => {
               // Remove guest from old table if it was assigned
               const tableGuestsWithoutGuest = table.guests.filter((id: any) => id !== guestId);
               
@@ -4279,7 +4279,7 @@ export const useEventStore = create<EventStore>()(
             };
             
             return {
-              events: state.events.map(e => e.id === eventId ? updatedEvent : e),
+              events: state.events.map((e: any) => e.id === eventId ? updatedEvent : e),
               currentEvent: state.currentEvent?.id === eventId 
                 ? { 
                     ...state.currentEvent, 
@@ -4420,7 +4420,7 @@ export const useEventStore = create<EventStore>()(
           
           if (removedEvents.length > 0) {
             console.log(`🧹 Removing ${removedEvents.length} events from other users:`, 
-              removedEvents.map(e => ({ id: e.id, userId: e.userId, name: e.coupleName })));
+              removedEvents.map((e: any) => ({ id: e.id, userId: e.userId, name: e.coupleName })));
             
             // Save cleaned events (ONLY current user's events)
             localStorage.setItem('rsvp-events-storage', JSON.stringify({
@@ -4749,7 +4749,7 @@ if (typeof window !== 'undefined') {
         const incomingEvents = newState.events || [];
         
         // Create a map of current events by ID
-        const currentEventsMap = new Map(currentEvents.map(e => [e.id, e]));
+        const currentEventsMap = new Map(currentEvents.map((e: any) => [e.id, e]));
         
         // Merge incoming events, keeping the newer version
         const mergedEvents = incomingEvents.map((incomingEvent: Event) => {
