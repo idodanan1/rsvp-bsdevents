@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Client, ClientEvent, Reminder, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types';
+import { Reminder } from '../types';
+import type { Client, ClientEvent, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types/index';
 import { generateId, formatDate, cleanName } from '../utils/helpers';
 import { crossTabSync } from '../utils/crossTabSync';
 

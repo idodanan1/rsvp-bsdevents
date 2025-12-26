@@ -25,7 +25,8 @@ import {
   Settings
 } from 'lucide-react';
 import { useClientStore } from '../store/clientStore';
-import { Client, Reminder, ClientStats, ClientFilterOptions } from '../types';
+import { Reminder } from '../types';
+import type { Client, ClientStats, ClientFilterOptions } from '../types/index';
 import { formatDate, formatTime, formatFullName } from '../utils/helpers';
 import AddClientModal from './AddClientModal';
 import AddReminderModal from './AddReminderModal';

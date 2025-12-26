@@ -1,4 +1,5 @@
-import { Reminder, Client } from '../types';
+import { Reminder } from '../types';
+import type { Client } from '../types/index';
 
 export interface ReminderNotification {
   id: string;
