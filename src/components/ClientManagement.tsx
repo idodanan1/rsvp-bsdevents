@@ -99,7 +99,7 @@ const ClientManagement: React.FC = () => {
     try {
       await createClient(clientData);
       setShowAddClient(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating client:', error);
     }
   };
@@ -108,7 +108,7 @@ const ClientManagement: React.FC = () => {
     try {
       await createReminder(reminderData);
       setShowAddReminder(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating reminder:', error);
     }
   };
@@ -116,7 +116,7 @@ const ClientManagement: React.FC = () => {
   const handleCompleteReminder = async (reminderId: string) => {
     try {
       await completeReminder(reminderId, 'current_user', 'Completed via dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing reminder:', error);
     }
   };

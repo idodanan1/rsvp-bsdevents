@@ -41,7 +41,7 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ isOpen, onClose }) => {
         isActive: true
       });
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating client:', error);
     } finally {
       setIsLoading(false);

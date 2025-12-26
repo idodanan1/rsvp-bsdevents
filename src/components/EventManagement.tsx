@@ -109,7 +109,7 @@ const EventManagement: React.FC = () => {
           }
           // CRITICAL: Include ALL fields that might change
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
-        } catch (error) {
+        } catch (error: any) {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
@@ -127,7 +127,7 @@ const EventManagement: React.FC = () => {
             responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
           }
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
-        } catch (error) {
+        } catch (error: any) {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
@@ -225,7 +225,7 @@ const EventManagement: React.FC = () => {
   const handleRefresh = async () => {
     try {
       await fetchEvents(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error refreshing events:', error);
     }
   };
@@ -252,7 +252,7 @@ const EventManagement: React.FC = () => {
           console.log(`📊 EventManagement: Found ${totalPending} pending updates`);
           setPendingUpdatesCount(totalPending);
         }
-      } catch (error) {
+      } catch (error: any) {
         // Silent fail - don't show error to user
       }
     };
@@ -345,7 +345,7 @@ const EventManagement: React.FC = () => {
         console.error(`❌ Backend processing failed: ${response.status}`, errorText);
         throw new Error(`Backend processing failed: ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error processing pending updates:', error);
       alert('❌ שגיאה בעיבוד עדכונים ממתינים. נסה שוב.');
     } finally {
@@ -417,7 +417,7 @@ const EventManagement: React.FC = () => {
         }
         // CRITICAL: Include ALL fields that might change
         return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
-      } catch (error) {
+      } catch (error: any) {
         return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
       }
     }).join('|') || '';
@@ -541,7 +541,7 @@ const EventManagement: React.FC = () => {
           responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
         }
         return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:${responseDateValue}`;
-      } catch (error) {
+      } catch (error: any) {
         return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.messageStatus || ''}:`;
       }
     }).join('|');
@@ -665,7 +665,7 @@ const EventManagement: React.FC = () => {
           }
           // CRITICAL: Include ALL guest fields that might change to ensure we catch updates
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${responseDateValue}`;
-        } catch (error) {
+        } catch (error: any) {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:`;
         }
       }).join('|') || '';
@@ -776,7 +776,7 @@ const EventManagement: React.FC = () => {
           delete (guestCopy as any)._renderKey;
           // Keep _forceUpdate for now to ensure React detects the change
           return guestCopy;
-        } catch (error) {
+        } catch (error: any) {
           console.warn('⚠️ Error processing guest responseDate:', error, g);
           const guestCopy = { 
             ...g, 
@@ -799,7 +799,7 @@ const EventManagement: React.FC = () => {
           }
           // CRITICAL: Include ALL fields that might change
           return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:${responseDateValue}`;
-        } catch (error) {
+        } catch (error: any) {
           return `${g.id}:${g.firstName || ''}:${g.lastName || ''}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId || ''}:${g.notes || ''}:${g.phoneNumber || ''}:${g.messageStatus || ''}:`;
         }
       }).join('|');
@@ -873,7 +873,7 @@ const EventManagement: React.FC = () => {
         lastGuestsKeyForUpdate.current = guestsKey;
         setForceUpdate(prev => prev + 1);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn('⚠️ Error in guestsKey useEffect:', error);
     }
   }, [guestsKey]);
@@ -908,7 +908,7 @@ const EventManagement: React.FC = () => {
               count: g.guestCount,
               responseDate: responseDateStr
             };
-          } catch (error) {
+          } catch (error: any) {
             return {
               name: `${g.firstName} ${g.lastName}`,
               status: g.rsvpStatus,
@@ -919,7 +919,7 @@ const EventManagement: React.FC = () => {
         }));
       }
       setForceUpdate(prev => prev + 1);
-    } catch (error) {
+    } catch (error: any) {
       console.warn('⚠️ Error in EVENT_MANAGEMENT useEffect:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -946,7 +946,7 @@ const EventManagement: React.FC = () => {
             responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
           }
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
-        } catch (error) {
+        } catch (error: any) {
           return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:`;
         }
       }).join('|') || '';
@@ -971,7 +971,7 @@ const EventManagement: React.FC = () => {
               responseDateValue = isNaN(date.getTime()) ? '' : String(date.getTime());
             }
             return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:${responseDateValue}`;
-          } catch (error) {
+          } catch (error: any) {
             return `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.actualAttendance}:${g.tableId}:${g.notes || ''}:`;
           }
         }).join('|');
@@ -1064,7 +1064,7 @@ const EventManagement: React.FC = () => {
           });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error updating guest:', error);
     }
   }, [setCurrentEvent, fetchEvents]);
@@ -1126,7 +1126,7 @@ const EventManagement: React.FC = () => {
       }
       
       console.log('✅ handleUpdateAttendance completed successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error updating attendance:', error);
     }
   }, [setCurrentEvent, fetchEvents]);
@@ -1190,7 +1190,7 @@ const EventManagement: React.FC = () => {
       // This ensures the UI updates instantly with the latest data from store
       // Important for: tableId, actualAttendance, guestCount, rsvpStatus, firstName, lastName, phoneNumber
       const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
-      const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+      const hasCriticalField = criticalFields.some((field: any) => updates[field] !== undefined);
       
       if (hasCriticalField) {
         // CRITICAL: For guestCount updates, immediately update local state to prevent reversion
@@ -1217,7 +1217,7 @@ const EventManagement: React.FC = () => {
           console.log('✅ handleUpdateGuestField - currentEvent updated immediately from store for:', Object.keys(updates).join(', '));
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating guest:', error);
     }
   }, [updateGuest, setCurrentEvent, moveGuestToTable, removeGuestFromTable]);
@@ -1232,7 +1232,7 @@ const EventManagement: React.FC = () => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק את המוזמן?')) {
       try {
         await deleteGuest(event.id, guestId);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting guest:', error);
         alert('אירעה שגיאה במחיקת המוזמן');
       }
@@ -1242,7 +1242,7 @@ const EventManagement: React.FC = () => {
   const handleSelectGuest = useCallback((guestId: string) => {
     setSelectedGuests(prev => 
       prev.includes(guestId) 
-        ? prev.filter(id => id !== guestId)
+        ? prev.filter((id: any) => id !== guestId)
         : [...prev, guestId]
     );
   }, []);
@@ -1406,7 +1406,7 @@ const EventManagement: React.FC = () => {
         notes: ''
       });
       setShowAddGuest(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error adding guest:', error);
     }
   };
@@ -1466,7 +1466,7 @@ const EventManagement: React.FC = () => {
         guestCount: 1,
         notes: ''
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating guest:', error);
     }
   };
@@ -1934,7 +1934,7 @@ const EventManagement: React.FC = () => {
       // Clear selection after deletion
       setSelectedGuests([]);
       alert(`נמחקו ${guestsToDelete.length} מוזמנים בהצלחה!`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting selected guests:', error);
       alert('אירעה שגיאה במחיקת המוזמנים');
       setSelectedGuests([]);
@@ -2187,7 +2187,7 @@ const EventManagement: React.FC = () => {
         guestCount: guest.guestCount || 1,
         rsvpStatus: getRsvpStatusText(guest.rsvpStatus),
         responseDate: guest.responseDate ? formatDate(guest.responseDate) : '',
-        channel: guest.channel || 'וואטסאפ',
+        channel: (guest as any).channel || 'וואטסאפ',
         actualAttendance: getActualAttendanceText(guest.actualAttendance || 'unknown'),
         table: guest.tableId ? currentEvent.tables?.find((t: Table) => t.id === guest.tableId)?.number?.toString() || '?' : 'ללא',
         messageStatus: getMessageStatusText(guest.messageStatus || 'not_sent'),
@@ -2494,7 +2494,7 @@ const EventManagement: React.FC = () => {
               warningMessage += `${idx + 1}. מספר טלפון: ${dup.phone}\n`;
               warningMessage += `   מופיע ${dup.count} פעמים בשורות:\n`;
               dup.guests.forEach((guest: Guest) => {
-                warningMessage += `   - שורה ${guest.rowNumber}: ${formatFullName(guest.firstName, guest.lastName)}\n`;
+                warningMessage += `   - שורה ${(guest as any).rowNumber}: ${formatFullName(guest.firstName, guest.lastName)}\n`;
               });
               warningMessage += '\n';
             });
@@ -2559,7 +2559,7 @@ const EventManagement: React.FC = () => {
             
             addedCount++;
             console.log(`✅ Successfully added guest ${addedCount}/${guests.length}`);
-          } catch (error) {
+          } catch (error: any) {
             errorCount++;
             console.error(`❌ Error adding guest ${addedCount + errorCount}/${guests.length}:`, error);
             console.error(`   Guest data:`, guest);
@@ -2589,7 +2589,7 @@ const EventManagement: React.FC = () => {
         } else {
           alert(`❌ לא הצלחנו לייבא אורחים. אנא בדוק את הקונסול (F12) לפרטים.`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error reading Excel file:', error);
         alert('שגיאה בקריאת קובץ האקסל. אנא ודא שהקובץ תקין.');
       }
@@ -2673,7 +2673,7 @@ const EventManagement: React.FC = () => {
           phoneNumber: guest.phoneNumber,
           channel: messageChannel,
           message: personalizedMessage,
-          firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+          firstMessageSent: (guest as any).firstMessageSent || false, // Pass first message status
           eventData: {
             coupleName: currentEvent.coupleName,
             groomName: currentEvent.groomName,
@@ -2698,7 +2698,7 @@ const EventManagement: React.FC = () => {
       console.log('📋 Recipients count:', recipients.length);
       console.log('📋 Recipients:', recipients.map((r: any) => ({ name: `${r.firstName} ${r.lastName}`, phone: r.phoneNumber, firstMessageSent: r.firstMessageSent })));
       
-      let result;
+      let result: any;
       try {
         // CRITICAL: Import messageService dynamically to avoid circular dependency issues
         const { messageService } = await import('../services/messageService');
@@ -2718,10 +2718,10 @@ const EventManagement: React.FC = () => {
           templateName: undefined, // CRITICAL: No template - send as regular text message (will use template "aa" if first message)
           recipients
         };
-        result = await messageService.sendBulkMessages(messageData) as BulkMessageResult;
+        result = await messageService.sendBulkMessages(messageData) as any;
         
         console.log('📊 messageService.sendBulkMessages result:', result);
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ ERROR in messageService.sendBulkMessages:', error);
         console.error('❌ Error details:', {
           message: error instanceof Error ? error.message : String(error),
@@ -2761,7 +2761,7 @@ const EventManagement: React.FC = () => {
       setShowSendMessageModal(false);
       setSelectedGuests([]);
       setCustomMessage('');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ ERROR in handleSendMessage:', error);
       console.error('❌ Error details:', {
         message: error instanceof Error ? error.message : String(error),
@@ -2861,7 +2861,7 @@ const EventManagement: React.FC = () => {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
         // Replace template variables in campaign message
-        const guestTable = event.tables?.find((table: Table) => table.guests.includes(guestIdToUse));
+        const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guestIdToUse));
         const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
         
         message = firstCampaign.message
@@ -2923,7 +2923,7 @@ const EventManagement: React.FC = () => {
       console.log('📋 Guest:', { id: guest.id, name: `${guest.firstName} ${guest.lastName}`, phone: guest.phoneNumber });
       console.log('📋 Template params:', templateParamsForNew);
       
-      let result;
+      let result: any;
       try {
         // CRITICAL: Import messageService dynamically to avoid circular dependency issues
         const { messageService } = await import('../services/messageService');
@@ -2942,7 +2942,7 @@ const EventManagement: React.FC = () => {
             phoneNumber: guest.phoneNumber,
             channel: messageChannel,
             message: message,
-            firstMessageSent: guest.firstMessageSent || false, // Pass first message status
+            firstMessageSent: (guest as any).firstMessageSent || false, // Pass first message status
             eventData: {
               coupleName: event.coupleName || coupleName,
               groomName: event.groomName || groomName,
@@ -2958,10 +2958,10 @@ const EventManagement: React.FC = () => {
             templateParams: templateParamsForNew
           }]
         };
-        result = await messageService.sendBulkMessages(messageData) as BulkMessageResult;
+        result = await messageService.sendBulkMessages(messageData) as any;
         
         console.log('📊 messageService.sendBulkMessages result:', result);
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ ERROR in messageService.sendBulkMessages:', error);
         console.error('❌ Error details:', {
           message: error instanceof Error ? error.message : String(error),
@@ -3084,7 +3084,7 @@ const EventManagement: React.FC = () => {
                   alert(`✅ סריקה הושלמה!\nעובדו: ${result.processed} עדכונים\nנכשלו: ${result.failed} עדכונים\nנותרו: ${result.remaining} עדכונים`);
                   // Refresh events to show updated data
                   await fetchEvents(false, true);
-                } catch (error) {
+                } catch (error: any) {
                   console.error('❌ Error syncing updates:', error);
                   alert('❌ שגיאה בסריקת עדכונים. נסה שוב.');
                 }
@@ -3233,7 +3233,7 @@ const EventManagement: React.FC = () => {
                   
                   // Calculate seated guests count (only confirmed guests who are seated)
                   const seatedConfirmedGuestsCount = currentEvent.tables?.reduce((acc: number, table: Table) => {
-                    return acc + table.guests.reduce((sum: number, guestId: string) => {
+                    return acc + (table.guests?.reduce((sum: number, guestId: string) => {
                       const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
                       // Only count confirmed guests (those who are coming)
                       if (guest && guest.rsvpStatus === 'confirmed') {
@@ -3260,10 +3260,10 @@ const EventManagement: React.FC = () => {
                 {(() => {
                   // Calculate total guests count in tables (sum of guestCount)
                   return currentEvent.tables?.reduce((acc: number, table: Table) => {
-                    return acc + table.guests.reduce((sum: number, guestId: string) => {
+                    return acc + (table.guests?.reduce((sum: number, guestId: string) => {
                       const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
                       return sum + (guest?.guestCount || 1);
-                    }, 0);
+                    }, 0) || 0);
                   }, 0) || 0;
                 })()}
               </p>
@@ -3980,7 +3980,7 @@ const EventManagement: React.FC = () => {
                           console.log('🔘 handleSendToSingleGuest function:', typeof handleSendToSingleGuest);
                           try {
                             handleSendToSingleGuest(guest);
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error('❌ ERROR in button onClick handler:', error);
                             alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
                           }
@@ -4118,7 +4118,7 @@ const EventManagement: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
                 <div className="max-h-32 overflow-y-auto">
-                  {selectedGuests.map(guestId => {
+                  {selectedGuests.map((guestId: any) => {
                     const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
@@ -4150,7 +4150,7 @@ const EventManagement: React.FC = () => {
                   console.log('🔘 handleSendMessage function:', typeof handleSendMessage);
                   try {
                     handleSendMessage();
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('❌ ERROR in button onClick handler:', error);
                     alert(`שגיאה: ${error instanceof Error ? error.message : String(error)}`);
                   }
@@ -4192,7 +4192,7 @@ const EventManagement: React.FC = () => {
       )}
       </div>
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error rendering EventManagement:', error);
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-lg">

@@ -67,7 +67,7 @@ const MessageTemplates: React.FC = () => {
         isDefault: false
       });
       setShowCreateTemplate(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating template:', error);
     }
   };
@@ -95,7 +95,7 @@ const MessageTemplates: React.FC = () => {
         channel: 'whatsapp',
         isDefault: false
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating template:', error);
     }
   };
@@ -104,7 +104,7 @@ const MessageTemplates: React.FC = () => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק תבנית זו?')) {
       try {
         await deleteTemplate(id);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting template:', error);
       }
     }

@@ -56,7 +56,7 @@ const AddReminderModal: React.FC<AddReminderModalProps> = ({ isOpen, onClose, cl
         notes: ''
       });
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating reminder:', error);
     } finally {
       setIsLoading(false);

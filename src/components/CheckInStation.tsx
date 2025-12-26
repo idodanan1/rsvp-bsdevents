@@ -113,7 +113,7 @@ const CheckInStation: React.FC = () => {
               targetIndex = initialIndex;
             }
           }
-        } catch (e) {
+        } catch (e: any) {
           console.warn('Could not re-read cameras:', e);
         }
       }

@@ -86,7 +86,7 @@ const SeatingManagement: React.FC = () => {
       alert(`✅ שולחן ${newTable.number} נוצר בהצלחה!`);
       setNewTable({ number: 0, name: '', capacity: 8, notes: '' });
       setShowAddTable(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating table:', error);
       alert('❌ שגיאה ביצירת השולחן: ' + error);
     }
@@ -124,7 +124,7 @@ const SeatingManagement: React.FC = () => {
       alert(`✅ נוצרו ${bulkTables.count} שולחנות בהצלחה!`);
       setBulkTables({ startNumber: 1, count: 10, capacity: 8, namePrefix: 'שולחן' });
       setShowBulkAddTables(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating bulk tables:', error);
       alert('❌ שגיאה ביצירת השולחנות: ' + error);
     }
@@ -368,7 +368,7 @@ const SeatingManagement: React.FC = () => {
           // Save the PDF
           const fileName = `דוח_שולחנות_${event.coupleName}_${new Date().toISOString().split('T')[0]}.pdf`;
           pdf.save(fileName);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
       alert('שגיאה ביצירת ה-PDF');
     } finally {

@@ -85,7 +85,7 @@ const ClientDashboard: React.FC = () => {
           }
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error parsing localStorage:', error);
     }
     
@@ -217,7 +217,7 @@ const ClientDashboard: React.FC = () => {
           } else {
             console.warn(`⚠️ All events endpoint returned ${allEventsResponse.status}`);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error(`❌ All events endpoint error:`, error);
         }
         
@@ -261,7 +261,7 @@ const ClientDashboard: React.FC = () => {
           } else {
             console.log(`⚠️ Guests endpoint returned ${guestsResponse.status}`);
           }
-        } catch (error) {
+        } catch (error: any) {
             console.log(`⚠️ Guests endpoint error (attempt ${retryCount + 1}):`, error);
             if (retryCount < MAX_RETRIES) {
               console.log(`🔄 Retrying guests endpoint in ${RETRY_DELAY}ms...`);
@@ -283,7 +283,7 @@ const ClientDashboard: React.FC = () => {
             try {
               const parsed = JSON.parse(userStorage);
               userId = parsed.state?.user?.id || '';
-            } catch (e) {
+            } catch (e: any) {
               // Ignore parse errors
             }
           }
@@ -321,7 +321,7 @@ const ClientDashboard: React.FC = () => {
                   foundEvent = authEvent;
                 }
               }
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
             }
           }
@@ -357,7 +357,7 @@ const ClientDashboard: React.FC = () => {
             } else {
               console.error(`❌ API returned error: ${response.status}`);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('❌ Failed to fetch from /api/events/all:', error);
           }
         }
@@ -594,7 +594,7 @@ const ClientDashboard: React.FC = () => {
       try {
         const parsed = JSON.parse(userStorage);
         userId = parsed.state?.user?.id || '';
-      } catch (e) {
+      } catch (e: any) {
         // Ignore parse errors
       }
     }
@@ -733,7 +733,7 @@ const ClientDashboard: React.FC = () => {
             console.log(`✅ Refreshed event with ${singleEventData.event.guests?.length || 0} guests`);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error refreshing event:', error);
       }
     };
@@ -861,7 +861,7 @@ const ClientDashboard: React.FC = () => {
       } else {
         console.error(`❌ API returned error: ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error refreshing event:', error);
     }
   };
@@ -902,7 +902,7 @@ const ClientDashboard: React.FC = () => {
           text: `צפו בנתוני אישורי הגעה לחתונה של ${currentEvent?.coupleName}`,
           url: window.location.href
         });
-      } catch (error) {
+      } catch (error: any) {
         console.log('Error sharing:', error);
       }
     } else {
@@ -1333,7 +1333,7 @@ const ClientDashboard: React.FC = () => {
                               }
                             }
                           }
-                        } catch (e) {
+                        } catch (e: any) {
                           // Ignore errors, keep aDate as 0
                           aDate = 0;
                         }
@@ -1352,7 +1352,7 @@ const ClientDashboard: React.FC = () => {
                               }
                             }
                           }
-                        } catch (e) {
+                        } catch (e: any) {
                           // Ignore errors, keep bDate as 0
                           bDate = 0;
                         }

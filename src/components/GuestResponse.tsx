@@ -517,7 +517,7 @@ const GuestResponse = () => {
         } else {
           console.log(`⚠️ No events in localStorage state, will try API`);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error parsing localStorage:', error);
         console.log(`⚠️ Will try API after localStorage parse error`);
       }
@@ -1243,7 +1243,7 @@ const GuestResponse = () => {
       
       setSubmitStatus('success');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error submitting response:', error);
       setSubmitStatus('error');
       setErrorMessage('אירעה שגיאה בעדכון התגובה. אנא נסה שוב.');
@@ -1351,7 +1351,7 @@ const GuestResponse = () => {
                     } else {
                       setIsLoadingEvent(false);
                     }
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Retry failed:', error);
                     setIsLoadingEvent(false);
                   }
@@ -1499,7 +1499,7 @@ const GuestResponse = () => {
       const location = encodeURIComponent(currentEvent.venue || '');
       
       return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${startDate}/${endDate}&details=${details}&location=${location}`;
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error generating calendar link:', error);
       return '#';
     }
@@ -1526,7 +1526,7 @@ const GuestResponse = () => {
         eventDateShort = eventDateFormatted.split(' ')[0]; // Get just the date part
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('⚠️ Error formatting event date:', error);
   }
   
@@ -1646,7 +1646,7 @@ const GuestResponse = () => {
                         }, 100);
                         setSubmitStatus('success');
                       }
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('❌ Error updating guest:', error);
                       setSubmitStatus('error');
                       setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
@@ -1720,7 +1720,7 @@ const GuestResponse = () => {
                         }, 100);
                         setSubmitStatus('success');
                       }
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('❌ Error updating guest:', error);
                       setSubmitStatus('error');
                       setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
@@ -1839,7 +1839,7 @@ const GuestResponse = () => {
                           setSubmitStatus('error');
                           setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
                         }
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error('Error:', error);
                         setSubmitStatus('error');
                         setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
@@ -1921,7 +1921,7 @@ const GuestResponse = () => {
                           setSubmitStatus('error');
                           setErrorMessage('לא נמצא אורח לעדכון. אנא בדוק את הקישור.');
                         }
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error('Error:', error);
                         setSubmitStatus('error');
                         setErrorMessage('שגיאה בעדכון הסטטוס. אנא נסה שוב.');
@@ -2032,7 +2032,7 @@ const GuestResponse = () => {
                       await new Promise(resolve => setTimeout(resolve, 50));
                       // Now call handleSubmit
                       await handleSubmit({ preventDefault: () => {} } as any);
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('Error submitting:', error);
                       setSubmitStatus('error');
                       setErrorMessage('שגיאה בשליחת התגובה. אנא נסה שוב.');
@@ -2115,7 +2115,7 @@ const GuestResponse = () => {
                       // Call handleSubmit
                       await handleSubmit({ preventDefault: () => {} } as any);
                       // After successful submission, showConfirmButton will be reset by setSubmitStatus('success')
-                    } catch (error) {
+                    } catch (error: any) {
                       console.error('Error submitting:', error);
                       setSubmitStatus('error');
                       setErrorMessage('שגיאה בשליחת התגובה. אנא נסה שוב.');

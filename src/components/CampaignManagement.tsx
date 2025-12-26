@@ -129,7 +129,7 @@ const CampaignManagement: React.FC = () => {
         repeatEndDate: ''
       });
       setShowCreateCampaign(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating campaign:', error);
     }
   };
@@ -180,7 +180,7 @@ const CampaignManagement: React.FC = () => {
         repeatDays: [],
         repeatEndDate: ''
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating campaign:', error);
     }
   };
@@ -313,7 +313,7 @@ const CampaignManagement: React.FC = () => {
       } else {
         alert('שגיאה בשליחת הודעת הבדיקה');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending test message:', error);
       alert('שגיאה בשליחת הודעת הבדיקה');
     }
@@ -363,7 +363,7 @@ const CampaignManagement: React.FC = () => {
       
       setShowScheduleModal(false);
       setSchedulingCampaign(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scheduling campaign:', error);
       alert('שגיאה בתזמון הקמפיין. אנא נסה שוב.');
     }
@@ -373,7 +373,7 @@ const CampaignManagement: React.FC = () => {
     if (window.confirm('האם אתה בטוח שברצונך למחוק את הקמפיין?')) {
       try {
         await deleteCampaign(campaignId);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting campaign:', error);
       }
     }

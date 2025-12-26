@@ -193,7 +193,7 @@ const CreateEvent: React.FC = () => {
       await createEvent(eventData);
       toast.success(`האירוע נוצר בהצלחה! נוכו ${creditsNeeded} רשומות מהחשבון שלך.`);
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       toast.error('שגיאה ביצירת האירוע');
     }
   };
@@ -414,7 +414,7 @@ const CreateEvent: React.FC = () => {
                       toast.error(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
                       console.error('❌ Image upload failed:', errorData);
                     }
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error('Error uploading image:', error);
                     toast.error('שגיאה בהעלאת התמונה');
                   }

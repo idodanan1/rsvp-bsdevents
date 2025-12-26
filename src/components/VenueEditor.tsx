@@ -375,7 +375,7 @@ const VenueEditor: React.FC = () => {
       setNewGuest({ firstName: '', lastName: '', phone: '', guestCount: 1 });
       setShowAddGuestModal(false);
       setSelectedTableForGuest(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding guest:', error);
     }
   };
@@ -596,7 +596,7 @@ const VenueEditor: React.FC = () => {
       console.log('PDF saved successfully!');
       
       setLastSaved(new Date());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error printing sketch:', error);
       alert('שגיאה בהדפסת הסקיצה: ' + (error as Error).message);
     } finally {
@@ -628,7 +628,7 @@ const VenueEditor: React.FC = () => {
       // Close modal
       setShowSeatingModal(false);
       setSelectedTable(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error assigning guest to table:', error);
     }
   };
@@ -642,7 +642,7 @@ const VenueEditor: React.FC = () => {
       // Update unassigned guests list
       const unassigned = currentEvent?.guests?.filter((guest: any) => !guest.tableId) || [];
       setUnassignedGuests(unassigned);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing guest from table:', error);
     }
   };

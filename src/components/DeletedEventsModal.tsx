@@ -33,7 +33,7 @@ const DeletedEventsModal: React.FC<DeletedEventsModalProps> = ({
       } else {
         alert('❌ שגיאה בשחזור האירוע');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error restoring event:', error);
       alert('❌ שגיאה בשחזור האירוע');
     } finally {
@@ -55,7 +55,7 @@ const DeletedEventsModal: React.FC<DeletedEventsModalProps> = ({
         } else {
           alert('❌ שגיאה במחיקה סופית של האירוע');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error permanently deleting event:', error);
         alert('❌ שגיאה במחיקה סופית של האירוע');
       } finally {

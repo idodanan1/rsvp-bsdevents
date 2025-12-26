@@ -73,7 +73,7 @@ const Dashboard: React.FC = () => {
           const data = await response.json();
           setConnectedDevicesCount(data.count || 0);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error fetching connected devices:', error);
       }
     };
@@ -90,7 +90,7 @@ const Dashboard: React.FC = () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId })
           });
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error updating session activity:', error);
         }
       }
@@ -107,7 +107,7 @@ const Dashboard: React.FC = () => {
 
   // Fetch immediately on mount to get latest data from API
   useEffect(() => {
-    fetchEvents(true).catch(error => {
+    fetchEvents(true).catch((error: any) => {
       console.error('❌ Error initial fetch:', error);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -118,7 +118,7 @@ const Dashboard: React.FC = () => {
     try {
       setCurrentTime(new Date());
       await fetchEvents(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error refreshing events:', error);
     }
   };
@@ -133,7 +133,7 @@ const Dashboard: React.FC = () => {
       try {
         await deleteEvent(eventId);
         alert('✅ האירוע נמחק בהצלחה!');
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Error deleting event:', error);
         alert('❌ שגיאה במחיקת האירוע. נסה שוב.');
       }
@@ -175,11 +175,11 @@ const Dashboard: React.FC = () => {
       });
       
       // Verify the image was saved
-      const updatedEvent = useEventStore.getState().events.find(e => e.id === selectedEventForEdit.id);
+      const updatedEvent = useEventStore.getState().events.find((e: any) => e.id === selectedEventForEdit.id);
       
       alert(`✅ האירוע עודכן בהצלחה!${updatedEvent?.invitationImageUrl ? `\n\nתמונת הזמנה: ${updatedEvent.invitationImageUrl}` : '\n\n⚠️ שים לב: תמונת הזמנה לא נשמרה. נא לנסות להעלות שוב.'}`);
       closeEditEventModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error updating event:', error);
       alert('❌ שגיאה בעדכון האירוע. נסה שוב.');
     }
@@ -316,7 +316,7 @@ const Dashboard: React.FC = () => {
                 updateExistingEventsCampaigns();
                 await fetchEvents();
                 alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
-              } catch (error) {
+              } catch (error: any) {
                 console.error('❌ Error updating campaigns:', error);
                 alert('❌ שגיאה בעדכון קמפיינים: ' + error);
               }
@@ -427,11 +427,11 @@ const Dashboard: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {events.map((event) => {
-              const confirmed = event.guests.filter(g => g.rsvpStatus === 'confirmed').length;
-              const declined = event.guests.filter(g => g.rsvpStatus === 'declined').length;
-              const maybe = event.guests.filter(g => g.rsvpStatus === 'maybe').length;
-              const pending = event.guests.filter(g => g.rsvpStatus === 'pending').length;
+            {events.map((event: any) => {
+              const confirmed = event.guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0;
+              const declined = event.guests?.filter((g: any) => g.rsvpStatus === 'declined').length || 0;
+              const maybe = event.guests?.filter((g: any) => g.rsvpStatus === 'maybe').length || 0;
+              const pending = event.guests?.filter((g: any) => g.rsvpStatus === 'pending').length || 0;
               const total = event.guests.length;
 
               return (
@@ -899,7 +899,7 @@ const Dashboard: React.FC = () => {
                                 }
                               }
                             }
-                          } catch (error) {
+                          } catch (error: any) {
                             console.error('Error uploading image:', error);
                             const useUrl = confirm(
                               `שגיאה בהעלאת התמונה: ${error instanceof Error ? error.message : 'שגיאה לא ידועה'}\n\n` +

@@ -140,7 +140,7 @@ const CalendarView: React.FC = () => {
         const { deleteEvent } = useEventStore.getState();
         await deleteEvent(event.id);
         alert('האירוע נמחק בהצלחה!');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error deleting event:', error);
         alert('שגיאה במחיקת האירוע');
       }

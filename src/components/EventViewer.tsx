@@ -124,7 +124,7 @@ const EventViewer: React.FC = () => {
           alert(`שגיאה בהעלאת התמונה: ${errorData.error || response.statusText}`);
           console.error('❌ Image upload failed:', errorData);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error uploading image:', error);
         alert('שגיאה בהעלאת התמונה');
       }

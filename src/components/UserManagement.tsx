@@ -139,7 +139,7 @@ const UserManagement: React.FC = () => {
       setUserEvents(events);
       setShowRecreateCampaignsModal(true);
       console.log('✅ Modal should be open now');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error opening recreate campaigns modal:', error);
       toast.error('שגיאה בפתיחת חלון שחזור קמפיינים');
     } finally {

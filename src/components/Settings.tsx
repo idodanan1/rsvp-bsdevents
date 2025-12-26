@@ -80,7 +80,7 @@ const Settings: React.FC = () => {
       try {
         const parsed = JSON.parse(savedSettings);
         setSettings({ ...defaultSettings, ...parsed });
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error loading settings:', error);
       }
     } else {
@@ -131,7 +131,7 @@ const Settings: React.FC = () => {
           document.documentElement.classList.remove('dark');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
       toast.error('שגיאה בשמירת ההגדרות');
     } finally {

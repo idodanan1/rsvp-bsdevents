@@ -30,7 +30,7 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
     try {
       const count = await webhookService.getPendingUpdatesCount();
       setStatus(prev => ({ ...prev, pendingUpdates: count }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error checking pending updates:', error);
     }
   };
@@ -46,7 +46,7 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
         pendingUpdates: result.remaining,
         isSyncing: false
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error syncing:', error);
       setStatus(prev => ({ ...prev, isSyncing: false }));
     }

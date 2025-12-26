@@ -36,7 +36,7 @@ const Accessibility: React.FC = () => {
       try {
         const pos = JSON.parse(savedPosition);
         setPosition(pos);
-      } catch (e) {
+      } catch (e: any) {
         console.warn('Failed to load accessibility position, using default');
         setPosition(calculateDefaultPosition());
       }
