@@ -36,7 +36,7 @@ export const useBudgetStore = create<BudgetStore>()(
             updatedAt: new Date(),
           };
 
-          set(state => ({
+          set((state: any) => ({
             budgets: [...state.budgets, newBudget],
             currentBudget: newBudget,
             isLoading: false,
@@ -49,7 +49,7 @@ export const useBudgetStore = create<BudgetStore>()(
       updateBudget: async (budgetId: string, updates: Partial<Budget>) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const updated = { ...budget, ...updates, updatedAt: new Date() };
@@ -75,7 +75,7 @@ export const useBudgetStore = create<BudgetStore>()(
       deleteBudget: async (budgetId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             budgets: state.budgets.filter(b => b.id !== budgetId),
             currentBudget: state.currentBudget?.id === budgetId ? null : state.currentBudget,
             isLoading: false,
@@ -86,7 +86,7 @@ export const useBudgetStore = create<BudgetStore>()(
       },
 
       getBudgetByEventId: (eventId: string) => {
-        const state = get();
+        const state: any = get();
         // SECURITY: This function should be used with filtered events only
         // The component should verify user has access to the event before calling this
         return state.budgets.find(b => b.eventId === eventId) || null;
@@ -102,13 +102,13 @@ export const useBudgetStore = create<BudgetStore>()(
           const newVendor: Vendor = {
             ...vendorData,
             id: generateId(),
-            eventId: get().budgets.find(b => b.id === budgetId)?.eventId || '',
+            eventId: (get() as any).budgets.find((b: any) => b.id === budgetId)?.eventId || '',
             remaining: vendorData.budget - vendorData.paid,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
 
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const updated = {
@@ -138,7 +138,7 @@ export const useBudgetStore = create<BudgetStore>()(
       updateVendor: async (budgetId: string, vendorId: string, updates: Partial<Vendor>) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
@@ -186,7 +186,7 @@ export const useBudgetStore = create<BudgetStore>()(
       deleteVendor: async (budgetId: string, vendorId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendor = budget.vendors.find(v => v.id === vendorId);
@@ -223,7 +223,7 @@ export const useBudgetStore = create<BudgetStore>()(
       addPayment: async (budgetId: string, vendorId: string, amount: number, notes?: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
@@ -268,7 +268,7 @@ export const useBudgetStore = create<BudgetStore>()(
       addPaymentSchedule: async (budgetId: string, vendorId: string, payment: Omit<PaymentSchedule, 'id'>) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
@@ -314,7 +314,7 @@ export const useBudgetStore = create<BudgetStore>()(
       markPaymentAsPaid: async (budgetId: string, vendorId: string, paymentId: string, paidDate?: Date) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
@@ -379,7 +379,7 @@ export const useBudgetStore = create<BudgetStore>()(
       deletePaymentSchedule: async (budgetId: string, vendorId: string, paymentId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedBudgets = state.budgets.map(budget => {
               if (budget.id === budgetId) {
                 const vendorIndex = budget.vendors.findIndex(v => v.id === vendorId);
@@ -434,7 +434,7 @@ export const useBudgetStore = create<BudgetStore>()(
       },
 
       calculateBudgetStats: (budgetId: string) => {
-        const state = get();
+        const state: any = get();
         const budget = state.budgets.find(b => b.id === budgetId);
         if (!budget) {
           return {

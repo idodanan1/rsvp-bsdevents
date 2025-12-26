@@ -105,7 +105,7 @@ export const useClientStore = create<ClientStore>()(
             updatedAt: new Date()
           };
           
-          set(state => ({
+          set((state: any) => ({
             clients: [...state.clients, newClient],
             isLoading: false
           }));
@@ -126,7 +126,7 @@ export const useClientStore = create<ClientStore>()(
             cleanedUpdates.lastName = cleanName(updates.lastName);
           }
           
-          set(state => ({
+          set((state: any) => ({
             clients: state.clients.map(client =>
               client.id === id
                 ? { ...client, ...cleanedUpdates, updatedAt: new Date() }
@@ -145,7 +145,7 @@ export const useClientStore = create<ClientStore>()(
       deleteClient: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             clients: state.clients.filter(client => client.id !== id),
             currentClient: state.currentClient?.id === id ? null : state.currentClient,
             reminders: state.reminders.filter(reminder => reminder.clientId !== id),
@@ -170,7 +170,7 @@ export const useClientStore = create<ClientStore>()(
             updatedAt: new Date()
           };
           
-          set(state => {
+          set((state: any) => {
             const updatedClients = state.clients.map(client =>
               client.id === clientId
                 ? { 
@@ -205,7 +205,7 @@ export const useClientStore = create<ClientStore>()(
       updateClientEvent: async (clientId, eventId, updates) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedClients = state.clients.map(client =>
               client.id === clientId
                 ? {
@@ -244,7 +244,7 @@ export const useClientStore = create<ClientStore>()(
       removeClientEvent: async (clientId, eventId) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const client = state.clients.find(c => c.id === clientId);
             const eventToRemove = client?.events.find(e => e.id === eventId);
             
@@ -289,7 +289,7 @@ export const useClientStore = create<ClientStore>()(
             updatedAt: new Date()
           };
           
-          set(state => ({
+          set((state: any) => ({
             reminders: [...state.reminders, newReminder],
             isLoading: false
           }));
@@ -301,7 +301,7 @@ export const useClientStore = create<ClientStore>()(
       updateReminder: async (id, updates) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             reminders: state.reminders.map(reminder =>
               reminder.id === id
                 ? { ...reminder, ...updates, updatedAt: new Date() }
@@ -317,7 +317,7 @@ export const useClientStore = create<ClientStore>()(
       deleteReminder: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             reminders: state.reminders.filter(reminder => reminder.id !== id),
             isLoading: false
           }));
@@ -329,7 +329,7 @@ export const useClientStore = create<ClientStore>()(
       completeReminder: async (id, completedBy, notes) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             reminders: state.reminders.map(reminder =>
               reminder.id === id
                 ? { 
@@ -352,7 +352,7 @@ export const useClientStore = create<ClientStore>()(
       markReminderOverdue: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             reminders: state.reminders.map(reminder =>
               reminder.id === id
                 ? { ...reminder, status: 'overdue', updatedAt: new Date() }

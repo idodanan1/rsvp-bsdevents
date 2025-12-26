@@ -254,7 +254,7 @@ export const useCampaignStore = create<CampaignStore>()(
         updatedAt: new Date()
       };
       
-      set(state => ({
+          set((state: any) => ({
         campaigns: [...state.campaigns, newCampaign],
         isLoading: false
       }));
@@ -266,7 +266,7 @@ export const useCampaignStore = create<CampaignStore>()(
   updateCampaign: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
+          set((state: any) => ({
         campaigns: state.campaigns.map(campaign =>
           campaign.id === id
             ? { ...campaign, ...updates, updatedAt: new Date() }
@@ -282,7 +282,7 @@ export const useCampaignStore = create<CampaignStore>()(
   deleteCampaign: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
+          set((state: any) => ({
         campaigns: state.campaigns.filter(campaign => campaign.id !== id),
         currentCampaign: state.currentCampaign?.id === id ? null : state.currentCampaign,
         isLoading: false
@@ -422,7 +422,7 @@ export const useTemplateStore = create<{
         createdAt: new Date()
       };
       
-      set(state => ({
+          set((state: any) => ({
         templates: [...state.templates, newTemplate],
         isLoading: false
       }));
@@ -434,7 +434,7 @@ export const useTemplateStore = create<{
   updateTemplate: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
+          set((state: any) => ({
         templates: state.templates.map(template =>
           template.id === id
             ? { ...template, ...updates }
@@ -450,7 +450,7 @@ export const useTemplateStore = create<{
   deleteTemplate: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      set(state => ({
+          set((state: any) => ({
         templates: state.templates.filter(template => template.id !== id),
         currentTemplate: state.currentTemplate?.id === id ? null : state.currentTemplate,
         isLoading: false

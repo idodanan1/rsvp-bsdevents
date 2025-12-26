@@ -531,7 +531,7 @@ export const useEventStore = create<EventStore>()(
                 // Use API events directly - they contain the latest data from all devices
                 // Only filter out deleted guests and clean names
                 // CRITICAL: Preserve manual guestCount changes when loading from API
-                const state = get();
+                const state: any = get();
                 
                 // Use API events as-is (server is source of truth)
                 // BUT preserve manual guestCount changes that haven't been synced yet
@@ -1587,7 +1587,7 @@ export const useEventStore = create<EventStore>()(
           }
           
           // CRITICAL: Save to state first
-          set(state => {
+          set((state: any) => {
             console.log('🔍 Before createEvent - events count:', state.events.length);
             console.log('🔍 Creating event with unique ID:', finalEvent.id);
             // CRITICAL: Final double-check for duplicates before adding (safety net)
@@ -1735,7 +1735,7 @@ export const useEventStore = create<EventStore>()(
           
           let updatedEvent: Event | null = null;
           
-          set(state => {
+          set((state: any) => {
             const updatedEvents = state.events.map(event => {
               if (event.id === id) {
                 updatedEvent = { ...event, ...cleanedUpdates, updatedAt: new Date() };
@@ -1769,7 +1769,7 @@ export const useEventStore = create<EventStore>()(
       deleteEvent: async (id) => {
         set({ isLoading: true, error: null });
         try {
-          const state = get();
+          const state: any = get();
           // CRITICAL: Find ALL events with this ID (in case of duplicates)
           const eventsToDelete = state.events.filter(event => event.id === id);
           
@@ -1797,7 +1797,7 @@ export const useEventStore = create<EventStore>()(
               console.warn('⚠️ Error deleting event from backend:', error);
             }
             
-            set(state => {
+            set((state: any) => {
               // Clean up deletedGuests for this event
               const updatedDeletedGuests = { ...state.deletedGuests };
               delete updatedDeletedGuests[id];
@@ -1867,7 +1867,7 @@ export const useEventStore = create<EventStore>()(
           
           console.log('🔍 Generated new guest:', newGuest);
           
-          set(state => {
+          set((state: any) => {
             console.log('🔍 Current state events count:', state.events.length);
             console.log('🔍 Current event ID:', state.currentEvent?.id);
             
@@ -1916,7 +1916,7 @@ export const useEventStore = create<EventStore>()(
           
           let updatedEvent: Event | null = null;
           
-          set(state => {
+          set((state: any) => {
             const event = state.events.find(e => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
@@ -2325,7 +2325,7 @@ export const useEventStore = create<EventStore>()(
             console.log(`✅ Event updated successfully via backend:`, result);
             
             // Update state with the updated event (even though user is not logged in, we can cache it)
-            set(state => ({
+            set((state: any) => ({
               ...state,
               events: [...state.events, updatedFullEvent],
               isLoading: false
@@ -2337,7 +2337,7 @@ export const useEventStore = create<EventStore>()(
           // Event exists in store - proceed with normal update flow
           let updatedEvent: Event | null = null;
           
-          set(state => {
+          set((state: any) => {
             const event = state.events.find(e => e.id === eventId);
             const guest = event?.guests?.find(g => g.id === guestId);
             
@@ -3075,7 +3075,7 @@ export const useEventStore = create<EventStore>()(
       deleteGuest: async (eventId, guestId) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const updatedEvents = state.events.map(event =>
               event.id === eventId
                 ? {
@@ -3137,7 +3137,7 @@ export const useEventStore = create<EventStore>()(
             tags: []
           }));
 
-          set(state => ({
+          set((state: any) => ({
             events: state.events.map(event =>
               event.id === eventId
                 ? { ...event, guests: [...event.guests, ...newGuests] }
@@ -3195,7 +3195,7 @@ export const useEventStore = create<EventStore>()(
             updatedAt: new Date()
           };
 
-          set(state => ({
+          set((state: any) => ({
             events: state.events.map(event =>
               event.id === campaignData.eventId
                 ? { 
@@ -4299,7 +4299,7 @@ export const useEventStore = create<EventStore>()(
                 })));
               }
               
-              set(state => ({
+              set((state: any) => ({
                 events: [...state.events, restoredEvent],
                 deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
                 isLoading: false
@@ -4328,7 +4328,7 @@ export const useEventStore = create<EventStore>()(
       permanentlyDeleteEvent: async (deletedEventId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
             isLoading: false
           }));
@@ -4568,7 +4568,7 @@ export const useEventStore = create<EventStore>()(
                 if (event) {
                   console.log('✅ Found event in API, adding to store...');
                   // Add event to store temporarily for campaign recreation
-                  set(state => ({
+                  set((state: any) => ({
                     events: [...state.events, event as Event]
                   }));
                 }
@@ -4899,7 +4899,7 @@ export const useEventStore = create<EventStore>()(
             updatedAt: new Date()
           };
 
-          set(state => ({
+          set((state: any) => ({
             events: state.events.map(e => 
               e.id === eventId 
                 ? { ...e, tables: [...(e.tables || []), newTable] }
@@ -4926,7 +4926,7 @@ export const useEventStore = create<EventStore>()(
       updateTable: async (eventId: string, tableId: string, updates: Partial<Table>) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             events: state.events.map(e => 
               e.id === eventId 
                 ? { 
@@ -4967,7 +4967,7 @@ export const useEventStore = create<EventStore>()(
       deleteTable: async (eventId: string, tableId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => ({
+          set((state: any) => ({
             events: state.events.map(e => 
               e.id === eventId 
                 ? { 
@@ -5010,7 +5010,7 @@ export const useEventStore = create<EventStore>()(
       assignGuestToTable: async (eventId: string, guestId: string, tableId: string, seatNumber?: number) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const event = state.events.find(e => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
@@ -5071,7 +5071,7 @@ export const useEventStore = create<EventStore>()(
       removeGuestFromTable: async (eventId: string, guestId: string) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const event = state.events.find(e => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
@@ -5125,7 +5125,7 @@ export const useEventStore = create<EventStore>()(
       moveGuestToTable: async (eventId: string, guestId: string, newTableId: string, newSeatNumber?: number) => {
         set({ isLoading: true, error: null });
         try {
-          set(state => {
+          set((state: any) => {
             const event = state.events.find(e => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
