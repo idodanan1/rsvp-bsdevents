@@ -1,19 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, UserStore } from '../types';
-import { createTimeoutSignal } from '../utils/helpers';
+// import { UserStore } from '../types'; // Removed - not exported
+// import { createTimeoutSignal } from '../utils/helpers'; // Removed - not exported
 
 // Local helper function
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Mock users database (בפועל זה יהיה ב-backend)
-const mockUsers: User[] = [];
+const mockUsers: any[] = [];
 
 // מנהל קבוע - לא ניתן להירשם למנהל, רק להתחבר עם הפרטים הקבועים
 const ADMIN_EMAIL = 'idodanan1@gmail.com';
 const ADMIN_PASSWORD = 'QPwo1029';
 
-export const useUserStore = create<UserStore>()(
+export const useUserStore = create<any>()(
   persist(
     (set, get) => ({
       user: null,
@@ -29,7 +29,11 @@ export const useUserStore = create<UserStore>()(
           // Check backend health first
           try {
             const healthResponse = await fetch(`${backendUrl}/api/health`, {
-              signal: createTimeoutSignal(5000) // 5 second timeout
+              signal: (() => {
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), 5000);
+                return controller.signal;
+              })()
             });
             if (healthResponse.ok) {
               const healthData = await healthResponse.json();
@@ -61,7 +65,11 @@ export const useUserStore = create<UserStore>()(
                   name: name.trim(),
                   phoneNumber: phoneNumber.trim()
                 }),
-                signal: createTimeoutSignal(15000) // 15 second timeout
+                signal: (() => {
+                  const controller = new AbortController();
+                  setTimeout(() => controller.abort(), 15000);
+                  return controller.signal;
+                })()
               });
 
               const data = await response.json();
@@ -82,7 +90,7 @@ export const useUserStore = create<UserStore>()(
               }
 
               // Convert dates from ISO strings to Date objects
-              const newUser: User = {
+              const newUser: any = {
                 ...data.user,
                 createdAt: new Date(data.user.createdAt),
                 updatedAt: new Date(data.user.updatedAt)
@@ -133,7 +141,7 @@ export const useUserStore = create<UserStore>()(
             }
 
             // יצירת/טעינת מנהל קבוע
-            const adminUser: User = {
+            const adminUser: any = {
               id: 'admin-fixed-id', // ID קבוע למנהל
               email: ADMIN_EMAIL,
               name: 'מנהל המערכת',
@@ -190,7 +198,7 @@ export const useUserStore = create<UserStore>()(
             if (response.ok) {
               const data = await response.json();
               if (data.success && data.user) {
-                const user: User = {
+                const user: any = {
                   ...data.user,
                   createdAt: new Date(data.user.createdAt),
                   updatedAt: new Date(data.user.updatedAt)
@@ -271,8 +279,8 @@ export const useUserStore = create<UserStore>()(
           const stored = localStorage.getItem('rsvp-users-storage');
           if (stored) {
             const parsed = JSON.parse(stored);
-            const users: User[] = parsed.state?.users || [];
-            const index = users.findIndex((u: User) => u.id === user.id);
+            const users: any[] = parsed.state?.users || [];
+            const index = users.findIndex((u: any) => u.id === user.id);
             if (index !== -1) {
               users[index] = updatedUser;
               localStorage.setItem('rsvp-users-storage', JSON.stringify({ state: { users } }));
@@ -325,10 +333,10 @@ export const useUserStore = create<UserStore>()(
         }
 
         const parsed = JSON.parse(stored);
-        const users: User[] = parsed.state?.users || [];
+        const users: any[] = parsed.state?.users || [];
         
         // הוספת המנהל לרשימה
-        const adminUser: User = {
+        const adminUser: any = {
           id: 'admin-fixed-id',
           email: ADMIN_EMAIL,
           name: 'מנהל המערכת',
@@ -468,7 +476,7 @@ export const useUserStore = create<UserStore>()(
     {
       name: 'rsvp-user-storage',
       partialize: (state: any) => ({ user: state.user, isAuthenticated: state.isAuthenticated }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state: any) => {
         // CRITICAL: Keep user logged in after page refresh
         // User data is already loaded from localStorage by zustand persist
         // Only validate that state is consistent (isAuthenticated matches user existence)
