@@ -319,10 +319,22 @@ const EventManagement: React.FC = () => {
         alert(`✅ הנתונים עודכנו מ-Supabase בהצלחה!\n\n🔄 הטבלה מתעדכנת...`);
         
         // Wait a bit and refresh again to ensure all updates are reflected
+        // CRITICAL: Use the store's fetchEvents method directly to avoid scope issues
         setTimeout(async () => {
           console.log(`🔄 Second refresh to ensure all updates are reflected...`);
-          await fetchEvents(true, true);
-          console.log(`✅ Second refresh completed`);
+          try {
+            // Get fetchEvents from the store to ensure it's accessible in setTimeout closure
+            const storeState = useEventStore.getState();
+            const refreshEvents = storeState.fetchEvents;
+            if (refreshEvents && typeof refreshEvents === 'function') {
+              await refreshEvents(true, true);
+              console.log(`✅ Second refresh completed`);
+            } else {
+              console.error(`❌ fetchEvents is not available in store state`);
+            }
+          } catch (refreshError: any) {
+            console.error(`❌ Error in second refresh:`, refreshError);
+          }
           
           // Also refresh pending count after a delay to ensure it's accurate
           try {

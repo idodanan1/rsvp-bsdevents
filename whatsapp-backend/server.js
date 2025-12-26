@@ -3147,7 +3147,8 @@ app.delete('/api/guests/pending-updates', (req, res) => {
   });
 });
 
-// Endpoint to process all pending updates and sync them to events
+// DEPRECATED: This endpoint is no longer used - we now sync full events via POST /api/events
+// Keeping it for backward compatibility but it just returns a success message
 app.post('/api/guests/process-all-updates', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -3155,216 +3156,36 @@ app.post('/api/guests/process-all-updates', async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   
   try {
-    // Check if we should process only today's updates or all updates
-    const processTodayOnly = req.query.today === 'true' || req.query.today === '1';
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartTimestamp = todayStart.getTime();
+    console.log('ℹ️ POST /api/guests/process-all-updates - This endpoint is deprecated');
+    console.log('ℹ️ All updates are now synced via POST /api/events upsert mechanism');
     
-    console.log('🔄 POST /api/guests/process-all-updates - Processing pending updates...');
-    console.log(`📊 Total pending updates: ${pendingUpdates.length}`);
-    console.log(`📅 Process today only: ${processTodayOnly}`);
-    
-    // Filter updates based on date if needed
-    let updatesToProcess = [...pendingUpdates];
-    if (processTodayOnly) {
-      updatesToProcess = pendingUpdates.filter(u => u.timestamp >= todayStartTimestamp);
-      console.log(`📅 Filtered to ${updatesToProcess.length} updates from today (out of ${pendingUpdates.length} total)`);
-    }
-    
-    // Reload events to get latest data
-    loadEvents();
-    
-    let processedCount = 0;
-    let failedCount = 0;
-    const processedUpdates = [];
-    
-    // Process each update
-    for (const update of updatesToProcess) {
+    // Get pending updates count from Supabase for informational purposes
+    let pendingCount = 0;
+    if (supabaseDb.isSupabaseConfigured()) {
       try {
-        // Find the event and guest
-        let foundEvent = null;
-        let foundGuest = null;
-        
-        // Try to find by eventId and guestId first (most accurate)
-        if (update.eventId && update.guestId) {
-          foundEvent = eventsData.events.find(e => e.id === update.eventId);
-          if (foundEvent && foundEvent.guests) {
-            foundGuest = foundEvent.guests.find(g => g.id === update.guestId);
-          }
-        }
-        
-        // If not found, try to find by phone number
-        if (!foundGuest) {
-          const updatePhone = (update.phoneNumber || update.originalPhoneNumber || '').replace(/[^0-9]/g, '');
-          
-          for (const event of eventsData.events) {
-            if (event.guests && event.guests.length > 0) {
-              foundGuest = event.guests.find(g => {
-                if (!g.phoneNumber) return false;
-                const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
-                const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
-                const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
-                const updatePhoneWith0 = updatePhone.replace(/^972/, '0');
-                const updatePhoneWith972 = updatePhone.startsWith('0') ? '972' + updatePhone.substring(1) : updatePhone;
-                
-                return guestPhone === updatePhone ||
-                       guestPhone === updatePhoneWith0 ||
-                       guestPhone === updatePhoneWith972 ||
-                       guestPhoneWith0 === updatePhone ||
-                       guestPhoneWith0 === updatePhoneWith0 ||
-                       guestPhoneWith0 === updatePhoneWith972 ||
-                       guestPhoneWith972 === updatePhone ||
-                       guestPhoneWith972 === updatePhoneWith0 ||
-                       guestPhoneWith972 === updatePhoneWith972;
-              });
-              
-              if (foundGuest) {
-                foundEvent = event;
-                break;
-              }
-            }
-          }
-        }
-        
-        if (foundGuest && foundEvent) {
-          // Update guest data
-          let updated = false;
-          
-          if (update.status && update.status !== foundGuest.rsvpStatus) {
-            foundGuest.rsvpStatus = update.status;
-            updated = true;
-          }
-          
-          if (update.guestCount !== undefined && update.guestCount !== foundGuest.guestCount) {
-            foundGuest.guestCount = update.guestCount;
-            updated = true;
-          }
-          
-          if (update.actualAttendance && update.actualAttendance !== foundGuest.actualAttendance) {
-            foundGuest.actualAttendance = update.actualAttendance;
-            updated = true;
-          }
-          
-          if (update.responseDate) {
-            foundGuest.responseDate = new Date(update.responseDate);
-            updated = true;
-          }
-          
-          if (update.notes !== undefined && update.notes !== foundGuest.notes) {
-            foundGuest.notes = update.notes;
-            updated = true;
-          }
-          
-          if (updated) {
-            foundEvent.updatedAt = new Date().toISOString();
-            processedCount++;
-            processedUpdates.push({
-              phoneNumber: update.phoneNumber,
-              guestName: `${foundGuest.firstName} ${foundGuest.lastName}`,
-              eventId: foundEvent.id,
-              updates: {
-                status: update.status,
-                guestCount: update.guestCount,
-                actualAttendance: update.actualAttendance
-              }
-            });
-            console.log(`✅ Processed update for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
-          } else {
-            console.log(`⏭️ No changes needed for ${foundGuest.firstName} ${foundGuest.lastName} (${update.phoneNumber})`);
-          }
-        } else {
-          console.warn(`⚠️ Guest not found for update: ${update.phoneNumber}`);
-          failedCount++;
-        }
-      } catch (error) {
-        console.error(`❌ Error processing update for ${update.phoneNumber}:`, error);
-        failedCount++;
+        const pendingUpdates = await supabaseDb.getPendingGuestUpdates();
+        pendingCount = pendingUpdates ? pendingUpdates.length : 0;
+      } catch (err) {
+        console.warn('⚠️ Could not fetch pending updates count:', err);
       }
     }
     
-    // Save events to file
-    if (processedCount > 0) {
-      saveEvents();
-      console.log(`💾 Saved ${processedCount} updates to events file`);
-    }
-    
-    // Clear processed updates from pendingUpdates
-    // CRITICAL: Remove updates that were successfully processed
-    // Match by phone number, status, guestCount, and timestamp to avoid removing wrong updates
-    const processedPhoneNumbers = new Set(processedUpdates.map(p => {
-      const phone = (p.phoneNumber || '').replace(/[^0-9]/g, '');
-      return phone.replace(/^972/, '0');
-    }));
-    
-    const remainingUpdates = pendingUpdates.filter(u => {
-      const uPhone = (u.phoneNumber || u.originalPhoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
-      const wasProcessed = processedPhoneNumbers.has(uPhone);
-      
-      // Also check if this exact update was processed (by matching phone + status + guestCount)
-      if (wasProcessed) {
-        const matchingProcessed = processedUpdates.find(p => {
-          const pPhone = (p.phoneNumber || '').replace(/[^0-9]/g, '').replace(/^972/, '0');
-          return pPhone === uPhone;
-        });
-        
-        if (matchingProcessed) {
-          // Check if status and guestCount match
-          const statusMatch = !u.status || !matchingProcessed.updates.status || u.status === matchingProcessed.updates.status;
-          const guestCountMatch = u.guestCount === undefined || matchingProcessed.updates.guestCount === undefined || u.guestCount === matchingProcessed.updates.guestCount;
-          
-          // If both match, this update was processed
-          if (statusMatch && guestCountMatch) {
-            return false; // Remove this update
-          }
-        }
-      }
-      
-      return true; // Keep this update
-    });
-    
-    const removedCount = pendingUpdates.length - remainingUpdates.length;
-    pendingUpdates.length = 0;
-    pendingUpdates.push(...remainingUpdates);
-    
-    console.log(`🗑️ Removed ${removedCount} processed update(s) from pendingUpdates (${remainingUpdates.length} remaining)`);
-    
-    console.log(`✅ Processed ${processedCount} updates, ${failedCount} failed, ${remainingUpdates.length} remaining`);
-    
-    // Log summary of processed updates
-    console.log('\n📊 ========== PROCESSING SUMMARY ==========');
-    console.log(`✅ Successfully processed: ${processedCount} updates`);
-    console.log(`❌ Failed to process: ${failedCount} updates`);
-    console.log(`📋 Remaining in queue: ${remainingUpdates.length} updates`);
-    if (processedUpdates.length > 0) {
-      console.log('\n📝 Processed updates details:');
-      processedUpdates.slice(0, 10).forEach((update, index) => {
-        console.log(`  ${index + 1}. ${update.guestName} (${update.phoneNumber})`);
-        console.log(`     Status: ${update.updates.status || 'N/A'}, Guest Count: ${update.updates.guestCount || 'N/A'}`);
-      });
-      if (processedUpdates.length > 10) {
-        console.log(`  ... and ${processedUpdates.length - 10} more updates`);
-      }
-    }
-    console.log('==========================================\n');
-    
+    // Return success response indicating the endpoint is deprecated
     res.json({
       success: true,
-      processed: processedCount,
-      failed: failedCount,
-      remaining: remainingUpdates.length,
-      processedUpdates: processedUpdates,
-      summary: {
-        totalProcessed: processedCount,
-        totalFailed: failedCount,
-        totalRemaining: remainingUpdates.length
-      }
+      message: 'This endpoint is deprecated. All updates are now synced via POST /api/events upsert mechanism.',
+      processed: 0,
+      failed: 0,
+      remaining: pendingCount,
+      processedUpdates: [],
+      deprecated: true
     });
   } catch (error) {
-    console.error('❌ Error processing all updates:', error);
+    console.error('❌ Error in deprecated process-all-updates endpoint:', error);
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error.message,
+      deprecated: true
     });
   }
 });

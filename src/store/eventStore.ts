@@ -458,14 +458,27 @@ export const useEventStore = create<EventStore>()(
             return mappedEvent;
           });
 
-          // Update store with fetched events
-          set((state: any) => ({
-            events: mappedEvents,
-            isLoading: false,
-            error: null
-          }));
+          // CRITICAL: Update store with fetched events from Supabase (API is source of truth)
+          // This ensures we transition from localStorage fallback to API data after sync
+          set((state: any) => {
+            const totalGuests = mappedEvents.reduce((sum: number, event: any) => {
+              return sum + (event.guests?.length || 0);
+            }, 0);
+            
+            console.log(`🔄 Transitioning from localStorage to Supabase API data:`, {
+              eventsCount: mappedEvents.length,
+              totalGuests: totalGuests,
+              previousEventsCount: state.events?.length || 0
+            });
+            
+            return {
+              events: mappedEvents,
+              isLoading: false,
+              error: null
+            };
+          });
 
-          console.log(`✅ Successfully updated store with ${mappedEvents.length} events from Supabase`);
+          console.log(`✅ Successfully updated store with ${mappedEvents.length} events from Supabase (API is now source of truth)`);
         } catch (error: any) {
           console.error('❌ Error fetching events from Supabase:', error);
           if (!silent) {
