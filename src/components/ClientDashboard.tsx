@@ -3,21 +3,67 @@ import { useParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, formatDateTime, getStatusIcon, getStatusColor, formatFullName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
-import { 
-  Users, 
-  CheckCircle,
-  XCircle,
-  HelpCircle,
-  Clock,
-  MessageSquare,
-  Phone,
-  Calendar,
-  MapPin,
-  Download,
-  Share2,
-  Search,
-  RefreshCw
-} from 'lucide-react';
+
+// Helper function to map Supabase DB fields to frontend format
+function mapSupabaseToFrontend(data: any): any {
+  if (!data) return data;
+  
+  // Map event fields
+  if (data.couple_name) {
+    data.coupleName = data.couple_name;
+  }
+  if (data.event_date) {
+    data.eventDate = data.event_date;
+  }
+  if (data.groom_name) {
+    data.groomName = data.groom_name;
+  }
+  if (data.bride_name) {
+    data.brideName = data.bride_name;
+  }
+  if (data.event_type) {
+    data.eventType = data.event_type;
+  }
+  if (data.event_type_hebrew) {
+    data.eventTypeHebrew = data.event_type_hebrew;
+  }
+  if (data.couple_phone) {
+    data.couplePhone = data.couple_phone;
+  }
+  if (data.couple_email) {
+    data.coupleEmail = data.couple_email;
+  }
+  if (data.created_at) {
+    data.createdAt = data.created_at;
+  }
+  if (data.updated_at) {
+    data.updatedAt = data.updated_at;
+  }
+  
+  // Map guest fields if guests array exists
+  if (data.guests && Array.isArray(data.guests)) {
+    data.guests = data.guests.map((guest: any) => ({
+      ...guest,
+      // Map DB fields to frontend format
+      rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+      status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending', // Also provide as status for compatibility
+      guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+      guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1), // Also provide as guestsCount for compatibility
+      firstName: guest.first_name || guest.firstName || '',
+      lastName: guest.last_name || guest.lastName || '',
+      phoneNumber: guest.phone_number || guest.phoneNumber || '',
+      actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+      tableId: guest.table_id || guest.tableId || null,
+      messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+      responseDate: guest.response_date || guest.responseDate || null,
+      eventId: guest.event_id || guest.eventId || data.id,
+      createdAt: guest.created_at || guest.createdAt,
+      updatedAt: guest.updated_at || guest.updatedAt
+    }));
+  }
+  
+  return data;
+}
 
 // Helper function to parse and display guest notes with transportation
 const renderGuestNotes = (notes: string | undefined) => {
@@ -252,7 +298,25 @@ const ClientDashboard: React.FC = () => {
             
             if (guestsData.success && guestsData.guests && Array.isArray(guestsData.guests)) {
                 console.log(`✅ Loaded ${guestsData.guests.length} guests from /api/events/${eventId}/guests`);
-                return guestsData.guests;
+                // Map DB fields to frontend format
+                const mappedGuests = guestsData.guests.map((guest: any) => ({
+                  ...guest,
+                  rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                  status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                  guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                  guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                  firstName: guest.first_name || guest.firstName || '',
+                  lastName: guest.last_name || guest.lastName || '',
+                  phoneNumber: guest.phone_number || guest.phoneNumber || '',
+                  actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+                  tableId: guest.table_id || guest.tableId || null,
+                  messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+                  responseDate: guest.response_date || guest.responseDate || null,
+                  eventId: guest.event_id || guest.eventId || eventId,
+                  createdAt: guest.created_at || guest.createdAt,
+                  updatedAt: guest.updated_at || guest.updatedAt
+                }));
+                return mappedGuests;
             }
             } else if (guestsResponse.status === 404 && retryCount < MAX_RETRIES) {
               console.log(`⚠️ Guests endpoint returned 404, retrying in ${RETRY_DELAY}ms...`);
@@ -303,26 +367,31 @@ const ClientDashboard: React.FC = () => {
               
               if (authResponse.ok) {
                 const authData = await authResponse.json();
-                const authEvents = authData.events || [];
-                const authEvent = authEvents.find((e: any) => e.id === eventId);
+                const authEvents = Array.isArray(authData) ? authData : (authData.events || []);
                 
-                if (authEvent) {
-                  const displayName = authEvent.coupleName || 
-                    (authEvent.groomName && authEvent.brideName ? `${authEvent.groomName} & ${authEvent.brideName}` : 
-                     authEvent.groomName || authEvent.brideName || 'אירוע');
+                // Find the event and map DB fields to frontend format
+                const rawAuthEvent = authEvents.find((e: any) => e.id === eventId);
+                
+                if (rawAuthEvent) {
+                  foundEvent = mapSupabaseToFrontend(rawAuthEvent);
+                  const displayName = foundEvent.coupleName || 
+                    (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
+                     foundEvent.groomName || foundEvent.brideName || 'אירוע');
                   console.log(`✅ Found event in authenticated endpoint: ${displayName}`);
-                  console.log(`🔍 Authenticated endpoint returned ${authEvent.guests?.length || 0} guests`);
+                  console.log(`🔍 Authenticated endpoint returned ${foundEvent.guests?.length || 0} guests`);
                   
                   // WARNING: This endpoint may also truncate data for large events
-                  if (authEvent.guests && authEvent.guests.length < 50) {
-                    console.warn(`⚠️ Authenticated endpoint returned only ${authEvent.guests.length} guests - may be incomplete`);
+                  if (foundEvent.guests && foundEvent.guests.length < 50) {
+                    console.warn(`⚠️ Authenticated endpoint returned only ${foundEvent.guests.length} guests - may be incomplete`);
                   }
-                  
-                  foundEvent = authEvent;
                 }
+              } else {
+                console.error(`❌ Authenticated endpoint returned ${authResponse.status} - Database connection may have issues`);
+                console.error(`❌ Please check your Supabase configuration and network connection`);
               }
             } catch (error: any) {
-              console.warn('⚠️ Failed to load from authenticated endpoint, falling back to public endpoint:', error);
+              console.error(`❌ Failed to load from authenticated endpoint - Database connection failed:`, error);
+              console.error(`❌ Please check your Supabase configuration and network connection`);
             }
           }
         }
@@ -348,17 +417,24 @@ const ClientDashboard: React.FC = () => {
               console.log(`🔍 DEBUG: Looking for eventId: ${eventId}`);
               console.log(`🔍 DEBUG: Event IDs in API response:`, allEvents.map((e: any) => e.id));
               
-              foundEvent = allEvents.find((e: any) => e.id === eventId);
+              // Find event and map DB fields to frontend format
+              const rawEvent = allEvents.find((e: any) => e.id === eventId);
+              if (rawEvent) {
+                foundEvent = mapSupabaseToFrontend(rawEvent);
+              }
               
               if (!foundEvent) {
                 console.error(`❌ Event ${eventId} not found in API`);
                 console.error(`❌ Available event IDs:`, allEvents.map((e: any) => e.id));
+                console.error(`❌ Database connection may have issues - please check Supabase configuration`);
               }
             } else {
-              console.error(`❌ API returned error: ${response.status}`);
+              console.error(`❌ API returned error: ${response.status} - Database connection may have issues`);
+              console.error(`❌ Please check your Supabase configuration and network connection`);
             }
           } catch (error: any) {
-            console.error('❌ Failed to fetch from /api/events/all:', error);
+            console.error('❌ Failed to fetch from /api/events/all - Database connection failed:', error);
+            console.error(`❌ Please check your Supabase configuration and network connection`);
           }
         }
         
@@ -371,6 +447,9 @@ const ClientDashboard: React.FC = () => {
         
         // If we found the event from any endpoint, use it
         if (foundEvent) {
+          // CRITICAL: Ensure event is mapped to frontend format before using
+          foundEvent = mapSupabaseToFrontend(foundEvent);
+          
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
              foundEvent.groomName || foundEvent.brideName || 'אירוע');
@@ -389,9 +468,10 @@ const ClientDashboard: React.FC = () => {
             // CRITICAL: If we have fewer than expected guests, log detailed info
             if (currentGuestsCount > 0 && currentGuestsCount < 100) {
               console.warn(`⚠️ Event has only ${currentGuestsCount} guests - may be incomplete`);
-              console.warn(`⚠️ This might indicate the backend file has incomplete data`);
+              console.warn(`⚠️ This might indicate incomplete data from Supabase`);
               console.warn(`⚠️ Guests endpoint returned 404 - cannot load full guest list`);
               console.warn(`⚠️ Will use partial data from /api/events/all`);
+              console.error(`❌ Database connection may have issues - please check Supabase configuration`);
               
               // Log guest details for debugging
               if (eventFromAll.guests && eventFromAll.guests.length > 0) {

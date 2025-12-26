@@ -329,7 +329,9 @@ function convertSupabaseGuestToFrontend(supabaseGuest) {
     lastName: supabaseGuest.last_name,
     phoneNumber: supabaseGuest.phone_number,
     guestCount: supabaseGuest.guest_count,
+    guestsCount: supabaseGuest.guest_count, // Also provide as guestsCount for compatibility
     rsvpStatus: supabaseGuest.rsvp_status,
+    status: supabaseGuest.rsvp_status, // Also provide as status for compatibility
     actualAttendance: supabaseGuest.actual_attendance,
     tableId: supabaseGuest.table_id,
     messageStatus: supabaseGuest.message_status,
@@ -344,14 +346,20 @@ function convertSupabaseGuestToFrontend(supabaseGuest) {
 
 // Convert frontend guest to Supabase format
 function convertFrontendGuestToSupabase(frontendGuest) {
+  // Support both naming conventions: rsvpStatus/status and guestCount/guestsCount
+  const rsvpStatus = frontendGuest.rsvpStatus || frontendGuest.status || 'pending';
+  const guestCount = frontendGuest.guestCount !== undefined 
+    ? frontendGuest.guestCount 
+    : (frontendGuest.guestsCount !== undefined ? frontendGuest.guestsCount : 1);
+  
   return {
     id: frontendGuest.id,
     event_id: frontendGuest.eventId,
     first_name: frontendGuest.firstName || '',
     last_name: frontendGuest.lastName || '',
     phone_number: frontendGuest.phoneNumber || '',
-    guest_count: frontendGuest.guestCount || 1,
-    rsvp_status: frontendGuest.rsvpStatus || 'pending',
+    guest_count: guestCount,
+    rsvp_status: rsvpStatus,
     actual_attendance: frontendGuest.actualAttendance || 'not_marked',
     table_id: frontendGuest.tableId || null,
     message_status: frontendGuest.messageStatus || 'not_sent',
@@ -359,7 +367,8 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     channel: frontendGuest.channel || 'manual',
     tags: frontendGuest.tags ? JSON.stringify(frontendGuest.tags) : null,
     created_at: frontendGuest.createdAt || new Date().toISOString(),
-    updated_at: frontendGuest.updatedAt || new Date().toISOString()
+    updated_at: frontendGuest.updatedAt || new Date().toISOString(),
+    response_date: frontendGuest.responseDate || null
   };
 }
 
