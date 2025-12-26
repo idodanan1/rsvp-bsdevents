@@ -1,7 +1,10 @@
 // Helper functions for the RSVP Management System
-import { Event, Guest } from '../types';
 import React from 'react';
 import { CheckCircle, XCircle, Clock, HelpCircle } from 'lucide-react';
+
+// Type definitions
+type Event = any;
+type Guest = any;
 
 export interface EventStats {
   totalGuests: number;
@@ -197,4 +200,13 @@ export function generateGuestResponseLink(
   
   return `${baseUrl}/guest-response?${params.toString()}`;
 }
+
+export const ensureUniqueEventIds = (events: any[]) => {
+  const ids = new Set();
+  return events.filter((event: any) => {
+    if (!event.id || ids.has(event.id)) return false;
+    ids.add(event.id);
+    return true;
+  });
+};
 
