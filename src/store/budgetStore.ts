@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Budget, Vendor, PaymentSchedule, BudgetStore, VendorCategory } from '../types';
 import { generateId } from '../utils/helpers';
+
+// Type definitions
+type Budget = any;
+type Vendor = any;
+type PaymentSchedule = any;
+type BudgetStore = any;
+type VendorCategory = any;
 
 const mockBudgets: Budget[] = [];
 
