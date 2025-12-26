@@ -53,7 +53,7 @@ const EventViewer: React.FC = () => {
 
   useEffect(() => {
     if (id) {
-      const event = events.find(e => e.id === id);
+      const event = events.find((e: any) => e.id === id);
       if (event) {
         setCurrentEvent(event);
       } else {
@@ -139,7 +139,7 @@ const EventViewer: React.FC = () => {
     );
   }
 
-  const stats = calculateEventStats(currentEvent);
+  const stats: any = calculateEventStats(currentEvent);
 
   return (
     <div className="space-y-6">
@@ -265,7 +265,7 @@ const EventViewer: React.FC = () => {
                 <span className="text-gray-700">וואטסאפ</span>
               </div>
               <span className="font-semibold">
-                {currentEvent.guests.filter(g => g.channel === 'whatsapp').length}
+                {currentEvent.guests.filter((g: any) => g.channel === 'whatsapp').length}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -274,7 +274,7 @@ const EventViewer: React.FC = () => {
                 <span className="text-gray-700">SMS</span>
               </div>
               <span className="font-semibold">
-                {currentEvent.guests.filter(g => g.channel === 'sms').length}
+                {currentEvent.guests.filter((g: any) => g.channel === 'sms').length}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -283,7 +283,7 @@ const EventViewer: React.FC = () => {
                 <span className="text-gray-700">ידני</span>
               </div>
               <span className="font-semibold">
-                {currentEvent.guests.filter(g => g.channel === 'manual').length}
+                {currentEvent.guests.filter((g: any) => g.channel === 'manual').length}
               </span>
             </div>
           </div>
@@ -496,7 +496,7 @@ const EventViewer: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {currentEvent.guests.map((guest) => (
+              {currentEvent.guests.map((guest: any) => (
                 <tr key={guest.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-normal">
                     <div>
