@@ -150,7 +150,7 @@ export function getStatusColor(status: string): string {
   }
 }
 
-export function getStatusIcon(status: string): React.ReactElement {
+export function getStatusIcon(status: string): any {
   switch (status) {
     case 'confirmed':
       return <CheckCircle className="w-4 h-4 text-green-600 inline mr-1" />;
