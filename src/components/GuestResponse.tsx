@@ -544,7 +544,7 @@ const GuestResponse = () => {
       const RETRY_DELAY = 1000; // 1 second
       
       try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         console.log(`🔍 Loading event from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}): ${BACKEND_URL}/api/events/all`);
         console.log(`🔍 Looking for eventId: ${eventId}`);
         
@@ -1325,7 +1325,7 @@ const GuestResponse = () => {
                 // Retry loading
                 const loadFromAPI = async () => {
                   try {
-                    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+                    const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
                     const response = await fetch(`${BACKEND_URL}/api/events/all`, {
                       method: 'GET',
                       headers: { 

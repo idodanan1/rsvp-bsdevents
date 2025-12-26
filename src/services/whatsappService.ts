@@ -22,8 +22,8 @@ export interface WhatsAppResponse {
 }
 
 class WhatsAppService {
-  private accessToken = import.meta.env.VITE_WHATSAPP_ACCESS_TOKEN || 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
-  private phoneNumberId = import.meta.env.VITE_WHATSAPP_PHONE_NUMBER_ID || '874204535776090'; // Phone Number ID
+  private accessToken = (process.env as any).NEXT_PUBLIC_WHATSAPP_ACCESS_TOKEN || (process.env as any).VITE_WHATSAPP_ACCESS_TOKEN || 'EAAQ16mfCx58BPZCAepGf7EQMznC5dwYUmsun7pZCvzLPqjOjnq778EeJtXGEdemBVXdqTEt9pJ0bm2l5EyL9BZAR9kVS15kjz9rWYAcbKZCZBVOQswHeZAfmkUNv2TZAeX8KGaJ8OZCb4ZCtOaZAEZARqvG2TE7DHCmZBDWRATOKdvfHZA4j8FGluUX8NNGdsqbBEVgFjNgZDZD';
+  private phoneNumberId = (process.env as any).NEXT_PUBLIC_WHATSAPP_PHONE_NUMBER_ID || (process.env as any).VITE_WHATSAPP_PHONE_NUMBER_ID || '874204535776090'; // Phone Number ID
   
   constructor() {
     try {
@@ -2207,7 +2207,7 @@ class WhatsAppService {
   // Check if phone number has WhatsApp
   async checkWhatsAppAvailability(phoneNumber: string): Promise<boolean> {
     try {
-      if (import.meta.env.DEV) {
+      if ((process.env as any).NODE_ENV === 'development' || (process.env as any).DEV) {
         // Simulate check - 80% of numbers have WhatsApp
         return Math.random() > 0.2;
       }

@@ -102,7 +102,7 @@ const UserManagement: React.FC = () => {
       // If no events in local store, try to fetch from API
       if (events.length === 0) {
         console.log('📡 No events in local store, fetching from API...');
-        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         
         try {
           const response = await fetch(`${backendUrl}/api/events/${user.id}`, {
@@ -155,7 +155,7 @@ const UserManagement: React.FC = () => {
       console.log('🔄 Starting campaign recreation for event:', eventId);
       
       // First, ensure the event is in the store by fetching it from API if needed
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
       const eventsResponse = await fetch(`${backendUrl}/api/events/${selectedUserForCampaigns.id}`);
       
       if (eventsResponse.ok) {

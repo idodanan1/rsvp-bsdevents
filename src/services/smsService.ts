@@ -11,9 +11,9 @@ export interface SMSResponse {
 }
 
 class SMSService {
-  private apiUrl = import.meta.env.VITE_SMS_API_URL || 'https://api.twilio.com/2010-04-01/Accounts';
-  private accountSid = import.meta.env.VITE_TWILIO_ACCOUNT_SID || 'ACb9bdf15ec4c32919f0605df55b4c32e5';
-  private authToken = import.meta.env.VITE_TWILIO_AUTH_TOKEN || '17073428e45b4285c68a01bfdbd3daa1';
+  private apiUrl = (process.env as any).NEXT_PUBLIC_SMS_API_URL || (process.env as any).VITE_SMS_API_URL || 'https://api.twilio.com/2010-04-01/Accounts';
+  private accountSid = (process.env as any).NEXT_PUBLIC_TWILIO_ACCOUNT_SID || (process.env as any).VITE_TWILIO_ACCOUNT_SID || 'ACb9bdf15ec4c32919f0605df55b4c32e5';
+  private authToken = (process.env as any).NEXT_PUBLIC_TWILIO_AUTH_TOKEN || (process.env as any).VITE_TWILIO_AUTH_TOKEN || '17073428e45b4285c68a01bfdbd3daa1';
   
   constructor() {
     try {
@@ -46,7 +46,7 @@ class SMSService {
       console.log('💬 Message:', messageData.message.substring(0, 100) + '...');
 
       // Production API call
-      const fromNumber = import.meta.env.VITE_SMS_FROM_NUMBER || '+12347040727';
+      const fromNumber = (process.env as any).NEXT_PUBLIC_SMS_FROM_NUMBER || (process.env as any).VITE_SMS_FROM_NUMBER || '+12347040727';
       const toNumber = messageData.to.startsWith('+') ? messageData.to : `+972${messageData.to.replace(/^0/, '')}`;
       
       console.log('📞 Twilio API Call:');

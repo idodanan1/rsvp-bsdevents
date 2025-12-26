@@ -67,7 +67,7 @@ const Dashboard: React.FC = () => {
       if (!user?.id) return;
       
       try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
         const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/count`);
         if (response.ok) {
           const data = await response.json();
@@ -84,7 +84,7 @@ const Dashboard: React.FC = () => {
     const activityInterval = setInterval(async () => {
       if (user?.id && sessionId) {
         try {
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
           await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/activity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -828,7 +828,7 @@ const Dashboard: React.FC = () => {
                             const formData = new FormData();
                             formData.append('image', file);
                             
-                            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+                            const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
                             
                             // Show loading indicator
                             const uploadButton = e.target as HTMLInputElement;

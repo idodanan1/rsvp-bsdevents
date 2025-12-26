@@ -390,7 +390,7 @@ const CreateEvent: React.FC = () => {
                     const formData = new FormData();
                     formData.append('image', file);
                     
-                    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+                    const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
                     const response = await fetch(`${BACKEND_URL}/api/upload/image`, {
                       method: 'POST',
                       body: formData

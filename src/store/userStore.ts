@@ -21,7 +21,7 @@ export const useUserStore = create<UserStore>()(
       signUp: async (email: string, password: string, name: string, phoneNumber: string) => {
         set({ isLoading: true, error: null });
         try {
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           // Check backend health first
           try {
@@ -160,7 +160,7 @@ export const useUserStore = create<UserStore>()(
           
           console.log('🔐 Login attempt:', { email: normalizedEmail });
           
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           // CRITICAL: Always try backend first (source of truth)
           try {
@@ -346,7 +346,7 @@ export const useUserStore = create<UserStore>()(
         }
 
         try {
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           const response = await fetch(`${backendUrl}/api/users`, {
             method: 'GET',
@@ -403,7 +403,7 @@ export const useUserStore = create<UserStore>()(
 
         try {
           // First, get all users to find the user ID
-          const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          const backendUrl = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           const usersResponse = await fetch(`${backendUrl}/api/users`);
           const usersData = await usersResponse.json();
           

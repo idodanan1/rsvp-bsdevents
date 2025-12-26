@@ -172,7 +172,7 @@ const ClientDashboard: React.FC = () => {
       const RETRY_DELAY = 2000; // 2 seconds between retries
       
       try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         console.log(`🔄 Loading from API (attempt ${retryCount + 1}/${MAX_RETRIES + 1}), BACKEND_URL: ${BACKEND_URL}`);
         
         // CRITICAL: Use /api/events/all FIRST - this endpoint works reliably
@@ -713,7 +713,7 @@ const ClientDashboard: React.FC = () => {
     // No auto-polling - user will use manual refresh button
     const handleRefresh = async () => {
       try {
-        const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         
         // Load event from API
         const singleEventResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}`, {
@@ -835,7 +835,7 @@ const ClientDashboard: React.FC = () => {
     
     try {
       // CRITICAL: Use public API endpoint (works from any IP/device)
-      const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
       const response = await fetch(`${BACKEND_URL}/api/events/all`, {
         method: 'GET',
         headers: { 

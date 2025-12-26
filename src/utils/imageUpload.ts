@@ -5,7 +5,7 @@ export async function uploadImageFile(file: File): Promise<string | null> {
     formData.append('image', file);
     
     // Use BACKEND_URL from environment or fallback to localhost
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
     const uploadUrl = `${BACKEND_URL}/api/upload/image`;
     
     console.log('📤 Uploading image to:', uploadUrl);
