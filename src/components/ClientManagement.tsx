@@ -500,7 +500,7 @@ const ClientManagement: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900">תזכורות קרובות (7 ימים הבאים)</h3>
               </div>
               <div className="divide-y divide-gray-200">
-                {upcomingReminders.map((reminder) => (
+                {upcomingReminders.map((reminder: any) => (
                   <div key={reminder.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 space-x-reverse">
@@ -538,7 +538,7 @@ const ClientManagement: React.FC = () => {
                 <h3 className="text-lg font-medium text-red-900">תזכורות פגות תוקף</h3>
               </div>
               <div className="divide-y divide-gray-200">
-                {overdueReminders.map((reminder) => (
+                {overdueReminders.map((reminder: any) => (
                   <div key={reminder.id} className="px-6 py-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3 space-x-reverse">
@@ -599,7 +599,7 @@ const ClientManagement: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredReminders.map((reminder) => {
+                  {filteredReminders.map((reminder: any) => {
                     const client = clients.find((c: any) => c.id === reminder.clientId);
                     return (
                       <tr key={reminder.id} className="hover:bg-gray-50">
