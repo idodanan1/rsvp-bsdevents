@@ -958,7 +958,6 @@ const Dashboard: React.FC = () => {
                       }
                     }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="https://example.com/invitation.jpg או https://i.imgur.com/xxxxx.jpg"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     תמונה זו תוצג בכל ההודעות שנשלחו לאורחים
