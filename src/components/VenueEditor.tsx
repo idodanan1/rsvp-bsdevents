@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
-import { Table } from '../types';
+type Table = any;
 import { 
   Square, 
   Circle, 
@@ -79,7 +79,7 @@ const VenueEditor: React.FC = () => {
     phone: '',
     guestCount: 1
   });
-  const [editingTable, setEditingTable] = useState<Table | null>(null);
+  const [editingTable, setEditingTable] = useState<any | null>(null);
   const [seatingMode, setSeatingMode] = useState(false);
   const [unassignedGuests, setUnassignedGuests] = useState<any[]>([]);
   const [showGuestSearch] = useState(true); // Always visible
@@ -421,9 +421,9 @@ const VenueEditor: React.FC = () => {
     
     await updateTable(eventId, editingTable.id, {
       number: editingTable.number,
-      name: editingTable.name,
+      name: (editingTable as any).name || '',
       capacity: editingTable.capacity,
-      notes: editingTable.notes
+      notes: (editingTable as any).notes || ''
     });
     
     setShowEditTableModal(false);
