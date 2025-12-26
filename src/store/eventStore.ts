@@ -89,7 +89,7 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
       console.warn(`⚠️ Failed to sync guests directly:`, response.status, errorText);
       return false;
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('⚠️ Failed to sync guests directly:', error);
     return false;
   }
@@ -198,7 +198,7 @@ const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
         return syncEventToAPI(event, retries - 1);
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.warn('⚠️ Failed to sync event to API:', error);
     // Try syncing guests directly as last resort
     if (event.guests && event.guests.length > 0) {
@@ -320,7 +320,7 @@ class GuestUpdateBatchProcessor {
               const errorText = await response.text();
               console.warn(`⚠️ Batch update failed for guest ${update.guestId}:`, response.status, errorText);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.warn(`⚠️ Batch update error for guest ${update.guestId}:`, error);
           }
         })
@@ -390,7 +390,7 @@ export const useEventStore = create<EventStore>()(
             const parsed = JSON.parse(userStorage);
             userId = parsed.state?.user?.id || '';
             userEmail = parsed.state?.user?.email || '';
-          } catch (e) {
+          } catch (e: any) {
             console.warn('⚠️ Error parsing user storage:', e);
           }
         }
@@ -501,7 +501,7 @@ export const useEventStore = create<EventStore>()(
                       return createdAt > fiveMinutesAgo;
                     });
                     // Recent events logged for debugging if needed
-                  } catch (e) {
+                  } catch (e: any) {
                     console.warn('⚠️ Error parsing local events:', e);
                   }
                 }
@@ -793,7 +793,7 @@ export const useEventStore = create<EventStore>()(
                       const parsed = JSON.parse(stored);
                       deletedEventsForPreserve = parsed.state?.deletedEvents || [];
                     }
-                  } catch (e) {
+                  } catch (e: any) {
                     // Ignore parsing errors
                   }
                   const deletedEventIdsForPreserve = new Set(deletedEventsForPreserve.map((e: any) => e.id));
@@ -1084,7 +1084,7 @@ export const useEventStore = create<EventStore>()(
                 console.warn('⚠️ API fetch failed, using localStorage');
                 apiError = true;
               }
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ API not available, using localStorage:', error);
               apiError = true;
             }
@@ -1131,7 +1131,7 @@ export const useEventStore = create<EventStore>()(
                           eventsUpdated = true;
                           return { ...event, userId, userEmail };
                         }
-                      } catch (e) {
+                      } catch (e: any) {
                         // Ignore parsing errors
                       }
                     }
@@ -1265,7 +1265,7 @@ export const useEventStore = create<EventStore>()(
           console.log('📝 No events found in localStorage');
           // CRITICAL: Create new array reference (even if empty) to force React re-render
           set({ events: [], isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error fetching events:', error);
           set({ error: 'שגיאה בטעינת האירועים', isLoading: false });
         } finally {
@@ -1535,7 +1535,7 @@ export const useEventStore = create<EventStore>()(
             userId = parsed.state?.user?.id || '';
             userEmail = parsed.state?.user?.email || '';
               console.log('👤 Current user info:', { userId, userEmail });
-            } catch (e) {
+            } catch (e: any) {
               console.error('❌ Error parsing user storage:', e);
             }
           }
@@ -1636,7 +1636,7 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: Ensure all events have unique IDs before saving
                 allEvents = ensureUniqueEventIds(allEvents);
-              } catch (e) {
+              } catch (e: any) {
                 console.warn('⚠️ Error parsing stored events:', e);
               }
             }
@@ -1682,7 +1682,7 @@ export const useEventStore = create<EventStore>()(
                     } else {
                       console.log('✅ Verified: Event found in localStorage');
                     }
-                  } catch (e) {
+                  } catch (e: any) {
                     console.error('❌ Error verifying event save:', e);
                   }
                 }
@@ -1690,7 +1690,7 @@ export const useEventStore = create<EventStore>()(
             } else {
               console.log('⚠️ Event already exists in localStorage:', newEvent.id);
             }
-          } catch (error) {
+          } catch (error: any) {
             console.error('❌ Error saving event to localStorage:', error);
             // Try to save again as fallback
             try {
@@ -1711,7 +1711,7 @@ export const useEventStore = create<EventStore>()(
                 }));
                 console.log('✅ Event saved via fallback method');
               }
-            } catch (fallbackError) {
+            } catch (fallbackError: any) {
               console.error('❌ Fallback save also failed:', fallbackError);
             }
           }
@@ -1721,12 +1721,12 @@ export const useEventStore = create<EventStore>()(
           try {
             await syncEventToAPI(finalEvent);
             console.log('✅ Event synced to API successfully with all guests');
-          } catch (error) {
+          } catch (error: any) {
             console.error('❌ Failed to sync event to API:', error);
             // Continue - localStorage is already updated
             // But log error so user knows sync failed
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה ביצירת האירוע', isLoading: false });
         }
       },
@@ -1766,12 +1766,12 @@ export const useEventStore = create<EventStore>()(
             try {
               await syncEventToAPI(updatedEvent);
               console.log('✅ Event update synced to API successfully with all guests');
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ Failed to sync event update to API (will use localStorage):', error);
               // Continue - localStorage is already updated by Zustand persist
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון האירוע', isLoading: false });
         }
       },
@@ -1803,7 +1803,7 @@ export const useEventStore = create<EventStore>()(
                   console.warn(`⚠️ Failed to delete event ${id} from backend:`, deleteResponse.status);
                 }
               }
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ Error deleting event from backend:', error);
             }
             
@@ -1844,7 +1844,7 @@ export const useEventStore = create<EventStore>()(
                   console.log(`✅ Removed event ${id} from localStorage`);
                 }
               }
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ Error removing event from localStorage:', error);
             }
             
@@ -1853,7 +1853,7 @@ export const useEventStore = create<EventStore>()(
             console.warn(`⚠️ No event found with ID ${id} to delete`);
             set({ isLoading: false });
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error deleting event:', error);
           set({ error: 'שגיאה במחיקת האירוע', isLoading: false });
         }
@@ -1913,7 +1913,7 @@ export const useEventStore = create<EventStore>()(
           }
           
           console.log('✅ addGuest completed successfully');
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error in addGuest:', error);
           set({ error: 'שגיאה בהוספת מוזמן', isLoading: false });
         }
@@ -2149,7 +2149,7 @@ export const useEventStore = create<EventStore>()(
                         const errorText = await directResponse.text();
                         console.warn('⚠️ Direct update to /api/events/:eventId/guests failed:', directResponse.status, errorText);
                       }
-                    } catch (directError) {
+                    } catch (directError: any) {
                       console.warn('⚠️ Failed to update event directly in server:', directError);
                     }
                   }
@@ -2162,7 +2162,7 @@ export const useEventStore = create<EventStore>()(
                     payload: guestUpdatePayload
                   });
                 }
-              } catch (error) {
+              } catch (error: any) {
                 console.warn('⚠️ Failed to sync guest update to API:', error);
                 if (retries > 0) {
                   console.log(`🔄 Retrying sync (${retries} retries left)...`);
@@ -2189,12 +2189,12 @@ export const useEventStore = create<EventStore>()(
                   cacheService.invalidate(cacheKey);
                   console.log(`🗑️ Invalidated cache for user ${userId} (manual guest update)`);
                 }
-              } catch (e) {
+              } catch (e: any) {
                 // Ignore parsing errors
               }
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error in updateGuest:', error);
           set({ error: 'שגיאה בעדכון מוזמן', isLoading: false });
         }
@@ -2854,7 +2854,7 @@ export const useEventStore = create<EventStore>()(
                 cacheService.invalidate(cacheKey);
                 console.log(`🗑️ Invalidated cache for user ${userId} (guest response update)`);
               }
-            } catch (e) {
+            } catch (e: any) {
               // Ignore parsing errors
             }
           }
@@ -3066,17 +3066,17 @@ export const useEventStore = create<EventStore>()(
                   // Fallback: Still add to pendingUpdates for webhook service to process
                   console.log('⚠️ Falling back to pendingUpdates mechanism');
                 }
-              } catch (apiError) {
+              } catch (apiError: any) {
                 console.warn('⚠️ Error updating event directly in server:', apiError);
                 // Fallback: Still add to pendingUpdates for webhook service to process
                 console.log('⚠️ Falling back to pendingUpdates mechanism');
               }
-            } catch (error) {
+            } catch (error: any) {
               console.warn('⚠️ Failed to sync guest response update to API (will use localStorage):', error);
               // Don't retry with full event - it will fail with 413 for large events
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error in updateGuestResponse:', error);
           set({ error: 'שגיאה בעדכון תגובת מוזמן', isLoading: false });
         }
@@ -3126,7 +3126,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה במחיקת מוזמן', isLoading: false });
         }
       },
@@ -3163,7 +3163,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בייבוא נתונים', isLoading: false });
         }
       },
@@ -3190,7 +3190,7 @@ export const useEventStore = create<EventStore>()(
 
           console.log('Exporting data:', exportData);
           set({ isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בייצוא נתונים', isLoading: false });
         }
       },
@@ -3217,7 +3217,7 @@ export const useEventStore = create<EventStore>()(
             ),
             isLoading: false
           }));
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה ביצירת הקמפיין', isLoading: false });
         }
       },
@@ -3263,7 +3263,7 @@ export const useEventStore = create<EventStore>()(
             try {
               console.log(`⏰ Scheduled time reached for campaign: ${updatedCampaign.name}`);
               await get().sendCampaign(eventId, campaignId);
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error sending scheduled campaign:', error);
               // Update campaign status to failed
               const currentEvent = get().events.find(e => e.id === eventId);
@@ -3280,7 +3280,7 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Scheduled campaign: ${updatedCampaign.name} for ${scheduledDate.toLocaleString('he-IL')}`);
           set({ isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error scheduling campaign:', error);
           set({ error: 'שגיאה בתזמון הקמפיין', isLoading: false });
           throw error;
@@ -3442,7 +3442,7 @@ export const useEventStore = create<EventStore>()(
               try {
                 qrCodeImageUrl = await generateQRCodeImage(eventId, guest.id, 256);
                 console.log('📱 Generated QR code for guest:', guest.id, qrCodeImageUrl);
-              } catch (error) {
+              } catch (error: any) {
                 console.error('❌ Error generating QR code:', error);
               }
             }
@@ -3719,7 +3719,7 @@ export const useEventStore = create<EventStore>()(
           }
 
           return result;
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בשליחת הקמפיין', isLoading: false });
           throw error;
         }
@@ -3956,7 +3956,7 @@ export const useEventStore = create<EventStore>()(
           }
 
           return result;
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בשליחה חוזרת לכשלונות', isLoading: false });
           throw error;
         }
@@ -3982,7 +3982,7 @@ export const useEventStore = create<EventStore>()(
           
           set({ isLoading: false });
           return result.successful > 0;
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בשליחת הודעת בדיקה', isLoading: false });
           return false;
         }
@@ -4029,7 +4029,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה ביצירת סקיצת אולם', isLoading: false });
         }
       },
@@ -4064,7 +4064,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון סקיצת אולם', isLoading: false });
         }
       },
@@ -4107,7 +4107,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון מיקום שולחן', isLoading: false });
         }
       },
@@ -4150,7 +4150,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון גודל שולחן', isLoading: false });
         }
       },
@@ -4193,7 +4193,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון סיבוב שולחן', isLoading: false });
         }
       },
@@ -4236,7 +4236,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון צורת שולחן', isLoading: false });
         }
       },
@@ -4322,12 +4322,12 @@ export const useEventStore = create<EventStore>()(
               return true;
             }
             
-            const errorData = await restoreResponse.json().catch(() => ({ error: restoreResponse.statusText }));
+            const errorData = await restoreResponse.json().catch((err: any) => ({ error: restoreResponse.statusText }));
             console.error(`❌ Failed to restore event:`, errorData);
             set({ error: `שגיאה בשחזור האירוע: ${errorData.error || 'האירוע לא נמצא'}`, isLoading: false });
             return false;
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error restoring event:', error);
           set({ error: 'שגיאה בשחזור האירוע', isLoading: false });
           return false;
@@ -4343,7 +4343,7 @@ export const useEventStore = create<EventStore>()(
             isLoading: false
           }));
           return true;
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה במחיקה סופית של האירוע', isLoading: false });
           return false;
         }
@@ -4411,7 +4411,7 @@ export const useEventStore = create<EventStore>()(
             }
           }
           return false;
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error restoring events:', error);
           return false;
         }
@@ -4431,7 +4431,7 @@ export const useEventStore = create<EventStore>()(
             }
           }
           return false;
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error force refreshing:', error);
           return false;
         }
@@ -4465,7 +4465,7 @@ export const useEventStore = create<EventStore>()(
             }
           }
           return false;
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error cleaning up localStorage:', error);
           return false;
         }
@@ -4584,7 +4584,7 @@ export const useEventStore = create<EventStore>()(
                 }
               }
             }
-          } catch (apiError) {
+          } catch (apiError: any) {
             console.error('❌ Error fetching event from API:', apiError);
           }
         }
@@ -4880,7 +4880,7 @@ export const useEventStore = create<EventStore>()(
           try {
             await syncEventToAPI(updatedEvent);
             console.log('✅ Recreated campaigns synced to API successfully');
-          } catch (error) {
+          } catch (error: any) {
             console.error('❌ Failed to sync recreated campaigns to API:', error);
             // Don't throw - the campaigns were created locally, API sync is secondary
           }
@@ -4928,7 +4928,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בהוספת השולחן', isLoading: false });
         }
       },
@@ -4969,7 +4969,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בעדכון השולחן', isLoading: false });
         }
       },
@@ -5012,7 +5012,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה במחיקת השולחן', isLoading: false });
         }
       },
@@ -5073,7 +5073,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בהקצאת האורח לשולחן', isLoading: false });
         }
       },
@@ -5127,7 +5127,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בהסרת האורח מהשולחן', isLoading: false });
         }
       },
@@ -5193,7 +5193,7 @@ export const useEventStore = create<EventStore>()(
               console.error('❌ Final sync attempt failed:', err);
             });
           }
-        } catch (error) {
+        } catch (error: any) {
           set({ error: 'שגיאה בהעברת האורח לשולחן', isLoading: false });
         }
       },
@@ -5334,7 +5334,7 @@ export const useEventStore = create<EventStore>()(
           } else {
             console.log('ℹ️ No events from other users found - nothing to clean up');
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error cleaning up events:', error);
         }
       },
@@ -5360,7 +5360,7 @@ export const useEventStore = create<EventStore>()(
           console.log(`🔄 Auto-syncing event ${eventToSync.id} with ${eventToSync.guests.length} guests...`);
           await syncEventToAPI(eventToSync);
           console.log(`✅ Auto-synced event ${eventToSync.id} successfully`);
-        } catch (error) {
+        } catch (error: any) {
           console.warn('⚠️ Failed to auto-sync event:', error);
           // Don't throw - this is a background sync, shouldn't block UI
         }
@@ -5432,7 +5432,7 @@ export const useEventStore = create<EventStore>()(
           }
           
           return { synced: syncedCount, failed: failedCount };
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error syncing all events:', error);
           set({ error: error instanceof Error ? error.message : 'שגיאה בסנכרון אירועים', isLoading: false });
           throw error;
@@ -5453,7 +5453,7 @@ export const useEventStore = create<EventStore>()(
             const parsed = JSON.parse(userStorage);
             currentUserId = parsed.state?.user?.id || '';
           }
-        } catch (e) {
+        } catch (e: any) {
           console.warn('⚠️ Could not get userId in partialize:', e);
         }
 
@@ -5573,7 +5573,7 @@ export const useEventStore = create<EventStore>()(
               currentEvent: state.currentEvent || null
             };
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('❌ Error in partialize:', error);
         }
         
