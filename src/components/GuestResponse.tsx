@@ -1226,7 +1226,7 @@ const GuestResponse = () => {
         } else {
             console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
           }
-        }).catch(err => {
+        }).catch((err: any) => {
           console.error('❌ Failed to refresh events after guest response update:', err);
         });
       }, 500); // Increased delay to ensure server update completes first
