@@ -439,7 +439,7 @@ const VenueEditor: React.FC = () => {
 
   const handleRotate = (tableId: string) => {
     if (!currentEvent?.venueLayout?.tables) return;
-    const table = currentEvent.venueLayout.tables.find(t => t.id === tableId);
+    const table = currentEvent.venueLayout.tables.find((t: any) => t.id === tableId);
     if (table) {
       const newRotation = ((table.rotation || 0) + 15) % 360;
       updateTableRotation(eventId!, tableId, newRotation);
@@ -980,7 +980,7 @@ const VenueEditor: React.FC = () => {
                     <span className="text-sm font-medium text-gray-800">סה"כ אורחים</span>
                   </div>
                   <span className="text-xl font-bold text-blue-600">
-                    {event?.guests?.reduce((total, guest) => total + guest.guestCount, 0) || 0}
+                    {event?.guests?.reduce((total: number, guest: any) => total + guest.guestCount, 0) || 0}
                   </span>
                 </div>
               </div>
@@ -1118,7 +1118,7 @@ const VenueEditor: React.FC = () => {
                   width: `${venueElements.entrance.width}px`,
                   height: `${venueElements.entrance.height}px`,
                 }}
-                onMouseDown={(e) => handleElementMouseDown(e, 'entrance')}
+                onMouseDown={(e: any) => handleElementMouseDown(e, 'entrance')}
               >
                 <div className="text-center">
                   <DoorOpen className="w-6 h-6 mx-auto mb-1" />
@@ -1137,7 +1137,7 @@ const VenueEditor: React.FC = () => {
                   width: `${venueElements.danceFloor.width}px`,
                   height: `${venueElements.danceFloor.height}px`,
                 }}
-                onMouseDown={(e) => handleElementMouseDown(e, 'danceFloor')}
+                onMouseDown={(e: any) => handleElementMouseDown(e, 'danceFloor')}
               >
                 <div className="text-center">
                   <Music className="w-8 h-8 mx-auto mb-1" />
@@ -1156,7 +1156,7 @@ const VenueEditor: React.FC = () => {
                   width: `${venueElements.bar.width}px`,
                   height: `${venueElements.bar.height}px`,
                 }}
-                onMouseDown={(e) => handleElementMouseDown(e, 'bar')}
+                onMouseDown={(e: any) => handleElementMouseDown(e, 'bar')}
               >
                 <div className="text-center">
                   <Wine className="w-6 h-6 mx-auto mb-1" />
@@ -1175,7 +1175,7 @@ const VenueEditor: React.FC = () => {
                   width: `${venueElements.dj.width}px`,
                   height: `${venueElements.dj.height}px`,
                 }}
-                onMouseDown={(e) => handleElementMouseDown(e, 'dj')}
+                onMouseDown={(e: any) => handleElementMouseDown(e, 'dj')}
               >
                 <div className="text-center">
                   <Mic className="w-5 h-5 mx-auto mb-1" />
@@ -1196,7 +1196,7 @@ const VenueEditor: React.FC = () => {
                     width: `${partition.width}px`,
                     height: `${partition.height}px`,
                   }}
-                  onMouseDown={(e) => handleElementMouseDown(e, 'partition', partition.id)}
+                  onMouseDown={(e: any) => handleElementMouseDown(e, 'partition', partition.id)}
                 >
                   <div className="w-full h-full flex items-center justify-center">
                     <Divide className="w-4 h-4 text-gray-500" />
@@ -1223,7 +1223,7 @@ const VenueEditor: React.FC = () => {
                     minWidth: '50px',
                     minHeight: '30px'
                 }}
-                onMouseDown={(e) => {
+                onMouseDown={(e: any) => {
                   if (seatingMode) {
                     e.preventDefault();
                     handleTableClick(table.id);
@@ -1262,7 +1262,7 @@ const VenueEditor: React.FC = () => {
                 {/* Enhanced Action Buttons - Show on Hover */}
                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-all duration-300 flex gap-1">
                   <button
-                    onClick={(e) => {
+                    onClick={(e: any) => {
                       e.stopPropagation();
                       handleEditTable(table);
                     }}
@@ -1272,7 +1272,7 @@ const VenueEditor: React.FC = () => {
                     <Edit className="w-3 h-3" />
                   </button>
                   <button
-                    onClick={(e) => {
+                    onClick={(e: any) => {
                       e.stopPropagation();
                       handleRotate(table.id);
                     }}
@@ -1282,7 +1282,7 @@ const VenueEditor: React.FC = () => {
                     <RotateCw className="w-3 h-3" />
                   </button>
                   <button
-                    onClick={(e) => {
+                    onClick={(e: any) => {
                       e.stopPropagation();
                       handleDeleteTable(table.id);
                     }}
@@ -1295,7 +1295,7 @@ const VenueEditor: React.FC = () => {
                 
                 {/* Add Guest Button - Always visible */}
                 <button
-                  onClick={(e) => {
+                  onClick={(e: any) => {
                     e.stopPropagation();
                     handleAddGuestToTable(table.id);
                   }}
@@ -1366,7 +1366,7 @@ const VenueEditor: React.FC = () => {
             <div className="mb-4">
               <h4 className="text-md font-semibold text-gray-700 mb-2">אורחים ללא שולחן</h4>
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {unassignedGuests.map((guest) => (
+                {unassignedGuests.map((guest: any) => (
                   <div
                     key={guest.id}
                     className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors cursor-pointer"
@@ -1644,7 +1644,7 @@ const VenueEditor: React.FC = () => {
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-gray-700 mb-2">אורחים ללא שולחן</h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {unassignedGuests.map((guest) => (
+                  {unassignedGuests.map((guest: any) => (
                     <div
                       key={guest.id}
                       className="p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
