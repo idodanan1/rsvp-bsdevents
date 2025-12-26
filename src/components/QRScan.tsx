@@ -42,7 +42,7 @@ const QRScan: React.FC = () => {
 
     try {
       // Find the event and guest
-      const event = events.find(e => e.id === eventId);
+      const event = events.find((e: any) => e.id === eventId);
       if (!event) {
         setError('אירוע לא נמצא');
         setIsLoading(false);
@@ -50,7 +50,7 @@ const QRScan: React.FC = () => {
         return;
       }
 
-      const guest = event.guests.find(g => g.id === guestId);
+      const guest = event.guests.find((g: any) => g.id === guestId);
       if (!guest) {
         setError('אורח לא נמצא');
         setIsLoading(false);
@@ -68,7 +68,7 @@ const QRScan: React.FC = () => {
       }
 
       // Find table number
-      const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+      const guestTable = event.tables?.find((table: any) => table.guests.includes(guest.id));
       const tableNumber = guestTable ? guestTable.number : null;
 
       // Update guest status to attended
@@ -128,7 +128,7 @@ ${event.coupleName}`;
         });
 
         toast.success('הודעה נשלחה בהצלחה!');
-      } catch (msgError) {
+      } catch (msgError: any) {
         console.error('Error sending welcome message:', msgError);
         // Don't fail the whole process if message sending fails
         toast.error('הגעה סומנה, אך שליחת ההודעה נכשלה');
@@ -136,7 +136,7 @@ ${event.coupleName}`;
 
       setIsCompleted(true);
       toast.success('הגעה סומנה בהצלחה!');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error processing QR scan:', err);
       setError('שגיאה בעיבוד הסריקה. אנא נסה שוב.');
       toast.error('שגיאה בעיבוד הסריקה');
@@ -175,9 +175,9 @@ ${event.coupleName}`;
     );
   }
 
-  const event = events.find(e => e.id === eventId);
-  const guest = event?.guests.find(g => g.id === guestId);
-  const guestTable = event?.tables?.find(table => table.guests.includes(guestId || ''));
+  const event = events.find((e: any) => e.id === eventId);
+  const guest = event?.guests.find((g: any) => g.id === guestId);
+  const guestTable = event?.tables?.find((table: any) => table.guests.includes(guestId || ''));
   const tableNumber = guestTable ? guestTable.number : null;
 
   if (!event || !guest) {
