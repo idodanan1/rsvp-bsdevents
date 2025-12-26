@@ -477,7 +477,7 @@ export const useClientStore = create<ClientStore>()(
             if (!client.serviceAreas || client.serviceAreas.length === 0) return false;
             
             // Check if client has any of the selected service areas
-            return filters.serviceAreas!.some(area => 
+            return filters.serviceAreas!.some((area: any) => 
               client.serviceAreas!.includes(area) || 
               (area === 'all' && client.serviceAreas!.includes('all'))
             );
@@ -538,7 +538,7 @@ export const useClientStore = create<ClientStore>()(
           reminder.status === 'pending' &&
           new Date(reminder.reminderDate) >= now &&
           new Date(reminder.reminderDate) <= futureDate
-        ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
+        ).sort((a: any, b: any) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
       },
 
       getOverdueReminders: () => {
@@ -547,7 +547,7 @@ export const useClientStore = create<ClientStore>()(
         
         return reminders.filter((reminder: any) =>
           reminder.status === 'pending' && new Date(reminder.reminderDate) < now
-        ).sort((a, b) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
+        ).sort((a: any, b: any) => new Date(a.reminderDate).getTime() - new Date(b.reminderDate).getTime());
       },
 
       searchClients: (query: any) => {
@@ -604,7 +604,7 @@ if (typeof window !== 'undefined') {
       // Handle force refresh
       if (message.type === 'force-refresh' || message.action === 'force-refresh') {
         console.log('🔄 Cross-tab: Force refreshing clients...');
-        store.fetchClients().catch(err => {
+        store.fetchClients().catch((err: any) => {
           console.error('❌ Error refreshing clients from cross-tab:', err);
         });
         return;
