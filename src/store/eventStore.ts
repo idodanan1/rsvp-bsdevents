@@ -1094,7 +1094,7 @@ export const useEventStore = create<EventStore>()(
             if (updates.tableId !== undefined && newTableId !== oldTableId) {
               updatedTables = event.tables?.map((table: any) => {
                 // Remove guest from old table
-                const tableGuestsWithoutGuest = table.guests.filter(id => id !== guestId);
+                const tableGuestsWithoutGuest = table.guests.filter((id: any) => id !== guestId);
                 
                 // Add guest to new table if not already there
                 if (table.id === newTableId && !tableGuestsWithoutGuest.includes(guestId)) {
@@ -4142,7 +4142,7 @@ export const useEventStore = create<EventStore>()(
             // Update tables: remove guest from old table, add to new table
             const updatedTables = event.tables?.map(table => {
               // Remove guest from old table if it was assigned
-              const oldTableGuests = table.guests.filter(id => id !== guestId);
+              const oldTableGuests = table.guests.filter((id: any) => id !== guestId);
               
               // Add guest to new table if not already there
               if (table.id === tableId && !oldTableGuests.includes(guestId)) {
@@ -4203,7 +4203,7 @@ export const useEventStore = create<EventStore>()(
             // Remove guest from all tables
             const updatedTables = event.tables?.map(table => ({
               ...table,
-              guests: table.guests.filter(id => id !== guestId)
+              guests: table.guests.filter((id: any) => id !== guestId)
             })) || [];
             
             const updatedEvent = {
@@ -4261,7 +4261,7 @@ export const useEventStore = create<EventStore>()(
             // Update tables: remove guest from old table, add to new table
             const updatedTables = event.tables?.map(table => {
               // Remove guest from old table if it was assigned
-              const tableGuestsWithoutGuest = table.guests.filter(id => id !== guestId);
+              const tableGuestsWithoutGuest = table.guests.filter((id: any) => id !== guestId);
               
               // Add guest to new table if not already there
               if (table.id === newTableId && !tableGuestsWithoutGuest.includes(guestId)) {
