@@ -869,7 +869,7 @@ const ClientDashboard: React.FC = () => {
   const handleExportData = () => {
     if (!currentEvent) return;
     
-    const stats = calculateEventStats(currentEvent);
+    const stats: any = calculateEventStats(currentEvent);
     const exportData = {
       eventName: currentEvent.coupleName,
       eventDate: formatDate(currentEvent.eventDate),
@@ -941,7 +941,7 @@ const ClientDashboard: React.FC = () => {
     );
   }
 
-  const stats = calculateEventStats(currentEvent);
+  const stats: any = calculateEventStats(currentEvent);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
