@@ -9,37 +9,21 @@ const nextConfig = {
       bodySizeLimit: '2mb',
     },
   },
-  // Exclude OneDrive and Office files from build
   webpack: (config, { isServer }) => {
-    // Ignore files outside project root and OneDrive/Office files
-    const projectRoot = process.cwd();
-    
+    // ב-Build של Render אין צורך ב-watchOptions מורכבים.
+    // אם בכל זאת רוצים להתעלם מתבניות מסוימות בפורמט תקין:
     config.watchOptions = {
       ...config.watchOptions,
-      ignored: (path) => {
-        // Normalize path separators
-        const normalizedPath = path.replace(/\\/g, '/');
-        
-        // Ignore files outside project root
-        if (!normalizedPath.startsWith(projectRoot.replace(/\\/g, '/'))) {
-          return true;
-        }
-        
-        // Ignore specific patterns
-        const ignorePatterns = [
-          'node_modules',
-          'AppData',
-          'SolutionPackages',
-          'PackageResources',
-          'Microsoft/Office',
-        ];
-        
-        return ignorePatterns.some(pattern => normalizedPath.includes(pattern));
-      },
+      ignored: [
+        '**/node_modules/**',
+        '**/AppData/**',
+        '**/Microsoft/Office/**',
+        '**/.git/**'
+      ],
     };
+    
     return config;
   },
 }
 
 module.exports = nextConfig
-
