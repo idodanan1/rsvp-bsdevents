@@ -369,10 +369,10 @@ const UserManagement: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={(e) => {
+                            onClick={(e: any) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              handleOpenRestoreEvent(user);
+                              // handleOpenRestoreEvent(user); // Function not implemented
                             }}
                             className="px-3 py-2 rounded-lg transition-colors flex items-center space-x-2 text-sm relative z-50 bg-green-600 text-white hover:bg-green-700 cursor-pointer active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                             title="שחזר אירוע שנמחק"
