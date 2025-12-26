@@ -367,15 +367,115 @@ export const useEventStore = create<EventStore>()(
       isLoading: false,
       error: null,
 
-      fetchEvents: async () => {
-        set({ isLoading: true });
+      fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        if (!silent) {
+          set({ isLoading: true, error: null });
+        }
+        
         try {
-          // Simplified for build stability
-          set({ events: [], isLoading: false });
+          // Get userId from localStorage
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              userId = parsed.state?.user?.id || '';
+            } catch (e: any) {
+              console.error('❌ Error parsing user storage:', e);
+            }
+          }
+
+          if (!userId) {
+            console.warn('⚠️ No userId found - cannot fetch events from API');
+            if (!silent) {
+              set({ isLoading: false, error: 'לא נמצא userId - אנא התחבר מחדש' });
+            }
+            return;
+          }
+
+          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          console.log(`🔄 Fetching events from Supabase for userId: ${userId}`);
+          const response = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          
+          // Handle array response (Supabase returns array directly)
+          const apiEvents = Array.isArray(data) ? data : (data.events || []);
+          
+          console.log(`✅ Fetched ${apiEvents.length} events from Supabase`);
+          
+          // Map Supabase fields to frontend format
+          const mappedEvents = apiEvents.map((event: any) => {
+            // Map event fields
+            const mappedEvent = {
+              ...event,
+              coupleName: event.couple_name || event.coupleName,
+              eventDate: event.event_date || event.eventDate,
+              groomName: event.groom_name || event.groomName,
+              brideName: event.bride_name || event.brideName,
+              eventType: event.event_type || event.eventType,
+              eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
+              couplePhone: event.couple_phone || event.couplePhone,
+              coupleEmail: event.couple_email || event.coupleEmail,
+              createdAt: event.created_at || event.createdAt,
+              updatedAt: event.updated_at || event.updatedAt
+            };
+            
+            // Map guest fields if guests exist
+            if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
+              mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
+                ...guest,
+                rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                firstName: guest.first_name || guest.firstName || '',
+                lastName: guest.last_name || guest.lastName || '',
+                phoneNumber: guest.phone_number || guest.phoneNumber || '',
+                actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+                tableId: guest.table_id || guest.tableId || null,
+                messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+                responseDate: guest.response_date || guest.responseDate || null,
+                eventId: guest.event_id || guest.eventId || mappedEvent.id,
+                createdAt: guest.created_at || guest.createdAt,
+                updatedAt: guest.updated_at || guest.updatedAt
+              }));
+            }
+            
+            return mappedEvent;
+          });
+
+          // Update store with fetched events
+          set((state: any) => ({
+            events: mappedEvents,
+            isLoading: false,
+            error: null
+          }));
+
+          console.log(`✅ Successfully updated store with ${mappedEvents.length} events from Supabase`);
         } catch (error: any) {
-          set({ error: 'Error', isLoading: false });
-        } finally {
-          set({ isLoading: false });
+          console.error('❌ Error fetching events from Supabase:', error);
+          if (!silent) {
+            set({ 
+              error: error instanceof Error ? error.message : 'שגיאה בטעינת אירועים', 
+              isLoading: false 
+            });
+          } else {
+            set({ isLoading: false });
+          }
         }
       },
 
@@ -4537,8 +4637,22 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
-          // Refresh events from API after sync
-          await get().fetchEvents(true);
+          // CRITICAL: Refresh events from Supabase API after sync to get fresh data
+          // Use get() to access the store's fetchEvents method
+          try {
+            const fetchEventsFn = get().fetchEvents;
+            if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+              console.log(`🔄 Refreshing events from Supabase after sync...`);
+              await fetchEventsFn(true, true); // Force refresh, silent mode
+              console.log(`✅ Events refreshed from Supabase successfully`);
+            } else {
+              console.error(`❌ fetchEvents is not a function - cannot refresh after sync`);
+              console.error(`❌ Please check the store implementation`);
+            }
+          } catch (refreshError: any) {
+            console.error(`❌ Error refreshing events after sync:`, refreshError);
+            // Don't throw - sync was successful, refresh failure is non-critical
+          }
 
           set({ isLoading: false });
           

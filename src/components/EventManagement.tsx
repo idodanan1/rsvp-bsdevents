@@ -285,40 +285,38 @@ const EventManagement: React.FC = () => {
       
       console.log(`🔄 Processing all pending updates...`);
       
-      const response = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      // DISABLED: This endpoint uses old logic and is no longer needed
+      // We now use upsert in POST /api/events to sync everything at once
+      // const response = await fetch(`${BACKEND_URL}/api/guests/process-all-updates`, {
+      //   method: 'POST',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      // });
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`✅ Processed ${data.processed} updates, ${data.failed} failed, ${data.remaining} remaining`);
-        console.log(`📊 Processed updates details:`, data.processedUpdates?.slice(0, 5));
+      // Instead, just refresh events from Supabase to get latest data
+      console.log(`ℹ️ Skipping process-all-updates endpoint (deprecated - using upsert sync instead)`);
+      console.log(`🔄 Refreshing events from Supabase to get latest data...`);
+      
+      try {
+        await fetchEvents(true, true); // Force refresh to get latest data from Supabase
+        console.log(`✅ Events refreshed from Supabase after sync`);
         
-        // Update pending count immediately
-        setPendingUpdatesCount(data.remaining || 0);
-        
-        // CRITICAL: Always refresh the table, even if processed count is 0
-        // This is because updates might have been processed by automatic sync on component mount
-        // Refresh events to show updated data - use force refresh
-        console.log(`🔄 Refreshing events after processing updates...`);
-        await fetchEvents(true, true); // Force refresh to get latest data
-        console.log(`✅ Events refreshed after processing updates`);
-        
-        // Show appropriate message
-        if (data.processed > 0) {
-          alert(`✅ עובדו ${data.processed} עדכונים בהצלחה!${data.failed > 0 ? `\n⚠️ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 הטבלה מתעדכנת...`);
-        } else if (pendingBeforeProcessing > 0 && data.remaining === 0) {
-          // Updates were already processed (probably by automatic sync)
-          alert(`ℹ️ כל העדכונים כבר עובדו (${pendingBeforeProcessing} עדכונים).\n\n🔄 מרענן את הטבלה...`);
-        } else if (data.remaining > 0) {
-          // Some updates remain (failed to process)
-          alert(`⚠️ ${data.remaining} עדכונים עדיין ממתינים לעיבוד.\n${data.failed > 0 ? `\n❌ ${data.failed} עדכונים נכשלו.` : ''}\n\n🔄 מרענן את הטבלה...`);
-        } else {
-          alert('ℹ️ לא נמצאו עדכונים לעיבוד.\n\n🔄 מרענן את הטבלה...');
+        // Update pending count by checking Supabase
+        try {
+          const checkResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
+            signal: AbortSignal.timeout(3000)
+          });
+          if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            setPendingUpdatesCount(checkData.totalPending || 0);
+          }
+        } catch (err) {
+          console.warn('⚠️ Could not check pending count:', err);
         }
+        
+        // Show success message - data is refreshed from Supabase
+        alert(`✅ הנתונים עודכנו מ-Supabase בהצלחה!\n\n🔄 הטבלה מתעדכנת...`);
         
         // Wait a bit and refresh again to ensure all updates are reflected
         setTimeout(async () => {
