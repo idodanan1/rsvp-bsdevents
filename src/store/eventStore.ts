@@ -4348,8 +4348,8 @@ export const useEventStore = create<EventStore>()(
         const userEvents = getEventsByUserId(userId);
         
         const totalEvents = userEvents.length;
-        const totalGuests = userEvents.reduce((sum, event) => sum + (event.guests?.length || 0), 0);
-        const totalCreditsUsed = userEvents.reduce((sum, event) => sum + (event.creditsUsed || 0), 0);
+        const totalGuests = userEvents.reduce((sum: any, event: any) => sum + (event.guests?.length || 0), 0);
+        const totalCreditsUsed = userEvents.reduce((sum: any, event: any) => sum + (event.creditsUsed || 0), 0);
 
         return {
           totalEvents,
