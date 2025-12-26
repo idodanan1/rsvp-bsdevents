@@ -2239,7 +2239,7 @@ export const useEventStore = create<EventStore>()(
       importGuestsFromExcel: async (eventId: any, data: any) => {
         set({ isLoading: true, error: null });
         try {
-          const newGuests: Guest[] = data.map(guestData => ({
+          const newGuests: Guest[] = data.map((guestData: any) => ({
             id: generateId(),
             firstName: cleanName(guestData.firstName),
             lastName: cleanName(guestData.lastName),
@@ -2371,7 +2371,7 @@ export const useEventStore = create<EventStore>()(
             } catch (error: any) {
               console.error('Error sending scheduled campaign:', error);
               // Update campaign status to failed
-              const currentEvent = get().events.find(e => e.id === eventId);
+              const currentEvent = get().events.find((e: any) => e.id === eventId);
               if (currentEvent) {
                 const failedCampaigns = currentEvent.campaigns?.map((c: any) =>
                   c.id === campaignId ? { ...c, status: 'failed' as const } : c
@@ -3557,7 +3557,7 @@ export const useEventStore = create<EventStore>()(
             if (parsed.state && parsed.state.events) {
               // Remove duplicate events (keep only the most recent)
               const uniqueEvents = parsed.state.events.filter((event: any, index: number, self: any[]) => 
-                index === self.findIndex(e => e.coupleName === event.coupleName)
+                index === self.findIndex((e: any) => e.coupleName === event.coupleName)
               );
               
               if (uniqueEvents.length !== parsed.state.events.length) {
@@ -3668,7 +3668,7 @@ export const useEventStore = create<EventStore>()(
       // Function to recreate campaigns with correct links
       recreateCampaigns: async (eventId: any) => {
         console.log('🔄 recreateCampaigns called with eventId:', eventId);
-        let event = get().events.find(e => e.id === eventId);
+        let event = get().events.find((e: any) => e.id === eventId);
         
         // If event not found in store, try to fetch from API
         if (!event) {
@@ -3952,7 +3952,7 @@ export const useEventStore = create<EventStore>()(
               : e
           );
           
-          updatedEvent = updatedEvents.find(e => e.id === eventId);
+          updatedEvent = updatedEvents.find((e: any) => e.id === eventId);
           
           // CRITICAL: Verify event still exists after update
           if (!updatedEvent) {
@@ -4448,7 +4448,7 @@ export const useEventStore = create<EventStore>()(
       syncCurrentEventToAPI: async (eventId?: any) => {
         try {
           const eventToSync = eventId 
-            ? get().events.find(e => e.id === eventId)
+            ? get().events.find((e: any) => e.id === eventId)
             : get().currentEvent;
           
           if (!eventToSync) {
