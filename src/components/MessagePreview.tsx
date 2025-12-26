@@ -3,7 +3,7 @@ import { Campaign } from '../types';
 import { MessageSquare, Smartphone, Globe } from 'lucide-react';
 
 interface MessagePreviewProps {
-  campaign: Campaign;
+  campaign: any;
   eventId: string;
 }
 
@@ -50,7 +50,7 @@ const MessagePreview: React.FC<MessagePreviewProps> = ({ campaign, eventId }) =>
             
             {campaign.whatsappButtons && campaign.whatsappButtons.length > 0 && (
               <div className="space-y-2">
-                {campaign.whatsappButtons.map((button, index) => (
+                {campaign.whatsappButtons.map((button: any, index: number) => (
                   <div key={index} className="flex space-x-2">
                     {button.type === 'reply' && button.reply && (
                       <button className="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition-colors">
