@@ -40,13 +40,13 @@ export function createClient() {
     {
       cookies: {
         getAll() {
-          return document.cookie.split('; ').map(cookie => {
+          return document.cookie.split('; ').map((cookie: any) => {
             const [name, ...rest] = cookie.split('=')
             return { name: name.trim(), value: decodeURIComponent(rest.join('=')) }
-          }).filter(c => c.name)
+          }).filter((c: any) => c.name)
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          cookiesToSet.forEach(({ name, value, options }: any) => {
             if (options?.httpOnly) {
               // httpOnly cookies cannot be set from client-side
               // These will be set by the server via API route
