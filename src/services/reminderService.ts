@@ -53,7 +53,7 @@ class ReminderService {
       {
         id: 'whatsapp-template',
         name: 'תזכורת WhatsApp',
-        type: 'whatsapp',
+        type: 'whatsapp' as any,
         message: 'שלום! זה הזמן ליצור קשר עם {{client_name}} בנושא {{event_name}}',
         isDefault: true,
         createdAt: new Date()
