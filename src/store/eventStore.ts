@@ -918,7 +918,7 @@ export const useEventStore = create<EventStore>()(
               delete updatedDeletedGuests[id];
               
               return {
-                events: state.events.filter(event => event.id !== id), // Remove ALL events with this ID
+                events: state.events.filter((event: any) => event.id !== id), // Remove ALL events with this ID
                 deletedEvents: [...state.deletedEvents, ...eventsToDelete.map((e: any) => ({ ...e, deletedAt: new Date() }))],
                 deletedGuests: updatedDeletedGuests, // Remove deleted guests tracking for this event
                 currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
@@ -2253,7 +2253,7 @@ export const useEventStore = create<EventStore>()(
           }));
 
           set((state: any) => ({
-            events: state.events.map(event =>
+            events: state.events.map((event: any) =>
               event.id === eventId
                 ? { ...event, guests: [...event.guests, ...newGuests] }
                 : event
@@ -2311,7 +2311,7 @@ export const useEventStore = create<EventStore>()(
           };
 
           set((state: any) => ({
-            events: state.events.map(event =>
+            events: state.events.map((event: any) =>
               event.id === campaignData.eventId
                 ? { 
                     ...event, 
@@ -3108,7 +3108,7 @@ export const useEventStore = create<EventStore>()(
           };
 
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3143,7 +3143,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3178,7 +3178,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3221,7 +3221,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3264,7 +3264,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3307,7 +3307,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state) => ({
-            events: state.events.map(event => 
+            events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
                     ...event, 
@@ -3388,7 +3388,7 @@ export const useEventStore = create<EventStore>()(
           } else {
             // If backend restore fails, try local restore
             console.warn(`⚠️ Backend restore failed, trying local restore...`);
-            const deletedEvent = get().deletedEvents.find(event => event.id === deletedEventId);
+            const deletedEvent = get().deletedEvents.find((event: any) => event.id === deletedEventId);
             if (deletedEvent) {
               // Remove deletedAt property and restore the event
               // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
@@ -3416,7 +3416,7 @@ export const useEventStore = create<EventStore>()(
               
               set((state: any) => ({
                 events: [...state.events, restoredEvent],
-                deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
+                deletedEvents: state.deletedEvents.filter((event: any) => event.id !== deletedEventId),
                 isLoading: false
               }));
               
@@ -3444,7 +3444,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => ({
-            deletedEvents: state.deletedEvents.filter(event => event.id !== deletedEventId),
+            deletedEvents: state.deletedEvents.filter((event: any) => event.id !== deletedEventId),
             isLoading: false
           }));
           return true;
