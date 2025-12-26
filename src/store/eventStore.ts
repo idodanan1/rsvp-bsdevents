@@ -2395,7 +2395,7 @@ export const useEventStore = create<EventStore>()(
       sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');
-        if (!webhookService.pollingActive) {
+        if (!(webhookService as any).pollingActive) {
           webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
         } else {
           webhookService.stopPolling();
@@ -2833,7 +2833,7 @@ export const useEventStore = create<EventStore>()(
       resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
         const { webhookService } = await import('../services/webhookService');
-        if (!webhookService.pollingActive) {
+        if (!(webhookService as any).pollingActive) {
           webhookService.startPolling(8000);
         } else {
           webhookService.stopPolling();
