@@ -1046,7 +1046,7 @@ export const useEventStore = create<EventStore>()(
             // Update guest - always add/update responseDate for timestamp-based conflict resolution
             // Check if any critical fields are being updated
             const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
-            const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+            const hasCriticalField = criticalFields.some((field: any) => updates[field] !== undefined);
             
             const updatedGuests = event.guests.map((guest: any) => {
               if (guest.id === guestId) {
@@ -2335,7 +2335,7 @@ export const useEventStore = create<EventStore>()(
             throw new Error('Event not found');
           }
 
-          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          const campaign = event.campaigns?.find((c: any) => c.id === campaignId);
           if (!campaign) {
             throw new Error('Campaign not found');
           }
@@ -2357,7 +2357,7 @@ export const useEventStore = create<EventStore>()(
 
           // Get updated campaign for scheduling
           const updatedEvent = get().events.find((e: any) => e.id === eventId);
-          const updatedCampaign = updatedEvent?.campaigns?.find(c => c.id === campaignId);
+          const updatedCampaign = updatedEvent?.campaigns?.find((c: any) => c.id === campaignId);
           
           if (!updatedCampaign) {
             throw new Error('Campaign not found after update');
@@ -2409,7 +2409,7 @@ export const useEventStore = create<EventStore>()(
             throw new Error('Event not found');
           }
 
-          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          const campaign = event.campaigns?.find((c: any) => c.id === campaignId);
           if (!campaign) {
             throw new Error('Campaign not found');
           }
@@ -2744,7 +2744,7 @@ export const useEventStore = create<EventStore>()(
           
           console.log('🔘 DEBUG: ========== BEFORE SEND BULK MESSAGES ==========');
           console.log('🔘 DEBUG: Recipients count:', recipients.length);
-          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter(r => r.buttons && r.buttons.length > 0).length);
+          console.log('🔘 DEBUG: Recipients with buttons:', recipients.filter((r: any) => r.buttons && r.buttons.length > 0).length);
           recipients.forEach((r: any, idx: any) => {
             console.log(`🔘 DEBUG: Recipient ${idx}:`, {
               name: `${r.firstName} ${r.lastName}`,
@@ -2770,7 +2770,7 @@ export const useEventStore = create<EventStore>()(
             if (event.id !== eventId) return event;
             
             const updatedGuests = event.guests?.map((guest: any) => {
-              const messageResult = result.results.find(r => r.recipientId === guest.id);
+              const messageResult = result.results.find((r: any) => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
                 // Update messageStatus
                 let messageStatus: 'sent' | 'delivered' | 'failed' = 'sent';
@@ -2847,7 +2847,7 @@ export const useEventStore = create<EventStore>()(
             throw new Error('Event not found');
           }
 
-          const campaign = event.campaigns?.find(c => c.id === campaignId);
+          const campaign = event.campaigns?.find((c: any) => c.id === campaignId);
           if (!campaign) {
             throw new Error('Campaign not found');
           }
@@ -3015,11 +3015,11 @@ export const useEventStore = create<EventStore>()(
             
             const updatedGuests = event.guests?.map((guest: any) => {
               // Only update guests that were in the failed list
-              if (!failedGuests.find(fg => fg.id === guest.id)) {
+              if (!failedGuests.find((fg: any) => fg.id === guest.id)) {
                 return guest;
               }
               
-              const messageResult = result.results.find(r => r.recipientId === guest.id);
+              const messageResult = result.results.find((r: any) => r.recipientId === guest.id);
               if (messageResult && messageResult.success) {
                 return {
                   ...guest,
@@ -4087,7 +4087,7 @@ export const useEventStore = create<EventStore>()(
               e.id === eventId 
                 ? { 
                     ...e, 
-                    tables: e.tables?.filter(t => t.id !== tableId) || [],
+                    tables: e.tables?.filter((t: any) => t.id !== tableId) || [],
                     guests: e.guests?.map((guest: any) => 
                       guest.tableId === tableId 
                         ? { ...guest, tableId: undefined }
@@ -4099,7 +4099,7 @@ export const useEventStore = create<EventStore>()(
             currentEvent: state.currentEvent?.id === eventId 
               ? { 
                   ...state.currentEvent, 
-                  tables: state.currentEvent.tables?.filter(t => t.id !== tableId) || [],
+                  tables: state.currentEvent.tables?.filter((t: any) => t.id !== tableId) || [],
                   guests: state.currentEvent.guests?.map((guest: any) => 
                     guest.tableId === tableId 
                       ? { ...guest, tableId: undefined }
@@ -4248,7 +4248,7 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Find current guest to get old tableId
-            const currentGuest = event.guests?.find(g => g.id === guestId);
+            const currentGuest = event.guests?.find((g: any) => g.id === guestId);
             const oldTableId = currentGuest?.tableId;
             
             // Update guest's tableId
@@ -4770,7 +4770,7 @@ if (typeof window !== 'undefined') {
         });
         
         // Add any current events that aren't in incoming
-        currentEvents.forEach(currentEvent => {
+        currentEvents.forEach((currentEvent: any) => {
           if (!mergedEvents.find((e: Event) => e.id === currentEvent.id)) {
             mergedEvents.push(currentEvent);
           }
