@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
-import { PricingPackage } from '../types';
 import { Check, Package } from 'lucide-react';
 import { growService } from '../services/growService';
 import { morningInvoiceService } from '../services/morningInvoiceService';
 import toast from 'react-hot-toast';
+
+type PricingPackage = any;
 
 // חבילות תמחור - קפיצות של 50 רשומות, מחיר 1.5 ש"ח לרשומה
 const PRICING_PACKAGES: PricingPackage[] = [
@@ -18,7 +19,7 @@ const PRICING_PACKAGES: PricingPackage[] = [
 ];
 
 const Pricing: React.FC = () => {
-  const [selectedPackage, setSelectedPackage] = useState<PricingPackage | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<any | null>(null);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const navigate = useNavigate();
   const user = useUserStore(state => state.user);
@@ -32,7 +33,7 @@ const Pricing: React.FC = () => {
     }
   }, [navigate]);
 
-  const handlePackageSelect = async (pkg: PricingPackage) => {
+  const handlePackageSelect = async (pkg: any) => {
     if (!user) {
       toast.error('אנא התחבר תחילה');
       navigate('/login');
@@ -83,7 +84,7 @@ const Pricing: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {PRICING_PACKAGES.map((pkg) => (
+          {PRICING_PACKAGES.map((pkg: any) => (
             <div
               key={pkg.credits}
               onClick={() => handlePackageSelect(pkg)}
