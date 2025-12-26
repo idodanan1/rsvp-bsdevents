@@ -287,7 +287,7 @@ const CheckInStation: React.FC = () => {
       // Check if already marked as attended
       if (guest.actualAttendance === 'attended') {
         // Still show the info, but don't update again
-        const guestTable = event.tables?.find((table: Table) => table.guests.includes(guest.id));
+        const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guest.id));
         const tableNumber = guestTable ? guestTable.number : null;
         
         // Clear any existing timeout
@@ -318,7 +318,7 @@ const CheckInStation: React.FC = () => {
       }
 
       // Find table number
-      const guestTable = event.tables?.find(table => table.guests.includes(guest.id));
+      const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guest.id));
       const tableNumber = guestTable ? guestTable.number : null;
 
       // Update guest status to attended
