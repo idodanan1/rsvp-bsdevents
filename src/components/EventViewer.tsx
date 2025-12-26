@@ -377,7 +377,7 @@ const EventViewer: React.FC = () => {
                         src={newImageUrl}
                         alt="תצוגה מקדימה"
                         className="max-w-full h-32 object-contain rounded"
-                        onError={(e) => {
+                        onError={(e: any) => {
                           e.currentTarget.style.display = 'none';
                         }}
                       />
@@ -410,7 +410,7 @@ const EventViewer: React.FC = () => {
 
         {/* Images Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {currentEvent.eventImages?.map((imageUrl, index) => (
+          {currentEvent.eventImages?.map((imageUrl: any, index: number) => (
             <div key={index} className="relative group">
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                 <img
