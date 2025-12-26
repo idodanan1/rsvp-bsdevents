@@ -70,7 +70,7 @@ class ReminderService {
       {
         id: 'follow-up-template',
         name: 'תזכורת מעקב',
-        type: 'follow_up',
+        type: 'follow-up',
         subject: 'תזכורת - מעקב אחר {{event_name}}',
         message: 'שלום! זה הזמן לעשות מעקב אחר {{event_name}} עם {{client_name}}',
         isDefault: true,
