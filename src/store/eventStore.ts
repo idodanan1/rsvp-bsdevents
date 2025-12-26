@@ -3117,7 +3117,7 @@ export const useEventStore = create<EventStore>()(
             updatedAt: new Date()
           };
 
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3152,7 +3152,7 @@ export const useEventStore = create<EventStore>()(
       updateVenueLayout: async (eventId: any, updates: any) => {
         set({ isLoading: true, error: null });
         try {
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3187,7 +3187,7 @@ export const useEventStore = create<EventStore>()(
       updateTablePosition: async (eventId: any, tableId: any, x: any, y: any) => {
         set({ isLoading: true, error: null });
         try {
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3230,7 +3230,7 @@ export const useEventStore = create<EventStore>()(
       updateTableSize: async (eventId: any, tableId: any, width: any, height: any) => {
         set({ isLoading: true, error: null });
         try {
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3273,7 +3273,7 @@ export const useEventStore = create<EventStore>()(
       updateTableRotation: async (eventId: any, tableId: any, rotation: any) => {
         set({ isLoading: true, error: null });
         try {
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3316,7 +3316,7 @@ export const useEventStore = create<EventStore>()(
       updateTableShape: async (eventId: any, tableId: any, shape: any) => {
         set({ isLoading: true, error: null });
         try {
-          set((state) => ({
+          set((state: any) => ({
             events: state.events.map((event: any) => 
               event.id === eventId 
                 ? { 
@@ -3502,7 +3502,7 @@ export const useEventStore = create<EventStore>()(
               
               // Force complete restoration by updating the store directly
               // CRITICAL: Preserve ALL guest data including RSVP status, guest count, notes, and actual attendance
-              set((state) => {
+              set((state: any) => {
                 console.log('🔄 Current state before restore:', state);
                 
                 // CRITICAL: Ensure all guests are preserved with their data
@@ -4802,7 +4802,7 @@ if (typeof window !== 'undefined') {
   
   // Broadcast store updates when state changes
   let lastStateHash = '';
-  useEventStore.subscribe((state) => {
+  useEventStore.subscribe((state: any) => {
     // Create a hash of the state to detect changes
     const stateHash = JSON.stringify({
       eventsCount: state.events.length,
