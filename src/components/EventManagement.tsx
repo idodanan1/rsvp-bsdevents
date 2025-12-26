@@ -833,7 +833,7 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Map to create new object references for each guest
       // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
       // CRITICAL: Add a timestamp to force new reference on every calculation
-      const guestsCopy = guests.map((g: Guest, index: number) => ({ 
+      const guestsCopy = guests.map((g: any, index: number) => ({ 
         ...g,
         // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
         _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
@@ -1020,7 +1020,7 @@ const EventManagement: React.FC = () => {
       
       // NEW APPROACH: Update directly in store using updateGuestResponse instead of updateGuest
       // This ensures the update is processed the same way as guest_link updates
-      const guest = event.guests?.find((g: Guest) => g.id === guestId);
+      const guest = event.guests?.find((g: any) => g.id === guestId);
       if (!guest) {
         console.error('❌ Guest not found:', guestId);
         return;
@@ -1048,7 +1048,7 @@ const EventManagement: React.FC = () => {
       const updatedState = useEventStore.getState();
       const updatedEvent = updatedState.events.find((e: Event) => e.id === event.id);
       if (updatedEvent) {
-        const updatedGuest = updatedEvent.guests?.find((g: Guest) => g.id === guestId);
+        const updatedGuest = updatedEvent.guests?.find((g: any) => g.id === guestId);
         if (updatedGuest && updatedGuest.rsvpStatus === status) {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
@@ -1080,7 +1080,7 @@ const EventManagement: React.FC = () => {
       console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: event.id });
       
       // NEW APPROACH: Update directly in store using updateGuestResponse
-      const guest = event.guests?.find((g: Guest) => g.id === guestId);
+      const guest = event.guests?.find((g: any) => g.id === guestId);
       if (!guest) {
         console.error('❌ Guest not found:', guestId);
         return;
@@ -1108,7 +1108,7 @@ const EventManagement: React.FC = () => {
       const updatedState = useEventStore.getState();
       const updatedEvent = updatedState.events.find((e: Event) => e.id === event.id);
       if (updatedEvent) {
-        const updatedGuest = updatedEvent.guests?.find((g: Guest) => g.id === guestId);
+        const updatedGuest = updatedEvent.guests?.find((g: any) => g.id === guestId);
         if (updatedGuest && updatedGuest.actualAttendance === attendance) {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
@@ -1153,7 +1153,7 @@ const EventManagement: React.FC = () => {
       // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
       // This ensures seating management is updated correctly
       if (updates.tableId !== undefined) {
-        const currentGuest = event.guests?.find((g: Guest) => g.id === guestId);
+        const currentGuest = event.guests?.find((g: any) => g.id === guestId);
         const oldTableId = currentGuest?.tableId;
         const newTableId = updates.tableId;
         
@@ -2180,7 +2180,7 @@ const EventManagement: React.FC = () => {
     });
     
     // Add data rows - סדר הנתונים תואם לסדר העמודות (LTR)
-    currentEvent.guests.forEach((guest: Guest, index: number) => {
+    currentEvent.guests.forEach((guest: any, index: number) => {
       const row = worksheet.addRow({
         fullName: formatFullName(guest.firstName, guest.lastName),
         phoneNumber: guest.phoneNumber || '',
@@ -2502,8 +2502,8 @@ const EventManagement: React.FC = () => {
 
           if (duplicatesWithExisting.length > 0) {
             warningMessage += `\n📋 כפילויות עם אורחים קיימים במערכת (${duplicatesWithExisting.length} אורחים):\n\n`;
-            duplicatesWithExisting.forEach((guest: Guest, idx: number) => {
-              const existingGuest = existingGuests.find((g: Guest) => g.phoneNumber?.trim() === guest.phoneNumber?.trim());
+            duplicatesWithExisting.forEach((guest: any, idx: number) => {
+              const existingGuest = existingGuests.find((g: any) => g.phoneNumber?.trim() === guest.phoneNumber?.trim());
               warningMessage += `${idx + 1}. ${formatFullName(guest.firstName, guest.lastName)} - ${guest.phoneNumber}\n`;
               if (existingGuest) {
                 warningMessage += `   קיים במערכת: ${formatFullName(existingGuest.firstName, existingGuest.lastName)}\n`;
@@ -2629,7 +2629,7 @@ const EventManagement: React.FC = () => {
 
       const recipients = guestsToSend.map((guest: any) => {
         // CRITICAL: Find the original row number of the guest in the event (not filtered)
-        const originalRowNumber = currentEvent.guests.findIndex((g: Guest) => g.id === guest.id) + 1;
+        const originalRowNumber = currentEvent.guests.findIndex((g: any) => g.id === guest.id) + 1;
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
       console.log('🔗 Generated guest link:', guestLink);
@@ -2733,7 +2733,7 @@ const EventManagement: React.FC = () => {
 
       // Update guest channels and message status based on actual results
       result.results.forEach((messageResult: any) => {
-        const guest = guestsToSend.find((g: Guest) => g.id === messageResult.recipientId);
+        const guest = guestsToSend.find((g: any) => g.id === messageResult.recipientId);
         if (guest && messageResult.success) {
           let messageStatus = 'sent';
           
@@ -2795,7 +2795,7 @@ const EventManagement: React.FC = () => {
       console.log('🔍 DEBUG - All guests in event:', event.guests?.map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
       
       // Find the correct guest by name to get the real ID
-      const realGuest = event.guests?.find((g: Guest) => 
+      const realGuest = event.guests?.find((g: any) => 
         g.firstName === guest.firstName && g.lastName === guest.lastName
       );
       
@@ -2804,9 +2804,9 @@ const EventManagement: React.FC = () => {
       // Use the real guest ID if found, otherwise use the parameter ID
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
-      const guestToUse = event.guests.find((g: Guest) => g.id === guestIdToUse) || realGuest || guest;
+      const guestToUse = event.guests.find((g: any) => g.id === guestIdToUse) || realGuest || guest;
       // CRITICAL: Find the original row number of the guest in the event (not filtered)
-      const guestIndex = event.guests.findIndex((g: Guest) => g.id === guestIdToUse);
+      const guestIndex = event.guests.findIndex((g: any) => g.id === guestIdToUse);
       const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
       console.log('🔍 DEBUG - Original row number for guest:', {
         guestId: guestIdToUse,
@@ -3234,7 +3234,7 @@ const EventManagement: React.FC = () => {
                   // Calculate seated guests count (only confirmed guests who are seated)
                   const seatedConfirmedGuestsCount = currentEvent.tables?.reduce((acc: number, table: Table) => {
                     return acc + (table.guests?.reduce((sum: number, guestId: string) => {
-                      const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
+                      const guest = currentEvent.guests.find((g: any) => g.id === guestId);
                       // Only count confirmed guests (those who are coming)
                       if (guest && guest.rsvpStatus === 'confirmed') {
                         return sum + (guest.guestCount || 1);
@@ -3261,7 +3261,7 @@ const EventManagement: React.FC = () => {
                   // Calculate total guests count in tables (sum of guestCount)
                   return currentEvent.tables?.reduce((acc: number, table: Table) => {
                     return acc + (table.guests?.reduce((sum: number, guestId: string) => {
-                      const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
+                      const guest = currentEvent.guests.find((g: any) => g.id === guestId);
                       return sum + (guest?.guestCount || 1);
                     }, 0) || 0);
                   }, 0) || 0;
@@ -3769,9 +3769,9 @@ const EventManagement: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                filteredGuests.map((guest: Guest, index: number) => {
+                filteredGuests.map((guest: any, index: number) => {
                   // CRITICAL: Find the original row number of the guest in the event (not filtered)
-                  const originalRowNumber = currentEvent.guests.findIndex((g: Guest) => g.id === guest.id) + 1;
+                  const originalRowNumber = currentEvent.guests.findIndex((g: any) => g.id === guest.id) + 1;
                   return (
                 <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 relative z-0 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-bold w-12">
@@ -4119,7 +4119,7 @@ const EventManagement: React.FC = () => {
                 <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
                 <div className="max-h-32 overflow-y-auto">
                   {selectedGuests.map((guestId: any) => {
-                    const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
+                    const guest = currentEvent.guests.find((g: any) => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
                         {formatFullName(guest.firstName, guest.lastName)} – {guest.phoneNumber}
