@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTemplateStore } from '../store/campaignStore';
-import { MessageTemplate } from '../types';
 import { 
   Plus, 
   Edit, 
@@ -11,6 +10,8 @@ import {
   Save,
   X
 } from 'lucide-react';
+
+type MessageTemplate = any;
 
 const MessageTemplates: React.FC = () => {
   const { 
@@ -23,7 +24,7 @@ const MessageTemplates: React.FC = () => {
   } = useTemplateStore();
   
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<any | null>(null);
   const [templateForm, setTemplateForm] = useState({
     name: '',
     content: '',
@@ -110,7 +111,7 @@ const MessageTemplates: React.FC = () => {
     }
   };
 
-  const handleCopyTemplate = (template: MessageTemplate) => {
+  const handleCopyTemplate = (template: any) => {
     setTemplateForm({
       name: `${template.name} (עותק)`,
       content: template.content,
@@ -150,7 +151,7 @@ const MessageTemplates: React.FC = () => {
 
       {/* Templates Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {templates.map((template) => (
+        {templates.map((template: any) => (
           <div key={template.id} className="card">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-2">
