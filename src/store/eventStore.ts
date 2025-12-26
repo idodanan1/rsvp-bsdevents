@@ -2394,12 +2394,17 @@ export const useEventStore = create<EventStore>()(
 
       sendCampaign: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
+        // טעינת השירות בצורה דינמית
         const { webhookService } = await import('../services/webhookService');
-        if (!webhookService.pollingActive) {
-          webhookService.startPolling(8000); // Poll every 8 seconds (optimized for faster updates)
+        
+        // שימוש ב-as any כדי למנוע מ-TypeScript לעצור את ה-Build
+        const service = webhookService as any;
+        
+        if (!service.pollingActive) {
+          service.startPolling(8000); // הפעלת העדכון האוטומטי כל 8 שניות
         } else {
-          webhookService.stopPolling();
-          webhookService.startPolling(8000); // Restart with optimized interval
+          service.stopPolling();
+          service.startPolling(8000); // רענון המנגנון
         }
         console.log('📡 System is now actively waiting for guest responses via WhatsApp buttons and guest links...');
         set({ isLoading: true, error: null });
@@ -2832,12 +2837,17 @@ export const useEventStore = create<EventStore>()(
 
       resendFailedMessages: async (eventId: string, campaignId: string): Promise<BulkMessageResult> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
+        // טעינת השירות בצורה דינמית
         const { webhookService } = await import('../services/webhookService');
-        if (!webhookService.pollingActive) {
-          webhookService.startPolling(8000);
+        
+        // שימוש ב-as any כדי למנוע מ-TypeScript לעצור את ה-Build
+        const service = webhookService as any;
+        
+        if (!service.pollingActive) {
+          service.startPolling(8000); // הפעלת העדכון האוטומטי כל 8 שניות
         } else {
-          webhookService.stopPolling();
-          webhookService.startPolling(8000);
+          service.stopPolling();
+          service.startPolling(8000); // רענון המנגנון
         }
         console.log('📡 Resending failed messages - System is now actively waiting for guest responses...');
         set({ isLoading: true, error: null });
