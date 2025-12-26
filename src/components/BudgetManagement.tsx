@@ -176,7 +176,7 @@ const BudgetManagement: React.FC = () => {
                 <p className="text-sm text-gray-600 mb-1">
                   {new Date(ev.eventDate).toLocaleDateString('he-IL')}
                 </p>
-                <p className="text-sm text-gray-500">{ev.eventTypeHebrew}</p>
+                <p className="text-sm text-gray-500">{(ev as any).eventTypeHebrew}</p>
               </button>
             ))}
           </div>

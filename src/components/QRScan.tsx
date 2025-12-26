@@ -86,7 +86,7 @@ const QRScan: React.FC = () => {
         const welcomeMessage = tableNumber 
           ? `🎉 שלום ${guestFullName}! 
 
-ברוך הבא ל${event.eventTypeHebrew} של ${event.coupleName}! 
+ברוך הבא ל${(event as any).eventTypeHebrew} של ${event.coupleName}! 
 
 🪑 מספר השולחן שלך: ${tableNumber}
 
@@ -97,7 +97,7 @@ const QRScan: React.FC = () => {
 ${event.coupleName}`
           : `🎉 שלום ${guestFullName}! 
 
-ברוך הבא ל${event.eventTypeHebrew} של ${event.coupleName}! 
+ברוך הבא ל${(event as any).eventTypeHebrew} של ${event.coupleName}! 
 
 תודה שהגעת! אנו שמחים לראות אותך כאן.
 מקווים שתהנה מהאירוע! 💕
@@ -119,7 +119,7 @@ ${event.coupleName}`;
               groomName: event.groomName,
               brideName: event.brideName,
               eventType: event.eventType,
-              eventTypeHebrew: event.eventTypeHebrew,
+              eventTypeHebrew: (event as any).eventTypeHebrew,
               eventDate: formatDate(event.eventDate),
               eventTime: event.eventTime,
               venue: event.venue

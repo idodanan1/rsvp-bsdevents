@@ -88,7 +88,7 @@ const DeletedEventsModal: React.FC<DeletedEventsModalProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {deletedEvents.map((event) => (
+              {deletedEvents.map((event: any) => (
                 <div
                   key={event.id}
                   className={`border rounded-lg p-4 transition-colors ${
@@ -111,22 +111,22 @@ const DeletedEventsModal: React.FC<DeletedEventsModalProps> = ({
                       <div className="flex items-center space-x-4 text-sm text-gray-600 mb-3">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
-                          <span>{formatDate(event.eventDate)} - {event.eventTime}</span>
+                          <span>{formatDate(event.eventDate)} - {(event as any).eventTime}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Users className="w-4 h-4" />
-                          <span>{event.guests.length} מוזמנים</span>
+                          <span>{(event as any).guests?.length || 0} מוזמנים</span>
                         </div>
                       </div>
 
                       <div className="text-sm text-gray-600">
                         <p><strong>מיקום:</strong> {event.venue}</p>
-                        <p><strong>סוג אירוע:</strong> {event.eventTypeHebrew}</p>
-                        {event.guests.length > 0 && (
+                        <p><strong>סוג אירוע:</strong> {(event as any).eventTypeHebrew}</p>
+                        {(event as any).guests?.length > 0 && (
                           <p><strong>סטטוס תגובות:</strong> 
-                            {event.guests.filter(g => g.rsvpStatus === 'confirmed').length} מגיעים, 
-                            {event.guests.filter(g => g.rsvpStatus === 'declined').length} לא מגיעים, 
-                            {event.guests.filter(g => g.rsvpStatus === 'pending').length} לא ענו
+                            {(event as any).guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0} מגיעים, 
+                            {(event as any).guests?.filter((g: any) => g.rsvpStatus === 'declined').length || 0} לא מגיעים, 
+                            {(event as any).guests?.filter((g: any) => g.rsvpStatus === 'pending').length || 0} לא ענו
                           </p>
                         )}
                       </div>

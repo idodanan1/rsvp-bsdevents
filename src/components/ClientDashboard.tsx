@@ -414,7 +414,7 @@ const ClientDashboard: React.FC = () => {
             guestsCount: apiGuestsCount,
             hasGuests: !!foundEvent.guests,
             guestsArrayLength: foundEvent.guests?.length,
-            eventTypeHebrew: foundEvent.eventTypeHebrew,
+            eventTypeHebrew: (foundEvent as any).eventTypeHebrew,
             invitationImageUrl: foundEvent.invitationImageUrl,
             guestsFromSeparateEndpoint: fullGuestsList ? fullGuestsList.length : 0
           });

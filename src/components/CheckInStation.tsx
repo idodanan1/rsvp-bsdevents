@@ -514,7 +514,7 @@ const CheckInStation: React.FC = () => {
             <div className="mt-2 pt-2 border-t border-gray-200 flex-shrink-0">
               <h3 className="text-sm font-bold text-gray-800 mb-1">פרטי האירוע:</h3>
               <p className="text-xs text-gray-600">{event.coupleName}</p>
-              <p className="text-xs text-gray-500">{event.eventTypeHebrew}</p>
+              <p className="text-xs text-gray-500">{(event as any).eventTypeHebrew}</p>
             </div>
           </div>
         </div>
