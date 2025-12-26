@@ -322,7 +322,7 @@ export const useBudgetStore = create<BudgetStore>()(
 
                 const vendor = budget.vendors[vendorIndex];
                 const paymentSchedule = vendor.paymentSchedule || [];
-                const paymentIndex = paymentSchedule.findIndex(p => p.id === paymentId);
+                const paymentIndex = paymentSchedule.findIndex((p: any) => p.id === paymentId);
                 if (paymentIndex === -1) return budget;
 
                 const payment = paymentSchedule[paymentIndex];

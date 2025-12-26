@@ -1591,7 +1591,7 @@ export const useEventStore = create<EventStore>()(
             console.log('🔍 Before createEvent - events count:', state.events.length);
             console.log('🔍 Creating event with unique ID:', finalEvent.id);
             // CRITICAL: Final double-check for duplicates before adding (safety net)
-            const existingEvent = state.events.find(e => e.id === finalEvent.id);
+            const existingEvent = state.events.find((e: any) => e.id === finalEvent.id);
             if (existingEvent) {
               console.error(`❌ CRITICAL: Event with ID ${finalEvent.id} already exists in state! This should never happen.`);
               // Generate a new ID as last resort
@@ -1632,7 +1632,7 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Add new event if not already present
-            if (!allEvents.find(e => e.id === finalEvent.id)) {
+            if (!allEvents.find((e: any) => e.id === finalEvent.id)) {
               allEvents.push(finalEvent);
               console.log('💾 Saved new event directly to localStorage:', finalEvent.id);
               
@@ -1690,7 +1690,7 @@ export const useEventStore = create<EventStore>()(
                 const fallbackParsed = JSON.parse(fallbackStored);
                 fallbackEvents = fallbackParsed.state?.events || [];
               }
-              if (!fallbackEvents.find(e => e.id === newEvent.id)) {
+              if (!fallbackEvents.find((e: any) => e.id === newEvent.id)) {
                 fallbackEvents.push(newEvent);
                 localStorage.setItem('rsvp-events-storage', JSON.stringify({
                   state: {
@@ -1804,7 +1804,7 @@ export const useEventStore = create<EventStore>()(
               
               return {
                 events: state.events.filter(event => event.id !== id), // Remove ALL events with this ID
-                deletedEvents: [...state.deletedEvents, ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date() }))],
+                deletedEvents: [...state.deletedEvents, ...eventsToDelete.map((e: any) => ({ ...e, deletedAt: new Date() }))],
                 deletedGuests: updatedDeletedGuests, // Remove deleted guests tracking for this event
                 currentEvent: state.currentEvent?.id === id ? null : state.currentEvent,
                 isLoading: false
@@ -1827,7 +1827,7 @@ export const useEventStore = create<EventStore>()(
                   }
                   parsed.state.deletedEvents = [
                     ...parsed.state.deletedEvents,
-                    ...eventsToDelete.map(e => ({ ...e, deletedAt: new Date().toISOString() }))
+                    ...eventsToDelete.map((e: any) => ({ ...e, deletedAt: new Date().toISOString() }))
                   ];
                   
                   localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
@@ -1895,7 +1895,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -1917,14 +1917,14 @@ export const useEventStore = create<EventStore>()(
           let updatedEvent: Event | null = null;
           
           set((state: any) => {
-            const event = state.events.find(e => e.id === eventId);
+            const event = state.events.find((e: any) => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
               return;
             }
             
             // Find current guest to get old tableId if tableId is being updated
-            const currentGuest = event.guests.find(g => g.id === guestId);
+            const currentGuest = event.guests.find((g: any) => g.id === guestId);
             const oldTableId = currentGuest?.tableId;
             const newTableId = updates.tableId;
             
@@ -2016,7 +2016,7 @@ export const useEventStore = create<EventStore>()(
               : state.currentEvent;
             
             return {
-              events: state.events.map(e => e.id === eventId ? updatedEventObj : e),
+              events: state.events.map((e: any) => e.id === eventId ? updatedEventObj : e),
               currentEvent: updatedCurrentEvent,
               isLoading: false
             };
@@ -2026,7 +2026,7 @@ export const useEventStore = create<EventStore>()(
           // Use lightweight endpoint to avoid 413 errors with large events
           if (updatedEvent) {
             const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
-            const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
+            const updatedGuest = updatedEvent.guests.find((g: any) => g.id === guestId);
             
             if (!updatedGuest) {
               console.warn('⚠️ Guest not found in updated event, skipping API sync');
@@ -2207,7 +2207,7 @@ export const useEventStore = create<EventStore>()(
           console.log(`🔄 updateGuestResponse called:`, {
             eventId,
             guestId,
-            oldStatus: currentState.events.find(e => e.id === eventId)?.guests?.find(g => g.id === guestId)?.rsvpStatus,
+            oldStatus: currentState.events.find((e: any) => e.id === eventId)?.guests?.find((g: any) => g.id === guestId)?.rsvpStatus,
             newStatus: updatedGuest.rsvpStatus
           });
           
@@ -2227,7 +2227,7 @@ export const useEventStore = create<EventStore>()(
           }
           
           // CRITICAL: Check if event exists in store BEFORE calling set()
-          const existingEvent = currentState.events.find(e => e.id === eventId);
+          const existingEvent = currentState.events.find((e: any) => e.id === eventId);
           
           // If event not found in store, load it from API, update guest, and send to backend
           // The backend is the source of truth - all updates must go through it
@@ -2338,7 +2338,7 @@ export const useEventStore = create<EventStore>()(
           let updatedEvent: Event | null = null;
           
           set((state: any) => {
-            const event = state.events.find(e => e.id === eventId);
+            const event = state.events.find((e: any) => e.id === eventId);
             const guest = event?.guests?.find(g => g.id === guestId);
             
             const isProblematicGuest = (guest?.firstName?.includes('דורון') && guest?.lastName?.includes('שושני')) ||
@@ -2854,7 +2854,7 @@ export const useEventStore = create<EventStore>()(
           // This ensures updates from phone are synced to all devices via pendingUpdates
           if (updatedEvent) {
             const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
-            const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
+            const updatedGuest = updatedEvent.guests.find((g: any) => g.id === guestId);
             
             if (!updatedGuest) {
               console.warn('⚠️ Updated guest not found, cannot sync to API');
@@ -3110,7 +3110,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -3147,7 +3147,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -3241,7 +3241,7 @@ export const useEventStore = create<EventStore>()(
           });
 
           // Get updated campaign for scheduling
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           const updatedCampaign = updatedEvent?.campaigns?.find(c => c.id === campaignId);
           
           if (!updatedCampaign) {
@@ -4013,7 +4013,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4048,7 +4048,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4091,7 +4091,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4134,7 +4134,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4177,7 +4177,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4220,7 +4220,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4912,7 +4912,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4953,7 +4953,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -4996,7 +4996,7 @@ export const useEventStore = create<EventStore>()(
           }));
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -5011,7 +5011,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const event = state.events.find(e => e.id === eventId);
+            const event = state.events.find((e: any) => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
               return;
@@ -5057,7 +5057,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -5072,7 +5072,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const event = state.events.find(e => e.id === eventId);
+            const event = state.events.find((e: any) => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
               return;
@@ -5111,7 +5111,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
@@ -5126,7 +5126,7 @@ export const useEventStore = create<EventStore>()(
         set({ isLoading: true, error: null });
         try {
           set((state: any) => {
-            const event = state.events.find(e => e.id === eventId);
+            const event = state.events.find((e: any) => e.id === eventId);
             if (!event) {
               set({ isLoading: false });
               return;
@@ -5177,7 +5177,7 @@ export const useEventStore = create<EventStore>()(
           });
           
           // CRITICAL: Sync to API immediately for real-time sync between devices
-          const updatedEvent = get().events.find(e => e.id === eventId);
+          const updatedEvent = get().events.find((e: any) => e.id === eventId);
           if (updatedEvent) {
             syncEventToAPI(updatedEvent).catch(err => {
               console.error('❌ Final sync attempt failed:', err);
