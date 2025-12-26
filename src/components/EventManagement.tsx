@@ -1296,7 +1296,7 @@ const EventManagement: React.FC = () => {
 
   // CRITICAL: Use useMemo to recalculate stats when currentEvent or eventsHash changes
   // This ensures stats update immediately when guestCount changes
-  const stats = useMemo(() => {
+  const stats: any = useMemo(() => {
     if (!currentEvent) {
       return {
         totalGuests: 0,
