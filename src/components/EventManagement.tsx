@@ -100,7 +100,7 @@ const EventManagement: React.FC = () => {
       // If this is the currentEvent, use currentEvent data (it's more up-to-date)
       const eventToUse = (state.currentEvent && state.currentEvent.id === e.id) ? state.currentEvent : e;
       
-        const guestsHash = eventToUse.guests?.map((g: Guest) => {
+        const guestsHash = eventToUse.guests?.map((g: any) => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -119,7 +119,7 @@ const EventManagement: React.FC = () => {
     
     // CRITICAL: Also include currentEvent hash to catch immediate updates
     const currentEventHash = state.currentEvent ? (() => {
-      const guestsHash = state.currentEvent.guests?.map((g: Guest) => {
+      const guestsHash = state.currentEvent.guests?.map((g: any) => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -408,7 +408,7 @@ const EventManagement: React.FC = () => {
     
     // Create a key from guests to detect changes
     // CRITICAL: Include responseDate to detect updates even if status doesn't change
-    const newGuestsKey = event.guests?.map((g: Guest) => {
+    const newGuestsKey = event.guests?.map((g: any) => {
       try {
         let responseDateValue = '';
         if (g.responseDate) {
@@ -462,7 +462,7 @@ const EventManagement: React.FC = () => {
       // This ensures the table updates immediately when guest status changes
       const newCurrentEvent = { 
         ...event,
-        guests: event.guests ? event.guests.map((g: Guest) => ({ ...g })) : [] // New array and new object references
+        guests: event.guests ? event.guests.map((g: any) => ({ ...g })) : [] // New array and new object references
       };
       setCurrentEvent(newCurrentEvent);
       console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
@@ -475,11 +475,11 @@ const EventManagement: React.FC = () => {
       if (newCurrentEvent.guests && newCurrentEvent.guests.length > 0) {
         const messageStats = {
           total: newCurrentEvent.guests.length,
-          not_sent: newCurrentEvent.guests.filter((g: Guest) => !g.messageStatus || g.messageStatus === 'not_sent').length,
-          sent: newCurrentEvent.guests.filter((g: Guest) => g.messageStatus === 'sent').length,
-          delivered: newCurrentEvent.guests.filter((g: Guest) => g.messageStatus === 'delivered').length,
-          failed: newCurrentEvent.guests.filter((g: Guest) => g.messageStatus === 'failed').length,
-          sent_or_delivered: newCurrentEvent.guests.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+          not_sent: newCurrentEvent.guests.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length,
+          sent: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'sent').length,
+          delivered: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'delivered').length,
+          failed: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'failed').length,
+          sent_or_delivered: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
         };
         console.log('📊 Message Statistics:', messageStats);
         console.log('✅ Verified: Delivered messages count =', messageStats.delivered);
@@ -533,7 +533,7 @@ const EventManagement: React.FC = () => {
     }
     
     // Create a key from guests to detect changes
-    const guestsKey = currentEvent.guests.map((g: Guest) => {
+    const guestsKey = currentEvent.guests.map((g: any) => {
       try {
         let responseDateValue = '';
         if (g.responseDate) {
@@ -561,11 +561,11 @@ const EventManagement: React.FC = () => {
       // Log message statistics for verification
       const messageStats = {
         total: currentEvent.guests.length,
-        not_sent: currentEvent.guests.filter((g: Guest) => !g.messageStatus || g.messageStatus === 'not_sent').length,
-        sent: currentEvent.guests.filter((g: Guest) => g.messageStatus === 'sent').length,
-        delivered: currentEvent.guests.filter((g: Guest) => g.messageStatus === 'delivered').length,
-        failed: currentEvent.guests.filter((g: Guest) => g.messageStatus === 'failed').length,
-        sent_or_delivered: currentEvent.guests.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+        not_sent: currentEvent.guests.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length,
+        sent: currentEvent.guests.filter((g: any) => g.messageStatus === 'sent').length,
+        delivered: currentEvent.guests.filter((g: any) => g.messageStatus === 'delivered').length,
+        failed: currentEvent.guests.filter((g: any) => g.messageStatus === 'failed').length,
+        sent_or_delivered: currentEvent.guests.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
       };
       
       console.log('📊 Message Statistics Breakdown:', {
@@ -656,7 +656,7 @@ const EventManagement: React.FC = () => {
     // This ensures we catch updates even if they're for a different event
     // CRITICAL: Include responseDate in the key to catch timestamp changes
     const eventsKey = events.map((e: Event) => {
-      const guestsKey = e.guests?.map((g: Guest) => {
+      const guestsKey = e.guests?.map((g: any) => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -709,7 +709,7 @@ const EventManagement: React.FC = () => {
       const currentGuestsKey = currentEventFromStoreRef.current?.guests?.map((g: any) => 
         `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
       ).join('|') || '';
-      const newGuestsKey = event.guests?.map((g: Guest) => 
+      const newGuestsKey = event.guests?.map((g: any) => 
         `${g.id}:${g.rsvpStatus}:${g.guestCount}:${g.responseDate ? new Date(g.responseDate).getTime() : ''}`
       ).join('|') || '';
       
@@ -761,7 +761,7 @@ const EventManagement: React.FC = () => {
       // ALWAYS create new object references, even if data appears unchanged
       // This forces React to re-render when eventsVersion changes
       // CRITICAL: Force new object references by adding a unique key based on eventsHash
-      const guests = event.guests.map((g: Guest, index: number) => {
+      const guests = event.guests.map((g: any, index: number) => {
         try {
           // CRITICAL: Always create a completely new object with all properties spread
           // This ensures React sees this as a new object reference, triggering re-render
@@ -790,7 +790,7 @@ const EventManagement: React.FC = () => {
       
       // Update the ref to track changes
       // CRITICAL: Include ALL fields that might change to ensure we catch updates
-      const newKey = guests.map((g: Guest) => {
+      const newKey = guests.map((g: any) => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -811,7 +811,7 @@ const EventManagement: React.FC = () => {
           eventId: id,
           guestsCount: guests.length,
           eventsVersion,
-          sampleGuests: guests.slice(0, 3).map((g: Guest) => ({
+          sampleGuests: guests.slice(0, 3).map((g: any) => ({
             id: g.id,
             name: `${g.firstName} ${g.lastName}`,
             status: g.rsvpStatus,
@@ -895,7 +895,7 @@ const EventManagement: React.FC = () => {
     try {
       const eventId = currentEvent?.id || id || 'unknown';
       if (guestsToDisplay && guestsToDisplay.length > 0) {
-        console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map((g: Guest) => {
+        console.log('📊 EVENT_MANAGEMENT: Sample guest statuses:', guestsToDisplay.slice(0, 3).map((g: any) => {
           try {
             let responseDateStr = 'none';
             if (g.responseDate) {
@@ -938,7 +938,7 @@ const EventManagement: React.FC = () => {
     // CRITICAL: Create a key from ALL events to detect ANY changes in the events array
     // This ensures we catch updates even if they're for a different event
     const allEventsKey = events.map((e: Event) => {
-      const guestsKey = e.guests?.map((g: Guest) => {
+      const guestsKey = e.guests?.map((g: any) => {
         try {
           let responseDateValue = '';
           if (g.responseDate) {
@@ -963,7 +963,7 @@ const EventManagement: React.FC = () => {
       // Also update currentEvent if it's the one being viewed
       const event = events.find((e: Event) => e.id === id);
       if (event && event.guests) {
-        const eventGuestsKey = event.guests.map((g: Guest) => {
+        const eventGuestsKey = event.guests.map((g: any) => {
           try {
             let responseDateValue = '';
             if (g.responseDate) {
@@ -984,7 +984,7 @@ const EventManagement: React.FC = () => {
           // CRITICAL: Also update currentEvent to ensure it matches the latest data
           const newCurrentEvent = { 
             ...event,
-            guests: event.guests ? event.guests.map((g: Guest) => ({ ...g })) : []
+            guests: event.guests ? event.guests.map((g: any) => ({ ...g })) : []
           };
           setCurrentEvent(newCurrentEvent);
           console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
@@ -1053,7 +1053,7 @@ const EventManagement: React.FC = () => {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
             ...updatedEvent,
-            guests: updatedEvent.guests.map((g: Guest) => ({ ...g }))
+            guests: updatedEvent.guests.map((g: any) => ({ ...g }))
           });
           console.log('✅ CurrentEvent updated from store - table will show updated status');
         } else {
@@ -1113,7 +1113,7 @@ const EventManagement: React.FC = () => {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
             ...updatedEvent,
-            guests: updatedEvent.guests.map((g: Guest) => ({ ...g }))
+            guests: updatedEvent.guests.map((g: any) => ({ ...g }))
           });
           console.log('✅ CurrentEvent updated from store - table will show updated attendance');
         } else {
@@ -1199,7 +1199,7 @@ const EventManagement: React.FC = () => {
             if (!prev || prev.id !== event.id) return prev;
             return {
               ...prev,
-              guests: prev.guests?.map((g: Guest) => 
+              guests: prev.guests?.map((g: any) => 
                 g.id === guestId 
                   ? { ...g, guestCount: updates.guestCount }
                   : g
@@ -1253,7 +1253,7 @@ const EventManagement: React.FC = () => {
     if (!event || !event.guests) return;
     
     const guests = event.guests || [];
-    const filtered = guests.filter((guest: Guest) => {
+    const filtered = guests.filter((guest: any) => {
       const matchesSearch = 
         guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -1277,7 +1277,7 @@ const EventManagement: React.FC = () => {
       return matchesSearch && matchesFilter && matchesMessageFilter;
     });
     
-    const allGuestIds = filtered.map((guest: Guest) => guest.id);
+    const allGuestIds = filtered.map((guest: any) => guest.id);
     setSelectedGuests(allGuestIds);
   }, [searchTerm, filterStatus, messageFilterStatus]);
 
@@ -1326,7 +1326,7 @@ const EventManagement: React.FC = () => {
     const guests = guestsToDisplay || [];
     console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
     
-    const filtered = guests.filter((guest: Guest) => {
+    const filtered = guests.filter((guest: any) => {
     const matchesSearch = 
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (guest.lastName && guest.lastName.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -1356,14 +1356,14 @@ const EventManagement: React.FC = () => {
     
     console.log('📊 Filtered guests result:', filtered.length, 'guests');
     if (filtered.length > 0) {
-      console.log('📊 Filtered guest statuses:', filtered.map((g: Guest) => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
+      console.log('📊 Filtered guest statuses:', filtered.map((g: any) => `${g.firstName} ${g.lastName}: ${g.rsvpStatus}`).join(', '));
     }
     
     return filtered;
   })();
 
   // Filter guests for modal search
-  const modalFilteredGuests = (currentEvent?.guests || []).filter((guest: Guest) => 
+  const modalFilteredGuests = (currentEvent?.guests || []).filter((guest: any) => 
       guest.firstName.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
       (guest.lastName && guest.lastName.toLowerCase().includes(modalSearchTerm.toLowerCase())) ||
     guest.phoneNumber.includes(modalSearchTerm)
@@ -1564,19 +1564,19 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-      const tableGuests = currentEvent.guests.filter((guest: Guest) => guest.tableId === table.id);
+      const tableGuests = currentEvent.guests.filter((guest: any) => guest.tableId === table.id);
       
       // Count actual attendance - use guestCount, not number of records
-      const totalGuests = tableGuests.reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+      const totalGuests = tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const attended = tableGuests
-        .filter((g: Guest) => g.actualAttendance === 'attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+        .filter((g: any) => g.actualAttendance === 'attended')
+        .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const notAttended = tableGuests
-        .filter((g: Guest) => g.actualAttendance === 'not_attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+        .filter((g: any) => g.actualAttendance === 'not_attended')
+        .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const notMarked = tableGuests
-        .filter((g: Guest) => !g.actualAttendance || g.actualAttendance === 'not_marked')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+        .filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked')
+        .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       
       // Calculate attendance percentage
       const attendancePercentage = totalGuests > 0 ? Math.round((attended / totalGuests) * 100) : 0;
@@ -1594,15 +1594,15 @@ const EventManagement: React.FC = () => {
     // Add totals row
     // CRITICAL: Use guestCount for accurate totals (not just guest count)
     const totalAttended = currentEvent.guests
-      .filter((g: Guest) => g.actualAttendance === 'attended')
-      .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
+      .filter((g: any) => g.actualAttendance === 'attended')
+      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
     const totalNotAttended = currentEvent.guests
-      .filter((g: Guest) => g.actualAttendance === 'not_attended')
-      .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
+      .filter((g: any) => g.actualAttendance === 'not_attended')
+      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
     const totalNotMarked = currentEvent.guests
-      .filter((g: Guest) => !g.actualAttendance || g.actualAttendance === 'not_marked')
-      .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
-    const totalGuests = currentEvent.guests.reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
+      .filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked')
+      .reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
+    const totalGuests = currentEvent.guests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
     const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
 
     dataRows.push([
@@ -1643,7 +1643,7 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-      const tableGuests = currentEvent.guests.filter((guest: Guest) => guest.tableId === table.id);
+      const tableGuests = currentEvent.guests.filter((guest: any) => guest.tableId === table.id);
       
       if (tableGuests.length === 0) {
         // Empty table
@@ -1660,10 +1660,10 @@ const EventManagement: React.FC = () => {
       }
 
       // Count attendance - use guestCount, not number of records
-      const totalGuests = tableGuests.reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+      const totalGuests = tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const attendedCount = tableGuests
-        .filter((g: Guest) => g.actualAttendance === 'attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+        .filter((g: any) => g.actualAttendance === 'attended')
+        .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
 
       // Table header with attendance summary
       dataRows.push([
@@ -1676,7 +1676,7 @@ const EventManagement: React.FC = () => {
       ]);
 
       // Add each guest with their attendance status
-      tableGuests.forEach((guest: Guest) => {
+      tableGuests.forEach((guest: any) => {
         const attendanceStatus = getActualAttendanceText(guest.actualAttendance || 'unknown');
         const statusIcon = guest.actualAttendance === 'attended' ? '✓' : 
                           guest.actualAttendance === 'not_attended' ? '✗' : '?';
@@ -2460,8 +2460,8 @@ const EventManagement: React.FC = () => {
         }
 
         // Check for duplicates in the imported file
-        const phoneCounts: Record<string, { count: number; guests: Guest[] }> = {};
-        guests.forEach((guest: Guest, index: number) => {
+        const phoneCounts: Record<string, { count: number; guests: any[] }> = {};
+        guests.forEach((guest: any, index: number) => {
           if (guest.phoneNumber && guest.phoneNumber.trim().length > 0) {
             const phone = guest.phoneNumber.trim();
             if (!phoneCounts[phone]) {
@@ -2479,8 +2479,8 @@ const EventManagement: React.FC = () => {
 
         // Check for duplicates with existing guests in the system
         const existingGuests = currentEvent.guests || [];
-        const existingPhones = new Set(existingGuests.map((g: Guest) => g.phoneNumber?.trim()).filter(Boolean));
-        const duplicatesWithExisting = guests.filter((guest: Guest) => 
+        const existingPhones = new Set(existingGuests.map((g: any) => g.phoneNumber?.trim()).filter(Boolean));
+        const duplicatesWithExisting = guests.filter((guest: any) => 
           guest.phoneNumber && existingPhones.has(guest.phoneNumber.trim())
         );
 
@@ -2493,7 +2493,7 @@ const EventManagement: React.FC = () => {
             duplicates.forEach((dup: any, idx: number) => {
               warningMessage += `${idx + 1}. מספר טלפון: ${dup.phone}\n`;
               warningMessage += `   מופיע ${dup.count} פעמים בשורות:\n`;
-              dup.guests.forEach((guest: Guest) => {
+              dup.guests.forEach((guest: any) => {
                 warningMessage += `   - שורה ${(guest as any).rowNumber}: ${formatFullName(guest.firstName, guest.lastName)}\n`;
               });
               warningMessage += '\n';
@@ -2621,13 +2621,13 @@ const EventManagement: React.FC = () => {
 
     try {
       console.log('✅ Starting message send process...');
-      const guestsToSend = currentEvent.guests.filter((guest: Guest) => selectedGuests.includes(guest.id));
+      const guestsToSend = currentEvent.guests.filter((guest: any) => selectedGuests.includes(guest.id));
       console.log('📋 guestsToSend:', guestsToSend.length, 'guests');
       
       // Use default message if no custom message
       const baseMessage = customMessage || `שלום! אתם מוזמנים לאירוע שלנו!\n\n📅 ${formatDate(currentEvent.eventDate)}\n📍 ${currentEvent.venue}\n\nאנא אשרו הגעה.\n\nבברכה,\n${currentEvent.coupleName}`;
 
-      const recipients = guestsToSend.map((guest: Guest) => {
+      const recipients = guestsToSend.map((guest: any) => {
         // CRITICAL: Find the original row number of the guest in the event (not filtered)
         const originalRowNumber = currentEvent.guests.findIndex((g: Guest) => g.id === guest.id) + 1;
         // Use helper function to ensure production URL (works on all devices)
@@ -2792,7 +2792,7 @@ const EventManagement: React.FC = () => {
       // Debug: Check if guest ID is correct
       console.log('🔍 DEBUG - Guest ID from parameter:', guest.id);
       console.log('🔍 DEBUG - Guest object:', guest);
-      console.log('🔍 DEBUG - All guests in event:', event.guests?.map((g: Guest) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
+      console.log('🔍 DEBUG - All guests in event:', event.guests?.map((g: any) => ({ id: g.id, name: `${g.firstName} ${g.lastName}` })));
       
       // Find the correct guest by name to get the real ID
       const realGuest = event.guests?.find((g: Guest) => 
@@ -3288,15 +3288,15 @@ const EventManagement: React.FC = () => {
               <p className="text-sm font-medium text-teal-700">הגיעו בפועל</p>
               <p className="text-3xl font-bold text-teal-600">
                 {(() => {
-                  const attendedGuests = currentEvent.guests?.filter((g: Guest) => g.actualAttendance === 'attended') || [];
-                  const totalAttendedCount = attendedGuests.reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
+                  const attendedGuests = currentEvent.guests?.filter((g: any) => g.actualAttendance === 'attended') || [];
+                  const totalAttendedCount = attendedGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
                   return totalAttendedCount;
                 })()}
               </p>
               <p className="text-xs text-teal-600 mt-1">
                 {(() => {
-                  const attendedGuests = currentEvent.guests?.filter((g: Guest) => g.actualAttendance === 'attended') || [];
-                  const totalAttendedCount = attendedGuests.reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
+                  const attendedGuests = currentEvent.guests?.filter((g: any) => g.actualAttendance === 'attended') || [];
+                  const totalAttendedCount = attendedGuests.reduce((sum: number, g: any) => sum + (g.guestCount || 1), 0);
                   return stats.totalGuests > 0 
                     ? `${Math.round((totalAttendedCount / stats.totalGuests) * 100)}%`
                     : '0%';
@@ -3313,7 +3313,7 @@ const EventManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">הודעות נשלחו</p>
               <p className="text-3xl font-bold text-blue-600">
-                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0}
+                {currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 מתוך {currentEvent.guests?.length || 0} אורחים
@@ -3328,11 +3328,11 @@ const EventManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">הודעות נמסרו</p>
               <p className="text-3xl font-bold text-green-600">
-                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'delivered').length || 0}
+                {currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0}
               </p>
               <p className="text-xs text-green-600 mt-1">
-                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
-                  ? `${Math.round((currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
+                {currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
+                  ? `${Math.round((currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
                   : '0%'} מסירה
               </p>
             </div>
@@ -3345,10 +3345,10 @@ const EventManagement: React.FC = () => {
             <div>
               <p className="text-sm font-medium text-gray-600">הודעות נכשלו</p>
               <p className="text-3xl font-bold text-red-600">
-                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0}
+                {currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length || 0}
               </p>
               <p className="text-xs text-red-600 mt-1">
-                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
+                {currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
               </p>
             </div>
             <XCircle className="w-8 h-8 text-red-600" />
@@ -3404,7 +3404,7 @@ const EventManagement: React.FC = () => {
                   // Each guest with messageSentDate represents at least one message sent
                   // Note: This counts each guest once, but if same guest received multiple individual messages,
                   // we can't track exact count without message history
-                  const individualMessages = currentEvent.guests?.filter((g: Guest) => {
+                  const individualMessages = currentEvent.guests?.filter((g: any) => {
                     const status = g.messageStatus || 'not_sent';
                     // Count guests who received individual messages (not through campaigns)
                     // We check if they have messageSentDate but weren't counted in campaigns
@@ -3428,7 +3428,7 @@ const EventManagement: React.FC = () => {
                     return sum;
                   }, 0) || 0;
                   
-                  const individualMessages = currentEvent.guests?.filter((g: Guest) => {
+                  const individualMessages = currentEvent.guests?.filter((g: any) => {
                     const status = g.messageStatus || 'not_sent';
                     return (status === 'sent' || status === 'delivered') && g.messageSentDate;
                   }).length || 0;
@@ -3461,7 +3461,7 @@ const EventManagement: React.FC = () => {
           <button 
             onClick={() => {
               // Filter to show only guests without table assignment
-              const unseatedGuests = currentEvent.guests?.filter((g: Guest) => !g.tableId) || [];
+              const unseatedGuests = currentEvent.guests?.filter((g: any) => !g.tableId) || [];
               if (unseatedGuests.length === 0) {
                 alert('✅ כל האורחים הושבו!');
                 return;
@@ -3481,8 +3481,8 @@ const EventManagement: React.FC = () => {
           >
             <Users className="w-4 h-4" />
             <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc: number, table: Table) => {
-              const tableGuests = currentEvent.guests?.filter((g: Guest) => g.tableId === table.id) || [];
-              return acc + tableGuests.reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
+              const tableGuests = currentEvent.guests?.filter((g: any) => g.tableId === table.id) || [];
+              return acc + tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
             }, 0) || 0)})</span>
           </button>
           
@@ -3579,7 +3579,7 @@ const EventManagement: React.FC = () => {
                 <div className="mt-3 max-h-40 overflow-y-auto border border-gray-200 rounded-lg">
                   {modalFilteredGuests.length > 0 ? (
                     <div className="space-y-1 p-2">
-                      {modalFilteredGuests.map((guest: Guest) => (
+                      {modalFilteredGuests.map((guest: any) => (
                         <div key={guest.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
                           <div>
                             <span className="text-sm font-medium">
