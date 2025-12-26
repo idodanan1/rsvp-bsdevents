@@ -2865,7 +2865,7 @@ app.get('/api/guests/pending-updates', async (req, res) => {
     const updates = await supabaseDb.getPendingGuestUpdates(includeAll);
     
     // Format updates for frontend
-    const formattedUpdates = updates.map((u: any) => ({
+    const formattedUpdates = updates.map((u) => ({
       phoneNumber: u.phone_number,
       guestId: u.guest_id,
       eventId: u.event_id,
@@ -5239,7 +5239,7 @@ app.get('/api/events', async (req, res) => {
       
       for (const supabaseEvent of supabaseEvents) {
         const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
-        const frontendGuests = supabaseGuests.map((g: any) => supabaseDb.convertSupabaseGuestToFrontend(g));
+        const frontendGuests = supabaseGuests.map((g) => supabaseDb.convertSupabaseGuestToFrontend(g));
         const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
         events.push(frontendEvent);
       }
@@ -5304,7 +5304,7 @@ app.post('/api/events/sync', async (req, res) => {
         
         // Upsert guests if provided
         if (incomingEvent.guests && Array.isArray(incomingEvent.guests) && incomingEvent.guests.length > 0) {
-          const supabaseGuests = incomingEvent.guests.map((g: any) => 
+          const supabaseGuests = incomingEvent.guests.map((g) => 
             supabaseDb.convertFrontendGuestToSupabase({
               ...g,
               eventId: incomingEvent.id
