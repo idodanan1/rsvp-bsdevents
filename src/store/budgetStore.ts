@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { generateId } from '../utils/helpers';
+
+// Local helper function
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Type definitions
 type Budget = any;

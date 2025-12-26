@@ -1,11 +1,14 @@
 ﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Event, Guest, EventStore, ExcelImportData, ExcelExportData, Table, VenueLayout, Campaign } from '../types';
-import { generateId, formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
+import { formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
 import { crossTabSync } from '../utils/crossTabSync';
+
+// Local helper function
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const mockEvents: Event[] = [];
 

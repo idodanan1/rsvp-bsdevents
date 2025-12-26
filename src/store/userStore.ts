@@ -1,7 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { User, UserStore } from '../types';
-import { generateId, createTimeoutSignal } from '../utils/helpers';
+import { createTimeoutSignal } from '../utils/helpers';
+
+// Local helper function
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Mock users database (בפועל זה יהיה ב-backend)
 const mockUsers: User[] = [];

@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Campaign, CampaignStore, MessageTemplate } from '../types';
-import { generateId } from '../utils/helpers';
 import { whatsappService } from '../services/whatsappService';
 import { schedulerService } from '../services/schedulerService';
+
+// Local helper function
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // Mock data for development
 const mockCampaigns: Campaign[] = [

@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Reminder } from '../types';
 import type { Client, ClientEvent, ClientStats, ClientFilterOptions, ReminderFilterOptions } from '../types/index';
-import { generateId, formatDate, cleanName } from '../utils/helpers';
+import { formatDate, cleanName } from '../utils/helpers';
 import { crossTabSync } from '../utils/crossTabSync';
+
+// Local helper function
+const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export interface ClientStore {
   clients: Client[];
