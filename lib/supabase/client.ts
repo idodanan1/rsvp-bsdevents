@@ -2,9 +2,41 @@ import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/database.types'
 
 export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  // Safety check for build time - return mock object if env vars are missing
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (typeof window === 'undefined') {
+      // Server-side during build - return a mock object
+      return {
+        auth: {
+          signUp: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+          signIn: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+          signOut: async () => ({ error: null }),
+          getUser: async () => ({ data: { user: null }, error: null }),
+          getSession: async () => ({ data: { session: null }, error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        },
+      } as any
+    }
+    // Client-side - throw error or return mock
+    console.warn('Supabase environment variables are missing')
+    return {
+      auth: {
+        signUp: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+        signIn: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+        signOut: async () => ({ error: null }),
+        getUser: async () => ({ data: { user: null }, error: null }),
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+      },
+    } as any
+  }
+
   return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
