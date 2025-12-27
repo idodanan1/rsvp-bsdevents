@@ -3868,7 +3868,9 @@ export const useEventStore = create<EventStore>()(
             }
             
             // Refresh events from API to get the restored event with all guests
-            await get().fetchEvents(true);
+            // Use useEventStore.getState() to ensure fetchEvents is accessible in the correct scope
+            const storeState = useEventStore.getState();
+            await storeState.fetchEvents(true);
             
             set({ isLoading: false });
             return true;
@@ -5033,9 +5035,11 @@ export const useEventStore = create<EventStore>()(
           console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
           // CRITICAL: Refresh events from Supabase API after sync to get fresh data
-          // Use get() to access the store's fetchEvents method
+          // Use useEventStore.getState() to access the store's fetchEvents method
+          // This ensures fetchEvents is accessible in the correct scope
           try {
-            const fetchEventsFn = get().fetchEvents;
+            const storeState = useEventStore.getState();
+            const fetchEventsFn = storeState.fetchEvents;
             if (fetchEventsFn && typeof fetchEventsFn === 'function') {
               console.log(`🔄 Refreshing events from Supabase after sync...`);
               await fetchEventsFn(true, true); // Force refresh, silent mode
