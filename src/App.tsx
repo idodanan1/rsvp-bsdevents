@@ -93,8 +93,17 @@ function App() {
     // Fetch data in background (non-blocking) - data already loaded from localStorage via persist
     if (isAuthenticated && user) {
       // Don't await - let it run in background
-      fetchEvents().catch(() => {}); // Silent fail - data already in localStorage
-      fetchClients().catch(() => {}); // Silent fail - data already in localStorage
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const eventStoreState = useEventStore.getState();
+      const fetchEventsFn = eventStoreState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        fetchEventsFn().catch(() => {}); // Silent fail - data already in localStorage
+      }
+      const clientStoreState = useClientStore.getState();
+      const fetchClientsFn = clientStoreState.fetchClients;
+      if (fetchClientsFn && typeof fetchClientsFn === 'function') {
+        fetchClientsFn().catch(() => {}); // Silent fail - data already in localStorage
+      }
       
       // No auto-polling - user will use manual refresh button
 

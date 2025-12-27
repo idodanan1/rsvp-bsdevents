@@ -1239,7 +1239,14 @@ const GuestResponse = () => {
       setSubmittedGuestCount(formData.guestCount);
       
       // Refresh events in background (non-blocking)
-      fetchEvents().catch(() => {}); // Don't wait for it
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        fetchEventsFn().catch(() => {}); // Don't wait for it
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
       
       setSubmitStatus('success');
       

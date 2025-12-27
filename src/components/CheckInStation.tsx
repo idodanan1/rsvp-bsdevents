@@ -33,9 +33,19 @@ const CheckInStation: React.FC = () => {
 
   useEffect(() => {
     if (events.length === 0) {
-      fetchEvents();
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        fetchEventsFn().catch((error: any) => {
+          console.error('❌ Error fetching events in CheckInStation:', error);
+        });
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
     }
-  }, [events.length, fetchEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events.length]); // Removed fetchEvents from deps to prevent infinite loop
 
   useEffect(() => {
     if (eventId) {

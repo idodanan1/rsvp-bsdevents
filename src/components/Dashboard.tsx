@@ -331,6 +331,12 @@ const Dashboard: React.FC = () => {
             onClick={async () => {
               try {
                 const result = await syncAllEventsToAPI();
+                // CRITICAL: syncAllEventsToAPI already calls fetchEvents internally, but we'll refresh once more to ensure UI updates
+                const storeState = useEventStore.getState();
+                const fetchEventsFn = storeState.fetchEvents;
+                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                  await fetchEventsFn(true); // Force refresh to update UI immediately
+                }
                 alert(`✅ סנכרנו ${result.synced} אירועים ל-API בהצלחה!\n\nעכשיו תוכל לראות אותם גם במחשבים אחרים.`);
               } catch (error: any) {
                 console.error('❌ Error syncing events:', error);

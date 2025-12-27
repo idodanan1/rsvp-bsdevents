@@ -751,6 +751,144 @@ app.get('/api/events/:userId', async (req, res) => {
 });
 
 // ========================================
+// Guests Routes
+// ========================================
+// GET /api/guests/pending-updates - Get pending guest updates
+app.get('/api/guests/pending-updates', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { all } = req.query;
+    const includeAll = all === 'true' || all === true;
+    
+    console.log('📋 Fetching pending guest updates, includeAll:', includeAll);
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ error: 'Supabase is not configured' });
+    }
+    
+    const updates = await supabaseDb.getPendingGuestUpdates(includeAll);
+    
+    console.log(`✅ Found ${updates.length} pending guest updates`);
+    return res.status(200).json(updates);
+  } catch (error) {
+    console.error('❌ Error fetching pending guest updates:', error);
+    return res.status(500).json({ 
+      error: 'שגיאה בטעינת עדכוני אורחים ממתינים',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/guests/pending-updates
+app.options('/api/guests/pending-updates', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
+// POST /api/guests/process-all-updates - Process all pending guest updates
+app.post('/api/guests/process-all-updates', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    console.log('📋 Processing all pending guest updates...');
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ error: 'Supabase is not configured' });
+    }
+    
+    // Get all pending updates
+    const updates = await supabaseDb.getPendingGuestUpdates(true);
+    
+    if (!updates || updates.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        processed: 0, 
+        message: 'אין עדכונים ממתינים לעיבוד' 
+      });
+    }
+    
+    let processed = 0;
+    let failed = 0;
+    
+    // Process each update
+    for (const update of updates) {
+      try {
+        // Get event and guest from Supabase
+        const event = await supabaseDb.getEventById(update.event_id);
+        if (!event) {
+          console.warn(`⚠️ Event ${update.event_id} not found for update ${update.id}`);
+          failed++;
+          continue;
+        }
+        
+        // Get guest from event
+        const guests = await supabaseDb.getGuestsByEventId(update.event_id);
+        const guest = guests.find((g) => g.id === update.guest_id);
+        
+        if (!guest) {
+          console.warn(`⚠️ Guest ${update.guest_id} not found for update ${update.id}`);
+          failed++;
+          continue;
+        }
+        
+        // Update guest with pending update data
+        const updatedGuest = {
+          ...supabaseDb.convertSupabaseGuestToFrontend(guest),
+          rsvpStatus: update.rsvp_status || guest.rsvp_status,
+          guestCount: update.guest_count !== undefined ? update.guest_count : guest.guest_count,
+          notes: update.notes || guest.notes,
+          responseDate: update.response_date || guest.response_date
+        };
+        
+        // Upsert updated guest
+        await supabaseDb.upsertGuests([supabaseDb.convertFrontendGuestToSupabase(updatedGuest)]);
+        
+        // Delete the processed update
+        await supabaseDb.deletePendingGuestUpdates({ id: update.id });
+        
+        processed++;
+      } catch (updateError) {
+        console.error(`❌ Error processing update ${update.id}:`, updateError);
+        failed++;
+      }
+    }
+    
+    console.log(`✅ Processed ${processed} updates, ${failed} failed`);
+    return res.status(200).json({ 
+      success: true, 
+      processed, 
+      failed,
+      total: updates.length
+    });
+  } catch (error) {
+    console.error('❌ Error processing all pending guest updates:', error);
+    return res.status(500).json({ 
+      error: 'שגיאה בעיבוד עדכוני אורחים ממתינים',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/guests/process-all-updates
+app.options('/api/guests/process-all-updates', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
+// ========================================
 // Start Server
 // ========================================
 app.listen(PORT, () => {

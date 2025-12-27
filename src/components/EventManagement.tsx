@@ -344,25 +344,15 @@ const EventManagement: React.FC = () => {
         // Show success message - data is refreshed from Supabase
         alert(`✅ הנתונים עודכנו מ-Supabase בהצלחה!\n\n🔄 הטבלה מתעדכנת...`);
         
-        // Wait a bit and refresh again to ensure all updates are reflected
-        // CRITICAL: Use the store's fetchEvents method directly to avoid scope issues
-        setTimeout(async () => {
-          console.log(`🔄 Second refresh to ensure all updates are reflected...`);
-          try {
-            // Get fetchEvents from the store to ensure it's accessible in setTimeout closure
-            const storeState = useEventStore.getState();
-            const refreshEvents = storeState.fetchEvents;
-            if (refreshEvents && typeof refreshEvents === 'function') {
-              await refreshEvents(true, true);
-              console.log(`✅ Second refresh completed`);
-            } else {
-              console.error(`❌ fetchEvents is not available in store state`);
-            }
-          } catch (refreshError: any) {
-            console.error(`❌ Error in second refresh:`, refreshError);
-          }
-          
-          // Also refresh pending count after a delay to ensure it's accurate
+        // CRITICAL: Instead of calling fetchEvents in setTimeout (which causes infinite loops),
+        // simply reload the page to ensure all updates are reflected
+        // This breaks the infinite loop and ensures fresh data from server
+        setTimeout(() => {
+          console.log(`🔄 Reloading page to reflect all updates...`);
+          window.location.reload();
+        }, 1000);
+        
+        // Also refresh pending count after a delay to ensure it's accurate
           try {
             const refreshCheckResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
               signal: AbortSignal.timeout(3000)
@@ -392,6 +382,8 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Track last guests key to detect changes
   const lastGuestsKeyRef = useRef<string>('');
   const lastEventIdRef = useRef<string>('');
+  const prevGuestsDataRef = useRef<string>('');
+  const prevGuestsArrayRef = useRef<any[]>([]);
   const lastEventUpdatedAtRef = useRef<number>(0);
   
   // CRITICAL: Single useEffect to update currentEvent when events array changes
@@ -870,23 +862,32 @@ const EventManagement: React.FC = () => {
         console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
       }
       
-      // CRITICAL: Always return a new array reference with deep copy of guests
-      // This ensures React detects changes even if the key is the same
-      // CRITICAL: Include eventsHash and eventsVersion to force new reference
-      // CRITICAL: Map to create new object references for each guest
-      // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
-      // CRITICAL: Add a timestamp to force new reference on every calculation
-      const guestsCopy = guests.map((g: any, index: number) => ({ 
-        ...g,
-        // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
-        _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
-      }));
-      // CRITICAL: Add eventsHash as a property to force new reference when it changes
-      // This ensures React detects changes even if guests array appears unchanged
-      (guestsCopy as any)._eventsHash = eventsHash;
-      (guestsCopy as any)._eventsVersion = eventsVersion;
-      (guestsCopy as any)._timestamp = Date.now();
-      return guestsCopy;
+      // CRITICAL: Only return new array reference if data actually changed
+      // Use JSON.stringify to compare previous and current data to prevent infinite loops
+      const currentDataKey = JSON.stringify(guests.map((g: any) => ({
+        id: g.id,
+        firstName: g.firstName,
+        lastName: g.lastName,
+        rsvpStatus: g.rsvpStatus,
+        guestCount: g.guestCount,
+        actualAttendance: g.actualAttendance,
+        tableId: g.tableId,
+        notes: g.notes,
+        phoneNumber: g.phoneNumber,
+        messageStatus: g.messageStatus,
+        responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : null
+      })));
+      
+      // Only create new array if data actually changed
+      if (currentDataKey !== prevGuestsDataRef.current) {
+        prevGuestsDataRef.current = currentDataKey;
+        const guestsCopy = guests.map((g: any) => ({ ...g }));
+        prevGuestsArrayRef.current = guestsCopy;
+        return guestsCopy;
+      }
+      
+      // Return previous array reference if data unchanged (prevents infinite loop)
+      return prevGuestsArrayRef.current;
     }
     
     // Only log warning if we have events but not for this ID
