@@ -409,10 +409,7 @@ export const useEventStore = create<EventStore>()(
           
           // CRITICAL: Cloud First Strategy - Always fetch from server first
           // Server is the source of truth, localStorage is just a cache
-          console.log(`🔄 [Cloud First] Fetching events from server for userId: ${userId}`);
-          
-          let apiEvents: any[] = [];
-          let fetchSucceeded = false;
+          console.log(`🔍 Fetching data from DB for user: ${userId}`);
           
           try {
             const response = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
@@ -425,25 +422,219 @@ export const useEventStore = create<EventStore>()(
               credentials: 'omit'
             });
 
-            if (response.ok) {
-              const data = await response.json();
-              // Handle array response (Supabase returns array directly)
-              apiEvents = Array.isArray(data) ? data : (data.events || []);
-              fetchSucceeded = true;
-              console.log(`✅ [Cloud First] Fetched ${apiEvents.length} events from server`);
-            } else {
+            if (!response.ok) {
               throw new Error(`API returned ${response.status}: ${response.statusText}`);
             }
-          } catch (fetchError: any) {
-            console.error('❌ [Cloud First] Failed to fetch from server:', fetchError);
-            // If fetch fails, we'll handle it below - don't throw yet
-          }
 
-          // CRITICAL: If server fetch succeeded, OVERWRITE localStorage completely (no merging)
-          // This ensures all devices have the same data from the server
-          if (fetchSucceeded) {
-            // Map Supabase fields to frontend format
-            const mappedEvents = apiEvents.map((event: any) => {
+            const data = await response.json();
+            
+            // Handle different response formats: array, {events: []}, or {fullResponse: []}
+            let apiEvents: any[] = [];
+            if (Array.isArray(data)) {
+              apiEvents = data;
+            } else if (data.fullResponse && Array.isArray(data.fullResponse)) {
+              apiEvents = data.fullResponse;
+            } else if (data.events && Array.isArray(data.events)) {
+              apiEvents = data.events;
+            }
+
+            // בדיקה אם חזרו נתונים מהשרת
+            if (apiEvents && apiEvents.length > 0) {
+              console.log(`✅ Data received from DB: ${apiEvents.length} events found.`);
+              
+              // Map Supabase fields to frontend format
+              const mappedEvents = apiEvents.map((event: any) => {
+                const mappedEvent = {
+                  ...event,
+                  coupleName: event.couple_name || event.coupleName,
+                  eventDate: event.event_date || event.eventDate,
+                  groomName: event.groom_name || event.groomName,
+                  brideName: event.bride_name || event.brideName,
+                  eventType: event.event_type || event.eventType,
+                  eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
+                  couplePhone: event.couple_phone || event.couplePhone,
+                  coupleEmail: event.couple_email || event.coupleEmail,
+                  createdAt: event.created_at || event.createdAt,
+                  updatedAt: event.updated_at || event.updatedAt,
+                  userId: userId // Ensure userId is set correctly
+                };
+                
+                // Map guest fields if guests exist
+                if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
+                  mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
+                    ...guest,
+                    rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                    status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                    guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                    guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                    firstName: guest.first_name || guest.firstName || '',
+                    lastName: guest.last_name || guest.lastName || '',
+                    phoneNumber: guest.phone_number || guest.phoneNumber || '',
+                    actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+                    tableId: guest.table_id || guest.tableId || null,
+                    messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+                    responseDate: guest.response_date || guest.responseDate || null,
+                    eventId: guest.event_id || guest.eventId || mappedEvent.id,
+                    createdAt: guest.created_at || guest.createdAt,
+                    updatedAt: guest.updated_at || guest.updatedAt
+                  }));
+                }
+                
+                return mappedEvent;
+              });
+
+              // עדכון ה-State וה-LocalStorage - דריסה מוחלטת של הנתונים הישנים
+              // זה מה שיפתור את הבעיה בטאבלט
+              set((state: any) => ({
+                events: mappedEvents,
+                isLoading: false,
+                error: null
+              }));
+              
+              // CRITICAL: Overwrite localStorage completely with server data (no merging)
+              try {
+                const eventsStorage = localStorage.getItem('rsvp-events-storage');
+                let parsed: any = { state: { events: [] } };
+                
+                if (eventsStorage) {
+                  try {
+                    parsed = JSON.parse(eventsStorage);
+                  } catch (e) {
+                    console.warn('⚠️ Error parsing events storage, creating new structure');
+                  }
+                }
+                
+                // CRITICAL: Replace ALL events with server data (overwrite, don't merge)
+                parsed.state.events = mappedEvents;
+                localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+                
+                console.log(`✅ Overwrote localStorage with ${mappedEvents.length} events from server`);
+              } catch (storageError: any) {
+                console.error('❌ Error updating localStorage:', storageError);
+              }
+              
+              // CRITICAL: Clear fetching flag
+              (get() as any)._isFetchingEvents = false;
+              return;
+            } else {
+              console.warn("⚠️ Server returned no events. Checking if we need to sync local data...");
+              
+              // כאן נכנסת הלוגיקה של סנכרון ראשוני רק אם ה-DB באמת ריק
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              let localData: Event[] = [];
+              
+              if (eventsStorage) {
+                try {
+                  const parsed = JSON.parse(eventsStorage);
+                  localData = (parsed.state?.events || []).filter((e: Event) => {
+                    const matchesUser = e.userId === userId || (userId === 'admin-fixed-id' && e.userId);
+                    const hasGuests = e.guests && Array.isArray(e.guests) && e.guests.length > 0;
+                    return matchesUser && hasGuests;
+                  });
+                } catch (e) {
+                  console.warn('⚠️ Error parsing local events storage');
+                }
+              }
+              
+              if (localData.length > 0) {
+                console.log("🔄 Local data found but DB is empty. Syncing local to server...");
+                
+                // Sync local events to server
+                let syncedCount = 0;
+                for (const event of localData) {
+                  try {
+                    await syncEventToAPI(event);
+                    syncedCount++;
+                    console.log(`✅ Synced local event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to server`);
+                  } catch (syncError: any) {
+                    console.error(`❌ Failed to sync local event ${event.id}:`, syncError);
+                  }
+                }
+                
+                console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
+                
+                // תיקון הקריסה: במקום לקרוא ל-fetchEvents בצורה ישירה שגורמת לשגיאה,
+                // אנחנו קוראים לה דרך ה-Scope הנכון (Zustand Store)
+                // CRITICAL: Use get() to access fetchEvents from the store scope
+                try {
+                  const fetchEventsFn = get().fetchEvents;
+                  if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                    console.log('🔄 Refetching events from server after sync...');
+                    // Clear the fetching flag first to allow recursive call
+                    (get() as any)._isFetchingEvents = false;
+                    // Call fetchEvents again to get the synced data
+                    await fetchEventsFn(true, true); // Force refresh, silent mode
+                    console.log('✅ Successfully refetched events after sync');
+                    return;
+                  } else {
+                    console.error('❌ fetchEvents is not available in store scope');
+                  }
+                } catch (refreshError: any) {
+                  console.error('❌ Error refetching events after sync:', refreshError);
+                }
+              } else {
+                // No local data and no server data - empty state
+                console.log(`ℹ️ No events found for user ${userId} - empty state`);
+                set((state: any) => ({
+                  events: [],
+                  isLoading: false,
+                  error: null
+                }));
+              }
+              
+              // CRITICAL: Clear fetching flag
+              (get() as any)._isFetchingEvents = false;
+              return;
+            }
+          } catch (error: any) {
+            console.error("❌ Error fetching from DB:", error);
+            
+            // במקרה של שגיאת רשת בלבד - נשתמש ב-LocalStorage כגיבוי
+            try {
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              if (eventsStorage) {
+                const parsed = JSON.parse(eventsStorage);
+                const cachedEvents = (parsed.state?.events || []).filter((e: Event) => {
+                  return e.userId === userId || (userId === 'admin-fixed-id' && e.userId);
+                });
+                
+                if (cachedEvents.length > 0) {
+                  console.log(`⚠️ Using cached data from localStorage (${cachedEvents.length} events) as fallback`);
+                  set((state: any) => ({
+                    events: cachedEvents,
+                    isLoading: false,
+                    error: null
+                  }));
+                  (get() as any)._isFetchingEvents = false;
+                  return;
+                }
+              }
+            } catch (cacheError: any) {
+              console.error('❌ Error reading from cache:', cacheError);
+            }
+            
+            // If we reach here, we have no data at all
+            set((state: any) => ({
+              events: [],
+              isLoading: false,
+              error: error instanceof Error ? error.message : 'שגיאה בטעינת אירועים'
+            }));
+          }
+        } catch (error: any) {
+          console.error('❌ Error in fetchEvents:', error);
+          if (!silent) {
+            set({ 
+              error: error instanceof Error ? error.message : 'שגיאה בטעינת אירועים', 
+              isLoading: false 
+            });
+          } else {
+            set({ isLoading: false });
+          }
+        } finally {
+          // CRITICAL: Clear the fetching flag to allow future calls
+          (get() as any)._isFetchingEvents = false;
+        }
+      },
               // Map event fields
               const mappedEvent = {
                 ...event,
