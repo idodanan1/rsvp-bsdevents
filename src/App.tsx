@@ -66,9 +66,16 @@ function App() {
           console.log(`🔄 Cross-tab: Force refresh requested for ${message.storeName}`);
           
           if (message.storeName === 'rsvp-events-storage' || message.storeName === '*') {
-            fetchEvents(true, true).catch((err: unknown) => {
-              console.error('❌ Error refreshing events from cross-tab:', err);
-            });
+            // CRITICAL: Use getState() to ensure fetchEvents is accessible in callback scope
+            const storeState = useEventStore.getState();
+            const fetchEventsFn = storeState.fetchEvents;
+            if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+              fetchEventsFn(true, true).catch((err: unknown) => {
+                console.error('❌ Error refreshing events from cross-tab:', err);
+              });
+            } else {
+              console.error('❌ fetchEvents is not available in store state');
+            }
           }
           
           if (message.storeName === 'client-store' || message.storeName === '*') {

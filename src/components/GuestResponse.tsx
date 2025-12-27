@@ -1210,10 +1210,12 @@ const GuestResponse = () => {
         // This ensures the table in EventManagement updates after 10 seconds
       console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update (10 seconds delay)...`);
         setTimeout(() => {
-        storeState.fetchEvents(true, true).then(() => {
+        // CRITICAL: Use getState() inside setTimeout to ensure fetchEvents is accessible
+        const currentStoreState = useEventStore.getState();
+        currentStoreState.fetchEvents(true, true).then(() => {
           console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
           // Verify the update was loaded from server
-          const verifyState = storeState;
+          const verifyState = useEventStore.getState();
           const verifyEvent = verifyState.events.find((e: any) => e.id === currentEvent.id);
           const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestToUpdate.id);
           if (verifyGuest) {
