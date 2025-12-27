@@ -756,94 +756,19 @@ export const useEventStore = create<EventStore>()(
                     }
                   }
                   
-                  console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server. Refetching from API...`);
+                  console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server.`);
                   
-                  // After syncing, refetch from API to get the updated data
-                  const refreshResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-                    method: 'GET',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Accept': 'application/json'
-                    },
-                    mode: 'cors',
-                    credentials: 'omit'
-                  });
-                  
-                  if (refreshResponse.ok) {
-                    const refreshData = await refreshResponse.json();
-                    const refreshedEvents = Array.isArray(refreshData) ? refreshData : (refreshData.events || []);
-                    console.log(`✅ Refetched ${refreshedEvents.length} events from API after sync`);
-                    
-                    // Use refreshed events instead of empty array
-                    if (refreshedEvents.length > 0) {
-                      apiEvents = refreshedEvents;
-                      fetchSucceeded = true;
-                      
-                      // Map and overwrite localStorage again
-                      const mappedEvents = apiEvents.map((event: any) => {
-                        const mappedEvent = {
-                          ...event,
-                          coupleName: event.couple_name || event.coupleName,
-                          eventDate: event.event_date || event.eventDate,
-                          groomName: event.groom_name || event.groomName,
-                          brideName: event.bride_name || event.brideName,
-                          eventType: event.event_type || event.eventType,
-                          eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
-                          couplePhone: event.couple_phone || event.couplePhone,
-                          coupleEmail: event.couple_email || event.coupleEmail,
-                          createdAt: event.created_at || event.createdAt,
-                          updatedAt: event.updated_at || event.updatedAt,
-                          userId: userId
-                        };
-                        
-                        if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
-                          mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
-                            ...guest,
-                            rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
-                            status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
-                            guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
-                            guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
-                            firstName: guest.first_name || guest.firstName || '',
-                            lastName: guest.last_name || guest.lastName || '',
-                            phoneNumber: guest.phone_number || guest.phoneNumber || '',
-                            actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
-                            tableId: guest.table_id || guest.tableId || null,
-                            messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
-                            responseDate: guest.response_date || guest.responseDate || null,
-                            eventId: guest.event_id || guest.eventId || mappedEvent.id,
-                            createdAt: guest.created_at || guest.createdAt,
-                            updatedAt: guest.updated_at || guest.updatedAt
-                          }));
-                        }
-                        
-                        return mappedEvent;
-                      });
-                      
-                      // Overwrite localStorage
-                      const eventsStorage = localStorage.getItem('rsvp-events-storage');
-                      let parsed: any = { state: { events: [] } };
-                      if (eventsStorage) {
-                        try {
-                          parsed = JSON.parse(eventsStorage);
-                        } catch (e) {
-                          console.warn('⚠️ Error parsing events storage');
-                        }
-                      }
-                      parsed.state.events = mappedEvents;
-                      localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
-                      
-                      // Update store
-                      set((state: any) => ({
-                        events: mappedEvents,
-                        isLoading: false,
-                        error: null
-                      }));
-                      
-                      console.log(`✅ Successfully updated store with ${mappedEvents.length} events after sync`);
-                      (get() as any)._isFetchingEvents = false;
-                      return;
-                    }
-                  }
+                  // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
+                  // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
+                  // Fix ReferenceError: This avoids the scoping issue completely
+                  console.log('🔄 [Reliable Refresh] Reloading page to fetch fresh data from server after sync...');
+                  // Clear the fetching flag before reload
+                  (get() as any)._isFetchingEvents = false;
+                  // Small delay to ensure sync completes, then reload
+                  setTimeout(() => {
+                    window.location.reload();
+                  }, 1000);
+                  return;
                 } else {
                   console.log(`ℹ️ API returned 0 events and no local events with guests found for user ${userId}`);
                 }
