@@ -201,10 +201,16 @@ const EventManagement: React.FC = () => {
     webhookService.syncAllUpdates(false).then(result => {
       if (result.processed > 0) {
         console.log(`✅ Initial sync completed: ${result.processed} updates processed, ${result.failed} failed, ${result.remaining} remaining`);
-        // Refresh events to show updated data
-        fetchEvents(false, true).catch((err: unknown) => {
-          console.warn('⚠️ Failed to refresh events after initial sync:', err);
-        });
+        // CRITICAL: Get fetchEvents from store to ensure it's accessible in Promise chain
+        const storeState = useEventStore.getState();
+        const refreshEvents = storeState.fetchEvents;
+        if (refreshEvents && typeof refreshEvents === 'function') {
+          refreshEvents(false, true).catch((err: unknown) => {
+            console.warn('⚠️ Failed to refresh events after initial sync:', err);
+          });
+        } else {
+          console.error('❌ fetchEvents is not available in store state');
+        }
       } else if (result.remaining > 0) {
         console.log(`ℹ️ No updates processed, but ${result.remaining} updates remain (may need manual processing)`);
       }
@@ -212,10 +218,16 @@ const EventManagement: React.FC = () => {
       console.warn('⚠️ Initial sync failed (non-critical):', err);
     });
     
-    // Initial fetch
-    fetchEvents().catch((error: unknown) => {
-      console.error('❌ Error initial fetch:', error);
-    });
+    // Initial fetch - use store state to ensure accessibility
+    const storeState = useEventStore.getState();
+    const initialFetchEvents = storeState.fetchEvents;
+    if (initialFetchEvents && typeof initialFetchEvents === 'function') {
+      initialFetchEvents().catch((error: unknown) => {
+        console.error('❌ Error initial fetch:', error);
+      });
+    } else {
+      console.error('❌ fetchEvents is not available in store state for initial fetch');
+    }
     
     // No auto-refresh or polling - user will use manual refresh button
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,7 +236,14 @@ const EventManagement: React.FC = () => {
   // Manual refresh handler
   const handleRefresh = async () => {
     try {
-      await fetchEvents(false);
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        await fetchEventsFn(false);
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
     } catch (error: any) {
       console.error('❌ Error refreshing events:', error);
     }
@@ -299,8 +318,15 @@ const EventManagement: React.FC = () => {
       console.log(`🔄 Refreshing events from Supabase to get latest data...`);
       
       try {
-        await fetchEvents(true, true); // Force refresh to get latest data from Supabase
-        console.log(`✅ Events refreshed from Supabase after sync`);
+        // CRITICAL: Get fetchEvents from store to ensure it's accessible
+        const storeState = useEventStore.getState();
+        const fetchEventsFn = storeState.fetchEvents;
+        if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+          await fetchEventsFn(true, true); // Force refresh to get latest data from Supabase
+          console.log(`✅ Events refreshed from Supabase after sync`);
+        } else {
+          console.error('❌ fetchEvents is not available in store state');
+        }
         
         // Update pending count by checking Supabase
         try {
@@ -621,9 +647,16 @@ const EventManagement: React.FC = () => {
     recreateCampaigns(currentEvent.id).then(() => {
       console.log(`✅ Campaigns created for event ${currentEvent.id}`);
       // Refresh events to get the updated event with campaigns
-      fetchEvents(false, true).catch((error: any) => {
-        console.warn('⚠️ Failed to refresh events after campaign creation:', error);
-      });
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        fetchEventsFn(false, true).catch((error: any) => {
+          console.warn('⚠️ Failed to refresh events after campaign creation:', error);
+        });
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
     }).catch((error: any) => {
       console.warn('⚠️ Auto-create campaigns failed:', error);
       // Remove from created set so we can retry later
@@ -2574,7 +2607,14 @@ const EventManagement: React.FC = () => {
 
         // Force refresh - wait a bit for state to update
         await new Promise(resolve => setTimeout(resolve, 500));
-        await fetchEvents();
+        // CRITICAL: Get fetchEvents from store to ensure it's accessible
+        const storeState = useEventStore.getState();
+        const fetchEventsFn = storeState.fetchEvents;
+        if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+          await fetchEventsFn();
+        } else {
+          console.error('❌ fetchEvents is not available in store state');
+        }
         
         // Update currentEvent with latest data
         const updatedEvents = useEventStore.getState().events;
@@ -3087,7 +3127,14 @@ const EventManagement: React.FC = () => {
                   const result = await webhookService.syncAllUpdates(false);
                   alert(`✅ סריקה הושלמה!\nעובדו: ${result.processed} עדכונים\nנכשלו: ${result.failed} עדכונים\nנותרו: ${result.remaining} עדכונים`);
                   // Refresh events to show updated data
-                  await fetchEvents(false, true);
+                  // CRITICAL: Get fetchEvents from store to ensure it's accessible
+                  const storeState = useEventStore.getState();
+                  const refreshEvents = storeState.fetchEvents;
+                  if (refreshEvents && typeof refreshEvents === 'function') {
+                    await refreshEvents(false, true);
+                  } else {
+                    console.error('❌ fetchEvents is not available in store state');
+                  }
                 } catch (error: any) {
                   console.error('❌ Error syncing updates:', error);
                   alert('❌ שגיאה בסריקת עדכונים. נסה שוב.');
@@ -3146,7 +3193,14 @@ const EventManagement: React.FC = () => {
                 if (!id) return;
                 try {
                   await recreateCampaigns(id);
-                  await fetchEvents(false, true);
+                  // CRITICAL: Get fetchEvents from store to ensure it's accessible
+                  const storeState = useEventStore.getState();
+                  const refreshEvents = storeState.fetchEvents;
+                  if (refreshEvents && typeof refreshEvents === 'function') {
+                    await refreshEvents(false, true);
+                  } else {
+                    console.error('❌ fetchEvents is not available in store state');
+                  }
                   alert('✅ הקמפיינים נוצרו בהצלחה!');
                 } catch (error: any) {
                   console.error('❌ Error recreating campaigns:', error);

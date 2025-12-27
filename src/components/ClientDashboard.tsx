@@ -687,8 +687,14 @@ const ClientDashboard: React.FC = () => {
       // User is logged in - try fetchEvents first (this returns FULL event data with all guests)
       // Then also load from public API as backup
       console.log(`🔍 User is logged in (${userId}) - using fetchEvents for full event data`);
-          fetchEvents().then(() => {
-            const foundEvent = events.find((e: any) => e.id === eventId);
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible in Promise chain
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        fetchEventsFn().then(() => {
+          // Get fresh events from store after fetch
+          const updatedStoreState = useEventStore.getState();
+          const foundEvent = updatedStoreState.events.find((e: any) => e.id === eventId);
             if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
@@ -780,10 +786,16 @@ const ClientDashboard: React.FC = () => {
         }
         // Still load from public API to ensure we have the absolute latest data
         loadFromAPI();
-      }).catch(() => {
+      }).catch((err: any) => {
+        console.error('❌ Error in fetchEvents:', err);
         // If fetchEvents fails, use public API
         loadFromAPI();
       });
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+        // Fallback to public API
+        loadFromAPI();
+      }
     } else {
       // No user logged in - use public API endpoint
       console.log(`🌐 No user logged in - using public API endpoint silently`);

@@ -67,7 +67,7 @@ const Dashboard: React.FC = () => {
       if (!user?.id) return;
       
       try {
-        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
+        const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/count`);
         if (response.ok) {
           const data = await response.json();
@@ -84,7 +84,7 @@ const Dashboard: React.FC = () => {
     const activityInterval = setInterval(async () => {
       if (user?.id && sessionId) {
         try {
-          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
+          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           await fetch(`${BACKEND_URL}/api/users/${user.id}/sessions/activity`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -107,9 +107,16 @@ const Dashboard: React.FC = () => {
 
   // Fetch immediately on mount to get latest data from API
   useEffect(() => {
-    fetchEvents(true).catch((error: any) => {
-      console.error('❌ Error initial fetch:', error);
-    });
+    // CRITICAL: Get fetchEvents from store to ensure it's accessible in useEffect
+    const storeState = useEventStore.getState();
+    const fetchEventsFn = storeState.fetchEvents;
+    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+      fetchEventsFn(true).catch((error: any) => {
+        console.error('❌ Error initial fetch:', error);
+      });
+    } else {
+      console.error('❌ fetchEvents is not available in store state');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Removed fetchEvents from deps to prevent infinite loop
 
@@ -117,7 +124,14 @@ const Dashboard: React.FC = () => {
   const handleRefresh = async () => {
     try {
       setCurrentTime(new Date());
-      await fetchEvents(true);
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        await fetchEventsFn(true);
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
     } catch (error: any) {
       console.error('❌ Error refreshing events:', error);
     }
@@ -212,7 +226,14 @@ const Dashboard: React.FC = () => {
                   const success = await restoreDeletedEvent(eventId.trim());
                   if (success) {
                     alert('✅ האירוע שוחזר בהצלחה!');
-                    await fetchEvents(true);
+                    // CRITICAL: Get fetchEvents from store to ensure it's accessible
+                    const storeState = useEventStore.getState();
+                    const fetchEventsFn = storeState.fetchEvents;
+                    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                      await fetchEventsFn(true);
+                    } else {
+                      console.error('❌ fetchEvents is not available in store state');
+                    }
                   } else {
                     alert('❌ שגיאה בשחזור האירוע. נסה לבדוק את המזהה או לפתוח את חלון האירועים שנמחקו.');
                   }
@@ -244,9 +265,14 @@ const Dashboard: React.FC = () => {
                   
                   if (success) {
                     // Sync restored events to backend
-                    const { syncAllEventsToAPI, fetchEvents } = useEventStore.getState();
+                    const { syncAllEventsToAPI, fetchEvents: fetchEventsFn } = useEventStore.getState();
                     await syncAllEventsToAPI();
-                    await fetchEvents(true);
+                    // CRITICAL: Verify fetchEvents is available before calling
+                    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                      await fetchEventsFn(true);
+                    } else {
+                      console.error('❌ fetchEvents is not available in store state');
+                    }
                     
                     alert('✅ האירועים שוחזרו מ-localStorage בהצלחה!\n\nכל האירועים נשלחו לשרת.');
                   } else {
@@ -280,7 +306,14 @@ const Dashboard: React.FC = () => {
                 cleanupOtherUsersEvents();
                 
                 // Then, force refresh from API (this will load only current user's events)
-                await fetchEvents(true);
+                // CRITICAL: Get fetchEvents from store to ensure it's accessible
+                const storeState = useEventStore.getState();
+                const fetchEventsFn = storeState.fetchEvents;
+                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                  await fetchEventsFn(true);
+                } else {
+                  console.error('❌ fetchEvents is not available in store state');
+                }
                 
                 alert('✅ ניקיתי את האירועים שלא שייכים לך וטענתי מחדש מה-API.\n\nעכשיו תראה רק את האירועים שלך.');
               } catch (error: any) {
@@ -314,7 +347,14 @@ const Dashboard: React.FC = () => {
             onClick={async () => {
               try {
                 updateExistingEventsCampaigns();
-                await fetchEvents();
+                // CRITICAL: Get fetchEvents from store to ensure it's accessible
+                const storeState = useEventStore.getState();
+                const fetchEventsFn = storeState.fetchEvents;
+                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                  await fetchEventsFn();
+                } else {
+                  console.error('❌ fetchEvents is not available in store state');
+                }
                 alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
               } catch (error: any) {
                 console.error('❌ Error updating campaigns:', error);
@@ -828,7 +868,7 @@ const Dashboard: React.FC = () => {
                             const formData = new FormData();
                             formData.append('image', file);
                             
-                            const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
+                            const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
                             
                             // Show loading indicator
                             const uploadButton = e.target as HTMLInputElement;

@@ -288,11 +288,15 @@ function convertSupabaseEventToFrontend(supabaseEvent, guests = []) {
     coupleName: supabaseEvent.couple_name,
     groomName: supabaseEvent.groom_name,
     brideName: supabaseEvent.bride_name,
+    groomParentsName: supabaseEvent.groom_parents_name || null, // CRITICAL: Include parents names
+    brideParentsName: supabaseEvent.bride_parents_name || null, // CRITICAL: Include parents names
     eventDate: supabaseEvent.event_date,
     eventType: supabaseEvent.event_type,
     eventTypeHebrew: supabaseEvent.event_type_hebrew,
     couplePhone: supabaseEvent.couple_phone,
     coupleEmail: supabaseEvent.couple_email,
+    invitationImageUrl: supabaseEvent.invitation_image_url || supabaseEvent.couple_image || null, // CRITICAL: Include invitation image
+    eventImages: supabaseEvent.event_images ? (typeof supabaseEvent.event_images === 'string' ? JSON.parse(supabaseEvent.event_images) : supabaseEvent.event_images) : [],
     guests: guests,
     campaigns: [], // Will be loaded separately if needed
     tables: [], // Will be loaded separately if needed
@@ -383,6 +387,7 @@ async function getPendingGuestUpdates(includeAll = false) {
   }
 
   try {
+    // CRITICAL: Use explicit schema prefix to ensure correct table reference
     let query = supabase
       .from('pending_guest_updates')
       .select('*')
@@ -397,10 +402,25 @@ async function getPendingGuestUpdates(includeAll = false) {
     const { data, error } = await query;
 
     if (error) {
-      // Check if it's a relation not found error
-      if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+      // Check for various forms of "relation not found" errors
+      const errorMessage = error.message || error.toString() || '';
+      const isRelationError = 
+        errorMessage.includes('relation') || 
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Could not find relation') ||
+        error.code === '42P01' || // PostgreSQL error code for "undefined table"
+        error.code === 'PGRST116'; // PostgREST error code for "relation not found"
+      
+      if (isRelationError) {
         console.error('❌ Table pending_guest_updates does not exist in Supabase');
+        console.error('❌ Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         console.error('💡 Please run the SQL in CREATE_PENDING_UPDATES_TABLE.sql to create the table');
+        console.error('💡 SQL file location: whatsapp-backend/CREATE_PENDING_UPDATES_TABLE.sql');
         // Return empty array instead of throwing to prevent crashes
         return [];
       }
@@ -410,7 +430,15 @@ async function getPendingGuestUpdates(includeAll = false) {
   } catch (error) {
     console.error('❌ Error fetching pending guest updates from Supabase:', error);
     // If it's a relation error, return empty array instead of crashing
-    if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+    const errorMessage = error.message || error.toString() || '';
+    const isRelationError = 
+      errorMessage.includes('relation') || 
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('Could not find relation') ||
+      error.code === '42P01' ||
+      error.code === 'PGRST116';
+    
+    if (isRelationError) {
       console.error('💡 Returning empty array - please create the pending_guest_updates table');
       return [];
     }
@@ -425,6 +453,19 @@ async function addPendingGuestUpdate(updateData) {
   }
 
   try {
+    // Helper function to check if error is a relation error
+    const isRelationError = (err) => {
+      if (!err) return false;
+      const errorMessage = err.message || err.toString() || '';
+      return (
+        errorMessage.includes('relation') || 
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Could not find relation') ||
+        err.code === '42P01' ||
+        err.code === 'PGRST116'
+      );
+    };
+
     // Remove existing updates for this guest/phone to prevent duplicates
     if (updateData.guest_id) {
       const { error: deleteError } = await supabase
@@ -432,8 +473,10 @@ async function addPendingGuestUpdate(updateData) {
         .delete()
         .eq('guest_id', updateData.guest_id);
       
-      if (deleteError && !deleteError.message.includes('relation')) {
+      if (deleteError && !isRelationError(deleteError)) {
         console.warn('⚠️ Error deleting existing pending update:', deleteError);
+      } else if (isRelationError(deleteError)) {
+        console.warn('⚠️ Table pending_guest_updates does not exist - skipping delete');
       }
     } else if (updateData.phone_number) {
       const { error: deleteError } = await supabase
@@ -441,8 +484,10 @@ async function addPendingGuestUpdate(updateData) {
         .delete()
         .eq('phone_number', updateData.phone_number);
       
-      if (deleteError && !deleteError.message.includes('relation')) {
+      if (deleteError && !isRelationError(deleteError)) {
         console.warn('⚠️ Error deleting existing pending update:', deleteError);
+      } else if (isRelationError(deleteError)) {
+        console.warn('⚠️ Table pending_guest_updates does not exist - skipping delete');
       }
     }
 
@@ -464,10 +509,25 @@ async function addPendingGuestUpdate(updateData) {
       .single();
 
     if (error) {
-      // Check if it's a relation not found error
-      if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+      // Check for various forms of "relation not found" errors
+      const errorMessage = error.message || error.toString() || '';
+      const isRelationErr = 
+        errorMessage.includes('relation') || 
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Could not find relation') ||
+        error.code === '42P01' ||
+        error.code === 'PGRST116';
+      
+      if (isRelationErr) {
         console.error('❌ Table pending_guest_updates does not exist in Supabase');
+        console.error('❌ Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         console.error('💡 Please run the SQL in CREATE_PENDING_UPDATES_TABLE.sql to create the table');
+        console.error('💡 SQL file location: whatsapp-backend/CREATE_PENDING_UPDATES_TABLE.sql');
         // Return null instead of throwing to prevent crashes
         return null;
       }
@@ -477,7 +537,15 @@ async function addPendingGuestUpdate(updateData) {
   } catch (error) {
     console.error('❌ Error adding pending guest update to Supabase:', error);
     // If it's a relation error, return null instead of crashing
-    if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+    const errorMessage = error.message || error.toString() || '';
+    const isRelationErr = 
+      errorMessage.includes('relation') || 
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('Could not find relation') ||
+      error.code === '42P01' ||
+      error.code === 'PGRST116';
+    
+    if (isRelationErr) {
       console.error('💡 Returning null - please create the pending_guest_updates table');
       return null;
     }
@@ -505,10 +573,41 @@ async function deletePendingGuestUpdates(filters) {
     }
 
     const { error } = await query;
-    if (error) throw error;
+    
+    if (error) {
+      // Check for various forms of "relation not found" errors
+      const errorMessage = error.message || error.toString() || '';
+      const isRelationError = 
+        errorMessage.includes('relation') || 
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Could not find relation') ||
+        error.code === '42P01' ||
+        error.code === 'PGRST116';
+      
+      if (isRelationError) {
+        console.warn('⚠️ Table pending_guest_updates does not exist - cannot delete');
+        console.warn('💡 Please run the SQL in CREATE_PENDING_UPDATES_TABLE.sql to create the table');
+        // Return true instead of throwing to prevent crashes (table doesn't exist, so nothing to delete)
+        return true;
+      }
+      throw error;
+    }
     return true;
   } catch (error) {
     console.error('❌ Error deleting pending guest updates from Supabase:', error);
+    // If it's a relation error, return true (nothing to delete if table doesn't exist)
+    const errorMessage = error.message || error.toString() || '';
+    const isRelationError = 
+      errorMessage.includes('relation') || 
+      errorMessage.includes('does not exist') ||
+      errorMessage.includes('Could not find relation') ||
+      error.code === '42P01' ||
+      error.code === 'PGRST116';
+    
+    if (isRelationError) {
+      console.warn('💡 Returning true - table does not exist, so nothing to delete');
+      return true;
+    }
     throw error;
   }
 }
