@@ -23,7 +23,7 @@ export async function POST(request: Request) {
         id,
         email,
         full_name: full_name || null,
-      })
+      } as Database['public']['Tables']['users']['Insert'])
 
     if (error) {
       return NextResponse.json(

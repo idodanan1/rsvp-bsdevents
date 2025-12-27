@@ -201,18 +201,18 @@ const EventManagement: React.FC = () => {
       if (result.processed > 0) {
         console.log(`✅ Initial sync completed: ${result.processed} updates processed, ${result.failed} failed, ${result.remaining} remaining`);
         // Refresh events to show updated data
-        fetchEvents(false, true).catch(err => {
+        fetchEvents(false, true).catch((err: any) => {
           console.warn('⚠️ Failed to refresh events after initial sync:', err);
         });
       } else if (result.remaining > 0) {
         console.log(`ℹ️ No updates processed, but ${result.remaining} updates remain (may need manual processing)`);
       }
-    }).catch(err => {
+    }).catch((err: any) => {
       console.warn('⚠️ Initial sync failed (non-critical):', err);
     });
     
     // Initial fetch
-    fetchEvents().catch(error => {
+    fetchEvents().catch((error: any) => {
       console.error('❌ Error initial fetch:', error);
     });
     
@@ -1563,18 +1563,18 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
+      const tableGuests = currentEvent.guests.filter((guest: Guest) => guest.tableId === table.id);
       
       // Count actual attendance - use guestCount, not number of records
       const totalGuests = tableGuests.reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
       const attended = tableGuests
-        .filter(g => g.actualAttendance === 'attended')
+        .filter((g: Guest) => g.actualAttendance === 'attended')
         .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
       const notAttended = tableGuests
-        .filter(g => g.actualAttendance === 'not_attended')
+        .filter((g: Guest) => g.actualAttendance === 'not_attended')
         .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
       const notMarked = tableGuests
-        .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
+        .filter((g: Guest) => !g.actualAttendance || g.actualAttendance === 'not_marked')
         .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
       
       // Calculate attendance percentage
@@ -1642,7 +1642,7 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
+      const tableGuests = currentEvent.guests.filter((guest: Guest) => guest.tableId === table.id);
       
       if (tableGuests.length === 0) {
         // Empty table
@@ -1661,7 +1661,7 @@ const EventManagement: React.FC = () => {
       // Count attendance - use guestCount, not number of records
       const totalGuests = tableGuests.reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
       const attendedCount = tableGuests
-        .filter(g => g.actualAttendance === 'attended')
+        .filter((g: Guest) => g.actualAttendance === 'attended')
         .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
 
       // Table header with attendance summary
@@ -2628,7 +2628,7 @@ const EventManagement: React.FC = () => {
 
       const recipients = guestsToSend.map((guest: Guest) => {
         // CRITICAL: Find the original row number of the guest in the event (not filtered)
-        const originalRowNumber = currentEvent.guests.findIndex(g => g.id === guest.id) + 1;
+        const originalRowNumber = currentEvent.guests.findIndex((g: Guest) => g.id === guest.id) + 1;
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
       console.log('🔗 Generated guest link:', guestLink);
@@ -2859,7 +2859,7 @@ const EventManagement: React.FC = () => {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
         // Replace template variables in campaign message
-        const guestTable = event.tables?.find(table => table.guests.includes(guestIdToUse));
+        const guestTable = event.tables?.find((table: Table) => table.guests.includes(guestIdToUse));
         const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
         
         message = firstCampaign.message
@@ -3093,7 +3093,9 @@ const EventManagement: React.FC = () => {
             </button>
             <button
               onClick={() => navigate('/')}
-                className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center text-gray-600 hover:text-gray-800 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="חזרה לדשבורד"
+              title="חזרה לדשבורד"
             >
               <ArrowRight className="w-5 h-5 ml-2" />
               חזרה לדשבורד
@@ -3107,6 +3109,8 @@ const EventManagement: React.FC = () => {
             onClick={() => setShowSendMessageModal(true)}
             className="btn-warning flex items-center space-x-2"
             disabled={selectedGuests.length === 0}
+            aria-label={`שלח הודעה ל-${selectedGuests.length} מוזמנים נבחרים`}
+            title={`שלח הודעה ל-${selectedGuests.length} מוזמנים נבחרים`}
           >
             <Send className="w-4 h-4" />
             <span>שלח הודעה ({selectedGuests.length})</span>
@@ -3323,8 +3327,8 @@ const EventManagement: React.FC = () => {
                 {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'delivered').length || 0}
               </p>
               <p className="text-xs text-green-600 mt-1">
-                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
-                  ? `${Math.round((currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
+                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
+                  ? `${Math.round((currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
                   : '0%'} מסירה
               </p>
             </div>
@@ -3340,7 +3344,7 @@ const EventManagement: React.FC = () => {
                 {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length || 0}
               </p>
               <p className="text-xs text-red-600 mt-1">
-                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
+                {currentEvent.guests?.filter((g: Guest) => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
               </p>
             </div>
             <XCircle className="w-8 h-8 text-red-600" />
@@ -3385,7 +3389,7 @@ const EventManagement: React.FC = () => {
                 {(() => {
                   // Count total messages sent:
                   // 1. Sum of sentCount from all campaigns that were sent
-                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum: number, campaign: Campaign) => {
                     if (campaign.status === 'sent' && campaign.sentCount) {
                       return sum + campaign.sentCount;
                     }
@@ -3396,7 +3400,7 @@ const EventManagement: React.FC = () => {
                   // Each guest with messageSentDate represents at least one message sent
                   // Note: This counts each guest once, but if same guest received multiple individual messages,
                   // we can't track exact count without message history
-                  const individualMessages = currentEvent.guests?.filter(g => {
+                  const individualMessages = currentEvent.guests?.filter((g: Guest) => {
                     const status = g.messageStatus || 'not_sent';
                     // Count guests who received individual messages (not through campaigns)
                     // We check if they have messageSentDate but weren't counted in campaigns
@@ -3413,14 +3417,14 @@ const EventManagement: React.FC = () => {
               </p>
               <p className="text-xs text-indigo-600 mt-1">
                 {(() => {
-                  const campaignMessages = currentEvent.campaigns?.reduce((sum, campaign) => {
+                  const campaignMessages = currentEvent.campaigns?.reduce((sum: number, campaign: Campaign) => {
                     if (campaign.status === 'sent' && campaign.sentCount) {
                       return sum + campaign.sentCount;
                     }
                     return sum;
                   }, 0) || 0;
                   
-                  const individualMessages = currentEvent.guests?.filter(g => {
+                  const individualMessages = currentEvent.guests?.filter((g: Guest) => {
                     const status = g.messageStatus || 'not_sent';
                     return (status === 'sent' || status === 'delivered') && g.messageSentDate;
                   }).length || 0;
@@ -3444,6 +3448,8 @@ const EventManagement: React.FC = () => {
             value={searchTerm}
             onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
             className="input-field pr-10 text-lg border-2 border-gray-200 focus:border-blue-500 rounded-xl"
+            aria-label="חיפוש אורחים"
+            title="חיפוש אורחים"
           />
         </div>
         
@@ -3451,7 +3457,7 @@ const EventManagement: React.FC = () => {
           <button 
             onClick={() => {
               // Filter to show only guests without table assignment
-              const unseatedGuests = currentEvent.guests?.filter(g => !g.tableId) || [];
+              const unseatedGuests = currentEvent.guests?.filter((g: Guest) => !g.tableId) || [];
               if (unseatedGuests.length === 0) {
                 alert('✅ כל האורחים הושבו!');
                 return;
@@ -3466,6 +3472,8 @@ const EventManagement: React.FC = () => {
               }
             }}
             className="btn-warning flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-yellow-600 transition-colors cursor-pointer"
+            aria-label="הצג אורחים ממתינים לשיבוץ"
+            title="הצג אורחים ממתינים לשיבוץ"
           >
             <Users className="w-4 h-4" />
             <span>אורחים ממתינים ({stats.totalGuests - (currentEvent.tables?.reduce((acc: number, table: Table) => {
@@ -3479,6 +3487,8 @@ const EventManagement: React.FC = () => {
               navigate(`/event/${currentEvent.id}/seating`);
             }}
             className="btn-primary flex items-center space-x-2 px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors cursor-pointer"
+            aria-label="הושב אורח לשולחן"
+            title="הושב אורח לשולחן"
           >
             <Users className="w-4 h-4" />
             <span>הושב אורח</span>
@@ -3539,6 +3549,8 @@ const EventManagement: React.FC = () => {
                   cancelEdit();
                 }}
                 className="text-gray-400 hover:text-gray-600"
+                aria-label="סגור חלון הוספה/עריכה"
+                title="סגור חלון הוספה/עריכה"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -3554,6 +3566,8 @@ const EventManagement: React.FC = () => {
                   value={modalSearchTerm}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => setModalSearchTerm(e.target.value)}
                   className="w-full pr-10 pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="חיפוש אורחים קיימים"
+                  title="חיפוש אורחים קיימים"
                 />
               </div>
               
@@ -3583,6 +3597,8 @@ const EventManagement: React.FC = () => {
                               setModalSearchTerm('');
                             }}
                             className="text-blue-600 hover:text-blue-800 text-sm"
+                            aria-label={`בחר את ${formatFullName(guest.firstName, guest.lastName)}`}
+                            title={`בחר את ${formatFullName(guest.firstName, guest.lastName)}`}
                           >
                             בחר
                           </button>
@@ -3650,10 +3666,17 @@ const EventManagement: React.FC = () => {
                     cancelEdit();
                   }}
                   className="btn-secondary"
+                  aria-label="ביטול הוספה/עריכה"
+                  title="ביטול הוספה/עריכה"
                 >
                   ביטול
                 </button>
-                <button type="submit" className="btn-primary flex items-center space-x-2">
+                <button 
+                  type="submit" 
+                  className="btn-primary flex items-center space-x-2"
+                  aria-label={editingGuest ? 'עדכן מוזמן' : 'הוסף מוזמן'}
+                  title={editingGuest ? 'עדכן מוזמן' : 'הוסף מוזמן'}
+                >
                   <Save className="w-4 h-4" />
                   <span>{editingGuest ? 'עדכן' : 'הוסף'}</span>
                 </button>
@@ -4013,6 +4036,8 @@ const EventManagement: React.FC = () => {
                 <button
                   onClick={handleDownloadTemplate}
                   className="btn-secondary flex-1 flex items-center justify-center space-x-2"
+                  aria-label="הורד תבנית רשימת אורחים"
+                  title="הורד תבנית רשימת אורחים"
                 >
                   <Download className="w-4 h-4" />
                   <span>הורד תבנית רשימת אורחים</span>
@@ -4035,6 +4060,8 @@ const EventManagement: React.FC = () => {
               <button
                 onClick={() => setShowImportModal(false)}
                 className="btn-secondary"
+                aria-label="ביטול ייבוא"
+                title="ביטול ייבוא"
               >
                 ביטול
               </button>
@@ -4076,6 +4103,8 @@ const EventManagement: React.FC = () => {
                   onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setCustomMessage(e.target.value)}
                   className="input-field h-32"
                   placeholder="השאר ריק לשימוש בהודעה ברירת מחדל..."
+                  aria-label="תוכן ההודעה"
+                  title="תוכן ההודעה"
                 />
                 <p className="text-sm text-gray-500 mt-1">
                   אם תשאיר ריק, תישלח הודעה ברירת מחדל עם פרטי האירוע
@@ -4086,7 +4115,7 @@ const EventManagement: React.FC = () => {
                 <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
                 <div className="max-h-32 overflow-y-auto">
                   {selectedGuests.map(guestId => {
-                    const guest = currentEvent.guests.find(g => g.id === guestId);
+                    const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
                         {formatFullName(guest.firstName, guest.lastName)} – {guest.phoneNumber}
@@ -4105,11 +4134,13 @@ const EventManagement: React.FC = () => {
                   setCustomMessage('');
                 }}
                 className="btn-secondary"
+                aria-label="ביטול שליחת הודעה"
+                title="ביטול שליחת הודעה"
               >
                 ביטול
               </button>
               <button
-                onClick={(e) => {
+                onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
                   console.log('🔘 Send Message button clicked!');
                   console.log('🔘 Event:', e);
                   console.log('🔘 handleSendMessage function:', typeof handleSendMessage);
@@ -4121,6 +4152,8 @@ const EventManagement: React.FC = () => {
                   }
                 }}
                 className="btn-warning flex items-center space-x-2"
+                aria-label="שלח הודעה למוזמנים נבחרים"
+                title="שלח הודעה למוזמנים נבחרים"
               >
                 <Send className="w-4 h-4" />
                 <span>שלח הודעה</span>
@@ -4164,6 +4197,8 @@ const EventManagement: React.FC = () => {
         <button 
           onClick={() => window.location.reload()}
           className="mt-3 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          aria-label="רענן את הדף"
+          title="רענן את הדף"
         >
           רענן דף
         </button>

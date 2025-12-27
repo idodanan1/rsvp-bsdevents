@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import type { Database } from '@/types/database.types'
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,15 +39,17 @@ export async function POST(request: NextRequest) {
       .eq('guest_id', guestId)
 
     // Create new assignment
-    const { data, error } = await supabase
-      .from('table_assignments')
+    // Type assertion to fix TypeScript inference issue
+    const { data, error } = await (supabase
+      .from('table_assignments') as any)
       .insert({
         event_id: eventId,
         guest_id: guestId,
         table_id: tableId,
-      })
+      } as Database['public']['Tables']['table_assignments']['Insert'])
       .select()
       .single()
+      
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

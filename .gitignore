@@ -82,3 +82,46 @@ CrossDevice/
 NTUSER.*
 MJKJ*
 
+# Docker
+.docker/
+
+# Personal config files
+.gitconfig
+.lesshst
+.vercel-commit-trigger.txt
+
+# Build artifacts
+.vite/
+
+# Backup files
+*_backup.*
+*.backup
+EventManagement_backup.tsx
+events_backup.json
+
+# Dropbox
+Idodanan1 Dropbox/
+
+# System folders
+IntelGraphicsProfiles/
+Application Data/
+Cookies/
+Documents/My Music/
+Documents/My Pictures/
+Documents/My Videos/
+Local Settings/
+My Documents/
+NetHood/
+PrintHood/
+Recent/
+SendTo/
+Start Menu/
+Templates/
+
+# Migration scripts (temporary)
+whatsapp-backend/migrate-*.html
+whatsapp-backend/migrate-*.js
+
+# Public folder (if not part of project)
+/public/
+

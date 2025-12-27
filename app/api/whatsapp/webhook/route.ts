@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import crypto from 'crypto'
+import type { Database } from '@/types/database.types'
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN || ''
 
@@ -42,6 +43,9 @@ export async function POST(request: NextRequest) {
           .single()
 
         if (message) {
+          // Type assertion to fix TypeScript inference issue
+          const messageData = message as Database['public']['Tables']['whatsapp_messages']['Row']
+          
           const updates: any = {
             status: statusType,
           }
@@ -59,17 +63,19 @@ export async function POST(request: NextRequest) {
           }
 
           // Update message
-          await supabase
-            .from('whatsapp_messages')
-            .update(updates)
-            .eq('id', message.id)
+          // Type assertion to fix TypeScript inference issue
+          await (supabase
+            .from('whatsapp_messages') as any)
+            .update(updates as Database['public']['Tables']['whatsapp_messages']['Update'])
+            .eq('id', messageData.id)
 
           // Update guest message status
-          if (message.guest_id) {
-            await supabase
-              .from('guests')
-              .update({ message_status: statusType })
-              .eq('id', message.guest_id)
+          if (messageData.guest_id) {
+            // Type assertion to fix TypeScript inference issue
+            await (supabase
+              .from('guests') as any)
+              .update({ message_status: statusType } as Database['public']['Tables']['guests']['Update'])
+              .eq('id', messageData.guest_id)
           }
         }
       }
