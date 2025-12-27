@@ -94,13 +94,42 @@ async function upsertEvent(eventData) {
   }
 
   try {
+    // CRITICAL: Log the eventData to verify user_id is present
+    console.log('🔍 [upsertEvent] Event data being upserted:', {
+      id: eventData.id,
+      user_id: eventData.user_id,
+      user_id_type: typeof eventData.user_id,
+      user_id_length: eventData.user_id?.length
+    });
+    
+    // CRITICAL: Ensure user_id is always included in upsert
+    // Supabase upsert with onConflict may not update all fields if they're not explicitly provided
     const { data, error } = await supabase
       .from('events')
-      .upsert(eventData, { onConflict: 'id' })
+      .upsert(eventData, { 
+        onConflict: 'id',
+        // CRITICAL: Ensure all fields are updated, not just new ones
+        ignoreDuplicates: false
+      })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error upserting event to Supabase:', error);
+      console.error('🔍 [upsertEvent] Failed event data:', {
+        id: eventData.id,
+        user_id: eventData.user_id
+      });
+      throw error;
+    }
+    
+    // CRITICAL: Verify the saved event has the correct user_id
+    console.log('🔍 [upsertEvent] Event upserted successfully:', {
+      id: data?.id,
+      user_id: data?.user_id,
+      user_id_match: data?.user_id === eventData.user_id
+    });
+    
     return data;
   } catch (error) {
     console.error('❌ Error upserting event to Supabase:', error);
