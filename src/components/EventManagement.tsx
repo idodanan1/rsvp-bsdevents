@@ -864,30 +864,34 @@ const EventManagement: React.FC = () => {
       
       // CRITICAL: Only return new array reference if data actually changed
       // Use JSON.stringify to compare previous and current data to prevent infinite loops
+      // CRITICAL: Only compare essential fields to avoid false positives from internal properties
       const currentDataKey = JSON.stringify(guests.map((g: any) => ({
         id: g.id,
-        firstName: g.firstName,
-        lastName: g.lastName,
-        rsvpStatus: g.rsvpStatus,
-        guestCount: g.guestCount,
-        actualAttendance: g.actualAttendance,
-        tableId: g.tableId,
-        notes: g.notes,
-        phoneNumber: g.phoneNumber,
-        messageStatus: g.messageStatus,
+        firstName: g.firstName || '',
+        lastName: g.lastName || '',
+        rsvpStatus: g.rsvpStatus || 'pending',
+        guestCount: g.guestCount || 1,
+        actualAttendance: g.actualAttendance || 'not_marked',
+        tableId: g.tableId || null,
+        notes: g.notes || '',
+        phoneNumber: g.phoneNumber || '',
+        messageStatus: g.messageStatus || 'not_sent',
         responseDate: g.responseDate ? (g.responseDate instanceof Date ? g.responseDate.toISOString() : String(g.responseDate)) : null
       })));
       
       // Only create new array if data actually changed
       if (currentDataKey !== prevGuestsDataRef.current) {
+        console.log('📊 Guests data actually changed - creating new array reference');
         prevGuestsDataRef.current = currentDataKey;
         const guestsCopy = guests.map((g: any) => ({ ...g }));
         prevGuestsArrayRef.current = guestsCopy;
         return guestsCopy;
       }
       
-      // Return previous array reference if data unchanged (prevents infinite loop)
-      return prevGuestsArrayRef.current;
+      // CRITICAL: Return previous array reference if data unchanged (prevents infinite loop)
+      // This is the key fix - we don't create a new array if data hasn't changed
+      console.log('ℹ️ Guests data unchanged - returning previous array reference to prevent infinite loop');
+      return prevGuestsArrayRef.current.length > 0 ? prevGuestsArrayRef.current : guests.map((g: any) => ({ ...g }));
     }
     
     // Only log warning if we have events but not for this ID
