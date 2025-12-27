@@ -981,7 +981,11 @@ app.post('/api/whatsapp/webhook', (req, res) => {
               console.log(`📊 Processing ${statuses.length} status update(s)`);
               statuses.forEach((status) => {
                 console.log('📊 Message status update:', status);
-                handleMessageStatus(status);
+                // CRITICAL: Don't await - process in background and always return 200 OK
+                // This prevents Facebook from retrying and flooding logs
+                handleMessageStatus(status).catch((err) => {
+                  console.error('❌ Error processing status update (non-blocking):', err);
+                });
               });
             }
           } else {
@@ -994,11 +998,15 @@ app.post('/api/whatsapp/webhook', (req, res) => {
       console.log('📋 Full webhook body:', JSON.stringify(body, null, 2));
     }
 
+    // CRITICAL: Always return 200 OK to Facebook, even if processing fails
+    // This prevents Facebook from retrying and flooding logs with the same error
     res.status(200).send('OK');
   } catch (error) {
     console.error('❌ Webhook error:', error);
     console.error('❌ Error stack:', error.stack);
-    res.status(500).send('Internal Server Error');
+    // CRITICAL: Still return 200 OK to prevent Facebook retries
+    // Log the error but don't fail the webhook
+    res.status(200).send('OK');
   }
 });
 
@@ -2495,96 +2503,109 @@ async function updateGuestStatusByPhone(phoneNumber, status, source = 'whatsapp'
 }
 
 // Handle message status updates
-function handleMessageStatus(status) {
-  console.log('📊 Processing status update:', {
-    messageId: status.id,
-    status: status.status,
-    timestamp: status.timestamp,
-    recipientId: status.recipient_id
-  });
-
-  // CRITICAL: Update messageStatus in events based on WhatsApp status
-  // Find guest by phone number and update their messageStatus
-  const phoneNumber = status.recipient_id || status.to;
-  if (!phoneNumber) {
-    console.warn('⚠️ No phone number in status update:', status);
-    return;
-  }
-
-  // Normalize phone number
-  const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
-  const formattedPhone = normalizedPhone.replace(/^972/, '0');
-  const phoneWith972 = normalizedPhone.startsWith('0') ? '972' + normalizedPhone.substring(1) : normalizedPhone;
-
-  // Load events to find guest
-  loadEvents();
-  
-  // Find guest by phone number across all events
-  for (const event of eventsData.events) {
-    if (!event.guests || event.guests.length === 0) continue;
-    
-    const guest = event.guests.find(g => {
-      if (!g.phoneNumber) return false;
-      const guestPhone = g.phoneNumber.replace(/[^0-9]/g, '');
-      const guestPhoneWith0 = guestPhone.replace(/^972/, '0');
-      const guestPhoneWith972 = guestPhone.startsWith('0') ? '972' + guestPhone.substring(1) : guestPhone;
-      
-      return guestPhone === normalizedPhone || 
-             guestPhone === formattedPhone ||
-             guestPhone === phoneWith972 ||
-             guestPhoneWith0 === normalizedPhone ||
-             guestPhoneWith0 === formattedPhone ||
-             guestPhoneWith0 === phoneWith972 ||
-             guestPhoneWith972 === normalizedPhone ||
-             guestPhoneWith972 === formattedPhone ||
-             guestPhoneWith972 === phoneWith972;
+async function handleMessageStatus(status) {
+  try {
+    console.log('📊 Processing status update:', {
+      messageId: status.id,
+      status: status.status,
+      timestamp: status.timestamp,
+      recipientId: status.recipient_id
     });
 
-    if (guest) {
-      // Map WhatsApp status to our messageStatus
-      let messageStatus = guest.messageStatus;
-  switch (status.status) {
-    case 'sent':
-          messageStatus = 'sent';
-          console.log(`📤 Message sent successfully to ${guest.firstName} ${guest.lastName}`);
-      break;
-    case 'delivered':
-          messageStatus = 'delivered';
-          console.log(`📨 Message delivered to ${guest.firstName} ${guest.lastName}`);
-      break;
-    case 'read':
-          // Keep delivered status (read is just a notification)
-          console.log(`👀 Message read by ${guest.firstName} ${guest.lastName}`);
-      break;
-    case 'failed':
-          messageStatus = 'failed';
-          console.log(`❌ Message failed to send to ${guest.firstName} ${guest.lastName}`);
-      break;
+    // CRITICAL: Update messageStatus in Supabase based on WhatsApp status
+    // Find guest by phone number and update their messageStatus
+    const phoneNumber = status.recipient_id || status.to;
+    if (!phoneNumber) {
+      console.warn('⚠️ No phone number in status update:', status);
+      return;
+    }
+
+    // Normalize phone number
+    const normalizedPhone = phoneNumber.replace(/[^0-9]/g, '');
+    const formattedPhone = normalizedPhone.replace(/^972/, '0');
+    const phoneWith972 = normalizedPhone.startsWith('0') ? '972' + normalizedPhone.substring(1) : normalizedPhone;
+
+    // Check if Supabase is configured
+    if (!supabaseDb.isSupabaseConfigured()) {
+      console.warn('⚠️ Supabase is not configured - cannot update message status');
+      return;
+    }
+
+    // Map WhatsApp status to our messageStatus
+    let messageStatus = 'not_sent';
+    switch (status.status) {
+      case 'sent':
+        messageStatus = 'sent';
+        break;
+      case 'delivered':
+        messageStatus = 'delivered';
+        break;
+      case 'read':
+        messageStatus = 'delivered'; // Keep delivered status (read is just a notification)
+        break;
+      case 'failed':
+        messageStatus = 'failed';
+        break;
+      default:
+        console.log(`ℹ️ Unknown status: ${status.status}`);
+        return;
+    }
+
+    // Find guest by phone number in Supabase
+    const { data: guests, error: guestError } = await supabase
+      .from('guests')
+      .select('id, event_id, first_name, last_name, phone_number, message_status')
+      .or(`phone_number.eq.${normalizedPhone},phone_number.eq.${formattedPhone},phone_number.eq.${phoneWith972}`)
+      .limit(1);
+
+    if (guestError) {
+      console.error('❌ Error finding guest in Supabase:', guestError);
+      return;
+    }
+
+    if (!guests || guests.length === 0) {
+      console.log(`ℹ️ Guest not found for phone number: ${phoneNumber}`);
+      return;
+    }
+
+    const guest = guests[0];
+    const oldStatus = guest.message_status;
+
+    // Only update if status changed
+    if (messageStatus !== oldStatus) {
+      // Update guest messageStatus in Supabase
+      const updateData = {
+        message_status: messageStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      // Add timestamp fields if needed
+      if (status.status === 'delivered' || status.status === 'read') {
+        // Note: message_delivered_date might not exist in schema, so we'll just update message_status
+        console.log(`📨 Message delivered/read at ${new Date(status.timestamp * 1000).toISOString()}`);
+      } else if (status.status === 'failed') {
+        // Note: message_failed_date might not exist in schema, so we'll just update message_status
+        console.log(`❌ Message failed at ${new Date(status.timestamp * 1000).toISOString()}`);
       }
 
-      // Update guest messageStatus
-      if (messageStatus !== guest.messageStatus) {
-        const oldStatus = guest.messageStatus;
-        guest.messageStatus = messageStatus;
-        if (status.status === 'delivered' || status.status === 'read') {
-          guest.messageDeliveredDate = new Date(status.timestamp * 1000);
-        } else if (status.status === 'failed') {
-          guest.messageFailedDate = new Date(status.timestamp * 1000);
-        }
-        
-        // Save events to file
-        saveEvents();
-        console.log(`✅ Updated messageStatus for ${guest.firstName} ${guest.lastName} from "${oldStatus}" to "${messageStatus}"`);
-        
-        // CRITICAL: Sync updated event to frontend via API
-        // This ensures the frontend sees the status update in real-time
-        // Note: The event is already saved to file, and frontend will sync via polling
-        // But we can also trigger an immediate update by calling the API endpoint
-        // The frontend polls /api/events/all every few seconds, so it will see the update
-        console.log(`📡 MessageStatus update will be visible to frontend on next poll`);
+      const { error: updateError } = await supabase
+        .from('guests')
+        .update(updateData)
+        .eq('id', guest.id);
+
+      if (updateError) {
+        console.error(`❌ Error updating messageStatus for guest ${guest.id}:`, updateError);
+        return;
       }
-      break; // Found guest, no need to continue searching
+
+      console.log(`✅ Updated messageStatus for ${guest.first_name} ${guest.last_name} from "${oldStatus}" to "${messageStatus}"`);
+      console.log(`📡 MessageStatus update saved to Supabase - will be visible to frontend on next fetch`);
+    } else {
+      console.log(`ℹ️ MessageStatus already ${messageStatus} for ${guest.first_name} ${guest.last_name}`);
     }
+  } catch (error) {
+    console.error('❌ Error in handleMessageStatus:', error);
+    // Don't throw - we want webhook to return 200 OK even if status processing fails
   }
 }
 

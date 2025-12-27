@@ -396,10 +396,24 @@ async function getPendingGuestUpdates(includeAll = false) {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      // Check if it's a relation not found error
+      if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+        console.error('❌ Table pending_guest_updates does not exist in Supabase');
+        console.error('💡 Please run the SQL in CREATE_PENDING_UPDATES_TABLE.sql to create the table');
+        // Return empty array instead of throwing to prevent crashes
+        return [];
+      }
+      throw error;
+    }
     return data || [];
   } catch (error) {
     console.error('❌ Error fetching pending guest updates from Supabase:', error);
+    // If it's a relation error, return empty array instead of crashing
+    if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+      console.error('💡 Returning empty array - please create the pending_guest_updates table');
+      return [];
+    }
     throw error;
   }
 }
@@ -413,15 +427,23 @@ async function addPendingGuestUpdate(updateData) {
   try {
     // Remove existing updates for this guest/phone to prevent duplicates
     if (updateData.guest_id) {
-      await supabase
+      const { error: deleteError } = await supabase
         .from('pending_guest_updates')
         .delete()
         .eq('guest_id', updateData.guest_id);
+      
+      if (deleteError && !deleteError.message.includes('relation')) {
+        console.warn('⚠️ Error deleting existing pending update:', deleteError);
+      }
     } else if (updateData.phone_number) {
-      await supabase
+      const { error: deleteError } = await supabase
         .from('pending_guest_updates')
         .delete()
         .eq('phone_number', updateData.phone_number);
+      
+      if (deleteError && !deleteError.message.includes('relation')) {
+        console.warn('⚠️ Error deleting existing pending update:', deleteError);
+      }
     }
 
     // Insert new update
@@ -441,10 +463,24 @@ async function addPendingGuestUpdate(updateData) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // Check if it's a relation not found error
+      if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+        console.error('❌ Table pending_guest_updates does not exist in Supabase');
+        console.error('💡 Please run the SQL in CREATE_PENDING_UPDATES_TABLE.sql to create the table');
+        // Return null instead of throwing to prevent crashes
+        return null;
+      }
+      throw error;
+    }
     return data;
   } catch (error) {
     console.error('❌ Error adding pending guest update to Supabase:', error);
+    // If it's a relation error, return null instead of crashing
+    if (error.message && error.message.includes('relation') && error.message.includes('pending_guest_updates')) {
+      console.error('💡 Returning null - please create the pending_guest_updates table');
+      return null;
+    }
     throw error;
   }
 }
