@@ -368,6 +368,16 @@ export const useEventStore = create<EventStore>()(
       error: null,
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        // CRITICAL: Prevent infinite recursion by tracking if we're already fetching
+        const isFetching = (get() as any)._isFetchingEvents;
+        if (isFetching) {
+          console.warn('⚠️ fetchEvents is already running, skipping recursive call');
+          return;
+        }
+        
+        // Mark as fetching to prevent recursion
+        (get() as any)._isFetchingEvents = true;
+        
         if (!silent) {
           set({ isLoading: true, error: null });
         }
@@ -390,85 +400,141 @@ export const useEventStore = create<EventStore>()(
             if (!silent) {
               set({ isLoading: false, error: 'לא נמצא userId - אנא התחבר מחדש' });
             }
+            // CRITICAL: Clear fetching flag even on early return
+            (get() as any)._isFetchingEvents = false;
             return;
-          }
-
-          // CRITICAL: Before fetching from API, update userId in localStorage events
-          // This ensures all events have the correct userId before sync
-          try {
-            const eventsStorage = localStorage.getItem('rsvp-events-storage');
-            if (eventsStorage) {
-              const parsed = JSON.parse(eventsStorage);
-              const storedEvents = parsed.state?.events || [];
-              
-              if (storedEvents.length > 0) {
-                let updatedCount = 0;
-                const updatedEvents = storedEvents.map((e: Event) => {
-                  // CRITICAL: For admin-fixed-id, update ALL events to admin-fixed-id
-                  // For regular users, update events with wrong userId (email, anonymous, or missing) to current userId
-                  if (userId === 'admin-fixed-id') {
-                    // Admin should have all events
-                    if (e.userId !== 'admin-fixed-id') {
-                      console.log(`🔄 Admin: Updating event ${e.id} userId from "${e.userId || 'missing'}" to "admin-fixed-id"`);
-                      updatedCount++;
-                      return { ...e, userId: 'admin-fixed-id' };
-                    }
-                  } else {
-                    // Regular user - update events with wrong userId
-                    if (!e.userId || e.userId === 'anonymous' || e.userId.includes('@') || (e.userId !== userId && e.userId !== 'admin-fixed-id')) {
-                      console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}"`);
-                      updatedCount++;
-                      return { ...e, userId: userId };
-                    }
-                  }
-                  return e;
-                });
-                
-                if (updatedCount > 0) {
-                  console.log(`✅ Updated ${updatedCount} events with correct userId before API fetch`);
-                  // Save updated events back to localStorage
-                  parsed.state.events = updatedEvents;
-                  localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
-                  
-                  // Also update the store state
-                  set((state: any) => ({
-                    events: updatedEvents,
-                    ...state
-                  }));
-                }
-              }
-            }
-          } catch (updateError: any) {
-            console.warn('⚠️ Error updating userId in localStorage events:', updateError);
-            // Continue with API fetch even if update fails
           }
 
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
-          console.log(`🔄 Fetching events from Supabase for userId: ${userId}`);
-          const response = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            mode: 'cors',
-            credentials: 'omit'
-          });
+          // CRITICAL: Cloud First Strategy - Always fetch from server first
+          // Server is the source of truth, localStorage is just a cache
+          console.log(`🔄 [Cloud First] Fetching events from server for userId: ${userId}`);
+          
+          let apiEvents: any[] = [];
+          let fetchSucceeded = false;
+          
+          try {
+            const response = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+              },
+              mode: 'cors',
+              credentials: 'omit'
+            });
 
-          if (!response.ok) {
-            throw new Error(`API returned ${response.status}: ${response.statusText}`);
+            if (response.ok) {
+              const data = await response.json();
+              // Handle array response (Supabase returns array directly)
+              apiEvents = Array.isArray(data) ? data : (data.events || []);
+              fetchSucceeded = true;
+              console.log(`✅ [Cloud First] Fetched ${apiEvents.length} events from server`);
+            } else {
+              throw new Error(`API returned ${response.status}: ${response.statusText}`);
+            }
+          } catch (fetchError: any) {
+            console.error('❌ [Cloud First] Failed to fetch from server:', fetchError);
+            // If fetch fails, we'll handle it below - don't throw yet
           }
 
-          const data = await response.json();
+          // CRITICAL: If server fetch succeeded, OVERWRITE localStorage completely (no merging)
+          // This ensures all devices have the same data from the server
+          if (fetchSucceeded) {
+            // Map Supabase fields to frontend format
+            const mappedEvents = apiEvents.map((event: any) => {
+              // Map event fields
+              const mappedEvent = {
+                ...event,
+                coupleName: event.couple_name || event.coupleName,
+                eventDate: event.event_date || event.eventDate,
+                groomName: event.groom_name || event.groomName,
+                brideName: event.bride_name || event.brideName,
+                eventType: event.event_type || event.eventType,
+                eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
+                couplePhone: event.couple_phone || event.couplePhone,
+                coupleEmail: event.couple_email || event.coupleEmail,
+                createdAt: event.created_at || event.createdAt,
+                updatedAt: event.updated_at || event.updatedAt,
+                userId: userId // Ensure userId is set correctly
+              };
+              
+              // Map guest fields if guests exist
+              if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
+                mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
+                  ...guest,
+                  rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                  status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                  guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                  guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                  firstName: guest.first_name || guest.firstName || '',
+                  lastName: guest.last_name || guest.lastName || '',
+                  phoneNumber: guest.phone_number || guest.phoneNumber || '',
+                  actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+                  tableId: guest.table_id || guest.tableId || null,
+                  messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+                  responseDate: guest.response_date || guest.responseDate || null,
+                  eventId: guest.event_id || guest.eventId || mappedEvent.id,
+                  createdAt: guest.created_at || guest.createdAt,
+                  updatedAt: guest.updated_at || guest.updatedAt
+                }));
+              }
+              
+              return mappedEvent;
+            });
+
+            // CRITICAL: Overwrite localStorage completely with server data (no merging)
+            try {
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              let parsed: any = { state: { events: [] } };
+              
+              if (eventsStorage) {
+                try {
+                  parsed = JSON.parse(eventsStorage);
+                } catch (e) {
+                  console.warn('⚠️ Error parsing events storage, creating new structure');
+                }
+              }
+              
+              // CRITICAL: Replace ALL events with server data (overwrite, don't merge)
+              parsed.state.events = mappedEvents;
+              localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+              
+              console.log(`✅ [Cloud First] Overwrote localStorage with ${mappedEvents.length} events from server`);
+              
+              // Update store with server data
+              set((state: any) => {
+                const totalGuests = mappedEvents.reduce((sum: number, event: any) => {
+                  return sum + (event.guests?.length || 0);
+                }, 0);
+                
+                console.log(`🔄 [Cloud First] Updated store with server data:`, {
+                  eventsCount: mappedEvents.length,
+                  totalGuests: totalGuests,
+                  previousEventsCount: state.events?.length || 0
+                });
+                
+                return {
+                  events: mappedEvents,
+                  isLoading: false,
+                  error: null
+                };
+              });
+
+              console.log(`✅ [Cloud First] Successfully updated store with ${mappedEvents.length} events from server`);
+              // CRITICAL: Clear fetching flag
+              (get() as any)._isFetchingEvents = false;
+              return;
+            } catch (storageError: any) {
+              console.error('❌ Error updating localStorage:', storageError);
+              // Continue to update store even if localStorage update fails
+            }
+          }
           
-          // Handle array response (Supabase returns array directly)
-          let apiEvents = Array.isArray(data) ? data : (data.events || []);
-          
-          console.log(`✅ Fetched ${apiEvents.length} events from Supabase`);
-          
-          // CRITICAL: If API returns 0 events but we have local events with guests, sync them to server
-          if (apiEvents.length === 0) {
+          // CRITICAL: Fallback - If server fetch failed, check for local events to sync
+          // This only happens if server is unavailable
+          if (!fetchSucceeded && apiEvents.length === 0) {
             try {
               const eventsStorage = localStorage.getItem('rsvp-events-storage');
               if (eventsStorage) {
@@ -487,7 +553,7 @@ export const useEventStore = create<EventStore>()(
                     return sum + (event.guests?.length || 0);
                   }, 0);
                   
-                  console.log(`⚠️ API returned 0 events, but found ${localEventsWithGuests.length} local events with ${totalGuests} guests. Syncing to server...`);
+                  console.log(`⚠️ Server unavailable, but found ${localEventsWithGuests.length} local events with ${totalGuests} guests. Syncing to server...`);
                   
                   // Sync each local event to server via POST
                   let syncedCount = 0;
@@ -521,8 +587,72 @@ export const useEventStore = create<EventStore>()(
                     
                     // Use refreshed events instead of empty array
                     if (refreshedEvents.length > 0) {
-                      // Replace apiEvents with refreshedEvents
                       apiEvents = refreshedEvents;
+                      fetchSucceeded = true;
+                      
+                      // Map and overwrite localStorage again
+                      const mappedEvents = apiEvents.map((event: any) => {
+                        const mappedEvent = {
+                          ...event,
+                          coupleName: event.couple_name || event.coupleName,
+                          eventDate: event.event_date || event.eventDate,
+                          groomName: event.groom_name || event.groomName,
+                          brideName: event.bride_name || event.brideName,
+                          eventType: event.event_type || event.eventType,
+                          eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
+                          couplePhone: event.couple_phone || event.couplePhone,
+                          coupleEmail: event.couple_email || event.coupleEmail,
+                          createdAt: event.created_at || event.createdAt,
+                          updatedAt: event.updated_at || event.updatedAt,
+                          userId: userId
+                        };
+                        
+                        if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
+                          mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
+                            ...guest,
+                            rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                            status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+                            guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                            guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+                            firstName: guest.first_name || guest.firstName || '',
+                            lastName: guest.last_name || guest.lastName || '',
+                            phoneNumber: guest.phone_number || guest.phoneNumber || '',
+                            actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+                            tableId: guest.table_id || guest.tableId || null,
+                            messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+                            responseDate: guest.response_date || guest.responseDate || null,
+                            eventId: guest.event_id || guest.eventId || mappedEvent.id,
+                            createdAt: guest.created_at || guest.createdAt,
+                            updatedAt: guest.updated_at || guest.updatedAt
+                          }));
+                        }
+                        
+                        return mappedEvent;
+                      });
+                      
+                      // Overwrite localStorage
+                      const eventsStorage = localStorage.getItem('rsvp-events-storage');
+                      let parsed: any = { state: { events: [] } };
+                      if (eventsStorage) {
+                        try {
+                          parsed = JSON.parse(eventsStorage);
+                        } catch (e) {
+                          console.warn('⚠️ Error parsing events storage');
+                        }
+                      }
+                      parsed.state.events = mappedEvents;
+                      localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+                      
+                      // Update store
+                      set((state: any) => ({
+                        events: mappedEvents,
+                        isLoading: false,
+                        error: null
+                      }));
+                      
+                      console.log(`✅ Successfully updated store with ${mappedEvents.length} events after sync`);
+                      (get() as any)._isFetchingEvents = false;
+                      return;
                     }
                   }
                 } else {
@@ -535,68 +665,49 @@ export const useEventStore = create<EventStore>()(
             }
           }
           
-          // Map Supabase fields to frontend format
-          const mappedEvents = apiEvents.map((event: any) => {
-            // Map event fields
-            const mappedEvent = {
-              ...event,
-              coupleName: event.couple_name || event.coupleName,
-              eventDate: event.event_date || event.eventDate,
-              groomName: event.groom_name || event.groomName,
-              brideName: event.bride_name || event.brideName,
-              eventType: event.event_type || event.eventType,
-              eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
-              couplePhone: event.couple_phone || event.couplePhone,
-              coupleEmail: event.couple_email || event.coupleEmail,
-              createdAt: event.created_at || event.createdAt,
-              updatedAt: event.updated_at || event.updatedAt
-            };
+          // CRITICAL: If we reach here and have no events, handle empty state gracefully
+          // This handles the case where device is new (like tablet) and localStorage is empty
+          if (apiEvents.length === 0) {
+            console.log(`ℹ️ No events found for user ${userId} - empty state (new device or no events)`);
             
-            // Map guest fields if guests exist
-            if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
-              mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
-                ...guest,
-                rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
-                status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
-                guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
-                guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
-                firstName: guest.first_name || guest.firstName || '',
-                lastName: guest.last_name || guest.lastName || '',
-                phoneNumber: guest.phone_number || guest.phoneNumber || '',
-                actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
-                tableId: guest.table_id || guest.tableId || null,
-                messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
-                responseDate: guest.response_date || guest.responseDate || null,
-                eventId: guest.event_id || guest.eventId || mappedEvent.id,
-                createdAt: guest.created_at || guest.createdAt,
-                updatedAt: guest.updated_at || guest.updatedAt
-              }));
-            }
-            
-            return mappedEvent;
-          });
-
-          // CRITICAL: Update store with fetched events from Supabase (API is source of truth)
-          // This ensures we transition from localStorage fallback to API data after sync
-          set((state: any) => {
-            const totalGuests = mappedEvents.reduce((sum: number, event: any) => {
-              return sum + (event.guests?.length || 0);
-            }, 0);
-            
-            console.log(`🔄 Transitioning from localStorage to Supabase API data:`, {
-              eventsCount: mappedEvents.length,
-              totalGuests: totalGuests,
-              previousEventsCount: state.events?.length || 0
-            });
-            
-            return {
-              events: mappedEvents,
+            // Ensure empty array is set in store and localStorage
+            set((state: any) => ({
+              events: [],
               isLoading: false,
               error: null
-            };
-          });
-
-          console.log(`✅ Successfully updated store with ${mappedEvents.length} events from Supabase (API is now source of truth)`);
+            }));
+            
+            // Clear localStorage events for this user (but preserve structure)
+            try {
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              let parsed: any = { state: { events: [] } };
+              if (eventsStorage) {
+                try {
+                  parsed = JSON.parse(eventsStorage);
+                } catch (e) {
+                  console.warn('⚠️ Error parsing events storage');
+                }
+              }
+              
+              // Filter out events for this user, keep others (for admin)
+              if (userId !== 'admin-fixed-id') {
+                parsed.state.events = (parsed.state.events || []).filter((e: Event) => e.userId !== userId);
+              } else {
+                parsed.state.events = [];
+              }
+              
+              localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+            } catch (e) {
+              console.warn('⚠️ Error clearing localStorage:', e);
+            }
+            
+            (get() as any)._isFetchingEvents = false;
+            return;
+          }
+          
+          // CRITICAL: If we reach here, something went wrong - log and handle gracefully
+          console.error('❌ Unexpected state: fetchEvents reached end without handling all cases');
+          set({ isLoading: false, error: 'שגיאה בטעינת אירועים מהשרת' });
         } catch (error: any) {
           console.error('❌ Error fetching events from Supabase:', error);
           if (!silent) {
@@ -607,6 +718,70 @@ export const useEventStore = create<EventStore>()(
           } else {
             set({ isLoading: false });
           }
+        } finally {
+          // CRITICAL: Clear the fetching flag to allow future calls
+          (get() as any)._isFetchingEvents = false;
+        }
+      },
+
+      // CRITICAL: Force refresh - clears localStorage and fetches fresh data from server
+      forceRefresh: async () => {
+        console.log('🔄 [Force Refresh] Clearing localStorage and fetching fresh data from server...');
+        
+        try {
+          // Get userId
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let userId = '';
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              userId = parsed.state?.user?.id || '';
+            } catch (e: any) {
+              console.error('❌ Error parsing user storage:', e);
+            }
+          }
+
+          if (!userId) {
+            throw new Error('לא נמצא userId - אנא התחבר מחדש');
+          }
+
+          // CRITICAL: Clear events from localStorage for this user
+          try {
+            const eventsStorage = localStorage.getItem('rsvp-events-storage');
+            if (eventsStorage) {
+              const parsed = JSON.parse(eventsStorage);
+              
+              // Filter out events for this user (keep admin events if not admin)
+              if (userId !== 'admin-fixed-id') {
+                parsed.state.events = (parsed.state.events || []).filter((e: Event) => e.userId !== userId);
+              } else {
+                // Admin: clear all events
+                parsed.state.events = [];
+              }
+              
+              localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+              console.log('✅ [Force Refresh] Cleared events from localStorage');
+            }
+          } catch (clearError: any) {
+            console.warn('⚠️ Error clearing localStorage:', clearError);
+            // Continue anyway - we'll overwrite it
+          }
+
+          // Clear store events temporarily
+          set({ events: [], isLoading: true, error: null });
+
+          // Now fetch fresh data from server
+          const storeState = useEventStore.getState();
+          await storeState.fetchEvents(true, false); // Force refresh, not silent
+          
+          console.log('✅ [Force Refresh] Successfully refreshed data from server');
+        } catch (error: any) {
+          console.error('❌ [Force Refresh] Error:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'שגיאה ברענון נתונים', 
+            isLoading: false 
+          });
+          throw error;
         }
       },
 

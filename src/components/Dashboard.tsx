@@ -120,17 +120,25 @@ const Dashboard: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Removed fetchEvents from deps to prevent infinite loop
 
-  // Manual refresh handler
+  // Manual refresh handler - uses forceRefresh to clear localStorage and fetch fresh data
   const handleRefresh = async () => {
     try {
       setCurrentTime(new Date());
-      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      // CRITICAL: Use forceRefresh to clear localStorage and fetch fresh data from server
       const storeState = useEventStore.getState();
-      const fetchEventsFn = storeState.fetchEvents;
-      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-        await fetchEventsFn(true);
+      const forceRefreshFn = storeState.forceRefresh;
+      if (forceRefreshFn && typeof forceRefreshFn === 'function') {
+        await forceRefreshFn();
+        console.log('✅ Force refresh completed - localStorage cleared and fresh data loaded from server');
       } else {
-        console.error('❌ fetchEvents is not available in store state');
+        // Fallback to regular fetchEvents if forceRefresh is not available
+        console.warn('⚠️ forceRefresh not available, using regular fetchEvents');
+        const fetchEventsFn = storeState.fetchEvents;
+        if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+          await fetchEventsFn(true);
+        } else {
+          console.error('❌ fetchEvents is not available in store state');
+        }
       }
     } catch (error: any) {
       console.error('❌ Error refreshing events:', error);
