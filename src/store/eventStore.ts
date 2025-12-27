@@ -560,14 +560,25 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
-                // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
-                console.log('🔄 [Reliable Refresh] Reloading page to fetch fresh data from server...');
-                // Clear the fetching flag before reload
+                // CRITICAL: Refresh events from store after sync - use store action directly
+                // This avoids ReferenceError and updates UI silently without page reload
+                console.log('🔄 [Post-Sync Refresh] Refreshing events from store after sync...');
+                // Clear the fetching flag to allow fetchEvents to run
                 (get() as any)._isFetchingEvents = false;
-                // Small delay to ensure sync completes, then reload
-                setTimeout(() => {
-                  window.location.reload();
+                // Small delay to ensure sync completes, then fetch fresh data
+                setTimeout(async () => {
+                  try {
+                    // Use store's fetchEvents directly - it's already in the store scope
+                    const { fetchEvents } = get();
+                    if (fetchEvents && typeof fetchEvents === 'function') {
+                      await fetchEvents(true, true); // Force refresh, silent mode
+                      console.log('✅ Successfully refreshed events after sync');
+                    } else {
+                      console.error('❌ fetchEvents is not available in store');
+                    }
+                  } catch (refreshError: any) {
+                    console.error('❌ Error refreshing events after sync:', refreshError);
+                  }
                 }, 1000);
                 return;
               } else {
@@ -758,15 +769,25 @@ export const useEventStore = create<EventStore>()(
                   
                   console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server.`);
                   
-                  // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
-                  // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
-                  // Fix ReferenceError: This avoids the scoping issue completely
-                  console.log('🔄 [Reliable Refresh] Reloading page to fetch fresh data from server after sync...');
-                  // Clear the fetching flag before reload
+                  // CRITICAL: Refresh events from store after sync - use store action directly
+                  // This avoids ReferenceError and updates UI silently without page reload
+                  console.log('🔄 [Post-Sync Refresh] Refreshing events from store after sync...');
+                  // Clear the fetching flag to allow fetchEvents to run
                   (get() as any)._isFetchingEvents = false;
-                  // Small delay to ensure sync completes, then reload
-                  setTimeout(() => {
-                    window.location.reload();
+                  // Small delay to ensure sync completes, then fetch fresh data
+                  setTimeout(async () => {
+                    try {
+                      // Use store's fetchEvents directly - it's already in the store scope
+                      const { fetchEvents } = get();
+                      if (fetchEvents && typeof fetchEvents === 'function') {
+                        await fetchEvents(true, true); // Force refresh, silent mode
+                        console.log('✅ Successfully refreshed events after sync');
+                      } else {
+                        console.error('❌ fetchEvents is not available in store');
+                      }
+                    } catch (refreshError: any) {
+                      console.error('❌ Error refreshing events after sync:', refreshError);
+                    }
                   }, 1000);
                   return;
                 } else {
@@ -5323,13 +5344,25 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
-          // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
-          // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
-          // Fix ReferenceError: This avoids the scoping issue completely
-          console.log(`🔄 [Reliable Refresh] Reloading page to fetch fresh data from server after sync...`);
-          // Small delay to ensure sync completes, then reload
-          setTimeout(() => {
-            window.location.reload();
+          // CRITICAL: Refresh events from store after sync - use store action directly
+          // This avoids ReferenceError and updates UI silently without page reload
+          console.log(`🔄 [Post-Sync Refresh] Refreshing events from store after sync...`);
+          // Clear the fetching flag to allow fetchEvents to run
+          (get() as any)._isFetchingEvents = false;
+          // Small delay to ensure sync completes, then fetch fresh data
+          setTimeout(async () => {
+            try {
+              // Use store's fetchEvents directly - it's already in the store scope
+              const { fetchEvents } = get();
+              if (fetchEvents && typeof fetchEvents === 'function') {
+                await fetchEvents(true, true); // Force refresh, silent mode
+                console.log('✅ Successfully refreshed events after sync');
+              } else {
+                console.error('❌ fetchEvents is not available in store');
+              }
+            } catch (refreshError: any) {
+              console.error('❌ Error refreshing events after sync:', refreshError);
+            }
           }, 1000);
 
           set({ isLoading: false });

@@ -345,12 +345,23 @@ const EventManagement: React.FC = () => {
         // Show success message - data is refreshed from Supabase
         alert(`✅ הנתונים עודכנו מ-Supabase בהצלחה!\n\n🔄 הטבלה מתעדכנת...`);
         
-        // CRITICAL: Instead of calling fetchEvents in setTimeout (which causes infinite loops),
-        // simply reload the page to ensure all updates are reflected
-        // This breaks the infinite loop and ensures fresh data from server
-        setTimeout(() => {
-          console.log(`🔄 Reloading page to reflect all updates...`);
-          window.location.reload();
+        // CRITICAL: Refresh events from store after sync - use store action directly
+        // This avoids ReferenceError and updates UI silently without page reload
+        setTimeout(async () => {
+          console.log(`🔄 [Post-Sync Refresh] Refreshing events from store after sync...`);
+          try {
+            // Use store's fetchEvents directly - it's already exported from the store
+            const storeState = useEventStore.getState();
+            const { fetchEvents } = storeState;
+            if (fetchEvents && typeof fetchEvents === 'function') {
+              await fetchEvents(true, true); // Force refresh, silent mode
+              console.log('✅ Successfully refreshed events after sync');
+            } else {
+              console.error('❌ fetchEvents is not available in store');
+            }
+          } catch (refreshError: any) {
+            console.error('❌ Error refreshing events after sync:', refreshError);
+          }
         }, 1000);
         
         // Also refresh pending count after a delay to ensure it's accurate
