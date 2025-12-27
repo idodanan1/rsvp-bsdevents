@@ -104,15 +104,70 @@ async function upsertEvent(eventData) {
     
     // CRITICAL: Ensure user_id is always included in upsert
     // Supabase upsert with onConflict may not update all fields if they're not explicitly provided
-    const { data, error } = await supabase
+    // CRITICAL: Use explicit update to ensure user_id is always updated, even if event exists
+    const { data: existingEvent, error: checkError } = await supabase
       .from('events')
-      .upsert(eventData, { 
-        onConflict: 'id',
-        // CRITICAL: Ensure all fields are updated, not just new ones
-        ignoreDuplicates: false
-      })
-      .select()
+      .select('id, user_id')
+      .eq('id', eventData.id)
       .single();
+    
+    if (existingEvent && !checkError) {
+      // Event exists - use update to ensure all fields including user_id are updated
+      console.log('🔍 [upsertEvent] Event exists, updating with user_id:', eventData.user_id);
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          ...eventData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', eventData.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Error updating event to Supabase:', error);
+        console.error('🔍 [upsertEvent] Failed event data:', {
+          id: eventData.id,
+          user_id: eventData.user_id
+        });
+        throw error;
+      }
+      
+      // CRITICAL: Verify the updated event has the correct user_id
+      console.log('🔍 [upsertEvent] Event updated successfully:', {
+        id: data?.id,
+        user_id: data?.user_id,
+        user_id_match: data?.user_id === eventData.user_id
+      });
+      
+      return data;
+    } else {
+      // Event doesn't exist - use insert
+      console.log('🔍 [upsertEvent] Event does not exist, inserting with user_id:', eventData.user_id);
+      const { data, error } = await supabase
+        .from('events')
+        .insert(eventData)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('❌ Error inserting event to Supabase:', error);
+        console.error('🔍 [upsertEvent] Failed event data:', {
+          id: eventData.id,
+          user_id: eventData.user_id
+        });
+        throw error;
+      }
+      
+      // CRITICAL: Verify the inserted event has the correct user_id
+      console.log('🔍 [upsertEvent] Event inserted successfully:', {
+        id: data?.id,
+        user_id: data?.user_id,
+        user_id_match: data?.user_id === eventData.user_id
+      });
+      
+      return data;
+    }
 
     if (error) {
       console.error('❌ Error upserting event to Supabase:', error);

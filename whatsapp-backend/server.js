@@ -745,11 +745,57 @@ app.get('/api/events/:userId', async (req, res) => {
     
     // CRITICAL: Ensure await is present and log the query
     console.log('🔍 [UserID Check] GET /api/events/:userId - Querying Supabase with user_id:', JSON.stringify(userId));
-    const { data, error } = await supabase
+    console.log('🔍 [UserID Check] GET /api/events/:userId - userId type:', typeof userId, 'value:', userId);
+    
+    // CRITICAL: Try querying with exact match first
+    let { data, error } = await supabase
       .from('events')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
+    
+    // CRITICAL: If no results, try querying all events to see what user_ids exist
+    if ((!data || data.length === 0) && !error) {
+      console.log('🔍 [UserID Check] GET /api/events/:userId - No events found with exact match, checking all events...');
+      const { data: allEvents, error: allError } = await supabase
+        .from('events')
+        .select('id, user_id, couple_name, created_at')
+        .limit(20)
+        .order('created_at', { ascending: false });
+      
+      if (!allError && allEvents && allEvents.length > 0) {
+        const allUserIds = [...new Set(allEvents.map(e => e.user_id).filter(Boolean))];
+        console.log('🔍 [UserID Check] GET /api/events/:userId - All user_ids in DB (sample):', allUserIds);
+        console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId type in DB:', allUserIds.length > 0 ? typeof allUserIds[0] : 'N/A');
+        console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId matches any in DB:', allUserIds.some(id => String(id) === String(userId)));
+        
+        // Try with string comparison if types don't match
+        if (allUserIds.length > 0 && typeof allUserIds[0] !== typeof userId) {
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Type mismatch detected, trying string comparison...');
+          const { data: stringData, error: stringError } = await supabase
+            .from('events')
+            .select('*')
+            .eq('user_id', String(userId))
+            .order('created_at', { ascending: false });
+          
+          if (!stringError && stringData && stringData.length > 0) {
+            console.log('🔍 [UserID Check] GET /api/events/:userId - Found events with string comparison!');
+            data = stringData;
+            error = null;
+          }
+        }
+        
+        // CRITICAL: If still no results, log detailed debug info
+        if ((!data || data.length === 0) && !error) {
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Still no results after all attempts');
+          console.log('🔍 [UserID Check] GET /api/events/:userId - This suggests:');
+          console.log('   1. Events were not saved to DB (check POST endpoint logs)');
+          console.log('   2. user_id type mismatch (UUID vs TEXT)');
+          console.log('   3. Events saved with different user_id format');
+          console.log('   4. Database transaction not committed');
+        }
+      }
+    }
     
     if (error) {
       console.error('❌ Supabase Error:', error);
