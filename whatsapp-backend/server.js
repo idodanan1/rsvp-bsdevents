@@ -378,6 +378,10 @@ app.post('/api/users/login', async (req, res) => {
       console.error('❌ Login error:', error);
       res.status(500).json({ error: 'שגיאה בהתחברות' });
     }
+  } catch (error) {
+    console.error('❌ Login route error:', error);
+    res.status(500).json({ error: 'שגיאה בהתחברות' });
+  }
 });
 
 // Handle OPTIONS preflight for /api/users/login
