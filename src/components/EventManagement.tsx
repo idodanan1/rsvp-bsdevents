@@ -66,12 +66,13 @@ const EventManagement: React.FC = () => {
   // CRITICAL: Use specific selectors to ensure React detects changes
   // This ensures the component re-renders when the specific event changes
   // CRITICAL: Subscribe to events array length AND a version counter to force re-renders
-  const events = useEventStore((state: any) => state.events);
-  const currentEvent = useEventStore((state: any) => state.currentEvent);
-  const isLoading = useEventStore((state: any) => state.isLoading);
+  const events = useEventStore((state: any) => state?.events || []);
+  const currentEvent = useEventStore((state: any) => state?.currentEvent || null);
+  const isLoading = useEventStore((state: any) => state?.isLoading || false);
   // CRITICAL: Use a simple primitive selector to avoid React #310 errors
   // Subscribe to events length and currentEvent id to trigger re-renders
-  const eventsLength = useEventStore((state: any) => state.events.length);
+  // CRITICAL: Add null check to prevent "Cannot read properties of undefined" errors
+  const eventsLength = useEventStore((state: any) => (state?.events && Array.isArray(state.events)) ? state.events.length : 0);
   const currentEventId = useEventStore((state: any) => state.currentEvent?.id || '');
   const currentEventUpdatedAt = useEventStore((state: any) => {
     if (!state.currentEvent?.updatedAt) return 0;
@@ -385,6 +386,49 @@ const EventManagement: React.FC = () => {
   const prevGuestsDataRef = useRef<string>('');
   const prevGuestsArrayRef = useRef<any[]>([]);
   const lastEventUpdatedAtRef = useRef<number>(0);
+  const hasLoadedFromAPI = useRef<boolean>(false);
+  
+  // CRITICAL: Database-first architecture - load event from API when component mounts or eventId changes
+  useEffect(() => {
+    if (!id) return;
+    
+    // Reset flag when eventId changes
+    if (hasLoadedFromAPI.current && currentEvent?.id !== id) {
+      hasLoadedFromAPI.current = false;
+    }
+    
+    // Only load once per eventId
+    if (hasLoadedFromAPI.current) {
+      return;
+    }
+    
+    console.log(`🔄 Loading event ${id} from API (database-first)...`);
+    hasLoadedFromAPI.current = true;
+    
+    // Get fetchEventById from store
+    const storeState = useEventStore.getState();
+    const fetchEventByIdFn = storeState.fetchEventById;
+    
+    if (fetchEventByIdFn && typeof fetchEventByIdFn === 'function') {
+      fetchEventByIdFn(id)
+        .then((fetchedEvent: any) => {
+          if (fetchedEvent) {
+            console.log(`✅ Event ${id} loaded from API successfully`);
+            setCurrentEvent(fetchedEvent);
+          } else {
+            console.warn(`⚠️ Event ${id} not found in API`);
+            hasLoadedFromAPI.current = false; // Allow retry
+          }
+        })
+        .catch((error: any) => {
+          console.error(`❌ Error loading event ${id} from API:`, error);
+          hasLoadedFromAPI.current = false; // Allow retry
+        });
+    } else {
+      console.error('❌ fetchEventById is not available in store');
+      hasLoadedFromAPI.current = false;
+    }
+  }, [id, setCurrentEvent]); // Only depend on id and setCurrentEvent
   
   // CRITICAL: Single useEffect to update currentEvent when events array changes
   // This ensures UI updates immediately when guest status changes via link or WhatsApp buttons
@@ -493,7 +537,7 @@ const EventManagement: React.FC = () => {
         guests: event.guests ? event.guests.map((g: any) => ({ ...g })) : [] // New array and new object references
       };
       setCurrentEvent(newCurrentEvent);
-      console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
+      console.log('✅ Updated currentEvent in EventManagement useEffect:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests?.length || 0);
       
       // Update refs AFTER setting state to prevent infinite loops
       lastGuestsKeyRef.current = newGuestsKey;
@@ -502,12 +546,12 @@ const EventManagement: React.FC = () => {
       // Log message statistics for verification
       if (newCurrentEvent.guests && newCurrentEvent.guests.length > 0) {
         const messageStats = {
-          total: newCurrentEvent.guests.length,
-          not_sent: newCurrentEvent.guests.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length,
-          sent: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'sent').length,
-          delivered: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'delivered').length,
-          failed: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'failed').length,
-          sent_or_delivered: newCurrentEvent.guests.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+        total: newCurrentEvent.guests?.length || 0,
+        not_sent: newCurrentEvent.guests?.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length || 0,
+        sent: newCurrentEvent.guests?.filter((g: any) => g.messageStatus === 'sent').length || 0,
+        delivered: newCurrentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0,
+        failed: newCurrentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length || 0,
+        sent_or_delivered: newCurrentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0
         };
         console.log('📊 Message Statistics:', messageStats);
         console.log('✅ Verified: Delivered messages count =', messageStats.delivered);
@@ -544,7 +588,7 @@ const EventManagement: React.FC = () => {
     syncedEventsRef.current.add(currentEvent.id);
     
     // Sync in background (don't await to avoid blocking UI)
-    console.log(`🔄 Auto-syncing event ${currentEvent.id} with ${currentEvent.guests.length} guests to server...`);
+    console.log(`🔄 Auto-syncing event ${currentEvent.id} with ${currentEvent.guests?.length || 0} guests to server...`);
     syncCurrentEventToAPI(currentEvent.id).catch((error: any) => {
       console.warn('⚠️ Auto-sync failed:', error);
       // Remove from synced set so we can retry later
@@ -588,12 +632,12 @@ const EventManagement: React.FC = () => {
       
       // Log message statistics for verification
       const messageStats = {
-        total: currentEvent.guests.length,
-        not_sent: currentEvent.guests.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length,
-        sent: currentEvent.guests.filter((g: any) => g.messageStatus === 'sent').length,
-        delivered: currentEvent.guests.filter((g: any) => g.messageStatus === 'delivered').length,
-        failed: currentEvent.guests.filter((g: any) => g.messageStatus === 'failed').length,
-        sent_or_delivered: currentEvent.guests.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length
+        total: currentEvent.guests?.length || 0,
+        not_sent: currentEvent.guests?.filter((g: any) => !g.messageStatus || g.messageStatus === 'not_sent').length || 0,
+        sent: currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent').length || 0,
+        delivered: currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0,
+        failed: currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length || 0,
+        sent_or_delivered: currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 0
       };
       
       console.log('📊 Message Statistics Breakdown:', {
@@ -862,8 +906,10 @@ const EventManagement: React.FC = () => {
         eventGuestsKeyRef.current = newKey;
       } else {
         // CRITICAL: Even if key unchanged, we still need to return a new array reference
-        // This ensures React detects changes when eventsVersion or eventsHash changes
-        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
+        // This ensures React detects changes when eventsVersion changes
+        if (Math.random() < 0.1) { // Log only 10% to reduce noise
+          console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ')');
+        }
       }
       
       // CRITICAL: Only return new array reference if data actually changed
@@ -903,17 +949,16 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find((e: Event) => e.id === id));
     }
     return [];
-  }, [id, eventsVersion, eventsHash]);
+  }, [id, eventsVersion]); // CRITICAL: Only depend on eventId and eventsVersion to prevent infinite loops
   
   // CRITICAL: Use useMemo to memoize the result, calling the useCallback function
   const guestsToDisplay = useMemo(() => {
     return calculateGuestsToDisplay();
     // CRITICAL: Use only primitive stable values as dependencies to avoid React #310 errors
     // DO NOT include arrays or objects directly - they cause infinite loops
-    // Use eventsVersion and eventsHash (string is primitive and stable)
-    // CRITICAL: eventsHash is a string from zustand selector, which is stable as a dependency
+    // Use only eventId (id) and eventsVersion (number) - these are stable and sufficient
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, eventsHash, calculateGuestsToDisplay]);
+  }, [id, eventsVersion, calculateGuestsToDisplay]); // CRITICAL: Only eventId and eventsVersion - removed eventsHash to prevent infinite recalculations
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
@@ -1044,7 +1089,7 @@ const EventManagement: React.FC = () => {
             guests: event.guests ? event.guests.map((g: any) => ({ ...g })) : []
           };
           setCurrentEvent(newCurrentEvent);
-          console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests.length);
+          console.log('✅ Updated currentEvent from events array change:', newCurrentEvent.id, 'guests:', newCurrentEvent.guests?.length || 0);
         }
       }
     } else {
@@ -2871,7 +2916,7 @@ const EventManagement: React.FC = () => {
         guestName: `${guestToUse?.firstName} ${guestToUse?.lastName}`,
         guestIndex,
         originalRowNumber,
-        totalGuests: event.guests.length,
+        totalGuests: event.guests?.length || 0,
         willIncludeInLink: originalRowNumber > 0
       });
       const guestLink = generateGuestResponseLink(event.id, guestIdToUse, guestToUse?.firstName, guestToUse?.lastName, guestToUse?.phoneNumber, originalRowNumber);
@@ -3082,6 +3127,51 @@ const EventManagement: React.FC = () => {
     }
   }, [updateGuest]);
 
+  // CRITICAL: Show loading spinner while fetching from API (database-first architecture)
+  if (isLoading && !currentEvent) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">טוען אירוע...</h1>
+          <p className="text-gray-600 mb-4">מביא נתונים מהשרת</p>
+          <p className="text-sm text-gray-500">
+            אם הבעיה נמשכת, נסה לרענן את הדף או לבדוק את החיבור לאינטרנט
+          </p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Show loading message if eventId exists but event not loaded yet
+  if (id && !currentEvent && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">טוען אירוע...</h1>
+          <p className="text-gray-600 mb-4">מביא נתונים מהשרת</p>
+          <button
+            onClick={() => {
+              const storeState = useEventStore.getState();
+              const fetchEventByIdFn = storeState.fetchEventById;
+              if (fetchEventByIdFn && typeof fetchEventByIdFn === 'function' && id) {
+                fetchEventByIdFn(id);
+              }
+            }}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            נסה שוב
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   try {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -3091,7 +3181,7 @@ const EventManagement: React.FC = () => {
         <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
-                {currentEvent.coupleName || (currentEvent.groomName && currentEvent.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
+                {currentEvent?.coupleName || (currentEvent?.groomName && currentEvent?.brideName ? `${currentEvent.groomName} & ${currentEvent.brideName}` : 'אירוע')}
               </h2>
               {(currentEvent.groomName || currentEvent.brideName) && (
                 <p className="text-gray-500 mt-1 text-lg">
@@ -3886,22 +3976,32 @@ const EventManagement: React.FC = () => {
                         if (!isNaN(newValue) && newValue >= 1) {
                           // CRITICAL: Update immediately with the new value to prevent reversion
                           // Use await to ensure the update completes before continuing
-                          await handleUpdateGuestField(guest.id, { 
-                            guestCount: newValue,
-                            source: 'manual_update',
-                            responseDate: new Date()
-                          });
+                          try {
+                            await handleUpdateGuestField(guest.id, { 
+                              guestCount: newValue,
+                              source: 'manual_update',
+                              responseDate: new Date()
+                            });
+                          } catch (error: any) {
+                            console.error('❌ Error updating guest count:', error);
+                            // Don't crash the UI - just log the error
+                          }
                         }
                       }}
                       onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
                         // Ensure value is at least 1 when field loses focus
                         const value = parseInt(e.target.value);
                         if (isNaN(value) || value < 1) {
-                          handleUpdateGuestField(guest.id, { 
-                            guestCount: 1,
-                            source: 'manual_update',
-                            responseDate: new Date()
-                          });
+                          try {
+                            handleUpdateGuestField(guest.id, { 
+                              guestCount: 1,
+                              source: 'manual_update',
+                              responseDate: new Date()
+                            });
+                          } catch (error: any) {
+                            console.error('❌ Error updating guest count on blur:', error);
+                            // Don't crash the UI - just log the error
+                          }
                         }
                       }}
                       className="w-full text-center border-2 border-gray-200 rounded-lg px-2 py-1 text-sm focus:border-blue-500 focus:outline-none"
@@ -3925,7 +4025,14 @@ const EventManagement: React.FC = () => {
                   <td className="px-3 py-4 w-32 min-w-[120px]">
                     <select
                       value={guest.actualAttendance || 'not_marked'}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) => handleUpdateAttendance(guest.id, e.target.value)}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                        try {
+                          handleUpdateAttendance(guest.id, e.target.value);
+                        } catch (error: any) {
+                          console.error('❌ Error updating attendance:', error);
+                          // Don't crash the UI - just log the error
+                        }
+                      }}
                       className="text-sm font-semibold bg-transparent border-2 border-gray-200 rounded-lg px-2 py-1 w-full focus:outline-none focus:border-blue-500"
                       aria-label={`נוכחות בפועל עבור ${guest.firstName} ${guest.lastName}`}
                       title={`נוכחות בפועל עבור ${guest.firstName} ${guest.lastName}`}
@@ -3938,7 +4045,14 @@ const EventManagement: React.FC = () => {
                   <td className="px-3 py-4 text-sm text-gray-500 w-32 min-w-[120px]">
                     <select
                       value={guest.channel || 'manual'}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) => handleUpdateGuestField(guest.id, { channel: e.target.value as 'whatsapp' | 'sms' | 'manual' })}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                        try {
+                          handleUpdateGuestField(guest.id, { channel: e.target.value as 'whatsapp' | 'sms' | 'manual' });
+                        } catch (error: any) {
+                          console.error('❌ Error updating guest channel:', error);
+                          // Don't crash the UI - just log the error
+                        }
+                      }}
                       className="text-sm border-2 border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-500 w-full"
                       aria-label={`ערוץ תקשורת עבור ${guest.firstName} ${guest.lastName}`}
                       title={`ערוץ תקשורת עבור ${guest.firstName} ${guest.lastName}`}
@@ -3952,13 +4066,18 @@ const EventManagement: React.FC = () => {
                     <select
                       value={guest.tableId || ''}
                       onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                        const tableId = e.target.value;
-                        if (tableId) {
-                          handleUpdateGuestField(guest.id, { 
-                            tableId: tableId
-                          });
-                        } else {
-                          handleUpdateGuestField(guest.id, { tableId: undefined });
+                        try {
+                          const tableId = e.target.value;
+                          if (tableId) {
+                            handleUpdateGuestField(guest.id, { 
+                              tableId: tableId
+                            });
+                          } else {
+                            handleUpdateGuestField(guest.id, { tableId: undefined });
+                          }
+                        } catch (error: any) {
+                          console.error('❌ Error updating guest table:', error);
+                          // Don't crash the UI - just log the error
                         }
                       }}
                       className="text-sm border-2 border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:border-blue-500 w-full"
@@ -4010,7 +4129,14 @@ const EventManagement: React.FC = () => {
                     </div>
                     <select
                       value={guest.messageStatus || 'not_sent'}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) => handleUpdateGuestField(guest.id, { messageStatus: e.target.value })}
+                      onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                        try {
+                          handleUpdateGuestField(guest.id, { messageStatus: e.target.value });
+                        } catch (error: any) {
+                          console.error('❌ Error updating message status:', error);
+                          // Don't crash the UI - just log the error
+                        }
+                      }}
                       className={`text-xs mt-1 ${getMessageStatusColor(guest.messageStatus || 'not_sent')} bg-transparent border border-gray-200 rounded px-1 py-0.5 w-full focus:outline-none focus:border-blue-500`}
                       aria-label={`סטטוס הודעה עבור ${guest.firstName} ${guest.lastName}`}
                       title={`סטטוס הודעה עבור ${guest.firstName} ${guest.lastName}`}

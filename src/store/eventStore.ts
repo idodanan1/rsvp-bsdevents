@@ -404,11 +404,22 @@ export const useEventStore = create<EventStore>()(
               if (storedEvents.length > 0) {
                 let updatedCount = 0;
                 const updatedEvents = storedEvents.map((e: Event) => {
-                  // Update events with wrong userId (email, anonymous, or missing) to current userId
-                  if (!e.userId || e.userId === 'anonymous' || e.userId.includes('@') || (e.userId !== userId && e.userId !== 'admin-fixed-id')) {
-                    console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}"`);
-                    updatedCount++;
-                    return { ...e, userId: userId };
+                  // CRITICAL: For admin-fixed-id, update ALL events to admin-fixed-id
+                  // For regular users, update events with wrong userId (email, anonymous, or missing) to current userId
+                  if (userId === 'admin-fixed-id') {
+                    // Admin should have all events
+                    if (e.userId !== 'admin-fixed-id') {
+                      console.log(`🔄 Admin: Updating event ${e.id} userId from "${e.userId || 'missing'}" to "admin-fixed-id"`);
+                      updatedCount++;
+                      return { ...e, userId: 'admin-fixed-id' };
+                    }
+                  } else {
+                    // Regular user - update events with wrong userId
+                    if (!e.userId || e.userId === 'anonymous' || e.userId.includes('@') || (e.userId !== userId && e.userId !== 'admin-fixed-id')) {
+                      console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}"`);
+                      updatedCount++;
+                      return { ...e, userId: userId };
+                    }
                   }
                   return e;
                 });
@@ -452,9 +463,77 @@ export const useEventStore = create<EventStore>()(
           const data = await response.json();
           
           // Handle array response (Supabase returns array directly)
-          const apiEvents = Array.isArray(data) ? data : (data.events || []);
+          let apiEvents = Array.isArray(data) ? data : (data.events || []);
           
           console.log(`✅ Fetched ${apiEvents.length} events from Supabase`);
+          
+          // CRITICAL: If API returns 0 events but we have local events with guests, sync them to server
+          if (apiEvents.length === 0) {
+            try {
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              if (eventsStorage) {
+                const parsed = JSON.parse(eventsStorage);
+                const storedEvents = parsed.state?.events || [];
+                
+                // Filter events for current user that have guests
+                const localEventsWithGuests = storedEvents.filter((e: Event) => {
+                  const matchesUser = e.userId === userId || (userId === 'admin-fixed-id' && e.userId);
+                  const hasGuests = e.guests && Array.isArray(e.guests) && e.guests.length > 0;
+                  return matchesUser && hasGuests;
+                });
+                
+                if (localEventsWithGuests.length > 0) {
+                  const totalGuests = localEventsWithGuests.reduce((sum: number, event: Event) => {
+                    return sum + (event.guests?.length || 0);
+                  }, 0);
+                  
+                  console.log(`⚠️ API returned 0 events, but found ${localEventsWithGuests.length} local events with ${totalGuests} guests. Syncing to server...`);
+                  
+                  // Sync each local event to server via POST
+                  let syncedCount = 0;
+                  for (const event of localEventsWithGuests) {
+                    try {
+                      await syncEventToAPI(event);
+                      syncedCount++;
+                      console.log(`✅ Synced local event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) with ${event.guests?.length || 0} guests to server`);
+                    } catch (syncError: any) {
+                      console.error(`❌ Failed to sync local event ${event.id}:`, syncError);
+                    }
+                  }
+                  
+                  console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server. Refetching from API...`);
+                  
+                  // After syncing, refetch from API to get the updated data
+                  const refreshResponse = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Accept': 'application/json'
+                    },
+                    mode: 'cors',
+                    credentials: 'omit'
+                  });
+                  
+                  if (refreshResponse.ok) {
+                    const refreshData = await refreshResponse.json();
+                    const refreshedEvents = Array.isArray(refreshData) ? refreshData : (refreshData.events || []);
+                    console.log(`✅ Refetched ${refreshedEvents.length} events from API after sync`);
+                    
+                    // Use refreshed events instead of empty array
+                    if (refreshedEvents.length > 0) {
+                      // Replace apiEvents with refreshedEvents
+                      apiEvents = refreshedEvents;
+                    }
+                  }
+                } else {
+                  console.log(`ℹ️ API returned 0 events and no local events with guests found for user ${userId}`);
+                }
+              }
+            } catch (syncError: any) {
+              console.warn('⚠️ Error syncing local events to server:', syncError);
+              // Continue with empty array - don't block the flow
+            }
+          }
           
           // Map Supabase fields to frontend format
           const mappedEvents = apiEvents.map((event: any) => {
@@ -528,6 +607,122 @@ export const useEventStore = create<EventStore>()(
           } else {
             set({ isLoading: false });
           }
+        }
+      },
+
+      // CRITICAL: Fetch a single event by ID from API (database-first architecture)
+      fetchEventById: async (eventId: string, userId?: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          // Get userId from localStorage if not provided
+          let currentUserId = userId;
+          if (!currentUserId) {
+            const userStorage = localStorage.getItem('rsvp-user-storage');
+            if (userStorage) {
+              try {
+                const parsed = JSON.parse(userStorage);
+                currentUserId = parsed.state?.user?.id || '';
+              } catch (e: any) {
+                console.error('❌ Error parsing user storage:', e);
+              }
+            }
+          }
+
+          if (!currentUserId) {
+            throw new Error('לא נמצא userId - אנא התחבר מחדש');
+          }
+
+          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+          
+          console.log(`🔄 Fetching event ${eventId} from API for userId: ${currentUserId}`);
+          
+          // First, try to get from /api/events/:userId and find the specific event
+          const response = await fetch(`${BACKEND_URL}/api/events/${currentUserId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            mode: 'cors',
+            credentials: 'omit'
+          });
+
+          if (!response.ok) {
+            throw new Error(`API returned ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          const apiEvents = Array.isArray(data) ? data : (data.events || []);
+          
+          // Find the specific event
+          const event = apiEvents.find((e: any) => e.id === eventId);
+          
+          if (!event) {
+            console.warn(`⚠️ Event ${eventId} not found in API response`);
+            set({ isLoading: false, error: 'אירוע לא נמצא' });
+            return null;
+          }
+
+          // Map Supabase fields to frontend format (same as fetchEvents)
+          const mappedEvent = {
+            ...event,
+            coupleName: event.couple_name || event.coupleName,
+            eventDate: event.event_date || event.eventDate,
+            groomName: event.groom_name || event.groomName,
+            brideName: event.bride_name || event.brideName,
+            eventType: event.event_type || event.eventType,
+            eventTypeHebrew: event.event_type_hebrew || event.eventTypeHebrew,
+            couplePhone: event.couple_phone || event.couplePhone,
+            coupleEmail: event.couple_email || event.coupleEmail,
+            createdAt: event.created_at || event.createdAt,
+            updatedAt: event.updated_at || event.updatedAt
+          };
+          
+          // Map guest fields if guests exist
+          if (mappedEvent.guests && Array.isArray(mappedEvent.guests)) {
+            mappedEvent.guests = mappedEvent.guests.map((guest: any) => ({
+              ...guest,
+              rsvpStatus: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+              status: guest.rsvp_status || guest.rsvpStatus || guest.status || 'pending',
+              guestCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+              guestsCount: guest.guest_count !== undefined ? guest.guest_count : (guest.guestCount !== undefined ? guest.guestCount : 1),
+              firstName: guest.first_name || guest.firstName || '',
+              lastName: guest.last_name || guest.lastName || '',
+              phoneNumber: guest.phone_number || guest.phoneNumber || '',
+              actualAttendance: guest.actual_attendance || guest.actualAttendance || 'not_marked',
+              tableId: guest.table_id || guest.tableId || null,
+              messageStatus: guest.message_status || guest.messageStatus || 'not_sent',
+              responseDate: guest.response_date || guest.responseDate || null,
+              eventId: guest.event_id || guest.eventId || mappedEvent.id,
+              createdAt: guest.created_at || guest.createdAt,
+              updatedAt: guest.updated_at || guest.updatedAt
+            }));
+          }
+
+          // Update store with the fetched event
+          set((state: any) => {
+            const existingEventIndex = state.events.findIndex((e: any) => e.id === eventId);
+            const updatedEvents = existingEventIndex >= 0
+              ? state.events.map((e: any, index: number) => index === existingEventIndex ? mappedEvent : e)
+              : [...state.events, mappedEvent];
+            
+            return {
+              events: updatedEvents,
+              currentEvent: mappedEvent,
+              isLoading: false,
+              error: null
+            };
+          });
+
+          console.log(`✅ Successfully fetched event ${eventId} from API`);
+          return mappedEvent;
+        } catch (error: any) {
+          console.error('❌ Error fetching event by ID from API:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'שגיאה בטעינת אירוע', 
+            isLoading: false 
+          });
+          return null;
         }
       },
 
@@ -1177,74 +1372,164 @@ export const useEventStore = create<EventStore>()(
       },
 
       updateGuest: async (eventId: any, guestId: any, updates: any) => {
+        // CRITICAL: Guard Clause - validate inputs and state before proceeding
+        if (!eventId || !guestId || !updates) {
+          console.error('❌ CRITICAL: Invalid parameters in updateGuest:', { eventId, guestId, updates });
+          set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - פרמטרים לא תקינים' });
+          return;
+        }
+        
+        // CRITICAL: Guard Clause - check state before proceeding
+        const currentState = get();
+        if (!currentState || !currentState.events || !Array.isArray(currentState.events)) {
+          console.error('❌ CRITICAL: State or events is undefined in updateGuest!', { 
+            state: !!currentState, 
+            events: !!currentState?.events,
+            eventsIsArray: Array.isArray(currentState?.events)
+          });
+          set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - state לא תקין' });
+          return;
+        }
+        
+        // CRITICAL: Guard Clause - check if event exists
+        const event = currentState.events.find((e: any) => e.id === eventId);
+        if (!event) {
+          console.error('❌ CRITICAL: Event not found in updateGuest:', eventId);
+          set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - אירוע לא נמצא' });
+          return;
+        }
+        
+        // CRITICAL: Guard Clause - check if event has guests array
+        if (!event.guests || !Array.isArray(event.guests)) {
+          console.error('❌ CRITICAL: Event guests is not an array in updateGuest:', { 
+            eventId, 
+            hasGuests: !!event.guests,
+            guestsType: typeof event.guests
+          });
+          set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - רשימת אורחים לא תקינה' });
+          return;
+        }
+        
         set({ isLoading: true, error: null });
         try {
-          // CRITICAL: No manual change protection - rely on timestamp-based conflict resolution
+          // CRITICAL: Database-first architecture - send update to server FIRST, then update UI
+          const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
+          // Get current guest data for the update payload
+          const currentGuest = event.guests.find((g: any) => g.id === guestId);
+          if (!currentGuest) {
+            throw new Error('אורח לא נמצא');
+          }
+          
+          // Prepare the updated guest data
+          const now = new Date();
+          const currentResponseDate = currentGuest.responseDate ? new Date(currentGuest.responseDate) : new Date(0);
+          const updateResponseDate = updates.responseDate ? new Date(updates.responseDate) : now;
+          const finalResponseDate = updateResponseDate.getTime() >= currentResponseDate.getTime() 
+            ? updateResponseDate 
+            : currentResponseDate;
+          
+          // Clean names if they're being updated
+          const cleanedUpdates = { ...updates };
+          if (updates.firstName !== undefined) {
+            cleanedUpdates.firstName = cleanName(updates.firstName);
+          }
+          if (updates.lastName !== undefined) {
+            cleanedUpdates.lastName = cleanName(updates.lastName);
+          }
+          
+          const finalGuestCount = updates.guestCount !== undefined 
+            ? updates.guestCount 
+            : currentGuest.guestCount;
+          
+          const updatedGuestData = {
+            ...currentGuest,
+            ...cleanedUpdates,
+            guestCount: finalGuestCount,
+            responseDate: finalResponseDate,
+            source: updates.source || (updates.guestCount !== undefined ? 'manual_update' : currentGuest.source) || 'manual_update'
+          };
+          
+          // CRITICAL: Send PATCH/PUT to server FIRST before updating UI
+          console.log('🌐 Sending guest update to server (database-first)...');
+          const guestUpdatePayload = {
+            phoneNumber: updatedGuestData.phoneNumber,
+            guestId: guestId,
+            eventId: eventId,
+            status: updatedGuestData.rsvpStatus,
+            guestCount: updatedGuestData.guestCount,
+            notes: updatedGuestData.notes,
+            responseDate: updatedGuestData.responseDate instanceof Date ? updatedGuestData.responseDate.toISOString() : updatedGuestData.responseDate,
+            source: updatedGuestData.source,
+            firstName: updatedGuestData.firstName,
+            lastName: updatedGuestData.lastName,
+            actualAttendance: updatedGuestData.actualAttendance,
+            tableId: updatedGuestData.tableId
+          };
+          
+          // Send update to server via PATCH endpoint
+          const response = await fetch(`${BACKEND_URL}/api/guests/add-pending-update`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(guestUpdatePayload)
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server update failed: ${response.status} - ${errorText}`);
+          }
+          
+          const result = await response.json();
+          console.log('✅ Server update successful, now updating UI...');
+          
+          // CRITICAL: Only update UI after server confirms success
           let updatedEvent: Event | null = null;
           
           set((state: any) => {
-            const event = state.events.find((e: any) => e.id === eventId);
-            if (!event) {
+            // CRITICAL: Ensure state and events exist (double check inside set)
+            if (!state || !state.events || !Array.isArray(state.events) || !state.events.length) {
+              console.error('❌ CRITICAL: State or events is undefined in updateGuest set!', { state: !!state, events: !!state?.events });
+              set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - state לא תקין' });
+              return state || {};
+            }
+            
+            const eventInState = state.events.find((e: any) => e.id === eventId);
+            if (!eventInState) {
+              console.error('❌ CRITICAL: Event not found in updateGuest set:', eventId);
               set({ isLoading: false });
-              return;
+              return state;
+            }
+            
+            // CRITICAL: Ensure event has guests array
+            if (!eventInState.guests || !Array.isArray(eventInState.guests)) {
+              console.error('❌ CRITICAL: Event guests is not an array in updateGuest set:', { 
+                eventId, 
+                hasGuests: !!eventInState.guests,
+                guestsType: typeof eventInState.guests
+              });
+              set({ isLoading: false, error: 'שגיאה בעדכון מוזמן - רשימת אורחים לא תקינה' });
+              return state;
             }
             
             // Find current guest to get old tableId if tableId is being updated
-            const currentGuest = event.guests.find((g: any) => g.id === guestId);
-            const oldTableId = currentGuest?.tableId;
+            const currentGuestInState = eventInState.guests.find((g: any) => g.id === guestId);
+            const oldTableId = currentGuestInState?.tableId;
             const newTableId = updates.tableId;
             
-            // Update guest - always add/update responseDate for timestamp-based conflict resolution
-            // Check if any critical fields are being updated
-            const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
-            const hasCriticalField = criticalFields.some((field: any) => updates[field] !== undefined);
-            
-            const updatedGuests = event.guests.map((guest: any) => {
+            // Update guest using the data we already prepared (from server response)
+            const updatedGuests = eventInState.guests.map((guest: any) => {
               if (guest.id === guestId) {
-                // If updating critical fields, ensure we have a timestamp
-                const now = new Date();
-                const currentResponseDate = guest.responseDate ? new Date(guest.responseDate) : new Date(0);
-                const updateResponseDate = updates.responseDate ? new Date(updates.responseDate) : now;
-                
-                // Use the newer timestamp
-                const finalResponseDate = updateResponseDate.getTime() >= currentResponseDate.getTime() 
-                  ? updateResponseDate 
-                  : currentResponseDate;
-                
-                // Clean names if they're being updated
-                const cleanedUpdates = { ...updates };
-                if (updates.firstName !== undefined) {
-                  cleanedUpdates.firstName = cleanName(updates.firstName);
-                }
-                if (updates.lastName !== undefined) {
-                  cleanedUpdates.lastName = cleanName(updates.lastName);
-                }
-                
-                // CRITICAL: For guestCount updates, always use the new value and mark with manual_update source
-                // This ensures manual changes are preserved even when backend sends old data
-                const finalGuestCount = updates.guestCount !== undefined 
-                  ? updates.guestCount 
-                  : guest.guestCount;
-                
-                return { 
-                  ...guest, 
-                  ...cleanedUpdates,
-                  // CRITICAL: Always use the new guestCount if provided in updates
-                  guestCount: finalGuestCount,
-                  // Always update responseDate when critical fields change
-                  responseDate: hasCriticalField ? finalResponseDate : (updates.responseDate || guest.responseDate || now),
-                  // CRITICAL: For manual updates, always mark with manual_update source to preserve them
-                  source: updates.source || (updates.guestCount !== undefined ? 'manual_update' : guest.source) || 'manual_update'
-                };
+                return updatedGuestData; // Use the data we prepared before server call
               }
               return guest;
             });
             
             // If tableId changed, update tables array
-            let updatedTables = event.tables || [];
+            let updatedTables = eventInState.tables || [];
             if (updates.tableId !== undefined && newTableId !== oldTableId) {
-              updatedTables = event.tables?.map((table: any) => {
+              updatedTables = eventInState.tables?.map((table: any) => {
                 // Remove guest from old table
                 const tableGuestsWithoutGuest = table.guests.filter((id: any) => id !== guestId);
                 
@@ -1264,13 +1549,13 @@ export const useEventStore = create<EventStore>()(
             }
             
             const updatedEventObj = {
-              ...event,
+              ...eventInState,
               guests: updatedGuests,
               tables: updatedTables,
               updatedAt: new Date()
             };
             
-            // Find the updated event for API sync
+            // Find the updated event for return
             updatedEvent = updatedEventObj;
             
             const updatedCurrentEvent = state.currentEvent?.id === eventId 
@@ -1289,38 +1574,78 @@ export const useEventStore = create<EventStore>()(
             };
           });
           
-          // CRITICAL: Sync to API immediately for real-time sync between devices
-          // Use lightweight endpoint to avoid 413 errors with large events
-          if (updatedEvent) {
-            const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
-            const updatedGuest = updatedEvent.guests.find((g: any) => g.id === guestId);
-            
-            if (!updatedGuest) {
-              console.warn('⚠️ Guest not found in updated event, skipping API sync');
-              return;
+          // CRITICAL: Also update directly via /api/events/:eventId/guests for persistence
+          // This ensures the update is saved in the database
+          if (updatedEvent && (updates.guestCount !== undefined || updates.source === 'manual_update')) {
+            try {
+              console.log('🔄 Also updating event directly in server via /api/events/:eventId/guests for persistence...');
+              const guestForServer = {
+                id: updatedGuestData.id,
+                firstName: updatedGuestData.firstName,
+                lastName: updatedGuestData.lastName,
+                phoneNumber: updatedGuestData.phoneNumber,
+                rsvpStatus: updatedGuestData.rsvpStatus,
+                guestCount: updatedGuestData.guestCount,
+                notes: updatedGuestData.notes || '',
+                actualAttendance: updatedGuestData.actualAttendance,
+                responseDate: updatedGuestData.responseDate instanceof Date ? updatedGuestData.responseDate.toISOString() : updatedGuestData.responseDate,
+                source: updatedGuestData.source || 'manual_update',
+                channel: updatedGuestData.channel || 'whatsapp',
+                messageStatus: updatedGuestData.messageStatus,
+                ...(updatedGuestData.messageSentDate && { messageSentDate: updatedGuestData.messageSentDate instanceof Date ? updatedGuestData.messageSentDate.toISOString() : updatedGuestData.messageSentDate }),
+                ...(updatedGuestData.messageDeliveredDate && { messageDeliveredDate: updatedGuestData.messageDeliveredDate instanceof Date ? updatedGuestData.messageDeliveredDate.toISOString() : updatedGuestData.messageDeliveredDate }),
+                ...(updatedGuestData.messageFailedDate && { messageFailedDate: updatedGuestData.messageFailedDate instanceof Date ? updatedGuestData.messageFailedDate.toISOString() : updatedGuestData.messageFailedDate }),
+                ...(updatedGuestData.tableId && { tableId: updatedGuestData.tableId })
+              };
+              
+              const directResponse = await fetch(`${BACKEND_URL}/api/events/${eventId}/guests`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  guests: [guestForServer],
+                  append: true // Merge with existing guests (update by ID)
+                })
+              });
+              
+              if (directResponse.ok) {
+                const directResult = await directResponse.json();
+                console.log('✅ Event updated directly in server:', {
+                  success: true,
+                  message: directResult.message || 'Updated event with guests',
+                  guestsCount: directResult.guestsCount
+                });
+              } else {
+                const errorText = await directResponse.text();
+                console.warn('⚠️ Direct update to /api/events/:eventId/guests failed:', directResponse.status, errorText);
+              }
+            } catch (directError: any) {
+              console.warn('⚠️ Failed to update event directly in server:', directError);
             }
-            
-            // Retry logic for reliable sync
-            const syncToAPI = async (retries = 3): Promise<void> => {
-              try {
-                console.log('🌐 Syncing guest update to API (minimal payload)...');
-                
-                // Send only the guest update via lightweight endpoint to avoid 413 errors
-                const guestUpdatePayload = {
-                  phoneNumber: updatedGuest.phoneNumber,
-                  guestId: guestId,
-                  eventId: updatedEvent.id,
-                  status: updatedGuest.rsvpStatus,
-                  guestCount: updatedGuest.guestCount,
-                  notes: updatedGuest.notes,
-                  responseDate: updatedGuest.responseDate || new Date(),
-                  source: 'manual_update',
-                  // Include other fields that might have changed
-                  firstName: updatedGuest.firstName,
-                  lastName: updatedGuest.lastName,
-                  actualAttendance: updatedGuest.actualAttendance,
-                  tableId: updatedGuest.tableId
-                };
+          }
+          
+          // CRITICAL: Invalidate cache when guest is manually updated
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              const userId = parsed.state?.user?.id || '';
+              if (userId) {
+                const cacheKey = CACHE_KEYS.EVENTS(userId);
+                cacheService.invalidate(cacheKey);
+                console.log(`🗑️ Invalidated cache for user ${userId} (manual guest update)`);
+              }
+            } catch (e: any) {
+              // Ignore parsing errors
+            }
+          }
+          
+          console.log('✅ Guest update completed successfully (database-first)');
+        } catch (error: any) {
+          console.error('❌ Error in updateGuest:', error);
+          set({ error: 'שגיאה בעדכון מוזמן', isLoading: false });
+          throw error; // Re-throw to allow caller to handle
+        }
+      },
                 
                 // CRITICAL: Validate payload before sending
                 if (!guestUpdatePayload.phoneNumber || !guestUpdatePayload.guestId || !guestUpdatePayload.eventId) {
@@ -4609,9 +4934,27 @@ export const useEventStore = create<EventStore>()(
       // CRITICAL: Sync a specific event to API (for automatic sync when event is loaded)
       syncCurrentEventToAPI: async (eventId?: any) => {
         try {
-          const eventToSync = eventId 
+          let eventToSync = eventId 
             ? get().events.find((e: any) => e.id === eventId)
             : get().currentEvent;
+          
+          // CRITICAL: If event not found in store, search in localStorage
+          if (!eventToSync && eventId) {
+            console.log(`🔍 Event ${eventId} not found in store, searching in localStorage...`);
+            try {
+              const eventsStorage = localStorage.getItem('rsvp-events-storage');
+              if (eventsStorage) {
+                const parsed = JSON.parse(eventsStorage);
+                const storedEvents = parsed.state?.events || [];
+                eventToSync = storedEvents.find((e: any) => e.id === eventId);
+                if (eventToSync) {
+                  console.log(`✅ Found event ${eventId} in localStorage`);
+                }
+              }
+            } catch (storageError: any) {
+              console.warn('⚠️ Error searching localStorage for event:', storageError);
+            }
+          }
           
           if (!eventToSync) {
             console.warn('⚠️ No event to sync:', eventId || 'currentEvent');
