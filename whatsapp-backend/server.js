@@ -566,7 +566,9 @@ app.post('/api/events', async (req, res) => {
   try {
     const { id, userId, guests, ...eventData } = req.body;
     
-    console.log('📋 Received event sync request:', { eventId: id, userId, guestsCount: guests?.length || 0 });
+    // CRITICAL: UserID Consistency - Log userId to verify it matches across devices
+    console.log('📋 Received event sync request:', { eventId: id, userId, userIdType: typeof userId, userIdLength: userId?.length, guestsCount: guests?.length || 0 });
+    console.log('🔍 [UserID Check] POST /api/events - userId received:', JSON.stringify(userId));
     
     if (!id || !userId) {
       return res.status(400).json({ error: 'Event id and userId are required' });
@@ -583,10 +585,16 @@ app.post('/api/events', async (req, res) => {
       ...eventData
     });
     
+    // CRITICAL: Verify userId is correctly set in supabaseEvent
+    console.log('🔍 [UserID Check] POST /api/events - supabaseEvent.user_id:', JSON.stringify(supabaseEvent.user_id));
+    console.log('🔍 [UserID Check] POST /api/events - userId match:', supabaseEvent.user_id === userId);
+    
     // Upsert event
-    console.log(`📤 Upserting event ${id} to Supabase...`);
-    await supabaseDb.upsertEvent(supabaseEvent);
-    console.log(`✅ Successfully upserted event ${id}`);
+    console.log(`📤 Upserting event ${id} to Supabase with user_id: ${supabaseEvent.user_id}...`);
+    // CRITICAL: Ensure await is present before returning response
+    const upsertResult = await supabaseDb.upsertEvent(supabaseEvent);
+    console.log(`✅ Successfully upserted event ${id} with user_id: ${supabaseEvent.user_id}`);
+    console.log('🔍 [UserID Check] POST /api/events - upsertResult.user_id:', JSON.stringify(upsertResult?.user_id));
     
     // Upsert guests if provided
     if (guests && Array.isArray(guests) && guests.length > 0) {
@@ -596,14 +604,27 @@ app.post('/api/events', async (req, res) => {
       }));
       
       console.log(`📤 Upserting ${supabaseGuests.length} guests to Supabase for event ${id}...`);
-      await supabaseDb.upsertGuests(supabaseGuests);
+      // CRITICAL: Ensure await is present before returning response
+      const guestsResult = await supabaseDb.upsertGuests(supabaseGuests);
       console.log(`✅ Successfully upserted ${supabaseGuests.length} guests`);
+      console.log('🔍 [UserID Check] POST /api/events - Guests upserted, result count:', guestsResult?.length || 0);
     }
     
+    // CRITICAL: Verify the event was saved correctly by querying it back
+    try {
+      const verifyEvent = await supabaseDb.getEventById(id);
+      console.log('🔍 [UserID Check] POST /api/events - Verified saved event user_id:', JSON.stringify(verifyEvent?.user_id));
+      console.log('🔍 [UserID Check] POST /api/events - Original userId matches saved user_id:', verifyEvent?.user_id === userId);
+    } catch (verifyError) {
+      console.warn('⚠️ Could not verify saved event:', verifyError);
+    }
+    
+    // CRITICAL: Response is sent only after all database operations complete
     res.json({
       success: true,
       message: 'Event and guests synced successfully',
-      eventId: id
+      eventId: id,
+      userId: userId // Include userId in response for debugging
     });
   } catch (error) {
     console.error('❌ Error in POST /api/events:', error);
@@ -704,7 +725,11 @@ app.get('/api/events/:userId', async (req, res) => {
   
   try {
     const { userId } = req.params;
+    
+    // CRITICAL: UserID Consistency - Log userId to verify it matches
     console.log('📋 Fetching events for user:', userId);
+    console.log('🔍 [UserID Check] GET /api/events/:userId - userId received:', JSON.stringify(userId));
+    console.log('🔍 [UserID Check] GET /api/events/:userId - userId type:', typeof userId, 'length:', userId?.length);
     
     // CRITICAL: Allow admin-fixed-id as valid userId
     if (userId === 'admin-fixed-id') {
@@ -718,6 +743,8 @@ app.get('/api/events/:userId', async (req, res) => {
       return res.status(200).json([]);
     }
     
+    // CRITICAL: Ensure await is present and log the query
+    console.log('🔍 [UserID Check] GET /api/events/:userId - Querying Supabase with user_id:', JSON.stringify(userId));
     const { data, error } = await supabase
       .from('events')
       .select('*')
@@ -726,11 +753,39 @@ app.get('/api/events/:userId', async (req, res) => {
     
     if (error) {
       console.error('❌ Supabase Error:', error);
+      console.error('🔍 [UserID Check] GET /api/events/:userId - Query failed with userId:', JSON.stringify(userId));
       return res.status(200).json([]);
+    }
+    
+    // CRITICAL: Check if data was found and log userIds from database
+    if (data && data.length > 0) {
+      const dbUserIds = [...new Set(data.map(e => e.user_id).filter(Boolean))];
+      console.log('🔍 [UserID Check] GET /api/events/:userId - Found events with user_ids:', dbUserIds);
+      console.log('🔍 [UserID Check] GET /api/events/:userId - Query userId matches DB user_ids:', dbUserIds.includes(userId));
     }
     
     if (!data || data.length === 0) {
       console.log('📋 No events found for userId:', userId);
+      console.log('🔍 [UserID Check] GET /api/events/:userId - No events found. Checking if userId exists in DB...');
+      
+      // CRITICAL: Debug - Check what userIds actually exist in the database
+      try {
+        const { data: allEvents, error: allEventsError } = await supabase
+          .from('events')
+          .select('user_id')
+          .limit(10);
+        
+        if (!allEventsError && allEvents && allEvents.length > 0) {
+          const existingUserIds = [...new Set(allEvents.map(e => e.user_id).filter(Boolean))];
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Sample user_ids in DB:', existingUserIds);
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId exists in DB:', existingUserIds.includes(userId));
+        } else {
+          console.log('🔍 [UserID Check] GET /api/events/:userId - No events in database at all');
+        }
+      } catch (debugError) {
+        console.error('🔍 [UserID Check] Error checking DB:', debugError);
+      }
+      
       return res.status(200).json([]);
     }
     
