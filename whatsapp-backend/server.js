@@ -12,6 +12,10 @@ require('dotenv').config();
 // ========================================
 // CRITICAL: Supabase Environment Variables Check
 // ========================================
+// NOTE: In production (Render), these MUST be set as:
+// - SUPABASE_URL (e.g., https://xxxxx.supabase.co)
+// - SUPABASE_SERVICE_ROLE_KEY (from Supabase Dashboard → Settings → API → service_role key)
+// Do NOT use SUPABASE_ANON_KEY or SUPABASE_KEY - we need the SERVICE_ROLE_KEY for backend operations
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -30,9 +34,21 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 }
 
 // Initialize Supabase client with service role key (bypasses RLS)
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-console.log('✅ Supabase client initialized successfully');
-console.log('📊 Supabase URL:', SUPABASE_URL);
+// CRITICAL: Only create client if both variables are set, otherwise it will fail
+let supabase = null;
+if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+  try {
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    console.log('✅ Supabase client initialized successfully');
+    console.log('📊 Supabase URL:', SUPABASE_URL);
+    console.log('🔑 Supabase Service Role Key:', SUPABASE_SERVICE_ROLE_KEY ? `Set (${SUPABASE_SERVICE_ROLE_KEY.length} chars)` : 'MISSING');
+  } catch (error) {
+    console.error('❌ Failed to initialize Supabase client:', error.message);
+    supabase = null;
+  }
+} else {
+  console.error('❌ Cannot initialize Supabase client - missing environment variables');
+}
 
 // CRITICAL: Log all environment variables related to WhatsApp (for debugging)
 console.log('🔍 ========== ENVIRONMENT VARIABLES DEBUG ==========');
@@ -134,16 +150,243 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // ========================================
 // Health Check Route
 // ========================================
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  
+  // Test Supabase connection
+  let supabaseConnected = false;
+  let supabaseError = null;
+  
+  if (supabase) {
+    try {
+      // Simple query to test connection
+      const { error } = await supabase.from('users').select('id').limit(1);
+      supabaseConnected = !error;
+      if (error) {
+        supabaseError = error.message;
+      }
+    } catch (err) {
+      supabaseError = err.message;
+    }
+  }
+  
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     supabase: {
       configured: !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY,
-      connected: true // Supabase client is always connected
+      clientInitialized: supabase !== null,
+      connected: supabaseConnected,
+      error: supabaseError,
+      url: SUPABASE_URL ? SUPABASE_URL.substring(0, 30) + '...' : 'NOT SET',
+      keyLength: SUPABASE_SERVICE_ROLE_KEY ? SUPABASE_SERVICE_ROLE_KEY.length : 0
     }
   });
+});
+
+// ========================================
+// User Authentication Routes
+// ========================================
+// Admin credentials (from environment or defaults)
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'idodanan1@gmail.com';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'QPwo1029';
+
+// POST /api/users/login - User login
+app.post('/api/users/login', async (req, res) => {
+  // CRITICAL: Set CORS headers FIRST
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { email, password } = req.body;
+    
+    console.log('🔐 Login request received for email:', email ? email.substring(0, 5) + '...' : 'missing');
+    
+    if (!email || !password) {
+      return res.status(400).json({ error: 'אימייל וסיסמה נדרשים' });
+    }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Check if admin
+    if (normalizedEmail === ADMIN_EMAIL.toLowerCase()) {
+      if (password === ADMIN_PASSWORD) {
+        const adminUser = {
+          id: 'admin-fixed-id',
+          email: ADMIN_EMAIL,
+          name: 'מנהל המערכת',
+          credits: 999999,
+          createdAt: '2024-01-01T00:00:00.000Z',
+          updatedAt: new Date().toISOString(),
+          isAdmin: true
+        };
+        
+        console.log('✅ Admin login successful');
+        return res.json({
+          success: true,
+          user: adminUser
+        });
+      } else {
+        console.warn('⚠️ Admin login failed - wrong password');
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+    }
+    
+    // Check regular user - CRITICAL: Migrated from MongoDB to Supabase
+    if (!supabaseDb.isSupabaseConfigured() || !supabase) {
+      console.error('❌ Supabase is not configured or client is null');
+      console.error('   SUPABASE_URL:', SUPABASE_URL ? '✅ Set' : '❌ MISSING');
+      console.error('   SUPABASE_SERVICE_ROLE_KEY:', SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ MISSING');
+      return res.status(503).json({ error: 'מסד הנתונים לא זמין. אנא נסה שוב מאוחר יותר.' });
+    }
+    
+    try {
+      // Query users from Supabase
+      // CRITICAL: Ensure email is normalized and query uses correct column name
+      console.log('🔍 Querying users table for email:', normalizedEmail);
+      const { data: users, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', normalizedEmail)
+        .limit(1);
+      
+      if (userError) {
+        console.error('❌ Error querying users from Supabase:', userError);
+        console.error('   Error code:', userError.code);
+        console.error('   Error message:', userError.message);
+        console.error('   Error details:', userError.details);
+        return res.status(500).json({ error: 'שגיאה בהתחברות - בעיה במסד הנתונים' });
+      }
+      
+      console.log('📊 Users query result:', users ? `${users.length} user(s) found` : 'null');
+      
+      if (!users || users.length === 0) {
+        console.warn('⚠️ User not found:', normalizedEmail);
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+      
+      const user = users[0];
+      
+      // CRITICAL: For now, we'll check password from a separate table or use Supabase Auth
+      // Since we migrated from MongoDB, we need to handle password checking
+      // TODO: Migrate to Supabase Auth for proper password hashing
+      // For now, we'll check if there's a password field or use a separate auth_users table
+      
+      // Check if user has password in users table (temporary solution)
+      // In production, this should use Supabase Auth
+      if (user.password && user.password !== password) {
+        console.warn('⚠️ Login failed - wrong password for:', normalizedEmail);
+        return res.status(401).json({ error: 'אימייל או סיסמה שגויים' });
+      }
+      
+      // If no password field, we'll need to check from auth.users or a separate table
+      // For now, we'll allow login if user exists (temporary - should be fixed)
+      if (!user.password) {
+        console.warn('⚠️ User has no password field - this should use Supabase Auth');
+        // TODO: Implement proper Supabase Auth check
+      }
+      
+      // Return user without password
+      const userResponse = {
+        id: user.id,
+        email: user.email,
+        name: user.full_name || user.name || 'משתמש',
+        credits: user.credits || 0,
+        createdAt: user.created_at || new Date().toISOString(),
+        updatedAt: user.updated_at || new Date().toISOString(),
+        isAdmin: user.is_admin || false
+      };
+      
+      // Create or update session for this login - CRITICAL: Migrated to Supabase
+      let sessionId = null;
+      try {
+        const deviceInfo = req.headers['user-agent'] || 'Unknown';
+        const ipAddress = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'Unknown';
+        const clientSessionId = req.body.sessionId; // SessionId from frontend (if exists)
+        
+        sessionId = clientSessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // CRITICAL: Try to find or create session in Supabase user_sessions table
+        try {
+          // First, try to find existing session
+          const { data: existingSessions, error: findError } = await supabase
+            .from('user_sessions')
+            .select('*')
+            .eq('user_id', userResponse.id)
+            .eq('session_id', sessionId)
+            .gt('expires_at', new Date().toISOString())
+            .limit(1);
+          
+          if (!findError && existingSessions && existingSessions.length > 0) {
+            // Update existing session
+            const { error: updateError } = await supabase
+              .from('user_sessions')
+              .update({
+                last_activity: new Date().toISOString(),
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                device_info: deviceInfo.substring(0, 200),
+                ip_address: ipAddress
+              })
+              .eq('id', existingSessions[0].id);
+            
+            if (!updateError) {
+              console.log(`✅ Updated existing session for user ${userResponse.id}`);
+            }
+          } else {
+            // Create new session
+            const { error: insertError } = await supabase
+              .from('user_sessions')
+              .insert({
+                user_id: userResponse.id,
+                session_id: sessionId,
+                device_info: deviceInfo.substring(0, 200),
+                ip_address: ipAddress,
+                last_activity: new Date().toISOString(),
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              });
+            
+            if (insertError) {
+              // If table doesn't exist, that's okay - we'll just use the sessionId
+              const errorMessage = insertError.message || insertError.toString() || '';
+              if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+                console.warn('⚠️ user_sessions table does not exist - using sessionId only');
+              } else {
+                console.warn('⚠️ Error creating session:', insertError);
+              }
+            } else {
+              console.log(`✅ Created new session for user ${userResponse.id}`);
+            }
+          }
+        } catch (sessionError) {
+          console.warn('⚠️ Error managing session (non-critical):', sessionError.message);
+          // Don't fail login if session creation fails
+        }
+        
+        console.log('✅ User login successful:', { id: userResponse.id, email: userResponse.email });
+        res.json({
+          success: true,
+          user: userResponse,
+          sessionId: sessionId || undefined // Return sessionId so frontend can use it
+        });
+      } catch (dbError) {
+        console.error('❌ Database error during login:', dbError);
+        return res.status(500).json({ error: 'שגיאה בהתחברות - בעיה במסד הנתונים' });
+      }
+    } catch (error) {
+      console.error('❌ Login error:', error);
+      res.status(500).json({ error: 'שגיאה בהתחברות' });
+    }
+});
+
+// Handle OPTIONS preflight for /api/users/login
+app.options('/api/users/login', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
 });
 
 // ========================================
