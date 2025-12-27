@@ -393,6 +393,45 @@ export const useEventStore = create<EventStore>()(
             return;
           }
 
+          // CRITICAL: Before fetching from API, update userId in localStorage events
+          // This ensures all events have the correct userId before sync
+          try {
+            const eventsStorage = localStorage.getItem('rsvp-events-storage');
+            if (eventsStorage) {
+              const parsed = JSON.parse(eventsStorage);
+              const storedEvents = parsed.state?.events || [];
+              
+              if (storedEvents.length > 0) {
+                let updatedCount = 0;
+                const updatedEvents = storedEvents.map((e: Event) => {
+                  // Update events with wrong userId (email, anonymous, or missing) to current userId
+                  if (!e.userId || e.userId === 'anonymous' || e.userId.includes('@') || (e.userId !== userId && e.userId !== 'admin-fixed-id')) {
+                    console.log(`🔄 Updating event ${e.id} userId from "${e.userId || 'missing'}" to "${userId}"`);
+                    updatedCount++;
+                    return { ...e, userId: userId };
+                  }
+                  return e;
+                });
+                
+                if (updatedCount > 0) {
+                  console.log(`✅ Updated ${updatedCount} events with correct userId before API fetch`);
+                  // Save updated events back to localStorage
+                  parsed.state.events = updatedEvents;
+                  localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
+                  
+                  // Also update the store state
+                  set((state: any) => ({
+                    events: updatedEvents,
+                    ...state
+                  }));
+                }
+              }
+            }
+          } catch (updateError: any) {
+            console.warn('⚠️ Error updating userId in localStorage events:', updateError);
+            // Continue with API fetch even if update fails
+          }
+
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           console.log(`🔄 Fetching events from Supabase for userId: ${userId}`);

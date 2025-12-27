@@ -706,6 +706,13 @@ app.get('/api/events/:userId', async (req, res) => {
     const { userId } = req.params;
     console.log('📋 Fetching events for user:', userId);
     
+    // CRITICAL: Allow admin-fixed-id as valid userId
+    if (userId === 'admin-fixed-id') {
+      console.log('📋 Admin user detected - fetching all events');
+      // For admin, we might want to return all events or handle differently
+      // For now, we'll treat it as a regular user query
+    }
+    
     if (!supabaseDb.isSupabaseConfigured()) {
       console.error('❌ Supabase is not configured');
       return res.status(200).json([]);

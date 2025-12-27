@@ -767,20 +767,24 @@ const EventManagement: React.FC = () => {
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - ALWAYS use getState() inside useMemo to avoid React #310 errors
   // Use useMemo with minimal dependencies to avoid React #310 errors
-  const guestsToDisplay = useMemo(() => {
-    // CRITICAL: Use getState() inside useMemo to avoid React #310 errors
+  // CRITICAL: Use useCallback to memoize the calculation function and prevent infinite loops
+  const calculateGuestsToDisplay = useCallback(() => {
+    // CRITICAL: Use getState() inside useCallback to avoid React #310 errors
     // This ensures we don't access unstable references (events, currentEvent) directly
     // React will not complain because getState() is a stable function reference
     const state = useEventStore.getState();
     const currentEvents = state.events;
     const currentEventFromState = state.currentEvent;
     
-    console.log('🔄 guestsToDisplay recalculating:', {
-      eventId: id,
-      eventsLength: currentEvents.length,
-      eventsVersion,
-      eventFound: !!currentEvents.find((e: Event) => e.id === id)
-    });
+    // Only log if this is a meaningful recalculation (not every render)
+    if (Math.random() < 0.1) { // Log only 10% of recalculations to reduce noise
+      console.log('🔄 guestsToDisplay recalculating:', {
+        eventId: id,
+        eventsLength: currentEvents.length,
+        eventsVersion,
+        eventFound: !!currentEvents.find((e: Event) => e.id === id)
+      });
+    }
     
     // CRITICAL: Always get directly from events array (most up-to-date)
     // Use getState() to get the latest data - don't rely on refs or component state
@@ -899,12 +903,17 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find((e: Event) => e.id === id));
     }
     return [];
+  }, [id, eventsVersion, eventsHash]);
+  
+  // CRITICAL: Use useMemo to memoize the result, calling the useCallback function
+  const guestsToDisplay = useMemo(() => {
+    return calculateGuestsToDisplay();
     // CRITICAL: Use only primitive stable values as dependencies to avoid React #310 errors
     // DO NOT include arrays or objects directly - they cause infinite loops
     // Use eventsVersion and eventsHash (string is primitive and stable)
     // CRITICAL: eventsHash is a string from zustand selector, which is stable as a dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, eventsHash]);
+  }, [id, eventsVersion, eventsHash, calculateGuestsToDisplay]);
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
