@@ -1207,8 +1207,8 @@ const GuestResponse = () => {
         
         // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
-        // This ensures the table in EventManagement updates immediately
-      console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update...`);
+        // This ensures the table in EventManagement updates after 10 seconds
+      console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update (10 seconds delay)...`);
         setTimeout(() => {
         storeState.fetchEvents(true, true).then(() => {
           console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
@@ -1229,7 +1229,7 @@ const GuestResponse = () => {
         }).catch((err: any) => {
           console.error('❌ Failed to refresh events after guest response update:', err);
         });
-      }, 500); // Increased delay to ensure server update completes first
+      }, 10000); // 10 seconds delay after guest count update
       
       // Reset confirm button state
       setShowConfirmButton(false);
