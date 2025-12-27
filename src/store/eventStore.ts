@@ -405,6 +405,10 @@ export const useEventStore = create<EventStore>()(
             return;
           }
 
+          // CRITICAL: UserID Consistency - Log userId to verify it matches across devices
+          console.log(`🔍 [UserID Check] Fetching data from DB for userId: "${userId}"`);
+          console.log(`🔍 [UserID Check] userId type: ${typeof userId}, length: ${userId.length}`);
+
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
           
           // CRITICAL: Cloud First Strategy - Always fetch from server first
@@ -441,6 +445,14 @@ export const useEventStore = create<EventStore>()(
             // בדיקה אם חזרו נתונים מהשרת
             if (apiEvents && apiEvents.length > 0) {
               console.log(`✅ Data received from DB: ${apiEvents.length} events found.`);
+              
+              // CRITICAL: UserID Consistency - Log userId from events to verify match
+              const eventUserIds = [...new Set(apiEvents.map((e: any) => e.userId || e.user_id).filter(Boolean))];
+              console.log(`🔍 [UserID Check] Event userIds from server:`, eventUserIds);
+              console.log(`🔍 [UserID Check] Current userId: "${userId}"`);
+              if (eventUserIds.length > 0 && !eventUserIds.includes(userId)) {
+                console.warn(`⚠️ [UserID Mismatch] Server events have userIds: ${eventUserIds.join(', ')}, but current userId is: ${userId}`);
+              }
               
               // Map Supabase fields to frontend format
               const mappedEvents = apiEvents.map((event: any) => {
@@ -491,24 +503,19 @@ export const useEventStore = create<EventStore>()(
                 error: null
               }));
               
-              // CRITICAL: Overwrite localStorage completely with server data (no merging)
+              // CRITICAL: Force Cloud Priority - Clear localStorage BEFORE saving new data
+              // This forces the tablet to 'forget' its old local data
               try {
-                const eventsStorage = localStorage.getItem('rsvp-events-storage');
-                let parsed: any = { state: { events: [] } };
+                // CRITICAL: Clear the events storage key completely before saving new data
+                console.log('🧹 [Force Cloud Priority] Clearing localStorage events before saving server data...');
+                const eventsStorageKey = 'rsvp-events-storage';
+                localStorage.removeItem(eventsStorageKey);
                 
-                if (eventsStorage) {
-                  try {
-                    parsed = JSON.parse(eventsStorage);
-                  } catch (e) {
-                    console.warn('⚠️ Error parsing events storage, creating new structure');
-                  }
-                }
+                // Now create fresh storage with server data
+                const parsed: any = { state: { events: mappedEvents } };
+                localStorage.setItem(eventsStorageKey, JSON.stringify(parsed));
                 
-                // CRITICAL: Replace ALL events with server data (overwrite, don't merge)
-                parsed.state.events = mappedEvents;
-                localStorage.setItem('rsvp-events-storage', JSON.stringify(parsed));
-                
-                console.log(`✅ Overwrote localStorage with ${mappedEvents.length} events from server`);
+                console.log(`✅ [Force Cloud Priority] Cleared and overwrote localStorage with ${mappedEvents.length} events from server`);
               } catch (storageError: any) {
                 console.error('❌ Error updating localStorage:', storageError);
               }
@@ -553,25 +560,16 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // תיקון הקריסה: במקום לקרוא ל-fetchEvents בצורה ישירה שגורמת לשגיאה,
-                // אנחנו קוראים לה דרך ה-Scope הנכון (Zustand Store)
-                // CRITICAL: Use get() to access fetchEvents from the store scope
-                try {
-                  const fetchEventsFn = get().fetchEvents;
-                  if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                    console.log('🔄 Refetching events from server after sync...');
-                    // Clear the fetching flag first to allow recursive call
-                    (get() as any)._isFetchingEvents = false;
-                    // Call fetchEvents again to get the synced data
-                    await fetchEventsFn(true, true); // Force refresh, silent mode
-                    console.log('✅ Successfully refetched events after sync');
-                    return;
-                  } else {
-                    console.error('❌ fetchEvents is not available in store scope');
-                  }
-                } catch (refreshError: any) {
-                  console.error('❌ Error refetching events after sync:', refreshError);
-                }
+                // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
+                // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
+                console.log('🔄 [Reliable Refresh] Reloading page to fetch fresh data from server...');
+                // Clear the fetching flag before reload
+                (get() as any)._isFetchingEvents = false;
+                // Small delay to ensure sync completes, then reload
+                setTimeout(() => {
+                  window.location.reload();
+                }, 1000);
+                return;
               } else {
                 // No local data and no server data - empty state
                 console.log(`ℹ️ No events found for user ${userId} - empty state`);
@@ -5400,24 +5398,14 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
-          // CRITICAL: Refresh events from Supabase API after sync to get fresh data
-          // Use useEventStore.getState() to access the store's fetchEvents method
-          // This ensures fetchEvents is accessible in the correct scope
-          try {
-            const storeState = useEventStore.getState();
-            const fetchEventsFn = storeState.fetchEvents;
-            if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-              console.log(`🔄 Refreshing events from Supabase after sync...`);
-              await fetchEventsFn(true, true); // Force refresh, silent mode
-              console.log(`✅ Events refreshed from Supabase successfully`);
-            } else {
-              console.error(`❌ fetchEvents is not a function - cannot refresh after sync`);
-              console.error(`❌ Please check the store implementation`);
-            }
-          } catch (refreshError: any) {
-            console.error(`❌ Error refreshing events after sync:`, refreshError);
-            // Don't throw - sync was successful, refresh failure is non-critical
-          }
+          // CRITICAL: Reliable Refresh - Use window.location.reload() instead of fetchEvents
+          // This is the most reliable way to ensure the tablet clears its memory and pulls fresh from DB
+          // Fix ReferenceError: This avoids the scoping issue completely
+          console.log(`🔄 [Reliable Refresh] Reloading page to fetch fresh data from server after sync...`);
+          // Small delay to ensure sync completes, then reload
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
 
           set({ isLoading: false });
           
