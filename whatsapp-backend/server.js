@@ -309,6 +309,78 @@ app.post('/api/users/:userId/sessions/activity', async (req, res) => {
 // ========================================
 // Events Routes
 // ========================================
+// CRITICAL: This route MUST come BEFORE /api/events/:userId
+// Otherwise Express will match /api/events/:userId first and treat "eventId/guests" as the userId
+// POST /api/events/:eventId/guests - Sync guests for an event
+app.post('/api/events/:eventId/guests', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { eventId } = req.params;
+    const { guests, append } = req.body;
+    
+    console.log('📋 Received guest sync request for event:', eventId);
+    console.log('📋 Guests count:', guests?.length || 0);
+    console.log('📋 Append mode:', append || false);
+    
+    if (!eventId) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    
+    if (!guests || !Array.isArray(guests)) {
+      return res.status(400).json({ error: 'guests array is required' });
+    }
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ error: 'Supabase is not configured' });
+    }
+    
+    // Convert frontend guests to Supabase format and upsert
+    const supabaseGuests = guests.map((guest) => supabaseDb.convertFrontendGuestToSupabase({
+      ...guest,
+      eventId: eventId // Ensure eventId is set
+    }));
+    
+    console.log(`📤 Upserting ${supabaseGuests.length} guests to Supabase for event ${eventId}...`);
+    
+    // Use upsertGuests with onConflict: 'id' to update existing guests or create new ones
+    // Note: upsertGuests returns the data array directly, not an object with error property
+    try {
+      const result = await supabaseDb.upsertGuests(supabaseGuests);
+      console.log(`✅ Successfully synced ${supabaseGuests.length} guests for event ${eventId}`);
+      console.log(`✅ Upserted ${result?.length || supabaseGuests.length} guests`);
+    } catch (upsertError) {
+      console.error('❌ Error upserting guests:', upsertError);
+      throw upsertError; // Re-throw to be caught by outer catch block
+    }
+    
+    res.json({
+      success: true,
+      message: `Synced ${supabaseGuests.length} guests successfully`,
+      guestsCount: supabaseGuests.length,
+      eventId: eventId
+    });
+  } catch (error) {
+    console.error('❌ Error in POST /api/events/:eventId/guests:', error);
+    res.status(500).json({ 
+      error: 'שגיאה בסנכרון אורחים',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/events/:eventId/guests
+app.options('/api/events/:eventId/guests', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
 // GET /api/events/:userId - Get events for user
 app.get('/api/events/:userId', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
