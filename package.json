@@ -1,6 +1,6 @@
 {
   "name": "rsvp-saas",
-  "version": "1.0.148",
+  "version": "1.0.149",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -11,7 +11,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:push": "prisma db push"
+    "prisma:push": "prisma db push",
+    "clean": "powershell -ExecutionPolicy Bypass -File ./clean-build.ps1",
+    "clean:build": "powershell -ExecutionPolicy Bypass -File ./clean-build.ps1 && npm run build"
   },
   "dependencies": {
     "@prisma/client": "^5.19.0",
