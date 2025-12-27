@@ -226,7 +226,7 @@ app.get('/api/users/:userId/sessions/count', async (req, res) => {
       res.json({
         success: true,
         count: count || 0,
-        sessions: (sessions || []).map((s: any) => ({
+        sessions: (sessions || []).map((s) => ({
           sessionId: s.session_id,
           deviceInfo: s.device_info,
           ipAddress: s.ip_address,
@@ -234,7 +234,7 @@ app.get('/api/users/:userId/sessions/count', async (req, res) => {
           createdAt: s.created_at
         }))
       });
-    } catch (queryError: any) {
+    } catch (queryError) {
       const errorMessage = queryError.message || queryError.toString() || '';
       if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
         console.warn('⚠️ user_sessions table does not exist - returning default count');
@@ -246,7 +246,7 @@ app.get('/api/users/:userId/sessions/count', async (req, res) => {
       }
       throw queryError;
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error getting sessions count:', error);
     // CRITICAL: Return count: 0 instead of 500 error to prevent frontend crashes
     res.json({
@@ -299,7 +299,7 @@ app.post('/api/users/:userId/sessions/activity', async (req, res) => {
     }
     
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error updating session activity:', error);
     // CRITICAL: Return success: true instead of 500 error
     res.json({ success: true, error: 'שגיאה בעדכון פעילות session' });
@@ -346,10 +346,10 @@ app.get('/api/events/:userId', async (req, res) => {
     for (const supabaseEvent of data) {
       try {
         const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
-        const frontendGuests = supabaseGuests.map((g: any) => supabaseDb.convertSupabaseGuestToFrontend(g));
+        const frontendGuests = supabaseGuests.map((g) => supabaseDb.convertSupabaseGuestToFrontend(g));
         const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
         userEvents.push(frontendEvent);
-      } catch (guestError: any) {
+      } catch (guestError) {
         console.error(`❌ Error fetching guests for event ${supabaseEvent.id}:`, guestError);
         const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, []);
         userEvents.push(frontendEvent);
@@ -358,7 +358,7 @@ app.get('/api/events/:userId', async (req, res) => {
     
     console.log(`✅ Successfully fetched ${userEvents.length} events for user ${userId}`);
     return res.status(200).json(userEvents);
-  } catch (error: any) {
+  } catch (error) {
     console.error('❌ Error fetching events:', error);
     return res.status(200).json([]);
   }
