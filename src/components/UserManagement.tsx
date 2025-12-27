@@ -168,7 +168,14 @@ const UserManagement: React.FC = () => {
       }
       
       // Refresh events to show updated campaigns
-      await fetchEvents();
+      // CRITICAL: Get fetchEvents from store to ensure it's accessible
+      const storeState = useEventStore.getState();
+      const fetchEventsFn = storeState.fetchEvents;
+      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+        await fetchEventsFn();
+      } else {
+        console.error('❌ fetchEvents is not available in store state');
+      }
       toast.success('✅ קמפיינים נוצרו מחדש בהצלחה!');
       setShowRecreateCampaignsModal(false);
       setSelectedUserForCampaigns(null);

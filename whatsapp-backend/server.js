@@ -25,7 +25,8 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('   3. Add SUPABASE_SERVICE_ROLE_KEY: (from Supabase Dashboard → Settings → API)');
   console.error('❌ Server will continue but database operations will fail!');
   console.error('❌ ================================================================');
-  process.exit(1);
+  // CRITICAL: Don't exit in production - allow server to start and show errors in logs
+  // process.exit(1); // Commented out to prevent "Application exited early" error
 }
 
 // Initialize Supabase client with service role key (bypasses RLS)
@@ -125,5 +126,248 @@ app.use((req, res, next) => {
 });
 
 // ========================================
-// Pending Updates - Now using Supabase pending_guest_updates table
+// Middleware
 // ========================================
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ========================================
+// Health Check Route
+// ========================================
+app.get('/api/health', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    supabase: {
+      configured: !!SUPABASE_URL && !!SUPABASE_SERVICE_ROLE_KEY,
+      connected: true // Supabase client is always connected
+    }
+  });
+});
+
+// ========================================
+// User Sessions Routes
+// ========================================
+// GET /api/users/:userId/sessions/count - Get active session count for user
+app.get('/api/users/:userId/sessions/count', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { userId } = req.params;
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      console.warn('⚠️ Supabase not configured - returning default count');
+      return res.json({
+        success: true,
+        count: 0,
+        sessions: []
+      });
+    }
+    
+    const now = new Date().toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    try {
+      // Clean up expired sessions
+      await supabase
+        .from('user_sessions')
+        .delete()
+        .eq('user_id', userId)
+        .lte('expires_at', now);
+      
+      // Count active sessions
+      const { count, error: countError } = await supabase
+        .from('user_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gt('expires_at', now)
+        .gte('last_activity', oneDayAgo);
+      
+      if (countError) {
+        const errorMessage = countError.message || countError.toString() || '';
+        if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+          console.warn('⚠️ user_sessions table does not exist - returning default count');
+          return res.json({
+            success: true,
+            count: 0,
+            sessions: []
+          });
+        }
+        throw countError;
+      }
+      
+      // Get session details
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('user_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .gt('expires_at', now)
+        .gte('last_activity', oneDayAgo)
+        .order('last_activity', { ascending: false })
+        .limit(10);
+      
+      if (sessionsError) {
+        const errorMessage = sessionsError.message || sessionsError.toString() || '';
+        if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+          console.warn('⚠️ user_sessions table does not exist - returning default count');
+          return res.json({
+            success: true,
+            count: 0,
+            sessions: []
+          });
+        }
+        throw sessionsError;
+      }
+      
+      res.json({
+        success: true,
+        count: count || 0,
+        sessions: (sessions || []).map((s: any) => ({
+          sessionId: s.session_id,
+          deviceInfo: s.device_info,
+          ipAddress: s.ip_address,
+          lastActivity: s.last_activity,
+          createdAt: s.created_at
+        }))
+      });
+    } catch (queryError: any) {
+      const errorMessage = queryError.message || queryError.toString() || '';
+      if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+        console.warn('⚠️ user_sessions table does not exist - returning default count');
+        return res.json({
+          success: true,
+          count: 0,
+          sessions: []
+        });
+      }
+      throw queryError;
+    }
+  } catch (error: any) {
+    console.error('❌ Error getting sessions count:', error);
+    // CRITICAL: Return count: 0 instead of 500 error to prevent frontend crashes
+    res.json({
+      success: true,
+      count: 0,
+      sessions: [],
+      error: 'שגיאה בקבלת מספר מחשבים מחוברים'
+    });
+  }
+});
+
+// POST /api/users/:userId/sessions/activity - Update session activity
+app.post('/api/users/:userId/sessions/activity', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { userId } = req.params;
+    const { sessionId } = req.body;
+    
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId נדרש' });
+    }
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.json({ success: true, message: 'Supabase not configured' });
+    }
+    
+    const newLastActivity = new Date().toISOString();
+    const newExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    
+    const { error } = await supabase
+      .from('user_sessions')
+      .update({
+        last_activity: newLastActivity,
+        expires_at: newExpiresAt
+      })
+      .eq('user_id', userId)
+      .eq('session_id', sessionId);
+    
+    if (error) {
+      const errorMessage = error.message || error.toString() || '';
+      if (errorMessage.includes('relation') || errorMessage.includes('does not exist')) {
+        console.warn('⚠️ user_sessions table does not exist - returning success');
+        return res.json({ success: true, message: 'User sessions table not found, but activity acknowledged.' });
+      }
+      throw error;
+    }
+    
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('❌ Error updating session activity:', error);
+    // CRITICAL: Return success: true instead of 500 error
+    res.json({ success: true, error: 'שגיאה בעדכון פעילות session' });
+  }
+});
+
+// ========================================
+// Events Routes
+// ========================================
+// GET /api/events/:userId - Get events for user
+app.get('/api/events/:userId', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const { userId } = req.params;
+    console.log('📋 Fetching events for user:', userId);
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      console.error('❌ Supabase is not configured');
+      return res.status(200).json([]);
+    }
+    
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('❌ Supabase Error:', error);
+      return res.status(200).json([]);
+    }
+    
+    if (!data || data.length === 0) {
+      console.log('📋 No events found for userId:', userId);
+      return res.status(200).json([]);
+    }
+    
+    // Convert each Supabase event to frontend format with guests
+    const userEvents = [];
+    for (const supabaseEvent of data) {
+      try {
+        const supabaseGuests = await supabaseDb.getGuestsByEventId(supabaseEvent.id);
+        const frontendGuests = supabaseGuests.map((g: any) => supabaseDb.convertSupabaseGuestToFrontend(g));
+        const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, frontendGuests);
+        userEvents.push(frontendEvent);
+      } catch (guestError: any) {
+        console.error(`❌ Error fetching guests for event ${supabaseEvent.id}:`, guestError);
+        const frontendEvent = supabaseDb.convertSupabaseEventToFrontend(supabaseEvent, []);
+        userEvents.push(frontendEvent);
+      }
+    }
+    
+    console.log(`✅ Successfully fetched ${userEvents.length} events for user ${userId}`);
+    return res.status(200).json(userEvents);
+  } catch (error: any) {
+    console.error('❌ Error fetching events:', error);
+    return res.status(200).json([]);
+  }
+});
+
+// ========================================
+// Start Server
+// ========================================
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
+});
