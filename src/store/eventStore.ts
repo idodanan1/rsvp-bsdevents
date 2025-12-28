@@ -572,33 +572,25 @@ export const useEventStore = create<EventStore>()(
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
                 // CRITICAL: After sync, refresh events from API
-                // CRITICAL: Save references BEFORE setTimeout to ensure they're available in closure
+                // CRITICAL: Save userId before setTimeout to ensure it's available in closure
                 const savedUserId = userId;
-                const fetchEventsRef = get().fetchEvents;
                 console.log('🔄 Refreshing events from API after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then refresh data
                 setTimeout(async () => {
-                  console.log('🔄 Triggering safe refresh...');
-                  // CRITICAL FIX: Use the captured reference instead of useEventStore.getState()
-                  // This works even in minified/built code
-                  if (fetchEventsRef && typeof fetchEventsRef === 'function' && savedUserId) {
-                    await fetchEventsRef(savedUserId, false).catch((err: any) => {
-                      console.error('❌ Error refreshing events after sync:', err);
-                      window.location.reload(); // Fallback on error
-                    });
-                  } else {
-                    // Fallback: Try to get it from get() if reference is lost
-                    const state = get();
-                    if (state && state.fetchEvents && savedUserId) {
-                      await state.fetchEvents(savedUserId, false).catch(() => {
-                        window.location.reload();
-                      });
+                  console.log("🔄 Attempting safe refresh...");
+                  try {
+                    // Access the function directly from the zustand store state
+                    const state = useEventStore.getState();
+                    if (state && typeof state.fetchEvents === 'function' && savedUserId) {
+                      await state.fetchEvents(savedUserId, false);
                     } else {
-                      console.warn('⚠️ fetchEvents not available, forcing reload');
-                      window.location.reload();
+                      throw new Error("Store function not found");
                     }
+                  } catch (err) {
+                    console.warn("⚠️ Refresh failed, forcing hard reload:", err);
+                    window.location.reload(); // Fallback that always works
                   }
                 }, 1000);
                 return;
@@ -791,33 +783,25 @@ export const useEventStore = create<EventStore>()(
                   console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server.`);
                   
                   // CRITICAL: After sync, refresh events from API
-                  // CRITICAL: Save references BEFORE setTimeout to ensure they're available in closure
+                  // CRITICAL: Save userId before setTimeout to ensure it's available in closure
                   const savedUserId = userId;
-                  const fetchEventsRef = get().fetchEvents;
                   console.log('🔄 Refreshing events from API after sync...');
                   // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
                   // Small delay to ensure sync completes, then refresh data
                   setTimeout(async () => {
-                    console.log('🔄 Triggering safe refresh...');
-                    // CRITICAL FIX: Use the captured reference instead of useEventStore.getState()
-                    // This works even in minified/built code
-                    if (fetchEventsRef && typeof fetchEventsRef === 'function' && savedUserId) {
-                      await fetchEventsRef(savedUserId, false).catch((err: any) => {
-                        console.error('❌ Error refreshing events after sync:', err);
-                        window.location.reload(); // Fallback on error
-                      });
-                    } else {
-                      // Fallback: Try to get it from get() if reference is lost
-                      const state = get();
-                      if (state && state.fetchEvents && savedUserId) {
-                        await state.fetchEvents(savedUserId, false).catch(() => {
-                          window.location.reload();
-                        });
+                    console.log("🔄 Attempting safe refresh...");
+                    try {
+                      // Access the function directly from the zustand store state
+                      const state = useEventStore.getState();
+                      if (state && typeof state.fetchEvents === 'function' && savedUserId) {
+                        await state.fetchEvents(savedUserId, false);
                       } else {
-                        console.warn('⚠️ fetchEvents not available, forcing reload');
-                        window.location.reload();
+                        throw new Error("Store function not found");
                       }
+                    } catch (err) {
+                      console.warn("⚠️ Refresh failed, forcing hard reload:", err);
+                      window.location.reload(); // Fallback that always works
                     }
                   }, 1000);
                   return;
@@ -5358,10 +5342,6 @@ export const useEventStore = create<EventStore>()(
 
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
           
-          // CRITICAL: Save fetchEvents reference BEFORE Promise.all to ensure it's available in closure
-          // This is the key fix - we capture the function reference before async operations
-          const fetchEventsRef = get().fetchEvents;
-          
           // CRITICAL: Use Promise.all to sync all events in parallel
           // Each promise returns true on success, false on failure
           const syncPromises = userEvents.map(async (event: Event) => {
@@ -5385,26 +5365,21 @@ export const useEventStore = create<EventStore>()(
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
             
-            setTimeout(() => {
-              console.log("🔄 Refreshing events from API...");
-              // CRITICAL FIX: Use the captured reference instead of get() inside setTimeout
-              // This ensures fetchEvents is available even in the built/minified code
-              if (fetchEventsRef && typeof fetchEventsRef === 'function') {
-                fetchEventsRef(true, true).catch((err: any) => {
-                  console.warn("⚠️ Refresh failed, forcing page reload as fallback", err);
-                  window.location.reload();
-                });
-              } else {
-                // Fallback: Try to get it from get() if reference is lost
-                const state = get();
-                if (state && state.fetchEvents) {
-                  state.fetchEvents(true, true).catch(() => {
-                    window.location.reload();
-                  });
+            setTimeout(async () => {
+              console.log("🔄 Attempting safe refresh...");
+              try {
+                // Access the function directly from the zustand store state
+                // CRITICAL: Use useEventStore.getState() which is available globally
+                // This works even in minified/built code because useEventStore is exported
+                const state = useEventStore.getState();
+                if (state && typeof state.fetchEvents === 'function') {
+                  await state.fetchEvents(true, true);
                 } else {
-                  console.warn("⚠️ fetchEvents not available, forcing reload");
-                  window.location.reload();
+                  throw new Error("Store function not found");
                 }
+              } catch (err) {
+                console.warn("⚠️ Refresh failed, forcing hard reload:", err);
+                window.location.reload(); // Fallback that always works
               }
             }, 1500);
           }
