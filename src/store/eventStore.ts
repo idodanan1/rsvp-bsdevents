@@ -578,19 +578,16 @@ export const useEventStore = create<EventStore>()(
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then refresh data
-                setTimeout(async () => {
-                  console.log("🔄 Attempting safe refresh...");
-                  try {
-                    // Access the function directly from the zustand store state
-                    const state = useEventStore.getState();
-                    if (state && typeof state.fetchEvents === 'function' && savedUserId) {
-                      await state.fetchEvents(savedUserId, false);
-                    } else {
-                      throw new Error("Store function not found");
-                    }
-                  } catch (err) {
-                    console.warn("⚠️ Refresh failed, forcing hard reload:", err);
-                    window.location.reload(); // Fallback that always works
+                setTimeout(() => {
+                  console.log("🔄 Triggering global refresh...");
+                  if (typeof (window as any).globalFetchEvents === 'function') {
+                    (window as any).globalFetchEvents(savedUserId, false).catch((err: any) => {
+                      console.error("Global refresh failed:", err);
+                      window.location.reload();
+                    });
+                  } else {
+                    console.warn("Global function not found, reloading page.");
+                    window.location.reload();
                   }
                 }, 1000);
                 return;
@@ -789,19 +786,16 @@ export const useEventStore = create<EventStore>()(
                   // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
                   // Small delay to ensure sync completes, then refresh data
-                  setTimeout(async () => {
-                    console.log("🔄 Attempting safe refresh...");
-                    try {
-                      // Access the function directly from the zustand store state
-                      const state = useEventStore.getState();
-                      if (state && typeof state.fetchEvents === 'function' && savedUserId) {
-                        await state.fetchEvents(savedUserId, false);
-                      } else {
-                        throw new Error("Store function not found");
-                      }
-                    } catch (err) {
-                      console.warn("⚠️ Refresh failed, forcing hard reload:", err);
-                      window.location.reload(); // Fallback that always works
+                  setTimeout(() => {
+                    console.log("🔄 Triggering global refresh...");
+                    if (typeof (window as any).globalFetchEvents === 'function') {
+                      (window as any).globalFetchEvents(savedUserId, false).catch((err: any) => {
+                        console.error("Global refresh failed:", err);
+                        window.location.reload();
+                      });
+                    } else {
+                      console.warn("Global function not found, reloading page.");
+                      window.location.reload();
                     }
                   }, 1000);
                   return;
@@ -5365,21 +5359,16 @@ export const useEventStore = create<EventStore>()(
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
             
-            setTimeout(async () => {
-              console.log("🔄 Attempting safe refresh...");
-              try {
-                // Access the function directly from the zustand store state
-                // CRITICAL: Use useEventStore.getState() which is available globally
-                // This works even in minified/built code because useEventStore is exported
-                const state = useEventStore.getState();
-                if (state && typeof state.fetchEvents === 'function') {
-                  await state.fetchEvents(true, true);
-                } else {
-                  throw new Error("Store function not found");
-                }
-              } catch (err) {
-                console.warn("⚠️ Refresh failed, forcing hard reload:", err);
-                window.location.reload(); // Fallback that always works
+            setTimeout(() => {
+              console.log("🔄 Triggering global refresh...");
+              if (typeof (window as any).globalFetchEvents === 'function') {
+                (window as any).globalFetchEvents(true, true).catch((err: any) => {
+                  console.error("Global refresh failed:", err);
+                  window.location.reload();
+                });
+              } else {
+                console.warn("Global function not found, reloading page.");
+                window.location.reload();
               }
             }, 1500);
           }
@@ -5684,4 +5673,22 @@ if (typeof window !== 'undefined') {
       (window as any).__rsvp_cross_tab_update = false;
     }
   });
+}
+
+// CRITICAL: Expose fetchEvents globally for setTimeout closures in production builds
+// This is a bulletproof fix that works even when closures fail in minified code
+if (typeof window !== 'undefined') {
+  // Update the global reference whenever the store state changes
+  const updateGlobalFetchEvents = () => {
+    const state = useEventStore.getState();
+    if (state && state.fetchEvents) {
+      (window as any).globalFetchEvents = state.fetchEvents;
+    }
+  };
+  
+  // Set initial value
+  updateGlobalFetchEvents();
+  
+  // Update whenever store changes (optional, but ensures it's always current)
+  useEventStore.subscribe(updateGlobalFetchEvents);
 }
