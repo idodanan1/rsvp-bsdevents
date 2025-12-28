@@ -566,11 +566,14 @@ app.post('/api/events', async (req, res) => {
   try {
     const { id, userId, guests, ...eventData } = req.body;
     
-    // CRITICAL: UserID Consistency - Log userId to verify it matches across devices
-    console.log('📋 Received event sync request:', { eventId: id, userId, userIdType: typeof userId, userIdLength: userId?.length, guestsCount: guests?.length || 0 });
-    console.log('🔍 [UserID Check] POST /api/events - userId received:', JSON.stringify(userId));
+    // CRITICAL: Treat userId as String (not UUID) - ensure it's a string
+    const userIdString = userId ? String(userId) : null;
     
-    if (!id || !userId) {
+    // CRITICAL: UserID Consistency - Log userId to verify it matches across devices
+    console.log('📋 Received event sync request:', { eventId: id, userId: userIdString, userIdType: typeof userIdString, userIdLength: userIdString?.length, guestsCount: guests?.length || 0 });
+    console.log('🔍 [UserID Check] POST /api/events - userId received (as String):', JSON.stringify(userIdString));
+    
+    if (!id || !userIdString) {
       return res.status(400).json({ error: 'Event id and userId are required' });
     }
     
@@ -579,15 +582,16 @@ app.post('/api/events', async (req, res) => {
     }
     
     // Convert frontend event to Supabase format
+    // CRITICAL: Use userIdString to ensure it's treated as String (not UUID)
     const supabaseEvent = supabaseDb.convertFrontendEventToSupabase({
       id,
-      userId,
+      userId: userIdString, // Use string version
       ...eventData
     });
     
-    // CRITICAL: Verify userId is correctly set in supabaseEvent
+    // CRITICAL: Verify userId is correctly set in supabaseEvent (as String)
     console.log('🔍 [UserID Check] POST /api/events - supabaseEvent.user_id:', JSON.stringify(supabaseEvent.user_id));
-    console.log('🔍 [UserID Check] POST /api/events - userId match:', supabaseEvent.user_id === userId);
+    console.log('🔍 [UserID Check] POST /api/events - userId match:', String(supabaseEvent.user_id) === userIdString);
     
     // Upsert event
     console.log(`📤 Upserting event ${id} to Supabase with user_id: ${supabaseEvent.user_id}...`);
@@ -624,7 +628,7 @@ app.post('/api/events', async (req, res) => {
       success: true,
       message: 'Event and guests synced successfully',
       eventId: id,
-      userId: userId // Include userId in response for debugging
+      userId: userIdString // Include userId (as String) in response for debugging
     });
   } catch (error) {
     console.error('❌ Error in POST /api/events:', error);
@@ -743,57 +747,49 @@ app.get('/api/events/:userId', async (req, res) => {
       return res.status(200).json([]);
     }
     
-    // CRITICAL: Ensure await is present and log the query
-    console.log('🔍 [UserID Check] GET /api/events/:userId - Querying Supabase with user_id:', JSON.stringify(userId));
-    console.log('🔍 [UserID Check] GET /api/events/:userId - userId type:', typeof userId, 'value:', userId);
+    // CRITICAL: Ensure userId is treated as String (not UUID)
+    // Convert userId to string to ensure consistent comparison
+    const userIdString = String(userId);
+    console.log('🔍 [UserID Check] GET /api/events/:userId - Querying Supabase with user_id (as String):', JSON.stringify(userIdString));
+    console.log('🔍 [UserID Check] GET /api/events/:userId - userId type:', typeof userIdString, 'value:', userIdString);
     
-    // CRITICAL: Try querying with exact match first
-    let { data, error } = await supabase
-      .from('events')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    // CRITICAL: Query using TEXT comparison - cast user_id to TEXT for string matching
+    // This handles both UUID and String user_id values in the database
+    // Use RPC or raw query to cast UUID to TEXT for comparison
+    let { data, error } = await supabase.rpc('get_events_by_user_id', { user_id_param: userIdString })
+      .catch(async () => {
+        // Fallback: Try direct query with string comparison
+        // If RPC doesn't exist, use direct query and filter in JavaScript
+        console.log('🔍 [UserID Check] RPC not available, using direct query with string filter...');
+        const { data: allEvents, error: allError } = await supabase
+          .from('events')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (allError) {
+          return { data: null, error: allError };
+        }
+        
+        // Filter by string comparison in JavaScript
+        const filteredEvents = (allEvents || []).filter(e => String(e.user_id) === userIdString);
+        return { data: filteredEvents, error: null };
+      });
     
-    // CRITICAL: If no results, try querying all events to see what user_ids exist
-    if ((!data || data.length === 0) && !error) {
-      console.log('🔍 [UserID Check] GET /api/events/:userId - No events found with exact match, checking all events...');
+    // If RPC returned error, try direct query with string filter
+    if (error || !data) {
+      console.log('🔍 [UserID Check] Trying direct query with string filter...');
       const { data: allEvents, error: allError } = await supabase
         .from('events')
-        .select('id, user_id, couple_name, created_at')
-        .limit(20)
+        .select('*')
         .order('created_at', { ascending: false });
       
-      if (!allError && allEvents && allEvents.length > 0) {
-        const allUserIds = [...new Set(allEvents.map(e => e.user_id).filter(Boolean))];
-        console.log('🔍 [UserID Check] GET /api/events/:userId - All user_ids in DB (sample):', allUserIds);
-        console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId type in DB:', allUserIds.length > 0 ? typeof allUserIds[0] : 'N/A');
-        console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId matches any in DB:', allUserIds.some(id => String(id) === String(userId)));
-        
-        // Try with string comparison if types don't match
-        if (allUserIds.length > 0 && typeof allUserIds[0] !== typeof userId) {
-          console.log('🔍 [UserID Check] GET /api/events/:userId - Type mismatch detected, trying string comparison...');
-          const { data: stringData, error: stringError } = await supabase
-            .from('events')
-            .select('*')
-            .eq('user_id', String(userId))
-            .order('created_at', { ascending: false });
-          
-          if (!stringError && stringData && stringData.length > 0) {
-            console.log('🔍 [UserID Check] GET /api/events/:userId - Found events with string comparison!');
-            data = stringData;
-            error = null;
-          }
-        }
-        
-        // CRITICAL: If still no results, log detailed debug info
-        if ((!data || data.length === 0) && !error) {
-          console.log('🔍 [UserID Check] GET /api/events/:userId - Still no results after all attempts');
-          console.log('🔍 [UserID Check] GET /api/events/:userId - This suggests:');
-          console.log('   1. Events were not saved to DB (check POST endpoint logs)');
-          console.log('   2. user_id type mismatch (UUID vs TEXT)');
-          console.log('   3. Events saved with different user_id format');
-          console.log('   4. Database transaction not committed');
-        }
+      if (!allError && allEvents) {
+        // Filter by string comparison in JavaScript (handles UUID to String conversion)
+        data = allEvents.filter(e => String(e.user_id) === userIdString);
+        error = null;
+        console.log(`🔍 [UserID Check] Found ${data.length} events after string filtering`);
+      } else {
+        error = allError;
       }
     }
     

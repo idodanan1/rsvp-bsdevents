@@ -365,6 +365,8 @@ export const useEventStore = create<EventStore>()(
       deletedGuests: {}, // Track deleted guests: eventId -> array of guestIds
       currentEvent: null,
       isLoading: false,
+      isSyncing: false, // Track sync state for UI feedback
+      syncSuccessMessage: null, // Success message after sync
       error: null,
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
@@ -405,7 +407,8 @@ export const useEventStore = create<EventStore>()(
             return;
           }
 
-          // CRITICAL: UserID Consistency - Log userId to verify it matches across devices
+          // CRITICAL: Debug log - verify userId before calling API
+          console.log('🔍 Calling fetchEvents for user:', userId);
           console.log(`🔍 [UserID Check] Fetching data from DB for userId: "${userId}"`);
           console.log(`🔍 [UserID Check] userId type: ${typeof userId}, length: ${userId.length}`);
 
@@ -500,8 +503,16 @@ export const useEventStore = create<EventStore>()(
               set((state: any) => ({
                 events: mappedEvents,
                 isLoading: false,
+                syncSuccessMessage: !silent ? 'הנתונים עודכנו בהצלחה' : null, // Show success message
                 error: null
               }));
+              
+              // CRITICAL: Clear success message after 3 seconds
+              if (!silent) {
+                setTimeout(() => {
+                  set((state: any) => ({ syncSuccessMessage: null }));
+                }, 3000);
+              }
               
               // CRITICAL: Force Cloud Priority - Clear localStorage BEFORE saving new data
               // This forces the tablet to 'forget' its old local data
@@ -568,10 +579,27 @@ export const useEventStore = create<EventStore>()(
                 // Small delay to ensure sync completes, then fetch fresh data
                 setTimeout(async () => {
                   try {
-                    // Use store's fetchEvents directly - it's already in the store scope
-                    const { fetchEvents } = get();
-                    if (fetchEvents && typeof fetchEvents === 'function') {
-                      await fetchEvents(true, true); // Force refresh, silent mode
+                    // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
+                    // This ensures proper scoping outside of the store's context
+                    const storeState = useEventStore.getState();
+                    const fetchEventsFn = storeState.fetchEvents;
+                    
+                    // Get userId for debug log
+                    const userStorage = localStorage.getItem('rsvp-user-storage');
+                    let userId = '';
+                    if (userStorage) {
+                      try {
+                        const parsed = JSON.parse(userStorage);
+                        userId = parsed.state?.user?.id || '';
+                      } catch (e: any) {
+                        console.error('❌ Error parsing user storage:', e);
+                      }
+                    }
+                    
+                    console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
+                    
+                    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                      await fetchEventsFn(true, true); // Force refresh, silent mode
                       console.log('✅ Successfully refreshed events after sync');
                     } else {
                       console.error('❌ fetchEvents is not available in store');
@@ -777,10 +805,27 @@ export const useEventStore = create<EventStore>()(
                   // Small delay to ensure sync completes, then fetch fresh data
                   setTimeout(async () => {
                     try {
-                      // Use store's fetchEvents directly - it's already in the store scope
-                      const { fetchEvents } = get();
-                      if (fetchEvents && typeof fetchEvents === 'function') {
-                        await fetchEvents(true, true); // Force refresh, silent mode
+                      // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
+                      // This ensures proper scoping outside of the store's context
+                      const storeState = useEventStore.getState();
+                      const fetchEventsFn = storeState.fetchEvents;
+                      
+                      // Get userId for debug log
+                      const userStorage = localStorage.getItem('rsvp-user-storage');
+                      let userId = '';
+                      if (userStorage) {
+                        try {
+                          const parsed = JSON.parse(userStorage);
+                          userId = parsed.state?.user?.id || '';
+                        } catch (e: any) {
+                          console.error('❌ Error parsing user storage:', e);
+                        }
+                      }
+                      
+                      console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
+                      
+                      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                        await fetchEventsFn(true, true); // Force refresh, silent mode
                         console.log('✅ Successfully refreshed events after sync');
                       } else {
                         console.error('❌ fetchEvents is not available in store');
@@ -5290,7 +5335,7 @@ export const useEventStore = create<EventStore>()(
 
       // CRITICAL: Sync all events from localStorage to API (for multi-computer access)
       syncAllEventsToAPI: async () => {
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, isSyncing: true, error: null });
         try {
           // Get current user ID
           const userStorage = localStorage.getItem('rsvp-user-storage');
@@ -5299,6 +5344,9 @@ export const useEventStore = create<EventStore>()(
             const parsed = JSON.parse(userStorage);
             userId = parsed.state?.user?.id || '';
           }
+
+          // CRITICAL: Debug log - verify userId before sync
+          console.log('🔍 [Sync] Starting sync for user:', userId);
 
           if (!userId) {
             throw new Error('לא נמצא userId - אנא התחבר מחדש');
@@ -5352,10 +5400,27 @@ export const useEventStore = create<EventStore>()(
           // Small delay to ensure sync completes, then fetch fresh data
           setTimeout(async () => {
             try {
-              // Use store's fetchEvents directly - it's already in the store scope
-              const { fetchEvents } = get();
-              if (fetchEvents && typeof fetchEvents === 'function') {
-                await fetchEvents(true, true); // Force refresh, silent mode
+              // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
+              // This ensures proper scoping outside of the store's context
+              const storeState = useEventStore.getState();
+              const fetchEventsFn = storeState.fetchEvents;
+              
+              // Get userId for debug log
+              const userStorage = localStorage.getItem('rsvp-user-storage');
+              let userId = '';
+              if (userStorage) {
+                try {
+                  const parsed = JSON.parse(userStorage);
+                  userId = parsed.state?.user?.id || '';
+                } catch (e: any) {
+                  console.error('❌ Error parsing user storage:', e);
+                }
+              }
+              
+              console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
+              
+              if (fetchEventsFn && typeof fetchEventsFn === 'function') {
+                await fetchEventsFn(true, true); // Force refresh, silent mode
                 console.log('✅ Successfully refreshed events after sync');
               } else {
                 console.error('❌ fetchEvents is not available in store');
@@ -5365,7 +5430,7 @@ export const useEventStore = create<EventStore>()(
             }
           }, 1000);
 
-          set({ isLoading: false });
+          set({ isLoading: false, isSyncing: false });
           
           if (failedCount > 0) {
             throw new Error(`סנכרנו ${syncedCount} אירועים, ${failedCount} נכשלו`);
@@ -5374,7 +5439,7 @@ export const useEventStore = create<EventStore>()(
           return { synced: syncedCount, failed: failedCount };
         } catch (error: any) {
           console.error('❌ Error syncing all events:', error);
-          set({ error: error instanceof Error ? error.message : 'שגיאה בסנכרון אירועים', isLoading: false });
+          set({ error: error instanceof Error ? error.message : 'שגיאה בסנכרון אירועים', isLoading: false, isSyncing: false });
           throw error;
         }
       },

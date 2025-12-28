@@ -69,6 +69,8 @@ const EventManagement: React.FC = () => {
   const events = useEventStore((state: any) => state?.events || []);
   const currentEvent = useEventStore((state: any) => state?.currentEvent || null);
   const isLoading = useEventStore((state: any) => state?.isLoading || false);
+  const isSyncing = useEventStore((state: any) => state?.isSyncing || false);
+  const syncSuccessMessage = useEventStore((state: any) => state?.syncSuccessMessage || null);
   // CRITICAL: Use a simple primitive selector to avoid React #310 errors
   // Subscribe to events length and currentEvent id to trigger re-renders
   // CRITICAL: Add null check to prevent "Cannot read properties of undefined" errors
@@ -3209,13 +3211,20 @@ const EventManagement: React.FC = () => {
             {/* Manual Refresh Button */}
             <button
               onClick={handleRefresh}
-              disabled={isLoading}
+              disabled={isLoading || isSyncing}
               className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="רענן נתונים"
             >
-              <RefreshCw className={`w-5 h-5 ml-2 ${isLoading ? 'animate-spin' : ''}`} />
-              רענן
+              <RefreshCw className={`w-5 h-5 ml-2 ${isLoading || isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'מסנכרן...' : 'רענן'}
             </button>
+            {/* Sync Status Indicator */}
+            {isSyncing && (
+              <div className="flex items-center text-orange-600 px-3 py-2 rounded-lg bg-orange-50">
+                <Activity className="w-4 h-4 ml-2 animate-pulse" />
+                <span className="text-sm font-medium">מסנכרן עם השרת...</span>
+              </div>
+            )}
             {pendingUpdatesCount > 0 && (
               <button
                 onClick={handleProcessPendingUpdates}
