@@ -571,41 +571,33 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // CRITICAL: Refresh events from store after sync - use store action directly
-                // This avoids ReferenceError and updates UI silently without page reload
+                // CRITICAL: Refresh events from store after sync
+                // Use get().fetchEvents() since we're inside the store definition
+                // Safety fallback: If function not available, reload page
                 console.log('🔄 [Post-Sync Refresh] Refreshing events from store after sync...');
                 // Clear the fetching flag to allow fetchEvents to run
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then fetch fresh data
                 setTimeout(async () => {
                   try {
-                    // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
-                    // This ensures proper scoping outside of the store's context
-                    const storeState = useEventStore.getState();
-                    const fetchEventsFn = storeState.fetchEvents;
-                    
-                    // Get userId for debug log
-                    const userStorage = localStorage.getItem('rsvp-user-storage');
-                    let userId = '';
-                    if (userStorage) {
-                      try {
-                        const parsed = JSON.parse(userStorage);
-                        userId = parsed.state?.user?.id || '';
-                      } catch (e: any) {
-                        console.error('❌ Error parsing user storage:', e);
-                      }
-                    }
-                    
-                    console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
+                    // CRITICAL: Inside store, use get().fetchEvents() directly
+                    const fetchEventsFn = get().fetchEvents;
                     
                     if (fetchEventsFn && typeof fetchEventsFn === 'function') {
                       await fetchEventsFn(true, true); // Force refresh, silent mode
                       console.log('✅ Successfully refreshed events after sync');
                     } else {
-                      console.error('❌ fetchEvents is not available in store');
+                      // Safety fallback: Reload page if fetchEvents not available
+                      console.warn('⚠️ fetchEvents not available, reloading page...');
+                      window.location.reload();
                     }
                   } catch (refreshError: any) {
                     console.error('❌ Error refreshing events after sync:', refreshError);
+                    // Safety fallback: Reload page on error
+                    console.warn('⚠️ Reloading page as fallback...');
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 500);
                   }
                 }, 1000);
                 return;
@@ -5392,41 +5384,33 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
 
-          // CRITICAL: Refresh events from store after sync - use store action directly
-          // This avoids ReferenceError and updates UI silently without page reload
+          // CRITICAL: Refresh events from store after sync
+          // Use get().fetchEvents() since we're inside the store definition
+          // Safety fallback: If function not available, reload page
           console.log(`🔄 [Post-Sync Refresh] Refreshing events from store after sync...`);
           // Clear the fetching flag to allow fetchEvents to run
           (get() as any)._isFetchingEvents = false;
           // Small delay to ensure sync completes, then fetch fresh data
           setTimeout(async () => {
             try {
-              // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
-              // This ensures proper scoping outside of the store's context
-              const storeState = useEventStore.getState();
-              const fetchEventsFn = storeState.fetchEvents;
-              
-              // Get userId for debug log
-              const userStorage = localStorage.getItem('rsvp-user-storage');
-              let userId = '';
-              if (userStorage) {
-                try {
-                  const parsed = JSON.parse(userStorage);
-                  userId = parsed.state?.user?.id || '';
-                } catch (e: any) {
-                  console.error('❌ Error parsing user storage:', e);
-                }
-              }
-              
-              console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
+              // CRITICAL: Inside store, use get().fetchEvents() directly
+              const fetchEventsFn = get().fetchEvents;
               
               if (fetchEventsFn && typeof fetchEventsFn === 'function') {
                 await fetchEventsFn(true, true); // Force refresh, silent mode
                 console.log('✅ Successfully refreshed events after sync');
               } else {
-                console.error('❌ fetchEvents is not available in store');
+                // Safety fallback: Reload page if fetchEvents not available
+                console.warn('⚠️ fetchEvents not available, reloading page...');
+                window.location.reload();
               }
             } catch (refreshError: any) {
               console.error('❌ Error refreshing events after sync:', refreshError);
+              // Safety fallback: Reload page on error
+              console.warn('⚠️ Reloading page as fallback...');
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
             }
           }, 1000);
 
