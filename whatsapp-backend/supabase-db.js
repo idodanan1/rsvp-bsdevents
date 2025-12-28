@@ -441,7 +441,8 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     ? frontendGuest.guestCount 
     : (frontendGuest.guestsCount !== undefined ? frontendGuest.guestsCount : 1);
   
-  return {
+  // Build the base object without source first
+  const baseGuest = {
     id: frontendGuest.id,
     event_id: frontendGuest.eventId,
     first_name: frontendGuest.firstName || '',
@@ -454,12 +455,19 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     message_status: frontendGuest.messageStatus || 'not_sent',
     notes: frontendGuest.notes || null,
     channel: frontendGuest.channel || 'manual',
-    source: frontendGuest.source || 'manual', // CRITICAL: Include source to track update origin (guest_link, manual_update, whatsapp)
     tags: frontendGuest.tags ? JSON.stringify(frontendGuest.tags) : null,
     created_at: frontendGuest.createdAt || new Date().toISOString(),
     updated_at: frontendGuest.updatedAt || new Date().toISOString(),
     response_date: frontendGuest.responseDate || null
   };
+  
+  // CRITICAL: Only include source if it's provided (column may not exist in database yet)
+  // This prevents "Could not find the 'source' column" errors
+  if (frontendGuest.source !== undefined && frontendGuest.source !== null) {
+    baseGuest.source = frontendGuest.source;
+  }
+  
+  return baseGuest;
 }
 
 // ========================================
