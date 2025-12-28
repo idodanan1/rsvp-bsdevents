@@ -573,16 +573,21 @@ export const useEventStore = create<EventStore>()(
                 
                 // CRITICAL: After sync, refresh events from API
                 // Use robust version that checks if fetchEvents exists before calling
+                // CRITICAL: Save userId before setTimeout to ensure it's available in closure
+                const savedUserId = userId;
                 console.log('🔄 Refreshing events from API after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then refresh data
                 setTimeout(() => {
                   const state = useEventStore.getState();
-                  if (state.fetchEvents) {
-                    state.fetchEvents(userId, false);
+                  if (state.fetchEvents && savedUserId) {
+                    state.fetchEvents(savedUserId, false).catch((err: any) => {
+                      console.error('❌ Error refreshing events after sync:', err);
+                      window.location.reload(); // Fallback on error
+                    });
                   } else {
-                    console.warn('⚠️ fetchEvents not available, using hard reload fallback');
+                    console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
                     window.location.reload(); // Hard fallback to ensure data shows up
                   }
                 }, 1000);
@@ -777,16 +782,21 @@ export const useEventStore = create<EventStore>()(
                   
                   // CRITICAL: After sync, refresh events from API
                   // Use robust version that checks if fetchEvents exists before calling
+                  // CRITICAL: Save userId before setTimeout to ensure it's available in closure
+                  const savedUserId = userId;
                   console.log('🔄 Refreshing events from API after sync...');
                   // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
                   // Small delay to ensure sync completes, then refresh data
                   setTimeout(() => {
                     const state = useEventStore.getState();
-                    if (state.fetchEvents) {
-                      state.fetchEvents(userId, false);
+                    if (state.fetchEvents && savedUserId) {
+                      state.fetchEvents(savedUserId, false).catch((err: any) => {
+                        console.error('❌ Error refreshing events after sync:', err);
+                        window.location.reload(); // Fallback on error
+                      });
                     } else {
-                      console.warn('⚠️ fetchEvents not available, using hard reload fallback');
+                      console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
                       window.location.reload(); // Hard fallback to ensure data shows up
                     }
                   }, 1000);
@@ -5652,19 +5662,25 @@ if (typeof window !== 'undefined') {
       // Broadcast the update (but avoid infinite loops by checking if this is from a cross-tab update)
       const isFromCrossTab = (window as any).__rsvp_cross_tab_update;
       if (!isFromCrossTab && crossTabSync.isReady()) {
-        crossTabSync.broadcast({
-          type: 'store-update',
-          storeName: 'rsvp-events-storage',
-          action: 'state-change',
-          data: {
-            state: {
-              events: state.events,
-              deletedEvents: state.deletedEvents,
-              deletedGuests: state.deletedGuests,
-              currentEvent: state.currentEvent,
+        // CRITICAL: Only send minimal data to prevent DataCloneError
+        // Don't send full event objects with all their complex properties
+        // Just send event IDs and basic info that other tabs need
+        try {
+          crossTabSync.broadcast({
+            type: 'store-update',
+            storeName: 'rsvp-events-storage',
+            action: 'state-change',
+            data: {
+              // Send only IDs and basic info, not full objects
+              eventIds: state.events?.map((e: any) => e.id) || [],
+              currentEventId: state.currentEvent?.id || null,
+              eventsCount: state.events?.length || 0,
+              // Don't send full events/currentEvent to avoid DataCloneError
             },
-          },
-        });
+          });
+        } catch (broadcastError: any) {
+          console.warn('⚠️ Error broadcasting cross-tab update (non-critical):', broadcastError);
+        }
       }
       (window as any).__rsvp_cross_tab_update = false;
     }

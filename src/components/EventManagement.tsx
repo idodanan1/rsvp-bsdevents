@@ -3942,7 +3942,7 @@ const EventManagement: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-              ) : (
+              ) : currentEvent && currentEvent.guests && Array.isArray(currentEvent.guests) ? (
                 filteredGuests.map((guest: any, index: number) => {
                   // CRITICAL: Find the original row number of the guest in the event (not filtered)
                   // Add optional chaining to prevent crash if currentEvent or guests is undefined
@@ -4219,9 +4219,9 @@ const EventManagement: React.FC = () => {
                     </div>
                   </td>
                 </tr>
-                  );
+                );
                 })
-              )}
+              ) : null}
             </tbody>
           </table>
           </div>

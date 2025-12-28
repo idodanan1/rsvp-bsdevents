@@ -940,23 +940,49 @@ app.post('/api/guests/add-pending-update', async (req, res) => {
     };
     
     // Add the pending update
-    const result = await supabaseDb.addPendingGuestUpdate(dbUpdateData);
-    
-    if (!result) {
-      console.warn('⚠️ Failed to add pending guest update (table may not exist)');
+    try {
+      const result = await supabaseDb.addPendingGuestUpdate(dbUpdateData);
+      
+      if (!result) {
+        console.warn('⚠️ Failed to add pending guest update (table may not exist)');
+        // Return success even if table doesn't exist - the update was acknowledged
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Update queued (table may not exist, but update was acknowledged)',
+          warning: 'pending_guest_updates table may not exist'
+        });
+      }
+      
+      console.log(`✅ Successfully added pending guest update for guest ${dbUpdateData.guest_id || dbUpdateData.phone_number}`);
       return res.status(200).json({ 
         success: true, 
-        message: 'Update queued (table may not exist, but update was acknowledged)',
-        warning: 'pending_guest_updates table may not exist'
+        message: 'Pending update added successfully',
+        update: result
       });
+    } catch (dbError) {
+      // Check if it's a table not found error
+      const errorMessage = dbError.message || dbError.toString() || '';
+      const isTableNotFound = 
+        errorMessage.includes('relation') || 
+        errorMessage.includes('does not exist') ||
+        errorMessage.includes('Could not find relation') ||
+        errorMessage.includes('pending_guest_updates') ||
+        dbError.code === '42P01' ||
+        dbError.code === 'PGRST116';
+      
+      if (isTableNotFound) {
+        console.warn('⚠️ pending_guest_updates table does not exist - returning success anyway');
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Update acknowledged (table may not exist)',
+          warning: 'pending_guest_updates table may not exist - please create it using CREATE_PENDING_UPDATES_TABLE.sql'
+        });
+      }
+      
+      // Re-throw if it's a different error
+      throw dbError;
     }
     
-    console.log(`✅ Successfully added pending guest update for guest ${dbUpdateData.guest_id || dbUpdateData.phone_number}`);
-    return res.status(200).json({ 
-      success: true, 
-      message: 'Pending update added successfully',
-      update: result
-    });
   } catch (error) {
     console.error('❌ Error adding pending guest update:', error);
     return res.status(500).json({ 
