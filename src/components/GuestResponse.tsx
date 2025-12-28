@@ -1209,28 +1209,33 @@ const GuestResponse = () => {
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
         // This ensures the table in EventManagement updates after 10 seconds
       console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update (10 seconds delay)...`);
-        setTimeout(() => {
+        setTimeout(async () => {
         // CRITICAL: Use getState() inside setTimeout to ensure fetchEvents is accessible
-        const currentStoreState = useEventStore.getState();
-        currentStoreState.fetchEvents(true, true).then(() => {
-          console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
-          // Verify the update was loaded from server
-          const verifyState = useEventStore.getState();
-          const verifyEvent = verifyState.events.find((e: any) => e.id === currentEvent.id);
-          const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestToUpdate.id);
-          if (verifyGuest) {
-            console.log(`✅ VERIFIED: Guest ${guestToUpdate.id} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
-              rsvpStatus: verifyGuest.rsvpStatus,
-              guestCount: verifyGuest.guestCount,
-              source: (verifyGuest as any).source,
-              responseDate: verifyGuest.responseDate
-            });
-        } else {
-            console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
+        try {
+          const currentStoreState = useEventStore.getState();
+          if (currentStoreState && typeof currentStoreState.fetchEvents === 'function') {
+            await currentStoreState.fetchEvents(true, true);
+            console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
+            // Verify the update was loaded from server
+            const verifyState = useEventStore.getState();
+            const verifyEvent = verifyState.events.find((e: any) => e.id === currentEvent.id);
+            const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestToUpdate.id);
+            if (verifyGuest) {
+              console.log(`✅ VERIFIED: Guest ${guestToUpdate.id} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
+                rsvpStatus: verifyGuest.rsvpStatus,
+                guestCount: verifyGuest.guestCount,
+                source: (verifyGuest as any).source,
+                responseDate: verifyGuest.responseDate
+              });
+            } else {
+              console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
+            }
+          } else {
+            console.error('❌ fetchEvents not available in store state');
           }
-        }).catch((err: any) => {
+        } catch (err: any) {
           console.error('❌ Failed to refresh events after guest response update:', err);
-        });
+        }
       }, 10000); // 10 seconds delay after guest count update
       
       // Reset confirm button state

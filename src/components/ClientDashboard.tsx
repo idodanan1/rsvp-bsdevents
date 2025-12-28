@@ -691,10 +691,12 @@ const ClientDashboard: React.FC = () => {
       const storeState = useEventStore.getState();
       const fetchEventsFn = storeState.fetchEvents;
       if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-        fetchEventsFn().then(() => {
-          // Get fresh events from store after fetch
-          const updatedStoreState = useEventStore.getState();
-          const foundEvent = updatedStoreState.events.find((e: any) => e.id === eventId);
+        (async () => {
+          try {
+            await fetchEventsFn();
+            // Get fresh events from store after fetch
+            const updatedStoreState = useEventStore.getState();
+            const foundEvent = updatedStoreState.events.find((e: any) => e.id === eventId);
             if (foundEvent) {
           const displayName = foundEvent.coupleName || 
             (foundEvent.groomName && foundEvent.brideName ? `${foundEvent.groomName} & ${foundEvent.brideName}` : 
@@ -783,14 +785,15 @@ const ClientDashboard: React.FC = () => {
               return prev; // Keep current (newer) data
             }
           });
+            } catch (err: any) {
+              console.error('❌ Error in fetchEvents:', err);
+              // If fetchEvents fails, use public API
+              loadFromAPI();
+            }
+          })();
         }
         // Still load from public API to ensure we have the absolute latest data
         loadFromAPI();
-      }).catch((err: any) => {
-        console.error('❌ Error in fetchEvents:', err);
-        // If fetchEvents fails, use public API
-        loadFromAPI();
-      });
       } else {
         console.error('❌ fetchEvents is not available in store state');
         // Fallback to public API
