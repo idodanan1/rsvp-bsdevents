@@ -15,7 +15,7 @@ const mockEvents: Event[] = [];
 // Helper function to sync guests directly using the dedicated endpoint (fallback)
 // If payload is too large, splits into chunks
 const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boolean> => {
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
   
   try {
     console.log(`📤 Syncing ${guests.length} guests directly to API for event ${eventId}...`);
@@ -84,7 +84,7 @@ const syncGuestsDirectly = async (eventId: string, guests: Guest[]): Promise<boo
 };
 
 const syncEventToAPI = async (event: Event, retries = 3): Promise<void> => {
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
   
   try {
     // CRITICAL: Send FULL event WITH guests to ensure all data is synced
@@ -286,7 +286,7 @@ class GuestUpdateBatchProcessor {
     
     console.log(`📤 Sending batch of ${updatesToSend.length} guest updates...`);
     
-    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+    const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
     
     // Send updates in parallel (but limit concurrency)
     const BATCH_CONCURRENCY = 5;
@@ -394,7 +394,7 @@ export const useEventStore = create<EventStore>()(
         }
         try {
           // Try to fetch from API first (for syncing between computers)
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
           let apiEvents: Event[] = [];
           let apiError = false;
 
@@ -1774,7 +1774,7 @@ export const useEventStore = create<EventStore>()(
             console.log(`🗑️ Deleting ${eventsToDelete.length} event(s) with ID ${id}`);
             
             // CRITICAL: Also delete from backend
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
             try {
               // Delete from backend for each event (in case of duplicates)
               for (const eventToDelete of eventsToDelete) {
@@ -2022,7 +2022,7 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Sync to API immediately for real-time sync between devices
           // Use lightweight endpoint to avoid 413 errors with large events
           if (updatedEvent) {
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
             const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
             
             if (!updatedGuest) {
@@ -2231,7 +2231,7 @@ export const useEventStore = create<EventStore>()(
           if (!existingEvent) {
             console.warn(`⚠️ Event ${eventId} not found in store - loading from API and updating via backend`);
             
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
             
             // Load full event from API
             const eventResponse = await fetch(`${BACKEND_URL}/api/events/all`);
@@ -2850,7 +2850,7 @@ export const useEventStore = create<EventStore>()(
           // CRITICAL: Always sync to backend to ensure updates are available for webhook service
           // This ensures updates from phone are synced to all devices via pendingUpdates
           if (updatedEvent) {
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
             const updatedGuest = updatedEvent.guests.find(g => g.id === guestId);
             
             if (!updatedGuest) {
@@ -4232,7 +4232,7 @@ export const useEventStore = create<EventStore>()(
       restoreDeletedEvent: async (deletedEventId: string) => {
         set({ isLoading: true, error: null });
         try {
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
           
           // CRITICAL: First try to restore from backend (server is source of truth)
           console.log(`🔄 Attempting to restore event ${deletedEventId} from backend...`);
@@ -4556,7 +4556,7 @@ export const useEventStore = create<EventStore>()(
         if (!event) {
           console.log('⚠️ Event not found in store, fetching from API...');
           try {
-            const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+            const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
             const response = await fetch(`${BACKEND_URL}/api/events/all`);
             if (response.ok) {
               const data = await response.json();
@@ -5387,7 +5387,7 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`🔄 Syncing ${userEvents.length} events to API for user ${userId}...`);
 
-          const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3002';
+          const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3002';
           let syncedCount = 0;
           let failedCount = 0;
 

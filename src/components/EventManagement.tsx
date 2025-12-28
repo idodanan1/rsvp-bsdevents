@@ -235,7 +235,7 @@ const EventManagement: React.FC = () => {
     
     const checkPendingUpdates = async () => {
       try {
-        const BACKEND_URL = (import.meta.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
@@ -265,7 +265,7 @@ const EventManagement: React.FC = () => {
   const handleProcessPendingUpdates = async () => {
     setIsProcessingPendingUpdates(true);
     try {
-      const BACKEND_URL = (import.meta.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
       
       // First, check current pending count before processing
       let pendingBeforeProcessing = pendingUpdatesCount;
@@ -823,7 +823,7 @@ const EventManagement: React.FC = () => {
       } else {
         // CRITICAL: Even if key unchanged, we still need to return a new array reference
         // This ensures React detects changes when eventsVersion or eventsHash changes
-        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
+        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion || 0, ', eventsHash:', (eventsHash || '').substring(0, 20) + '...)');
       }
       
       // CRITICAL: Always return a new array reference with deep copy of guests
@@ -832,10 +832,10 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Map to create new object references for each guest
       // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
       // CRITICAL: Add a timestamp to force new reference on every calculation
-      const guestsCopy = guests.map((g, index) => ({ 
+      const guestsCopy = guests.map((g: any, index: number) => ({ 
         ...g,
         // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
-        _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
+        _renderKey: `${g.id}-${(eventsHash || '').substring(0, 20)}-${eventsVersion || 0}-${index}`
       }));
       // CRITICAL: Add eventsHash as a property to force new reference when it changes
       // This ensures React detects changes even if guests array appears unchanged
@@ -1019,7 +1019,7 @@ const EventManagement: React.FC = () => {
       
       // NEW APPROACH: Update directly in store using updateGuestResponse instead of updateGuest
       // This ensures the update is processed the same way as guest_link updates
-      const guest = event.guests?.find(g => g.id === guestId);
+      const guest = event.guests?.find((g: Guest) => g.id === guestId);
       if (!guest) {
         console.error('❌ Guest not found:', guestId);
         return;
@@ -1045,14 +1045,14 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
       // This ensures the UI reflects the change without waiting for server refresh
       const updatedState = useEventStore.getState();
-      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      const updatedEvent = updatedState.events.find((e: Event) => e.id === event.id);
       if (updatedEvent) {
-        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        const updatedGuest = updatedEvent.guests?.find((g: Guest) => g.id === guestId);
         if (updatedGuest && updatedGuest.rsvpStatus === status) {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
             ...updatedEvent,
-            guests: updatedEvent.guests.map(g => ({ ...g }))
+            guests: updatedEvent.guests.map((g: Guest) => ({ ...g }))
           });
           console.log('✅ CurrentEvent updated from store - table will show updated status');
         } else {
@@ -1079,7 +1079,7 @@ const EventManagement: React.FC = () => {
       console.log('🎯 handleUpdateAttendance called:', { guestId, attendance, eventId: event.id });
       
       // NEW APPROACH: Update directly in store using updateGuestResponse
-      const guest = event.guests?.find(g => g.id === guestId);
+      const guest = event.guests?.find((g: Guest) => g.id === guestId);
       if (!guest) {
         console.error('❌ Guest not found:', guestId);
         return;
@@ -1105,14 +1105,14 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Update currentEvent from store to ensure table shows the update immediately
       // This ensures the UI reflects the change without waiting for server refresh
       const updatedState = useEventStore.getState();
-      const updatedEvent = updatedState.events.find(e => e.id === event.id);
+      const updatedEvent = updatedState.events.find((e: Event) => e.id === event.id);
       if (updatedEvent) {
-        const updatedGuest = updatedEvent.guests?.find(g => g.id === guestId);
+        const updatedGuest = updatedEvent.guests?.find((g: Guest) => g.id === guestId);
         if (updatedGuest && updatedGuest.actualAttendance === attendance) {
           // Update currentEvent to reflect the change immediately
           setCurrentEvent({
             ...updatedEvent,
-            guests: updatedEvent.guests.map(g => ({ ...g }))
+            guests: updatedEvent.guests.map((g: Guest) => ({ ...g }))
           });
           console.log('✅ CurrentEvent updated from store - table will show updated attendance');
         } else {
@@ -1138,7 +1138,7 @@ const EventManagement: React.FC = () => {
       // If currentEvent is not set, try to find event from events array using the URL
       const eventId = id; // Get eventId from URL params
       if (eventId) {
-        event = state.events.find(e => e.id === eventId);
+        event = state.events.find((e: Event) => e.id === eventId);
       }
     }
     if (!event || !event.id) {
@@ -1152,7 +1152,7 @@ const EventManagement: React.FC = () => {
       // CRITICAL: If tableId is being changed, use assignGuestToTable/moveGuestToTable/removeGuestFromTable
       // This ensures seating management is updated correctly
       if (updates.tableId !== undefined) {
-        const currentGuest = event.guests?.find(g => g.id === guestId);
+        const currentGuest = event.guests?.find((g: Guest) => g.id === guestId);
         const oldTableId = currentGuest?.tableId;
         const newTableId = updates.tableId;
         
@@ -1189,7 +1189,7 @@ const EventManagement: React.FC = () => {
       // This ensures the UI updates instantly with the latest data from store
       // Important for: tableId, actualAttendance, guestCount, rsvpStatus, firstName, lastName, phoneNumber
       const criticalFields = ['tableId', 'actualAttendance', 'guestCount', 'rsvpStatus', 'firstName', 'lastName', 'phoneNumber', 'notes'];
-      const hasCriticalField = criticalFields.some(field => updates[field] !== undefined);
+      const hasCriticalField = criticalFields.some((field: string) => updates[field] !== undefined);
       
       if (hasCriticalField) {
         // CRITICAL: For guestCount updates, immediately update local state to prevent reversion
@@ -1241,7 +1241,7 @@ const EventManagement: React.FC = () => {
   const handleSelectGuest = useCallback((guestId: string) => {
     setSelectedGuests(prev => 
       prev.includes(guestId) 
-        ? prev.filter(id => id !== guestId)
+        ? prev.filter((id: string) => id !== guestId)
         : [...prev, guestId]
     );
   }, []);
@@ -1313,7 +1313,7 @@ const EventManagement: React.FC = () => {
       confirmed: calculatedStats.confirmed,
       eventId: currentEvent.id,
       guestsCount: currentEvent.guests?.length || 0,
-      eventsHash: eventsHash.substring(0, 50) + '...'
+      eventsHash: (eventsHash || '').substring(0, 50) + '...'
     });
     return calculatedStats;
   }, [currentEvent, eventsHash]); // CRITICAL: Include eventsHash to detect guestCount changes
@@ -1593,13 +1593,13 @@ const EventManagement: React.FC = () => {
     // Add totals row
     // CRITICAL: Use guestCount for accurate totals (not just guest count)
     const totalAttended = currentEvent.guests
-      .filter(g => g.actualAttendance === 'attended')
+      .filter((g: Guest) => g.actualAttendance === 'attended')
       .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
     const totalNotAttended = currentEvent.guests
-      .filter(g => g.actualAttendance === 'not_attended')
+      .filter((g: Guest) => g.actualAttendance === 'not_attended')
       .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
     const totalNotMarked = currentEvent.guests
-      .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
+      .filter((g: Guest) => !g.actualAttendance || g.actualAttendance === 'not_marked')
       .reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
     const totalGuests = currentEvent.guests.reduce((sum: number, g: Guest) => sum + (g.guestCount || 1), 0);
     const totalAttendancePercentage = totalGuests > 0 ? Math.round((totalAttended / totalGuests) * 100) : 0;
@@ -1921,7 +1921,7 @@ const EventManagement: React.FC = () => {
       for (const guestId of guestsToDelete) {
         // Double-check event still exists before each deletion
         const storeState = useEventStore.getState();
-        const eventExists = storeState.events.some(e => e.id === eventId);
+        const eventExists = storeState.events.some((e: Event) => e.id === eventId);
         if (!eventExists) {
           alert('האירוע נמחק במהלך המחיקה. נא לרענן את הדף.');
           setSelectedGuests([]);
@@ -2383,7 +2383,7 @@ const EventManagement: React.FC = () => {
             console.log(`📋 Notes from column K (index 10): "${notes}"`);
             
             // Try to find existing table
-            let table = tableNumber && !isNaN(parseInt(tableNumber)) ? currentEvent.tables?.find(t => t.number === parseInt(tableNumber)) : null;
+            let table = tableNumber && !isNaN(parseInt(tableNumber)) ? currentEvent.tables?.find((t: Table) => t.number === parseInt(tableNumber)) : null;
             
             if (table) {
               console.log(`✅ Found table: ${table.number} (ID: ${table.id})`);
@@ -2573,7 +2573,7 @@ const EventManagement: React.FC = () => {
         
         // Update currentEvent with latest data
         const updatedEvents = useEventStore.getState().events;
-        const updatedEvent = updatedEvents.find(e => e.id === currentEvent.id);
+        const updatedEvent = updatedEvents.find((e: Event) => e.id === currentEvent.id);
         if (updatedEvent) {
           console.log(`🔄 Updating currentEvent with ${updatedEvent.guests?.length || 0} guests`);
           setCurrentEvent(updatedEvent);
@@ -2620,7 +2620,7 @@ const EventManagement: React.FC = () => {
 
     try {
       console.log('✅ Starting message send process...');
-      const guestsToSend = currentEvent.guests.filter(guest => selectedGuests.includes(guest.id));
+      const guestsToSend = currentEvent.guests.filter((guest: Guest) => selectedGuests.includes(guest.id));
       console.log('📋 guestsToSend:', guestsToSend.length, 'guests');
       
       // Use default message if no custom message
@@ -4114,7 +4114,7 @@ const EventManagement: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
                 <div className="max-h-32 overflow-y-auto">
-                  {selectedGuests.map(guestId => {
+                  {selectedGuests.map((guestId: string) => {
                     const guest = currentEvent.guests.find((g: Guest) => g.id === guestId);
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
