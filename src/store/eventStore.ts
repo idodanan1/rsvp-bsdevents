@@ -651,21 +651,26 @@ export const useEventStore = create<EventStore>()(
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
                 // CRITICAL: After sync, refresh events from API
-                // CRITICAL: Save userId before setTimeout to ensure it's available in closure
-                const savedUserId = userId;
+                // CRITICAL: Use get() to safely access the store's own functions
                 console.log('🔄 Refreshing events from API after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then refresh data
-                setTimeout(() => {
-                  console.log("🔄 Triggering global refresh...");
-                  if (typeof (window as any).globalFetchEvents === 'function') {
-                    (window as any).globalFetchEvents(savedUserId, false).catch((err: any) => {
-                      console.error("Global refresh failed:", err);
+                setTimeout(async () => {
+                  console.log("🔄 Starting safe refresh...");
+                  try {
+                    // We use get() because it's the internal way Zustand accesses its own functions
+                    const store = get(); 
+                    if (store && typeof store.fetchEvents === 'function') {
+                      await store.fetchEvents(true, false);
+                      console.log("✅ Refresh complete");
+                    } else {
+                      // If for some reason the store is unreachable, force a hard reload
+                      console.warn("Store or fetchEvents not available, forcing reload");
                       window.location.reload();
-                    });
-                  } else {
-                    console.warn("Global function not found, reloading page.");
+                    }
+                  } catch (err) {
+                    console.error("Refresh failed, forcing reload:", err);
                     window.location.reload();
                   }
                 }, 1000);
@@ -5071,16 +5076,22 @@ export const useEventStore = create<EventStore>()(
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
             
-            // CRITICAL: Use globalFetchEvents instead of fetchEvents to avoid closure issues
-            setTimeout(() => {
-              console.log("🔄 Triggering global refresh...");
-              if (typeof (window as any).globalFetchEvents === 'function') {
-                (window as any).globalFetchEvents(true, true).catch((err: any) => {
-                  console.error("Global refresh failed:", err);
+            // CRITICAL: Use get() to safely access the store's own functions without relying on names that get mangled during build
+            setTimeout(async () => {
+              console.log("🔄 Starting safe refresh...");
+              try {
+                // We use get() because it's the internal way Zustand accesses its own functions
+                const store = get(); 
+                if (store && typeof store.fetchEvents === 'function') {
+                  await store.fetchEvents(true, true);
+                  console.log("✅ Refresh complete");
+                } else {
+                  // If for some reason the store is unreachable, force a hard reload
+                  console.warn("Store or fetchEvents not available, forcing reload");
                   window.location.reload();
-                });
-              } else {
-                console.warn("Global function not found, reloading page.");
+                }
+              } catch (err) {
+                console.error("Refresh failed, forcing reload:", err);
                 window.location.reload();
               }
             }, 1500);
