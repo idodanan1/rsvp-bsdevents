@@ -459,22 +459,66 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     guest_count: guestCount,
     rsvp_status: rsvpStatus,
     actual_attendance: frontendGuest.actualAttendance || 'not_marked',
-    attendance_date: frontendGuest.attendanceDate || null,
+    // CRITICAL: Convert all date fields to ISO string if they're Date objects
+    attendance_date: frontendGuest.attendanceDate 
+      ? (frontendGuest.attendanceDate instanceof Date 
+          ? frontendGuest.attendanceDate.toISOString() 
+          : (typeof frontendGuest.attendanceDate === 'string' 
+              ? frontendGuest.attendanceDate 
+              : new Date(frontendGuest.attendanceDate).toISOString()))
+      : null,
     table_id: frontendGuest.tableId || null,
     seat_number: frontendGuest.seatNumber || null,
     message_status: frontendGuest.messageStatus || 'not_sent',
-    message_sent_date: frontendGuest.messageSentDate || null,
-    message_delivered_date: frontendGuest.messageDeliveredDate || null,
-    message_failed_date: frontendGuest.messageFailedDate || null,
-    sms_sent_date: frontendGuest.smsSentDate || null,
+    message_sent_date: frontendGuest.messageSentDate 
+      ? (frontendGuest.messageSentDate instanceof Date 
+          ? frontendGuest.messageSentDate.toISOString() 
+          : (typeof frontendGuest.messageSentDate === 'string' 
+              ? frontendGuest.messageSentDate 
+              : new Date(frontendGuest.messageSentDate).toISOString()))
+      : null,
+    message_delivered_date: frontendGuest.messageDeliveredDate 
+      ? (frontendGuest.messageDeliveredDate instanceof Date 
+          ? frontendGuest.messageDeliveredDate.toISOString() 
+          : (typeof frontendGuest.messageDeliveredDate === 'string' 
+              ? frontendGuest.messageDeliveredDate 
+              : new Date(frontendGuest.messageDeliveredDate).toISOString()))
+      : null,
+    message_failed_date: frontendGuest.messageFailedDate 
+      ? (frontendGuest.messageFailedDate instanceof Date 
+          ? frontendGuest.messageFailedDate.toISOString() 
+          : (typeof frontendGuest.messageFailedDate === 'string' 
+              ? frontendGuest.messageFailedDate 
+              : new Date(frontendGuest.messageFailedDate).toISOString()))
+      : null,
+    sms_sent_date: frontendGuest.smsSentDate 
+      ? (frontendGuest.smsSentDate instanceof Date 
+          ? frontendGuest.smsSentDate.toISOString() 
+          : (typeof frontendGuest.smsSentDate === 'string' 
+              ? frontendGuest.smsSentDate 
+              : new Date(frontendGuest.smsSentDate).toISOString()))
+      : null,
     first_message_sent: frontendGuest.firstMessageSent || false,
-    first_message_sent_date: frontendGuest.firstMessageSentDate || null,
+    first_message_sent_date: frontendGuest.firstMessageSentDate 
+      ? (frontendGuest.firstMessageSentDate instanceof Date 
+          ? frontendGuest.firstMessageSentDate.toISOString() 
+          : (typeof frontendGuest.firstMessageSentDate === 'string' 
+              ? frontendGuest.firstMessageSentDate 
+              : new Date(frontendGuest.firstMessageSentDate).toISOString()))
+      : null,
     notes: frontendGuest.notes || null,
     channel: frontendGuest.channel || 'manual',
     tags: frontendGuest.tags ? JSON.stringify(frontendGuest.tags) : null,
     created_at: frontendGuest.createdAt || new Date().toISOString(),
     updated_at: frontendGuest.updatedAt || new Date().toISOString(),
-    response_date: frontendGuest.responseDate || null
+    // CRITICAL: Convert responseDate to ISO string if it's a Date object
+    response_date: frontendGuest.responseDate 
+      ? (frontendGuest.responseDate instanceof Date 
+          ? frontendGuest.responseDate.toISOString() 
+          : (typeof frontendGuest.responseDate === 'string' 
+              ? frontendGuest.responseDate 
+              : new Date(frontendGuest.responseDate).toISOString()))
+      : null
   };
   
   // CRITICAL: Map source values to valid database values

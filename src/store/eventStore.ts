@@ -2614,7 +2614,8 @@ export const useEventStore = create<EventStore>()(
                   firstName: updatedGuest.firstName,
                   lastName: updatedGuest.lastName,
                   phoneNumber: updatedGuest.phoneNumber,
-                  rsvpStatus: updatedGuest.rsvpStatus,
+                  // CRITICAL: Always include rsvpStatus - it's required for guest response updates
+                  rsvpStatus: updatedGuest.rsvpStatus || 'pending',
                   guestCount: updatedGuest.guestCount,
                   notes: updatedGuest.notes || '',
                   actualAttendance: updatedGuest.actualAttendance,
