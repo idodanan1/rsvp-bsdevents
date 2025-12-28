@@ -400,8 +400,10 @@ export const useEventStore = create<EventStore>()(
         };
         
         // CRITICAL: Expose the wrapper function globally BEFORE any async operations
+        // Also mirror it to window.fetchEvents to catch any legacy/global calls in minified bundles
         if (typeof window !== 'undefined') {
           (window as any).globalFetchEvents = globalWrapper;
+          (window as any).fetchEvents = globalWrapper; // legacy alias for safety in prod bundles
         }
         
         // CRITICAL: Prevent infinite recursion by tracking if we're already fetching
