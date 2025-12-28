@@ -5341,66 +5341,53 @@ export const useEventStore = create<EventStore>()(
           console.log(`🔄 Syncing ${userEvents.length} events to API for user ${userId}...`);
 
           const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'http://localhost:3002';
-          let syncedCount = 0;
-          let failedCount = 0;
-
-          // Sync each event individually
-          // CRITICAL: Use syncEventToAPI to send FULL event WITH guests
-          // This ensures all guests are synced to the backend
-          for (const event of userEvents) {
+          
+          // CRITICAL: Use Promise.all to sync all events in parallel
+          // Each promise returns true on success, false on failure
+          const syncPromises = userEvents.map(async (event: Event) => {
             try {
               // Use syncEventToAPI which sends the full event with all guests
               await syncEventToAPI(event);
-                syncedCount++;
               console.log(`✅ Synced event "${event.coupleName || `${event.groomName} & ${event.brideName}`}" (${event.id}) to API with ${event.guests?.length || 0} guests`);
+              return true;
             } catch (error: any) {
-                failedCount++;
               console.error(`❌ Failed to sync event "${event.coupleName || `${event.groomName} & ${event.brideName}`}":`, error);
               // syncEventToAPI already handles 413 errors internally, so we just log the failure
+              return false;
             }
-          }
+          });
 
-          console.log(`✅ Successfully synced ${syncedCount}/${syncedCount + failedCount} event(s) to server. Refreshing to get updated data...`);
+          // Wait for all sync operations to complete
+          const results = await Promise.all(syncPromises);
+          const successCount = results.filter(r => r === true).length;
+          const failedCount = results.filter(r => r === false).length;
 
-          // CRITICAL: After sync, refresh events from API
-          // Use robust version that checks if fetchEvents exists before calling
-          console.log(`🔄 Refreshing events from API after sync...`);
-          // Clear the fetching flag
-          (get() as any)._isFetchingEvents = false;
-          // Get userId for refresh
-          const userStorage = localStorage.getItem('rsvp-user-storage');
-          let refreshUserId = '';
-          if (userStorage) {
-            try {
-              const parsed = JSON.parse(userStorage);
-              refreshUserId = parsed.state?.user?.id || '';
-            } catch (e: any) {
-              console.error('❌ Error parsing user storage for refresh:', e);
-            }
+          if (successCount > 0) {
+            console.log(`✅ Successfully synced ${successCount} events.`);
+            
+            setTimeout(() => {
+              console.log("🔄 Refreshing events from API...");
+              // This is the fix: Accessing the function through the Store's state
+              // Since we're inside the create function, we can use get() to access fetchEvents
+              const state = get();
+              if (state.fetchEvents) {
+                state.fetchEvents(true, true).catch(err => {
+                  console.warn("⚠️ Refresh failed, forcing page reload as fallback");
+                  window.location.reload();
+                });
+              } else {
+                window.location.reload();
+              }
+            }, 1500);
           }
-          // Small delay to ensure sync completes, then refresh data
-          setTimeout(async () => {
-            console.log('🔄 Triggering safe refresh via useEventStore...');
-            // METHOD B (Safer for external usage): Use the global hook
-            const storeState = useEventStore.getState();
-            if (storeState && storeState.fetchEvents && refreshUserId) {
-              await storeState.fetchEvents(refreshUserId, false).catch((err: any) => {
-                console.error('❌ Error refreshing events after sync:', err);
-                window.location.reload(); // Fallback on error
-              });
-            } else {
-              console.warn('⚠️ Store reference missing, forcing reload');
-              window.location.reload();
-            }
-          }, 1000);
 
           set({ isLoading: false, isSyncing: false });
           
           if (failedCount > 0) {
-            throw new Error(`סנכרנו ${syncedCount} אירועים, ${failedCount} נכשלו`);
+            throw new Error(`סנכרנו ${successCount} אירועים, ${failedCount} נכשלו`);
           }
           
-          return { synced: syncedCount, failed: failedCount };
+          return { synced: successCount, failed: failedCount };
         } catch (error: any) {
           console.error('❌ Error syncing all events:', error);
           set({ error: error instanceof Error ? error.message : 'שגיאה בסנכרון אירועים', isLoading: false, isSyncing: false });
