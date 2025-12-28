@@ -439,6 +439,7 @@ export const useEventStore = create<EventStore>()(
           console.log(`🔍 Fetching data from DB for user: ${userId}`);
           
           try {
+            console.log(`🌐 [FETCH DEBUG] Calling API: ${BACKEND_URL}/api/events/${userId}`);
             const response = await fetch(`${BACKEND_URL}/api/events/${userId}`, {
               method: 'GET',
               headers: {
@@ -449,25 +450,49 @@ export const useEventStore = create<EventStore>()(
               credentials: 'omit'
             });
 
+            console.log(`🌐 [FETCH DEBUG] API Response status: ${response.status} ${response.statusText}`);
+            
             if (!response.ok) {
-              throw new Error(`API returned ${response.status}: ${response.statusText}`);
+              const errorText = await response.text();
+              console.error(`❌ [FETCH DEBUG] API Error: ${response.status} - ${errorText}`);
+              throw new Error(`API returned ${response.status}: ${response.statusText} - ${errorText}`);
             }
 
             const data = await response.json();
+            console.log(`📥 [FETCH DEBUG] Response received, parsing data...`);
+            
+            // CRITICAL: Log the raw response to debug
+            console.log('📥 [FETCH DEBUG] Raw API response:', {
+              dataType: typeof data,
+              isArray: Array.isArray(data),
+              keys: data && typeof data === 'object' ? Object.keys(data) : 'N/A',
+              dataPreview: data && typeof data === 'object' ? JSON.stringify(data).substring(0, 200) : data
+            });
             
             // Handle different response formats: array, {events: []}, or {fullResponse: []}
             let apiEvents: any[] = [];
             if (Array.isArray(data)) {
               apiEvents = data;
+              console.log('📥 [FETCH DEBUG] Response is array, using directly');
             } else if (data.fullResponse && Array.isArray(data.fullResponse)) {
               apiEvents = data.fullResponse;
+              console.log('📥 [FETCH DEBUG] Response has fullResponse array');
             } else if (data.events && Array.isArray(data.events)) {
               apiEvents = data.events;
+              console.log('📥 [FETCH DEBUG] Response has events array');
+            } else {
+              console.warn('⚠️ [FETCH DEBUG] Unknown response format:', data);
             }
 
             // בדיקה אם חזרו נתונים מהשרת
+            console.log(`📥 [FETCH DEBUG] Parsed apiEvents: ${apiEvents.length} events`);
             if (apiEvents && apiEvents.length > 0) {
               console.log(`✅ Data received from DB: ${apiEvents.length} events found.`);
+              console.log('📥 [FETCH DEBUG] First event preview:', {
+                id: apiEvents[0]?.id,
+                coupleName: apiEvents[0]?.coupleName || apiEvents[0]?.couple_name,
+                guestsCount: apiEvents[0]?.guests?.length || 0
+              });
               
               // CRITICAL: UserID Consistency - Log userId from events to verify match
               const eventUserIds = [...new Set(apiEvents.map((e: any) => e.userId || e.user_id).filter(Boolean))];
@@ -520,12 +545,23 @@ export const useEventStore = create<EventStore>()(
 
               // עדכון ה-State וה-LocalStorage - דריסה מוחלטת של הנתונים הישנים
               // זה מה שיפתור את הבעיה בטאבלט
-              set((state: any) => ({
-                events: mappedEvents,
-                isLoading: false,
-                syncSuccessMessage: !silent ? 'הנתונים עודכנו בהצלחה' : null, // Show success message
-                error: null
-              }));
+              console.log('💾 [FETCH DEBUG] Updating store with', mappedEvents.length, 'events');
+              set((state: any) => {
+                console.log('💾 [FETCH DEBUG] Store update - previous events count:', state.events?.length || 0);
+                return {
+                  events: mappedEvents,
+                  isLoading: false,
+                  syncSuccessMessage: !silent ? 'הנתונים עודכנו בהצלחה' : null, // Show success message
+                  error: null
+                };
+              });
+              
+              // CRITICAL: Verify the update worked
+              const verifyState = get();
+              console.log('💾 [FETCH DEBUG] Store after update - events count:', verifyState.events?.length || 0);
+              if (verifyState.events?.length !== mappedEvents.length) {
+                console.error('❌ [FETCH DEBUG] CRITICAL: Store update failed! Expected', mappedEvents.length, 'but got', verifyState.events?.length || 0);
+              }
               
               // CRITICAL: Clear success message after 3 seconds
               if (!silent) {
@@ -546,13 +582,22 @@ export const useEventStore = create<EventStore>()(
                 const parsed: any = { state: { events: mappedEvents } };
                 localStorage.setItem(eventsStorageKey, JSON.stringify(parsed));
                 
-                console.log(`✅ [Force Cloud Priority] Cleared and overwrote localStorage with ${mappedEvents.length} events from server`);
+                // CRITICAL: Verify localStorage was saved
+                const verifyStorage = localStorage.getItem(eventsStorageKey);
+                if (verifyStorage) {
+                  const verifyParsed = JSON.parse(verifyStorage);
+                  console.log(`✅ [Force Cloud Priority] Cleared and overwrote localStorage with ${mappedEvents.length} events from server`);
+                  console.log('💾 [FETCH DEBUG] localStorage verification - saved events count:', verifyParsed.state?.events?.length || 0);
+                } else {
+                  console.error('❌ [FETCH DEBUG] CRITICAL: localStorage save failed!');
+                }
               } catch (storageError: any) {
                 console.error('❌ Error updating localStorage:', storageError);
               }
               
               // CRITICAL: Clear fetching flag
               (get() as any)._isFetchingEvents = false;
+              console.log('✅ [FETCH DEBUG] fetchEvents completed successfully');
               return;
             } else {
               console.warn("⚠️ Server returned no events. Checking if we need to sync local data...");
