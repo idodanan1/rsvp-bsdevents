@@ -571,16 +571,20 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // CRITICAL: After sync, reload page to fetch fresh data from server
-                // This is the safest approach in production build where setTimeout callbacks lose closure context
-                // The data is already on the server, so reload will load it perfectly
+                // CRITICAL: After sync, refresh events from API
+                // Use robust version that checks if fetchEvents exists before calling
                 console.log('🔄 Refreshing events from API after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
-                // Small delay to ensure sync completes, then reload page
+                // Small delay to ensure sync completes, then refresh data
                 setTimeout(() => {
-                  console.log('🔄 Reloading page to fetch fresh data from server...');
-                  window.location.reload();
+                  const state = useEventStore.getState();
+                  if (state.fetchEvents) {
+                    state.fetchEvents(userId, false);
+                  } else {
+                    console.warn('⚠️ fetchEvents not available, using hard reload fallback');
+                    window.location.reload(); // Hard fallback to ensure data shows up
+                  }
                 }, 1000);
                 return;
               } else {
@@ -771,16 +775,20 @@ export const useEventStore = create<EventStore>()(
                   
                   console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server.`);
                   
-                  // CRITICAL: After sync, reload page to fetch fresh data from server
-                  // This is the safest approach in production build where setTimeout callbacks lose closure context
-                  // The data is already on the server, so reload will load it perfectly
+                  // CRITICAL: After sync, refresh events from API
+                  // Use robust version that checks if fetchEvents exists before calling
                   console.log('🔄 Refreshing events from API after sync...');
                   // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
-                  // Small delay to ensure sync completes, then reload page
+                  // Small delay to ensure sync completes, then refresh data
                   setTimeout(() => {
-                    console.log('🔄 Reloading page to fetch fresh data from server...');
-                    window.location.reload();
+                    const state = useEventStore.getState();
+                    if (state.fetchEvents) {
+                      state.fetchEvents(userId, false);
+                    } else {
+                      console.warn('⚠️ fetchEvents not available, using hard reload fallback');
+                      window.location.reload(); // Hard fallback to ensure data shows up
+                    }
                   }, 1000);
                   return;
                 } else {
@@ -5340,16 +5348,31 @@ export const useEventStore = create<EventStore>()(
 
           console.log(`✅ Successfully synced ${syncedCount}/${syncedCount + failedCount} event(s) to server. Refreshing to get updated data...`);
 
-          // CRITICAL: After sync, reload page to fetch fresh data from server
-          // This is the safest approach in production build where setTimeout callbacks lose closure context
-          // The data is already on the server, so reload will load it perfectly
+          // CRITICAL: After sync, refresh events from API
+          // Use robust version that checks if fetchEvents exists before calling
           console.log(`🔄 Refreshing events from API after sync...`);
           // Clear the fetching flag
           (get() as any)._isFetchingEvents = false;
-          // Small delay to ensure sync completes, then reload page
+          // Get userId for refresh
+          const userStorage = localStorage.getItem('rsvp-user-storage');
+          let refreshUserId = '';
+          if (userStorage) {
+            try {
+              const parsed = JSON.parse(userStorage);
+              refreshUserId = parsed.state?.user?.id || '';
+            } catch (e: any) {
+              console.error('❌ Error parsing user storage for refresh:', e);
+            }
+          }
+          // Small delay to ensure sync completes, then refresh data
           setTimeout(() => {
-            console.log('🔄 Reloading page to fetch fresh data from server...');
-            window.location.reload();
+            const state = useEventStore.getState();
+            if (state.fetchEvents && refreshUserId) {
+              state.fetchEvents(refreshUserId, false);
+            } else {
+              console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
+              window.location.reload(); // Hard fallback to ensure data shows up
+            }
           }, 1000);
 
           set({ isLoading: false, isSyncing: false });

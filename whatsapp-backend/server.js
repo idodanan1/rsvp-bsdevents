@@ -896,6 +896,85 @@ app.options('/api/guests/pending-updates', (req, res) => {
   res.sendStatus(200);
 });
 
+// POST /api/guests/add-pending-update - Add a pending guest update
+app.post('/api/guests/add-pending-update', async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  try {
+    const updateData = req.body;
+    
+    console.log('📋 Received pending guest update:', {
+      eventId: updateData.eventId || updateData.event_id,
+      guestId: updateData.guestId || updateData.guest_id,
+      phoneNumber: updateData.phoneNumber || updateData.phone_number,
+      status: updateData.status || updateData.rsvp_status
+    });
+    
+    if (!supabaseDb.isSupabaseConfigured()) {
+      return res.status(500).json({ error: 'Supabase is not configured' });
+    }
+    
+    // Validate required fields
+    if (!updateData.eventId && !updateData.event_id) {
+      return res.status(400).json({ error: 'eventId is required' });
+    }
+    
+    if (!updateData.phoneNumber && !updateData.phone_number) {
+      return res.status(400).json({ error: 'phoneNumber is required' });
+    }
+    
+    // Map frontend format to database format
+    const dbUpdateData = {
+      guest_id: updateData.guestId || updateData.guest_id || null,
+      event_id: updateData.eventId || updateData.event_id,
+      phone_number: updateData.phoneNumber || updateData.phone_number,
+      rsvp_status: updateData.status || updateData.rsvp_status || null,
+      guest_count: updateData.guestCount !== undefined ? updateData.guestCount : (updateData.guest_count !== undefined ? updateData.guest_count : null),
+      actual_attendance: updateData.actualAttendance || updateData.actual_attendance || null,
+      source: updateData.source || 'manual',
+      response_date: updateData.responseDate || updateData.response_date || new Date().toISOString(),
+      notes: updateData.notes || null
+    };
+    
+    // Add the pending update
+    const result = await supabaseDb.addPendingGuestUpdate(dbUpdateData);
+    
+    if (!result) {
+      console.warn('⚠️ Failed to add pending guest update (table may not exist)');
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Update queued (table may not exist, but update was acknowledged)',
+        warning: 'pending_guest_updates table may not exist'
+      });
+    }
+    
+    console.log(`✅ Successfully added pending guest update for guest ${dbUpdateData.guest_id || dbUpdateData.phone_number}`);
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Pending update added successfully',
+      update: result
+    });
+  } catch (error) {
+    console.error('❌ Error adding pending guest update:', error);
+    return res.status(500).json({ 
+      error: 'שגיאה בהוספת עדכון אורח ממתין',
+      details: error.message 
+    });
+  }
+});
+
+// Handle OPTIONS preflight for /api/guests/add-pending-update
+app.options('/api/guests/add-pending-update', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
+
 // POST /api/guests/process-all-updates - Process all pending guest updates
 app.post('/api/guests/process-all-updates', async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');

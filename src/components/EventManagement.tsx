@@ -2734,7 +2734,9 @@ const EventManagement: React.FC = () => {
 
       const recipients = guestsToSend.map((guest: any) => {
         // CRITICAL: Find the original row number of the guest in the event (not filtered)
-        const originalRowNumber = currentEvent.guests.findIndex((g: any) => g.id === guest.id) + 1;
+        // Add optional chaining to prevent crash if currentEvent or guests is undefined
+        const guestIndex = currentEvent?.guests?.findIndex((g: any) => g.id === guest.id) ?? -1;
+        const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
       console.log('🔗 Generated guest link:', guestLink);
@@ -2909,9 +2911,10 @@ const EventManagement: React.FC = () => {
       // Use the real guest ID if found, otherwise use the parameter ID
       const guestIdToUse = realGuest?.id || guest.id;
       // Use helper function to ensure production URL (works on all devices)
-      const guestToUse = event.guests.find((g: any) => g.id === guestIdToUse) || realGuest || guest;
+      const guestToUse = event?.guests?.find((g: any) => g.id === guestIdToUse) || realGuest || guest;
       // CRITICAL: Find the original row number of the guest in the event (not filtered)
-      const guestIndex = event.guests.findIndex((g: any) => g.id === guestIdToUse);
+      // Add optional chaining to prevent crash if event or guests is undefined
+      const guestIndex = event?.guests?.findIndex((g: any) => g.id === guestIdToUse) ?? -1;
       const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
       console.log('🔍 DEBUG - Original row number for guest:', {
         guestId: guestIdToUse,
@@ -3942,7 +3945,9 @@ const EventManagement: React.FC = () => {
               ) : (
                 filteredGuests.map((guest: any, index: number) => {
                   // CRITICAL: Find the original row number of the guest in the event (not filtered)
-                  const originalRowNumber = currentEvent.guests.findIndex((g: any) => g.id === guest.id) + 1;
+                  // Add optional chaining to prevent crash if currentEvent or guests is undefined
+                  const guestIndex = currentEvent?.guests?.findIndex((g: any) => g.id === guest.id) ?? -1;
+                  const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
                   return (
                 <tr key={guest.id} className={`hover:bg-blue-50 transition-colors duration-200 relative z-0 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                   <td className="px-3 py-4 text-center text-sm font-bold w-12">

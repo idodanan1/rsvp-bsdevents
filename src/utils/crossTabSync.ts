@@ -131,8 +131,19 @@ class CrossTabSync {
    * Broadcast a message to all other tabs
    */
   broadcast(message: Omit<CrossTabMessage, 'timestamp' | 'tabId'>) {
+    // CRITICAL: Ensure only clean JSON is sent through BroadcastChannel
+    // DataCloneError occurs when trying to send complex objects with functions or proxies
+    // Use JSON.parse(JSON.stringify()) to create a clean, serializable copy
+    const cleanMessage = {
+      type: message.type,
+      storeName: message.storeName,
+      action: message.action || undefined,
+      // Deep clone data to ensure it's clean JSON (no functions, proxies, or circular refs)
+      data: message.data ? JSON.parse(JSON.stringify(message.data)) : undefined,
+    };
+    
     const fullMessage: CrossTabMessage = {
-      ...message,
+      ...cleanMessage,
       timestamp: Date.now(),
       tabId: this.tabId,
     };
@@ -140,10 +151,21 @@ class CrossTabSync {
     if (this.channel) {
       // Use BroadcastChannel (preferred)
       try {
+        // CRITICAL: Ensure message is clean JSON before sending
+        // This prevents DataCloneError from complex objects
         this.channel.postMessage(fullMessage);
         console.log(`📤 Broadcasted cross-tab message:`, message.type, message.storeName);
       } catch (error) {
         console.error('❌ Error broadcasting message:', error);
+        // If BroadcastChannel fails, fall back to localStorage
+        try {
+          localStorage.setItem('rsvp-cross-tab-sync', JSON.stringify(fullMessage));
+          setTimeout(() => {
+            localStorage.removeItem('rsvp-cross-tab-sync');
+          }, 0);
+        } catch (fallbackError) {
+          console.error('❌ Error broadcasting message (localStorage fallback):', fallbackError);
+        }
       }
     } else {
       // Fallback to localStorage
