@@ -1,5 +1,5 @@
 // Webhook service for syncing WhatsApp updates
-const BACKEND_URL = (import.meta.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
 
 export interface SyncResult {
   processed: number;

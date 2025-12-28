@@ -235,7 +235,7 @@ const EventManagement: React.FC = () => {
     
     const checkPendingUpdates = async () => {
       try {
-        const BACKEND_URL = (import.meta.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
@@ -265,7 +265,7 @@ const EventManagement: React.FC = () => {
   const handleProcessPendingUpdates = async () => {
     setIsProcessingPendingUpdates(true);
     try {
-      const BACKEND_URL = (import.meta.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+      const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
       
       // First, check current pending count before processing
       let pendingBeforeProcessing = pendingUpdatesCount;
