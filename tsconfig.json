@@ -15,7 +15,7 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "rootDir": ".",
+    "rootDir": "src",
     "baseUrl": ".",
     "plugins": [
       {
@@ -36,7 +36,16 @@
     "node_modules",
     ".next",
     "out",
-    "dist"
+    "dist",
+    "**/AppData/**",
+    "**/OneDrive/**",
+    "**/SolutionPackages/**",
+    "**/Office/**",
+    "**/Microsoft/**",
+    "**/PackageResources/**",
+    "**/Desktop/**",
+    "**/Documents/**",
+    "**/Downloads/**"
   ]
 }
 

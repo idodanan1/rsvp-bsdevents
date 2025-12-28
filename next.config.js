@@ -8,11 +8,22 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    outputFileTracingExcludes: {
+      '*': [
+        '**/AppData/**',
+        '**/Microsoft/**',
+        '**/Office/**',
+        '**/SolutionPackages/**',
+        '**/PackageResources/**',
+      ],
+    },
   },
   typescript: {
     ignoreBuildErrors: true,
     tsconfigPath: './tsconfig.json',
   },
+  // Exclude system directories from TypeScript compilation
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -35,13 +46,16 @@ const nextConfig = {
         '**/node_modules/**',
         '**/AppData/**',
         '**/Microsoft/**',
+        '**/Office/**',
+        '**/SolutionPackages/**',
+        '**/PackageResources/**',
         '**/.git/**',
         '**/.next/**',
         '**/dist/**',
       ],
     };
     
-    // Exclude AppData from module resolution
+    // Exclude AppData and Office from module resolution
     config.module = {
       ...config.module,
       rules: [
@@ -52,12 +66,31 @@ const nextConfig = {
             /node_modules/,
             /AppData/,
             /Microsoft/,
+            /Office/,
+            /SolutionPackages/,
+            /PackageResources/,
             /\.next/,
             /dist/,
           ],
         },
       ],
     };
+    
+    // Ignore AppData and Office directories from file system
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+    };
+    
+    // Add ignore patterns for TypeScript compilation
+    if (!isServer) {
+      config.ignoreWarnings = [
+        { module: /AppData/ },
+        { module: /Microsoft/ },
+        { module: /Office/ },
+        { module: /SolutionPackages/ },
+        { module: /PackageResources/ },
+      ];
+    }
     
     // Optimize memory usage during build
     if (!isServer) {
