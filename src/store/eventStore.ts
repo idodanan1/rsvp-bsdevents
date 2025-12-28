@@ -562,10 +562,31 @@ export const useEventStore = create<EventStore>()(
               // עדכון ה-State וה-LocalStorage - דריסה מוחלטת של הנתונים הישנים
               // זה מה שיפתור את הבעיה בטאבלט
               console.log('💾 [FETCH DEBUG] Updating store with', mappedEvents.length, 'events');
+              
+              // CRITICAL: Get current event ID before updating to preserve it
+              const currentState = get();
+              const currentEventId = currentState.currentEvent?.id;
+              
               set((state: any) => {
                 console.log('💾 [FETCH DEBUG] Store update - previous events count:', state.events?.length || 0);
+                
+                // CRITICAL: Update currentEvent if it exists in the new events
+                let updatedCurrentEvent = state.currentEvent;
+                if (currentEventId) {
+                  const updatedEvent = mappedEvents.find((e: any) => e.id === currentEventId);
+                  if (updatedEvent) {
+                    updatedCurrentEvent = {
+                      ...updatedEvent,
+                      // Preserve any local state that might not be in server data
+                      guests: updatedEvent.guests || []
+                    };
+                    console.log('💾 [FETCH DEBUG] Updated currentEvent with server data:', updatedCurrentEvent.id, 'guests:', updatedCurrentEvent.guests?.length || 0);
+                  }
+                }
+                
                 return {
                   events: mappedEvents,
+                  currentEvent: updatedCurrentEvent, // CRITICAL: Update currentEvent with fresh server data
                   isLoading: false,
                   syncSuccessMessage: !silent ? 'הנתונים עודכנו בהצלחה' : null, // Show success message
                   error: null
@@ -658,24 +679,20 @@ export const useEventStore = create<EventStore>()(
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 
-                // BULLETPROOF APPROACH: Use useEventStore.getState() directly in setTimeout
-                // This works in production builds because getState() is always available globally
+                // BULLETPROOF APPROACH: Use get() directly within the store's context
+                // This is the safest way to access fetchEvents in production builds
                 console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
                 if (typeof window !== 'undefined') {
-                  setTimeout(() => {
-                    console.log(`🔄 [BULLETPROOF] Calling fetchEvents via useEventStore.getState()...`);
+                  setTimeout(async () => {
+                    console.log(`🔄 [BULLETPROOF] Calling fetchEvents via get()...`);
                     try {
-                      // CRITICAL: Use getState() which is always available globally, even in minified code
-                      const store = useEventStore.getState();
-                      if (store && typeof store.fetchEvents === 'function') {
-                        store.fetchEvents(true, false).catch((err: any) => {
-                          console.error(`❌ [BULLETPROOF] fetchEvents failed:`, err);
-                          // Fallback: reload page
-                          window.location.reload();
-                        });
+                      // CRITICAL: Use get() directly within the store's context - this always works
+                      const state = get();
+                      if (state && typeof state.fetchEvents === 'function') {
+                        await state.fetchEvents(true, false);
                         console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
                       } else {
-                        console.warn(`⚠️ [BULLETPROOF] fetchEvents not available, forcing reload`);
+                        console.warn(`⚠️ [BULLETPROOF] fetchEvents not available via get(), forcing reload`);
                         window.location.reload();
                       }
                     } catch (err: any) {
@@ -5091,23 +5108,19 @@ export const useEventStore = create<EventStore>()(
             console.log(`✅ Successfully synced ${successCount} events.`);
             console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
             
-            // BULLETPROOF APPROACH: Use useEventStore.getState() directly in setTimeout
-            // This works in production builds because getState() is always available globally
+            // BULLETPROOF APPROACH: Use get() directly within the store's context
+            // This is the safest way to access fetchEvents in production builds
             if (typeof window !== 'undefined') {
-              setTimeout(() => {
-                console.log(`🔄 [BULLETPROOF] Calling fetchEvents via useEventStore.getState()...`);
+              setTimeout(async () => {
+                console.log(`🔄 [BULLETPROOF] Calling fetchEvents via get()...`);
                 try {
-                  // CRITICAL: Use getState() which is always available globally, even in minified code
-                  const store = useEventStore.getState();
-                  if (store && typeof store.fetchEvents === 'function') {
-                    store.fetchEvents(true, true).catch((err: any) => {
-                      console.error(`❌ [BULLETPROOF] fetchEvents failed:`, err);
-                      // Fallback: reload page
-                      window.location.reload();
-                    });
+                  // CRITICAL: Use get() directly within the store's context - this always works
+                  const state = get();
+                  if (state && typeof state.fetchEvents === 'function') {
+                    await state.fetchEvents(true, true);
                     console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
                   } else {
-                    console.warn(`⚠️ [BULLETPROOF] fetchEvents not available, forcing reload`);
+                    console.warn(`⚠️ [BULLETPROOF] fetchEvents not available via get(), forcing reload`);
                     window.location.reload();
                   }
                 } catch (err: any) {
