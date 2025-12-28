@@ -653,29 +653,19 @@ export const useEventStore = create<EventStore>()(
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
                 // CRITICAL: After sync, refresh events from API
-                // CRITICAL: Use get() to safely access the store's own functions
+                // NEW APPROACH: Use window event system instead of setTimeout with closure
                 console.log('🔄 Refreshing events from API after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
-                // Small delay to ensure sync completes, then refresh data
-                setTimeout(async () => {
-                  console.log("🔄 Starting safe refresh...");
-                  try {
-                    // We use get() because it's the internal way Zustand accesses its own functions
-                    const store = get(); 
-                    if (store && typeof store.fetchEvents === 'function') {
-                      await store.fetchEvents(true, false);
-                      console.log("✅ Refresh complete");
-                    } else {
-                      // If for some reason the store is unreachable, force a hard reload
-                      console.warn("Store or fetchEvents not available, forcing reload");
-                      window.location.reload();
-                    }
-                  } catch (err) {
-                    console.error("Refresh failed, forcing reload:", err);
-                    window.location.reload();
-                  }
-                }, 1000);
+                
+                // Use custom event to trigger refresh - this avoids closure issues
+                if (typeof window !== 'undefined') {
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                      detail: { forceRefresh: true, silent: false } 
+                    }));
+                  }, 1000);
+                }
                 return;
               } else {
                 // No local data and no server data - empty state
@@ -5078,25 +5068,14 @@ export const useEventStore = create<EventStore>()(
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
             
-            // CRITICAL: Use get() to safely access the store's own functions without relying on names that get mangled during build
-            setTimeout(async () => {
-              console.log("🔄 Starting safe refresh...");
-              try {
-                // We use get() because it's the internal way Zustand accesses its own functions
-                const store = get(); 
-                if (store && typeof store.fetchEvents === 'function') {
-                  await store.fetchEvents(true, true);
-                  console.log("✅ Refresh complete");
-                } else {
-                  // If for some reason the store is unreachable, force a hard reload
-                  console.warn("Store or fetchEvents not available, forcing reload");
-                  window.location.reload();
-                }
-              } catch (err) {
-                console.error("Refresh failed, forcing reload:", err);
-                window.location.reload();
-              }
-            }, 1500);
+            // NEW APPROACH: Use window event system instead of setTimeout with closure
+            if (typeof window !== 'undefined') {
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                  detail: { forceRefresh: true, silent: true } 
+                }));
+              }, 1500);
+            }
           }
 
           set({ isLoading: false, isSyncing: false });
@@ -5401,20 +5380,44 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// CRITICAL: Expose fetchEvents globally for setTimeout closures in production builds
-// This is a bulletproof fix that works even when closures fail in minified code
+// CRITICAL: Set up event listener for refresh events - this avoids closure issues completely
+// NEW APPROACH: Use window events instead of setTimeout with closures
 if (typeof window !== 'undefined') {
-  // Update the global reference whenever the store state changes
+  // Listen for refresh events and call fetchEvents
+  window.addEventListener('rsvp-refresh-events', async (event: any) => {
+    try {
+      const detail = event.detail || {};
+      const forceRefresh = detail.forceRefresh ?? true;
+      const silent = detail.silent ?? false;
+      
+      console.log("🔄 Event-driven refresh triggered:", { forceRefresh, silent });
+      
+      const state = useEventStore.getState();
+      if (state && typeof state.fetchEvents === 'function') {
+        await state.fetchEvents(forceRefresh, silent);
+        console.log("✅ Event-driven refresh complete");
+      } else {
+        console.warn("⚠️ fetchEvents not available, forcing reload");
+        window.location.reload();
+      }
+    } catch (err: any) {
+      console.error("❌ Event-driven refresh failed, forcing reload:", err);
+      window.location.reload();
+    }
+  });
+  
+  // Also expose globally for backward compatibility
   const updateGlobalFetchEvents = () => {
     const state = useEventStore.getState();
     if (state && state.fetchEvents) {
       (window as any).globalFetchEvents = state.fetchEvents;
+      (window as any).fetchEvents = state.fetchEvents;
     }
   };
   
   // Set initial value
   updateGlobalFetchEvents();
   
-  // Update whenever store changes (optional, but ensures it's always current)
+  // Update whenever store changes
   useEventStore.subscribe(updateGlobalFetchEvents);
 }

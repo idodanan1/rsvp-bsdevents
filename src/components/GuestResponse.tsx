@@ -1208,33 +1208,14 @@ const GuestResponse = () => {
         // CRITICAL: Trigger a single fetchEvents call to sync with API and trigger EventManagement update
         // The store update already triggers React re-renders, but fetchEvents ensures API sync
         // This ensures the table in EventManagement updates after 10 seconds
-      console.log(`🔄 Triggering fetchEvents to refresh table after guest ${guestToUpdate.id} update (10 seconds delay)...`);
-        setTimeout(async () => {
-        // CRITICAL: Use getState() inside setTimeout to ensure fetchEvents is accessible
-        try {
-          const currentStoreState = useEventStore.getState();
-          if (currentStoreState && typeof currentStoreState.fetchEvents === 'function') {
-            await currentStoreState.fetchEvents(true, true);
-            console.log(`✅ fetchEvents completed - table should now show updated guest ${guestToUpdate.id}`);
-            // Verify the update was loaded from server
-            const verifyState = useEventStore.getState();
-            const verifyEvent = verifyState.events.find((e: any) => e.id === currentEvent.id);
-            const verifyGuest = verifyEvent?.guests?.find((g: any) => g.id === guestToUpdate.id);
-            if (verifyGuest) {
-              console.log(`✅ VERIFIED: Guest ${guestToUpdate.id} (${verifyGuest.firstName} ${verifyGuest.lastName}) after fetchEvents:`, {
-                rsvpStatus: verifyGuest.rsvpStatus,
-                guestCount: verifyGuest.guestCount,
-                source: (verifyGuest as any).source,
-                responseDate: verifyGuest.responseDate
-              });
-            } else {
-              console.error(`❌ Guest ${guestToUpdate.id} not found after fetchEvents!`);
-            }
-          } else {
-            console.error('❌ fetchEvents not available in store state');
-          }
-        } catch (err: any) {
-          console.error('❌ Failed to refresh events after guest response update:', err);
+      console.log(`🔄 Triggering refresh to update table after guest ${guestToUpdate.id} update (10 seconds delay)...`);
+        setTimeout(() => {
+        // NEW APPROACH: Use event system instead of direct fetchEvents call
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+            detail: { forceRefresh: true, silent: true } 
+          }));
+          console.log(`✅ Refresh event dispatched - table should update after guest ${guestToUpdate.id} update`);
         }
       }, 10000); // 10 seconds delay after guest count update
       
@@ -1246,13 +1227,11 @@ const GuestResponse = () => {
       setSubmittedGuestCount(formData.guestCount);
       
       // Refresh events in background (non-blocking)
-      // CRITICAL: Get fetchEvents from store to ensure it's accessible
-      const storeState = useEventStore.getState();
-      const fetchEventsFn = storeState.fetchEvents;
-      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-        fetchEventsFn().catch(() => {}); // Don't wait for it
-      } else {
-        console.error('❌ fetchEvents is not available in store state');
+      // NEW APPROACH: Use event system instead of direct fetchEvents call
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+          detail: { forceRefresh: false, silent: true } 
+        }));
       }
       
       setSubmitStatus('success');
@@ -1655,8 +1634,11 @@ const GuestResponse = () => {
                         };
                         await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
                         setTimeout(() => {
-                          const storeState = useEventStore.getState();
-                          storeState.fetchEvents(false, true).catch(() => {});
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                              detail: { forceRefresh: false, silent: true } 
+                            }));
+                          }
                         }, 100);
                         setSubmitStatus('success');
                       }
@@ -1729,8 +1711,11 @@ const GuestResponse = () => {
                         };
                         await updateGuestResponse(currentEvent.id, guestIdToUse, updatedGuest);
                         setTimeout(() => {
-                          const storeState = useEventStore.getState();
-                          storeState.fetchEvents(false, true).catch(() => {});
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                              detail: { forceRefresh: false, silent: true } 
+                            }));
+                          }
                         }, 100);
                         setSubmitStatus('success');
                       }
@@ -1844,8 +1829,11 @@ const GuestResponse = () => {
                           // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
                           await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
                         setTimeout(() => {
-                            const storeState = useEventStore.getState();
-                            storeState.fetchEvents(false, true).catch(() => {});
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                                detail: { forceRefresh: false, silent: true } 
+                              }));
+                            }
                         }, 100);
                         setSubmitStatus('success');
                         } else {
@@ -1926,8 +1914,11 @@ const GuestResponse = () => {
                         // CRITICAL: Use the actual guest ID, not guestIdToUse which might be corrupted
                         await updateGuestResponse(currentEvent.id, guestToUpdate.id, updatedGuest);
                         setTimeout(() => {
-                            const storeState = useEventStore.getState();
-                            storeState.fetchEvents(false, true).catch(() => {});
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                                detail: { forceRefresh: false, silent: true } 
+                              }));
+                            }
                         }, 100);
                         setSubmitStatus('success');
                         } else {
