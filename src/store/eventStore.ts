@@ -372,22 +372,36 @@ export const useEventStore = create<EventStore>()(
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
         // CRITICAL: Expose fetchEvents globally immediately for production builds
         // This ensures it's available even in minified code where closures may fail
-        // Store reference to this function before any async operations
-        const fetchEventsFn = async (userIdOrForce?: any, silentParam?: boolean) => {
+        // Use useEventStore.getState() which is always available globally
+        const globalWrapper = async (userIdOrForce?: any, silentParam?: boolean) => {
           // Handle both call signatures: (userId, silent) and (forceRefresh, silent)
-          if (typeof userIdOrForce === 'string') {
-            // Old signature: (userId, silent) - get current state and call fetchEvents
+          try {
             const state = useEventStore.getState();
-            return state.fetchEvents(true, silentParam ?? false);
-          } else {
-            // New signature: (forceRefresh, silent)
-            const state = useEventStore.getState();
-            return state.fetchEvents(userIdOrForce ?? false, silentParam ?? false);
+            if (!state || !state.fetchEvents) {
+              console.error('❌ fetchEvents not found in store state');
+              throw new Error('fetchEvents not available');
+            }
+            
+            if (typeof userIdOrForce === 'string') {
+              // Old signature: (userId, silent) - call with forceRefresh=true
+              return state.fetchEvents(true, silentParam ?? false);
+            } else {
+              // New signature: (forceRefresh, silent)
+              return state.fetchEvents(userIdOrForce ?? false, silentParam ?? false);
+            }
+          } catch (error: any) {
+            console.error('❌ Error in globalFetchEvents:', error);
+            // Fallback: reload page if fetchEvents is not available
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
+            throw error;
           }
         };
         
+        // CRITICAL: Expose the wrapper function globally BEFORE any async operations
         if (typeof window !== 'undefined') {
-          (window as any).globalFetchEvents = fetchEventsFn;
+          (window as any).globalFetchEvents = globalWrapper;
         }
         
         // CRITICAL: Prevent infinite recursion by tracking if we're already fetching
