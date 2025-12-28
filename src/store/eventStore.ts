@@ -659,12 +659,24 @@ export const useEventStore = create<EventStore>()(
                 (get() as any)._isFetchingEvents = false;
                 
                 // Use custom event to trigger refresh - this avoids closure issues
+                // NEW APPROACH: Use window event system instead of setTimeout with closure
+                console.log(`🔄 [NEW SYSTEM] Dispatching refresh event instead of direct fetchEvents call...`);
                 if (typeof window !== 'undefined') {
                   setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
-                      detail: { forceRefresh: true, silent: false } 
-                    }));
+                    console.log(`🔄 [NEW SYSTEM] Dispatching rsvp-refresh-events custom event...`);
+                    try {
+                      window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                        detail: { forceRefresh: true, silent: false } 
+                      }));
+                      console.log(`✅ [NEW SYSTEM] Event dispatched successfully`);
+                    } catch (err: any) {
+                      console.error(`❌ [NEW SYSTEM] Failed to dispatch event:`, err);
+                      // Fallback: reload page
+                      window.location.reload();
+                    }
                   }, 1000);
+                } else {
+                  console.warn(`⚠️ [NEW SYSTEM] window is undefined, cannot dispatch event`);
                 }
                 return;
               } else {
@@ -5067,14 +5079,26 @@ export const useEventStore = create<EventStore>()(
 
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
+            console.log(`🔄 [NEW SYSTEM] Dispatching refresh event instead of direct fetchEvents call...`);
             
             // NEW APPROACH: Use window event system instead of setTimeout with closure
+            // This completely avoids closure issues in production builds
             if (typeof window !== 'undefined') {
               setTimeout(() => {
-                window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
-                  detail: { forceRefresh: true, silent: true } 
-                }));
+                console.log(`🔄 [NEW SYSTEM] Dispatching rsvp-refresh-events custom event...`);
+                try {
+                  window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
+                    detail: { forceRefresh: true, silent: true } 
+                  }));
+                  console.log(`✅ [NEW SYSTEM] Event dispatched successfully`);
+                } catch (err: any) {
+                  console.error(`❌ [NEW SYSTEM] Failed to dispatch event:`, err);
+                  // Fallback: reload page
+                  window.location.reload();
+                }
               }, 1500);
+            } else {
+              console.warn(`⚠️ [NEW SYSTEM] window is undefined, cannot dispatch event`);
             }
           }
 
