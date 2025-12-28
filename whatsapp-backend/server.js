@@ -753,44 +753,44 @@ app.get('/api/events/:userId', async (req, res) => {
     console.log('🔍 [UserID Check] GET /api/events/:userId - Querying Supabase with user_id (as String):', JSON.stringify(userIdString));
     console.log('🔍 [UserID Check] GET /api/events/:userId - userId type:', typeof userIdString, 'value:', userIdString);
     
-    // CRITICAL: Query using TEXT comparison - cast user_id to TEXT for string matching
-    // This handles both UUID and String user_id values in the database
-    // Use RPC or raw query to cast UUID to TEXT for comparison
-    let { data, error } = await supabase.rpc('get_events_by_user_id', { user_id_param: userIdString })
-      .catch(async () => {
-        // Fallback: Try direct query with string comparison
-        // If RPC doesn't exist, use direct query and filter in JavaScript
-        console.log('🔍 [UserID Check] RPC not available, using direct query with string filter...');
-        const { data: allEvents, error: allError } = await supabase
+    // CRITICAL: Query using direct string comparison
+    // Since POST saves user_id as String, GET should query with the same String format
+    // Use standard async/await try-catch instead of .catch() to avoid TypeError
+    let data = null;
+    let error = null;
+    
+    try {
+      // First, try direct query with string comparison
+      // This matches the format used in POST (String user_id)
+      const queryResult = await supabase
+        .from('events')
+        .select('*')
+        .eq('user_id', userIdString)
+        .order('created_at', { ascending: false });
+      
+      data = queryResult.data;
+      error = queryResult.error;
+      
+      // If no results with direct query, try fetching all and filtering by string
+      if ((!data || data.length === 0) && !error) {
+        console.log('🔍 [UserID Check] No results with direct query, trying string filter on all events...');
+        const allEventsResult = await supabase
           .from('events')
           .select('*')
           .order('created_at', { ascending: false });
         
-        if (allError) {
-          return { data: null, error: allError };
+        if (!allEventsResult.error && allEventsResult.data) {
+          // Filter by string comparison in JavaScript (handles UUID to String conversion)
+          data = allEventsResult.data.filter(e => String(e.user_id) === userIdString);
+          error = null;
+          console.log(`🔍 [UserID Check] Found ${data.length} events after string filtering`);
+        } else {
+          error = allEventsResult.error;
         }
-        
-        // Filter by string comparison in JavaScript
-        const filteredEvents = (allEvents || []).filter(e => String(e.user_id) === userIdString);
-        return { data: filteredEvents, error: null };
-      });
-    
-    // If RPC returned error, try direct query with string filter
-    if (error || !data) {
-      console.log('🔍 [UserID Check] Trying direct query with string filter...');
-      const { data: allEvents, error: allError } = await supabase
-        .from('events')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!allError && allEvents) {
-        // Filter by string comparison in JavaScript (handles UUID to String conversion)
-        data = allEvents.filter(e => String(e.user_id) === userIdString);
-        error = null;
-        console.log(`🔍 [UserID Check] Found ${data.length} events after string filtering`);
-      } else {
-        error = allError;
       }
+    } catch (queryError) {
+      console.error('❌ Error querying events:', queryError);
+      error = queryError;
     }
     
     if (error) {

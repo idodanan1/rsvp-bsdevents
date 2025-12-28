@@ -571,30 +571,16 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // CRITICAL: Refresh events from store after sync
-                // Use get().fetchEvents() since we're inside the store definition
-                // Safety fallback: If function not available, reload page
-                console.log('🔄 [Post-Sync Refresh] Refreshing events from store after sync...');
-                // Clear the fetching flag to allow fetchEvents to run
+                // CRITICAL: After sync, reload page to fetch fresh data from server
+                // This is the safest approach in production build where setTimeout callbacks lose closure context
+                // The data is already on the server, so reload will load it perfectly
+                console.log('🔄 Refreshing events from API after sync...');
+                // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
-                // Small delay to ensure sync completes, then fetch fresh data
-                setTimeout(async () => {
-                  console.log('🔄 Triggering refresh via Store Action...');
-                  try {
-                    // CRITICAL: Use useEventStore.getState() to access store from outside scope
-                    // This avoids scope issues in compiled JS where setTimeout callbacks lose closure context
-                    const state = useEventStore.getState();
-                    if (state && typeof state.fetchEvents === 'function') {
-                      await state.fetchEvents(true, true); // Force refresh, silent mode
-                      console.log('✅ Successfully refreshed events after sync');
-                    } else {
-                      console.warn('⚠️ fetchEvents not found in store, falling back to reload');
-                      window.location.reload();
-                    }
-                  } catch (e: any) {
-                    console.error('❌ Refresh failed, reloading page:', e);
-                    window.location.reload();
-                  }
+                // Small delay to ensure sync completes, then reload page
+                setTimeout(() => {
+                  console.log('🔄 Reloading page to fetch fresh data from server...');
+                  window.location.reload();
                 }, 1000);
                 return;
               } else {
@@ -785,42 +771,16 @@ export const useEventStore = create<EventStore>()(
                   
                   console.log(`✅ Synced ${syncedCount}/${localEventsWithGuests.length} local events to server.`);
                   
-                  // CRITICAL: Refresh events from store after sync - use store action directly
-                  // This avoids ReferenceError and updates UI silently without page reload
-                  console.log('🔄 [Post-Sync Refresh] Refreshing events from store after sync...');
-                  // Clear the fetching flag to allow fetchEvents to run
+                  // CRITICAL: After sync, reload page to fetch fresh data from server
+                  // This is the safest approach in production build where setTimeout callbacks lose closure context
+                  // The data is already on the server, so reload will load it perfectly
+                  console.log('🔄 Refreshing events from API after sync...');
+                  // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
-                  // Small delay to ensure sync completes, then fetch fresh data
-                  setTimeout(async () => {
-                    try {
-                      // CRITICAL: Use useEventStore.getState() instead of get() in setTimeout
-                      // This ensures proper scoping outside of the store's context
-                      const storeState = useEventStore.getState();
-                      const fetchEventsFn = storeState.fetchEvents;
-                      
-                      // Get userId for debug log
-                      const userStorage = localStorage.getItem('rsvp-user-storage');
-                      let userId = '';
-                      if (userStorage) {
-                        try {
-                          const parsed = JSON.parse(userStorage);
-                          userId = parsed.state?.user?.id || '';
-                        } catch (e: any) {
-                          console.error('❌ Error parsing user storage:', e);
-                        }
-                      }
-                      
-                      console.log('🔍 [Post-Sync] Calling fetchEvents for user:', userId);
-                      
-                      if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                        await fetchEventsFn(true, true); // Force refresh, silent mode
-                        console.log('✅ Successfully refreshed events after sync');
-                      } else {
-                        console.error('❌ fetchEvents is not available in store');
-                      }
-                    } catch (refreshError: any) {
-                      console.error('❌ Error refreshing events after sync:', refreshError);
-                    }
+                  // Small delay to ensure sync completes, then reload page
+                  setTimeout(() => {
+                    console.log('🔄 Reloading page to fetch fresh data from server...');
+                    window.location.reload();
                   }, 1000);
                   return;
                 } else {
@@ -5378,32 +5338,18 @@ export const useEventStore = create<EventStore>()(
             }
           }
 
-          console.log(`✅ Sync complete: ${syncedCount} synced, ${failedCount} failed`);
+          console.log(`✅ Successfully synced ${syncedCount}/${syncedCount + failedCount} event(s) to server. Refreshing to get updated data...`);
 
-          // CRITICAL: Refresh events from store after sync
-          // Use get().fetchEvents() since we're inside the store definition
-          // Safety fallback: If function not available, reload page
-          console.log(`🔄 [Post-Sync Refresh] Refreshing events from store after sync...`);
-          // Clear the fetching flag to allow fetchEvents to run
+          // CRITICAL: After sync, reload page to fetch fresh data from server
+          // This is the safest approach in production build where setTimeout callbacks lose closure context
+          // The data is already on the server, so reload will load it perfectly
+          console.log(`🔄 Refreshing events from API after sync...`);
+          // Clear the fetching flag
           (get() as any)._isFetchingEvents = false;
-          // Small delay to ensure sync completes, then fetch fresh data
-          setTimeout(async () => {
-            console.log('🔄 Triggering refresh via Store Action...');
-            try {
-              // CRITICAL: Use useEventStore.getState() to access store from outside scope
-              // This avoids scope issues in compiled JS where setTimeout callbacks lose closure context
-              const state = useEventStore.getState();
-              if (state && typeof state.fetchEvents === 'function') {
-                await state.fetchEvents(true, true); // Force refresh, silent mode
-                console.log('✅ Successfully refreshed events after sync');
-              } else {
-                console.warn('⚠️ fetchEvents not found in store, falling back to reload');
-                window.location.reload();
-              }
-            } catch (e: any) {
-              console.error('❌ Refresh failed, reloading page:', e);
-              window.location.reload();
-            }
+          // Small delay to ensure sync completes, then reload page
+          setTimeout(() => {
+            console.log('🔄 Reloading page to fetch fresh data from server...');
+            window.location.reload();
           }, 1000);
 
           set({ isLoading: false, isSyncing: false });
