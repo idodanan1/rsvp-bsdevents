@@ -425,6 +425,7 @@ function convertSupabaseGuestToFrontend(supabaseGuest) {
     messageStatus: supabaseGuest.message_status,
     notes: supabaseGuest.notes,
     channel: supabaseGuest.channel,
+    source: supabaseGuest.source || 'manual', // CRITICAL: Include source to track update origin
     tags: supabaseGuest.tags ? (typeof supabaseGuest.tags === 'string' ? JSON.parse(supabaseGuest.tags) : supabaseGuest.tags) : null,
     createdAt: supabaseGuest.created_at,
     updatedAt: supabaseGuest.updated_at,
@@ -453,6 +454,7 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     message_status: frontendGuest.messageStatus || 'not_sent',
     notes: frontendGuest.notes || null,
     channel: frontendGuest.channel || 'manual',
+    source: frontendGuest.source || 'manual', // CRITICAL: Include source to track update origin (guest_link, manual_update, whatsapp)
     tags: frontendGuest.tags ? JSON.stringify(frontendGuest.tags) : null,
     created_at: frontendGuest.createdAt || new Date().toISOString(),
     updated_at: frontendGuest.updatedAt || new Date().toISOString(),
