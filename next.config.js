@@ -42,6 +42,10 @@ const nextConfig = {
     config.resolve = {
       ...config.resolve,
       modules: ['node_modules', 'src'],
+      alias: {
+        ...config.resolve.alias,
+        '@': require('path').resolve(__dirname),
+      },
     };
     
     // Ignore system directories during build
