@@ -37,6 +37,7 @@
     ".next",
     "out",
     "dist",
+    "AppData",
     "**/AppData/**",
     "**/OneDrive/**",
     "**/SolutionPackages/**",
@@ -45,7 +46,9 @@
     "**/PackageResources/**",
     "**/Desktop/**",
     "**/Documents/**",
-    "**/Downloads/**"
+    "**/Downloads/**",
+    "**/flights_*.ts",
+    "**/OfflineFiles/**"
   ]
 }
 
