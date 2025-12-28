@@ -823,7 +823,7 @@ const EventManagement: React.FC = () => {
       } else {
         // CRITICAL: Even if key unchanged, we still need to return a new array reference
         // This ensures React detects changes when eventsVersion or eventsHash changes
-        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ', eventsHash:', eventsHash.substring(0, 20) + '...)');
+        console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion || 0, ', eventsHash:', (eventsHash || '').substring(0, 20) + '...)');
       }
       
       // CRITICAL: Always return a new array reference with deep copy of guests
@@ -832,10 +832,10 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Map to create new object references for each guest
       // CRITICAL: Also include eventsHash in the returned array to ensure React sees it as new
       // CRITICAL: Add a timestamp to force new reference on every calculation
-      const guestsCopy = guests.map((g, index) => ({ 
+      const guestsCopy = guests.map((g: any, index: number) => ({ 
         ...g,
         // Add a unique key based on eventsHash and eventsVersion to force React to see this as new
-        _renderKey: `${g.id}-${eventsHash.substring(0, 20)}-${eventsVersion}-${index}`
+        _renderKey: `${g.id}-${(eventsHash || '').substring(0, 20)}-${eventsVersion || 0}-${index}`
       }));
       // CRITICAL: Add eventsHash as a property to force new reference when it changes
       // This ensures React detects changes even if guests array appears unchanged
@@ -1313,7 +1313,7 @@ const EventManagement: React.FC = () => {
       confirmed: calculatedStats.confirmed,
       eventId: currentEvent.id,
       guestsCount: currentEvent.guests?.length || 0,
-      eventsHash: eventsHash.substring(0, 50) + '...'
+      eventsHash: (eventsHash || '').substring(0, 50) + '...'
     });
     return calculatedStats;
   }, [currentEvent, eventsHash]); // CRITICAL: Include eventsHash to detect guestCount changes
