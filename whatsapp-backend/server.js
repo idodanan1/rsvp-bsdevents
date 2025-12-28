@@ -804,6 +804,7 @@ app.get('/api/events/:userId', async (req, res) => {
       const dbUserIds = [...new Set(data.map(e => e.user_id).filter(Boolean))];
       console.log('🔍 [UserID Check] GET /api/events/:userId - Found events with user_ids:', dbUserIds);
       console.log('🔍 [UserID Check] GET /api/events/:userId - Query userId matches DB user_ids:', dbUserIds.includes(userId));
+      console.log('🔍 [UserID Check] GET /api/events/:userId - Found', data.length, 'events for userId:', userIdString);
     }
     
     if (!data || data.length === 0) {
@@ -814,15 +815,29 @@ app.get('/api/events/:userId', async (req, res) => {
       try {
         const { data: allEvents, error: allEventsError } = await supabase
           .from('events')
-          .select('user_id')
-          .limit(10);
+          .select('id, user_id, couple_name')
+          .limit(50); // Check more events to see what's in DB
         
         if (!allEventsError && allEvents && allEvents.length > 0) {
           const existingUserIds = [...new Set(allEvents.map(e => e.user_id).filter(Boolean))];
-          console.log('🔍 [UserID Check] GET /api/events/:userId - Sample user_ids in DB:', existingUserIds);
-          console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId exists in DB:', existingUserIds.includes(userId));
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Total events in DB:', allEvents.length);
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Sample user_ids in DB:', existingUserIds.slice(0, 10));
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId:', JSON.stringify(userIdString));
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Requested userId exists in DB:', existingUserIds.some(id => String(id) === userIdString));
+          
+          // CRITICAL: Show sample events to debug
+          const sampleEvents = allEvents.slice(0, 5).map(e => ({
+            id: e.id,
+            user_id: e.user_id,
+            user_id_type: typeof e.user_id,
+            couple_name: e.couple_name
+          }));
+          console.log('🔍 [UserID Check] GET /api/events/:userId - Sample events from DB:', sampleEvents);
         } else {
           console.log('🔍 [UserID Check] GET /api/events/:userId - No events in database at all');
+          if (allEventsError) {
+            console.error('🔍 [UserID Check] GET /api/events/:userId - Error fetching all events:', allEventsError);
+          }
         }
       } catch (debugError) {
         console.error('🔍 [UserID Check] Error checking DB:', debugError);

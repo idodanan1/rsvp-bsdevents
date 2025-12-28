@@ -168,24 +168,6 @@ async function upsertEvent(eventData) {
       
       return data;
     }
-
-    if (error) {
-      console.error('❌ Error upserting event to Supabase:', error);
-      console.error('🔍 [upsertEvent] Failed event data:', {
-        id: eventData.id,
-        user_id: eventData.user_id
-      });
-      throw error;
-    }
-    
-    // CRITICAL: Verify the saved event has the correct user_id
-    console.log('🔍 [upsertEvent] Event upserted successfully:', {
-      id: data?.id,
-      user_id: data?.user_id,
-      user_id_match: data?.user_id === eventData.user_id
-    });
-    
-    return data;
   } catch (error) {
     console.error('❌ Error upserting event to Supabase:', error);
     throw error;

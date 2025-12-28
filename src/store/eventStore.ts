@@ -673,36 +673,19 @@ export const useEventStore = create<EventStore>()(
                 
                 console.log(`✅ Synced ${syncedCount}/${localData.length} local events to server.`);
                 
-                // CRITICAL: After sync, refresh events from API
-                // NEW APPROACH: Use window event system instead of setTimeout with closure
-                console.log('🔄 Refreshing events from API after sync...');
+                // CRITICAL: After sync, reload page to get fresh data from server
+                // This is the most reliable way to ensure data is updated
+                console.log('🔄 Reloading page to get fresh data from server after sync...');
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 
-                // BULLETPROOF APPROACH: Use get() directly within the store's context
-                // This is the safest way to access fetchEvents in production builds
-                console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
+                // CRITICAL: Reload page to ensure fresh data from server
+                // The page will reload and fetchEvents will be called automatically on mount
                 if (typeof window !== 'undefined') {
-                  setTimeout(async () => {
-                    console.log(`🔄 [BULLETPROOF] Calling fetchEvents via get()...`);
-                    try {
-                      // CRITICAL: Use get() directly within the store's context - this always works
-                      const state = get();
-                      if (state && typeof state.fetchEvents === 'function') {
-                        await state.fetchEvents(true, false);
-                        console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
-                      } else {
-                        console.warn(`⚠️ [BULLETPROOF] fetchEvents not available via get(), forcing reload`);
-                        window.location.reload();
-                      }
-                    } catch (err: any) {
-                      console.error(`❌ [BULLETPROOF] Failed to call fetchEvents:`, err);
-                      // Fallback: reload page
-                      window.location.reload();
-                    }
-                  }, 1000);
-                } else {
-                  console.warn(`⚠️ [BULLETPROOF] window is undefined, cannot refresh`);
+                  setTimeout(() => {
+                    console.log(`🔄 Reloading page to get fresh data from server...`);
+                    window.location.reload();
+                  }, 2000); // Wait 2 seconds to ensure server has processed the sync
                 }
                 return;
               } else {
@@ -5106,31 +5089,16 @@ export const useEventStore = create<EventStore>()(
 
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
-            console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
+            console.log(`🔄 Refreshing to get updated data from server...`);
             
-            // BULLETPROOF APPROACH: Use get() directly within the store's context
-            // This is the safest way to access fetchEvents in production builds
+            // CRITICAL: Reload page to ensure fresh data from server
+            // This is the most reliable way to get updated data after sync
+            // The page will reload and fetchEvents will be called automatically on mount
             if (typeof window !== 'undefined') {
-              setTimeout(async () => {
-                console.log(`🔄 [BULLETPROOF] Calling fetchEvents via get()...`);
-                try {
-                  // CRITICAL: Use get() directly within the store's context - this always works
-                  const state = get();
-                  if (state && typeof state.fetchEvents === 'function') {
-                    await state.fetchEvents(true, true);
-                    console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
-                  } else {
-                    console.warn(`⚠️ [BULLETPROOF] fetchEvents not available via get(), forcing reload`);
-                    window.location.reload();
-                  }
-                } catch (err: any) {
-                  console.error(`❌ [BULLETPROOF] Failed to call fetchEvents:`, err);
-                  // Fallback: reload page
-                  window.location.reload();
-                }
-              }, 1500);
-            } else {
-              console.warn(`⚠️ [BULLETPROOF] window is undefined, cannot refresh`);
+              setTimeout(() => {
+                console.log(`🔄 Reloading page to get fresh data from server...`);
+                window.location.reload();
+              }, 2000); // Wait 2 seconds to ensure server has processed the sync
             }
           }
 
