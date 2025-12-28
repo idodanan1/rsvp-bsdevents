@@ -658,25 +658,34 @@ export const useEventStore = create<EventStore>()(
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 
-                // Use custom event to trigger refresh - this avoids closure issues
-                // NEW APPROACH: Use window event system instead of setTimeout with closure
-                console.log(`🔄 [NEW SYSTEM] Dispatching refresh event instead of direct fetchEvents call...`);
+                // BULLETPROOF APPROACH: Use useEventStore.getState() directly in setTimeout
+                // This works in production builds because getState() is always available globally
+                console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
                 if (typeof window !== 'undefined') {
                   setTimeout(() => {
-                    console.log(`🔄 [NEW SYSTEM] Dispatching rsvp-refresh-events custom event...`);
+                    console.log(`🔄 [BULLETPROOF] Calling fetchEvents via useEventStore.getState()...`);
                     try {
-                      window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
-                        detail: { forceRefresh: true, silent: false } 
-                      }));
-                      console.log(`✅ [NEW SYSTEM] Event dispatched successfully`);
+                      // CRITICAL: Use getState() which is always available globally, even in minified code
+                      const store = useEventStore.getState();
+                      if (store && typeof store.fetchEvents === 'function') {
+                        store.fetchEvents(true, false).catch((err: any) => {
+                          console.error(`❌ [BULLETPROOF] fetchEvents failed:`, err);
+                          // Fallback: reload page
+                          window.location.reload();
+                        });
+                        console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
+                      } else {
+                        console.warn(`⚠️ [BULLETPROOF] fetchEvents not available, forcing reload`);
+                        window.location.reload();
+                      }
                     } catch (err: any) {
-                      console.error(`❌ [NEW SYSTEM] Failed to dispatch event:`, err);
+                      console.error(`❌ [BULLETPROOF] Failed to call fetchEvents:`, err);
                       // Fallback: reload page
                       window.location.reload();
                     }
                   }, 1000);
                 } else {
-                  console.warn(`⚠️ [NEW SYSTEM] window is undefined, cannot dispatch event`);
+                  console.warn(`⚠️ [BULLETPROOF] window is undefined, cannot refresh`);
                 }
                 return;
               } else {
@@ -5079,26 +5088,35 @@ export const useEventStore = create<EventStore>()(
 
           if (successCount > 0) {
             console.log(`✅ Successfully synced ${successCount} events.`);
-            console.log(`🔄 [NEW SYSTEM] Dispatching refresh event instead of direct fetchEvents call...`);
+            console.log(`🔄 [BULLETPROOF] Refreshing events after sync...`);
             
-            // NEW APPROACH: Use window event system instead of setTimeout with closure
-            // This completely avoids closure issues in production builds
+            // BULLETPROOF APPROACH: Use useEventStore.getState() directly in setTimeout
+            // This works in production builds because getState() is always available globally
             if (typeof window !== 'undefined') {
               setTimeout(() => {
-                console.log(`🔄 [NEW SYSTEM] Dispatching rsvp-refresh-events custom event...`);
+                console.log(`🔄 [BULLETPROOF] Calling fetchEvents via useEventStore.getState()...`);
                 try {
-                  window.dispatchEvent(new CustomEvent('rsvp-refresh-events', { 
-                    detail: { forceRefresh: true, silent: true } 
-                  }));
-                  console.log(`✅ [NEW SYSTEM] Event dispatched successfully`);
+                  // CRITICAL: Use getState() which is always available globally, even in minified code
+                  const store = useEventStore.getState();
+                  if (store && typeof store.fetchEvents === 'function') {
+                    store.fetchEvents(true, true).catch((err: any) => {
+                      console.error(`❌ [BULLETPROOF] fetchEvents failed:`, err);
+                      // Fallback: reload page
+                      window.location.reload();
+                    });
+                    console.log(`✅ [BULLETPROOF] fetchEvents called successfully`);
+                  } else {
+                    console.warn(`⚠️ [BULLETPROOF] fetchEvents not available, forcing reload`);
+                    window.location.reload();
+                  }
                 } catch (err: any) {
-                  console.error(`❌ [NEW SYSTEM] Failed to dispatch event:`, err);
+                  console.error(`❌ [BULLETPROOF] Failed to call fetchEvents:`, err);
                   // Fallback: reload page
                   window.location.reload();
                 }
               }, 1500);
             } else {
-              console.warn(`⚠️ [NEW SYSTEM] window is undefined, cannot dispatch event`);
+              console.warn(`⚠️ [BULLETPROOF] window is undefined, cannot refresh`);
             }
           }
 

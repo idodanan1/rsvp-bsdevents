@@ -421,15 +421,23 @@ function convertSupabaseGuestToFrontend(supabaseGuest) {
     rsvpStatus: supabaseGuest.rsvp_status,
     status: supabaseGuest.rsvp_status, // Also provide as status for compatibility
     actualAttendance: supabaseGuest.actual_attendance,
+    attendanceDate: supabaseGuest.attendance_date || null,
     tableId: supabaseGuest.table_id,
+    seatNumber: supabaseGuest.seat_number || null,
     messageStatus: supabaseGuest.message_status,
+    messageSentDate: supabaseGuest.message_sent_date || null,
+    messageDeliveredDate: supabaseGuest.message_delivered_date || null,
+    messageFailedDate: supabaseGuest.message_failed_date || null,
+    smsSentDate: supabaseGuest.sms_sent_date || null,
+    firstMessageSent: supabaseGuest.first_message_sent || false,
+    firstMessageSentDate: supabaseGuest.first_message_sent_date || null,
     notes: supabaseGuest.notes,
     channel: supabaseGuest.channel,
     source: supabaseGuest.source || 'manual', // CRITICAL: Include source to track update origin
     tags: supabaseGuest.tags ? (typeof supabaseGuest.tags === 'string' ? JSON.parse(supabaseGuest.tags) : supabaseGuest.tags) : null,
     createdAt: supabaseGuest.created_at,
     updatedAt: supabaseGuest.updated_at,
-    responseDate: supabaseGuest.response_date
+    responseDate: supabaseGuest.response_date || null
   };
 }
 
@@ -451,8 +459,16 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     guest_count: guestCount,
     rsvp_status: rsvpStatus,
     actual_attendance: frontendGuest.actualAttendance || 'not_marked',
+    attendance_date: frontendGuest.attendanceDate || null,
     table_id: frontendGuest.tableId || null,
+    seat_number: frontendGuest.seatNumber || null,
     message_status: frontendGuest.messageStatus || 'not_sent',
+    message_sent_date: frontendGuest.messageSentDate || null,
+    message_delivered_date: frontendGuest.messageDeliveredDate || null,
+    message_failed_date: frontendGuest.messageFailedDate || null,
+    sms_sent_date: frontendGuest.smsSentDate || null,
+    first_message_sent: frontendGuest.firstMessageSent || false,
+    first_message_sent_date: frontendGuest.firstMessageSentDate || null,
     notes: frontendGuest.notes || null,
     channel: frontendGuest.channel || 'manual',
     tags: frontendGuest.tags ? JSON.stringify(frontendGuest.tags) : null,
