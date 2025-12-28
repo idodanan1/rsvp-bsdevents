@@ -579,16 +579,20 @@ export const useEventStore = create<EventStore>()(
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then fetch fresh data
                 setTimeout(async () => {
+                  console.log('🔄 Triggering refresh via Store Action...');
                   try {
-                    console.log('🔄 Triggering refresh via Store Action...');
-                    // CRITICAL: Using get() because we are inside the store definition
-                    // Direct call to get().fetchEvents() - self-referencing pattern
-                    await get().fetchEvents(true, true); // Force refresh, silent mode
-                    console.log('✅ Successfully refreshed events after sync');
-                  } catch (refreshError: any) {
-                    console.error('❌ Error refreshing events after sync:', refreshError);
-                    // Final Fallback: Reload page on error (better than broken app)
-                    console.warn('⚠️ Reloading page as fallback...');
+                    // CRITICAL: Use useEventStore.getState() to access store from outside scope
+                    // This avoids scope issues in compiled JS where setTimeout callbacks lose closure context
+                    const state = useEventStore.getState();
+                    if (state && typeof state.fetchEvents === 'function') {
+                      await state.fetchEvents(true, true); // Force refresh, silent mode
+                      console.log('✅ Successfully refreshed events after sync');
+                    } else {
+                      console.warn('⚠️ fetchEvents not found in store, falling back to reload');
+                      window.location.reload();
+                    }
+                  } catch (e: any) {
+                    console.error('❌ Refresh failed, reloading page:', e);
                     window.location.reload();
                   }
                 }, 1000);
@@ -5384,16 +5388,20 @@ export const useEventStore = create<EventStore>()(
           (get() as any)._isFetchingEvents = false;
           // Small delay to ensure sync completes, then fetch fresh data
           setTimeout(async () => {
+            console.log('🔄 Triggering refresh via Store Action...');
             try {
-              console.log('🔄 Triggering refresh via Store Action...');
-              // CRITICAL: Using get() because we are inside the store definition
-              // Direct call to get().fetchEvents() - self-referencing pattern
-              await get().fetchEvents(true, true); // Force refresh, silent mode
-              console.log('✅ Successfully refreshed events after sync');
-            } catch (refreshError: any) {
-              console.error('❌ Error refreshing events after sync:', refreshError);
-              // Final Fallback: Reload page on error (better than broken app)
-              console.warn('⚠️ Reloading page as fallback...');
+              // CRITICAL: Use useEventStore.getState() to access store from outside scope
+              // This avoids scope issues in compiled JS where setTimeout callbacks lose closure context
+              const state = useEventStore.getState();
+              if (state && typeof state.fetchEvents === 'function') {
+                await state.fetchEvents(true, true); // Force refresh, silent mode
+                console.log('✅ Successfully refreshed events after sync');
+              } else {
+                console.warn('⚠️ fetchEvents not found in store, falling back to reload');
+                window.location.reload();
+              }
+            } catch (e: any) {
+              console.error('❌ Refresh failed, reloading page:', e);
               window.location.reload();
             }
           }, 1000);
