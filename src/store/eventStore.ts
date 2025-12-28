@@ -370,6 +370,26 @@ export const useEventStore = create<EventStore>()(
       error: null,
 
       fetchEvents: async (forceRefresh: boolean = false, silent: boolean = false) => {
+        // CRITICAL: Expose fetchEvents globally immediately for production builds
+        // This ensures it's available even in minified code where closures may fail
+        // Store reference to this function before any async operations
+        const fetchEventsFn = async (userIdOrForce?: any, silentParam?: boolean) => {
+          // Handle both call signatures: (userId, silent) and (forceRefresh, silent)
+          if (typeof userIdOrForce === 'string') {
+            // Old signature: (userId, silent) - get current state and call fetchEvents
+            const state = useEventStore.getState();
+            return state.fetchEvents(true, silentParam ?? false);
+          } else {
+            // New signature: (forceRefresh, silent)
+            const state = useEventStore.getState();
+            return state.fetchEvents(userIdOrForce ?? false, silentParam ?? false);
+          }
+        };
+        
+        if (typeof window !== 'undefined') {
+          (window as any).globalFetchEvents = fetchEventsFn;
+        }
+        
         // CRITICAL: Prevent infinite recursion by tracking if we're already fetching
         const isFetching = (get() as any)._isFetchingEvents;
         if (isFetching) {
