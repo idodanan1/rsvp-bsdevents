@@ -461,10 +461,25 @@ function convertFrontendGuestToSupabase(frontendGuest) {
     response_date: frontendGuest.responseDate || null
   };
   
-  // CRITICAL: Only include source if it's provided (column may not exist in database yet)
-  // This prevents "Could not find the 'source' column" errors
+  // CRITICAL: Map source values to valid database values
+  // The CHECK constraint only allows: 'whatsapp', 'guest_link', 'manual', 'manual_add'
+  // Frontend uses 'manual_update' which needs to be mapped to 'manual'
   if (frontendGuest.source !== undefined && frontendGuest.source !== null) {
-    baseGuest.source = frontendGuest.source;
+    const sourceValue = frontendGuest.source;
+    // Map 'manual_update' to 'manual' (valid database value)
+    if (sourceValue === 'manual_update') {
+      baseGuest.source = 'manual';
+    } else if (['whatsapp', 'guest_link', 'manual', 'manual_add'].includes(sourceValue)) {
+      // Valid value - use as is
+      baseGuest.source = sourceValue;
+    } else {
+      // Unknown value - default to 'manual'
+      console.warn(`⚠️ Unknown source value "${sourceValue}", defaulting to 'manual'`);
+      baseGuest.source = 'manual';
+    }
+  } else {
+    // No source provided - use default
+    baseGuest.source = 'manual';
   }
   
   return baseGuest;
