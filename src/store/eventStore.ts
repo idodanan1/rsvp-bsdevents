@@ -5088,15 +5088,15 @@ export const useEventStore = create<EventStore>()(
           const failedCount = results.filter(r => r === false).length;
 
           if (successCount > 0) {
-            console.log(`✅ Successfully synced ${successCount} events.`);
-            console.log(`🔄 Refreshing to get updated data from server...`);
+            console.log(`✅ Successfully synced ${successCount}/${userEvents.length} event(s) to server.`);
+            console.log(`🔄 Reloading page in 2 seconds to get fresh data from server...`);
             
             // CRITICAL: Reload page to ensure fresh data from server
             // This is the most reliable way to get updated data after sync
             // The page will reload and fetchEvents will be called automatically on mount
             if (typeof window !== 'undefined') {
               setTimeout(() => {
-                console.log(`🔄 Reloading page to get fresh data from server...`);
+                console.log(`🔄 Reloading page now to get fresh data from server...`);
                 window.location.reload();
               }, 2000); // Wait 2 seconds to ensure server has processed the sync
             }
