@@ -579,16 +579,18 @@ export const useEventStore = create<EventStore>()(
                 // Clear the fetching flag
                 (get() as any)._isFetchingEvents = false;
                 // Small delay to ensure sync completes, then refresh data
-                setTimeout(() => {
-                  const state = useEventStore.getState();
-                  if (state.fetchEvents && savedUserId) {
-                    state.fetchEvents(savedUserId, false).catch((err: any) => {
+                setTimeout(async () => {
+                  console.log('🔄 Triggering safe refresh via useEventStore...');
+                  // METHOD B (Safer for external usage): Use the global hook
+                  const storeState = useEventStore.getState();
+                  if (storeState && storeState.fetchEvents && savedUserId) {
+                    await storeState.fetchEvents(savedUserId, false).catch((err: any) => {
                       console.error('❌ Error refreshing events after sync:', err);
                       window.location.reload(); // Fallback on error
                     });
                   } else {
-                    console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
-                    window.location.reload(); // Hard fallback to ensure data shows up
+                    console.warn('⚠️ Store reference missing, forcing reload');
+                    window.location.reload();
                   }
                 }, 1000);
                 return;
@@ -788,16 +790,18 @@ export const useEventStore = create<EventStore>()(
                   // Clear the fetching flag
                   (get() as any)._isFetchingEvents = false;
                   // Small delay to ensure sync completes, then refresh data
-                  setTimeout(() => {
-                    const state = useEventStore.getState();
-                    if (state.fetchEvents && savedUserId) {
-                      state.fetchEvents(savedUserId, false).catch((err: any) => {
+                  setTimeout(async () => {
+                    console.log('🔄 Triggering safe refresh via useEventStore...');
+                    // METHOD B (Safer for external usage): Use the global hook
+                    const storeState = useEventStore.getState();
+                    if (storeState && storeState.fetchEvents && savedUserId) {
+                      await storeState.fetchEvents(savedUserId, false).catch((err: any) => {
                         console.error('❌ Error refreshing events after sync:', err);
                         window.location.reload(); // Fallback on error
                       });
                     } else {
-                      console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
-                      window.location.reload(); // Hard fallback to ensure data shows up
+                      console.warn('⚠️ Store reference missing, forcing reload');
+                      window.location.reload();
                     }
                   }, 1000);
                   return;
@@ -5375,13 +5379,18 @@ export const useEventStore = create<EventStore>()(
             }
           }
           // Small delay to ensure sync completes, then refresh data
-          setTimeout(() => {
-            const state = useEventStore.getState();
-            if (state.fetchEvents && refreshUserId) {
-              state.fetchEvents(refreshUserId, false);
+          setTimeout(async () => {
+            console.log('🔄 Triggering safe refresh via useEventStore...');
+            // METHOD B (Safer for external usage): Use the global hook
+            const storeState = useEventStore.getState();
+            if (storeState && storeState.fetchEvents && refreshUserId) {
+              await storeState.fetchEvents(refreshUserId, false).catch((err: any) => {
+                console.error('❌ Error refreshing events after sync:', err);
+                window.location.reload(); // Fallback on error
+              });
             } else {
-              console.warn('⚠️ fetchEvents not available or no userId, using hard reload fallback');
-              window.location.reload(); // Hard fallback to ensure data shows up
+              console.warn('⚠️ Store reference missing, forcing reload');
+              window.location.reload();
             }
           }, 1000);
 
