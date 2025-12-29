@@ -22,33 +22,35 @@ const nextConfig = {
     ignoreBuildErrors: true,
     tsconfigPath: './tsconfig.json',
   },
-  // Force ignore TypeScript errors during build
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
-  // Exclude system directories from TypeScript compilation
   pageExtensions: ['ts', 'tsx', 'js', 'jsx'],
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Optimize build to reduce memory usage
   swcMinify: true,
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   webpack: (config, { isServer }) => {
-    // Exclude AppData and other system directories from compilation
+    const path = require('path');
+    
+    if (!config.resolve) {
+      config.resolve = {};
+    }
+    if (!config.resolve.alias) {
+      config.resolve.alias = {};
+    }
+    
+    config.resolve.alias['@'] = path.resolve(__dirname);
+    
     config.resolve = {
       ...config.resolve,
       modules: ['node_modules', 'src'],
-      alias: {
-        ...config.resolve.alias,
-        '@': require('path').resolve(__dirname),
-      },
     };
     
-    // Ignore system directories during build
     config.watchOptions = {
       ...config.watchOptions,
       ignored: [
@@ -64,7 +66,6 @@ const nextConfig = {
       ],
     };
     
-    // Exclude AppData and Office from module resolution
     config.module = {
       ...config.module,
       rules: [
@@ -85,12 +86,10 @@ const nextConfig = {
       ],
     };
     
-    // Ignore AppData and Office directories from file system
     config.resolve.fallback = {
       ...config.resolve.fallback,
     };
     
-    // Add ignore patterns for TypeScript compilation
     if (!isServer) {
       config.ignoreWarnings = [
         { module: /AppData/ },
@@ -101,7 +100,6 @@ const nextConfig = {
       ];
     }
     
-    // Optimize memory usage during build
     if (!isServer) {
       config.optimization = {
         ...config.optimization,
@@ -110,7 +108,6 @@ const nextConfig = {
           cacheGroups: {
             default: false,
             vendors: false,
-            // Create a separate chunk for vendor code
             vendor: {
               name: 'vendor',
               chunks: 'all',
