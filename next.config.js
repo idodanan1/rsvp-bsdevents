@@ -37,6 +37,7 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     const path = require('path');
     
+    // CRITICAL: Set up path alias BEFORE other resolve config
     if (!config.resolve) {
       config.resolve = {};
     }
@@ -44,10 +45,16 @@ const nextConfig = {
       config.resolve.alias = {};
     }
     
+    // Set up @ alias to point to project root
     config.resolve.alias['@'] = path.resolve(__dirname);
     
+    // Merge with existing resolve config, preserving alias
     config.resolve = {
       ...config.resolve,
+      alias: {
+        ...config.resolve.alias,
+        '@': path.resolve(__dirname),
+      },
       modules: ['node_modules', 'src'],
     };
     
