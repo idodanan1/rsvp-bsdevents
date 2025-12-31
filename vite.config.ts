@@ -11,7 +11,7 @@ const version = packageJson.version || '1.0.199'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Suppress "use client" directive warnings from node_modules
+    // Force cache busting - add timestamp to filenames
     rollupOptions: {
       onwarn(warning, warn) {
         // Ignore "use client" directive warnings from node_modules
@@ -22,6 +22,10 @@ export default defineConfig({
         warn(warning)
       },
       output: {
+        // Add hash to filenames for cache busting
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`,
         manualChunks: (id) => {
           // Split node_modules into vendor chunks
           if (id.includes('node_modules')) {
