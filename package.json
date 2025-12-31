@@ -1,6 +1,6 @@
 {
   "name": "rsvp-saas",
-  "version": "1.0.234",
+  "version": "1.0.223",
   "private": true,
   "scripts": {
     "dev": "vite",
