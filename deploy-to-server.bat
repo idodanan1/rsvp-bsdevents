@@ -14,7 +14,7 @@ git add .
 echo.
 
 echo שלב 3: יוצר commit...
-git commit -m "feat: הוספת כפתור טען מהמאגר בדשבורד - תיקון בפרויקט הנכון"
+git commit -m "fix: תיקון merge conflict ב-package.json + הוספת כפתור טען מהמאגר בדשבורד"
 echo.
 
 echo שלב 4: מעלה ל-GitHub...

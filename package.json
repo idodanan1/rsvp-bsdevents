@@ -1,10 +1,6 @@
 {
   "name": "rsvp-saas",
-<<<<<<< Updated upstream
   "version": "1.0.190",
-=======
-  "version": "1.0.189",
->>>>>>> Stashed changes
   "private": true,
   "scripts": {
     "dev": "next dev",
