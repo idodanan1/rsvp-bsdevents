@@ -3,6 +3,21 @@ import { useParams } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { calculateEventStats, formatDate, formatDateTime, getStatusIcon, getStatusColor, formatFullName } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
+import { 
+  RefreshCw, 
+  Download, 
+  Share2, 
+  Calendar, 
+  MapPin, 
+  Users, 
+  CheckCircle, 
+  XCircle, 
+  MessageSquare, 
+  HelpCircle, 
+  Clock, 
+  Phone, 
+  Search 
+} from 'lucide-react';
 
 // Helper function to map Supabase DB fields to frontend format
 function mapSupabaseToFrontend(data: any): any {

@@ -1806,7 +1806,7 @@ const EventManagement: React.FC = () => {
 
   const styleTableSummarySheet = (ws: any, data: any[][]) => {
     // Set row heights
-    const rowHeights = [];
+    const rowHeights: Array<{ hpt: number }> = [];
     for (let i = 0; i < data.length; i++) {
       rowHeights.push({ hpt: 25 });
     }
@@ -1868,7 +1868,7 @@ const EventManagement: React.FC = () => {
     console.log('Styling attendance sheet with data:', data);
     
     // Set row heights
-    const rowHeights = [];
+    const rowHeights: Array<{ hpt: number }> = [];
     for (let i = 0; i < data.length; i++) {
       rowHeights.push({ hpt: 30 });
     }

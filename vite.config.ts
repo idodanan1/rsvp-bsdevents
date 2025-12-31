@@ -22,27 +22,54 @@ export default defineConfig({
         warn(warning)
       },
       output: {
-        manualChunks: {
-          // Split React and React DOM into separate chunk
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          // Split Supabase into separate chunk
-          'supabase-vendor': ['@supabase/supabase-js', '@supabase/ssr'],
-          // Split Zustand (state management) into separate chunk
-          'zustand-vendor': ['zustand'],
-          // Split Lucide icons into separate chunk
-          'lucide-vendor': ['lucide-react'],
-          // Split heavy utility libraries
-          'utils-vendor': ['date-fns', 'clsx', 'tailwind-merge'],
-          // Split Excel/PDF libraries
-          'export-vendor': ['exceljs', 'xlsx', 'jspdf'],
-          // Split QR code libraries
-          'qr-vendor': ['qrcode', 'html5-qrcode'],
-          // Split other heavy dependencies
-          'other-vendor': ['react-hot-toast', 'zod']
+        manualChunks: (id) => {
+          // Split node_modules into vendor chunks
+          if (id.includes('node_modules')) {
+            // React core
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+              return 'react-vendor';
+            }
+            // Supabase (only if actually used)
+            if (id.includes('@supabase')) {
+              return 'supabase-vendor';
+            }
+            // Zustand
+            if (id.includes('zustand')) {
+              return 'zustand-vendor';
+            }
+            // Lucide icons
+            if (id.includes('lucide-react')) {
+              return 'lucide-vendor';
+            }
+            // Excel/PDF libraries - split into separate chunks
+            if (id.includes('exceljs')) {
+              return 'exceljs-vendor';
+            }
+            if (id.includes('xlsx')) {
+              return 'xlsx-vendor';
+            }
+            if (id.includes('jspdf')) {
+              return 'jspdf-vendor';
+            }
+            // QR code libraries
+            if (id.includes('qrcode') || id.includes('html5-qrcode')) {
+              return 'qr-vendor';
+            }
+            // Utility libraries
+            if (id.includes('date-fns') || id.includes('clsx') || id.includes('tailwind-merge')) {
+              return 'utils-vendor';
+            }
+            // Other dependencies
+            if (id.includes('react-hot-toast') || id.includes('zod')) {
+              return 'other-vendor';
+            }
+            // All other node_modules
+            return 'vendor';
+          }
         }
       }
     },
-    chunkSizeWarningLimit: 1000 // Increase limit to 1MB per chunk
+    chunkSizeWarningLimit: 1500 // Increase limit to 1.5MB per chunk (for export libraries)
   },
   // Handle environment variables
   define: {

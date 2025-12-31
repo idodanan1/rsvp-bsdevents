@@ -762,7 +762,7 @@ const GuestResponse = () => {
   // CRITICAL: Always use eventId from URL to find the correct event
   // This ensures we update the correct event even if there are guests with the same ID in different events
   // The eventId in the URL is the primary identifier that distinguishes between events
-  let event = null;
+  let event: any = null;
   if (eventId && guestId) {
     // CRITICAL: First find event by eventId (this is the primary identifier)
     // Then verify the guest exists in that specific event
