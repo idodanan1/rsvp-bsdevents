@@ -93,7 +93,7 @@ export function generateGuestResponseLink(
   phoneNumber: string,
   rowNumber?: number
 ): string {
-  const baseUrl = (import.meta.env as any).VITE_FRONTEND_URL || window.location.origin;
+  const baseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
   const params = new URLSearchParams({
     eventId,
     guestId,
@@ -108,4 +108,14 @@ export function generateGuestResponseLink(
   
   return `${baseUrl}/guest-response?${params.toString()}`;
 }
+
+
+
+
+
+
+
+
+
+
 

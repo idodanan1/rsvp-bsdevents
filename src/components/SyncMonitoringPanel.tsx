@@ -130,3 +130,13 @@ const SyncMonitoringPanel: React.FC<SyncMonitoringPanelProps> = ({ eventId }) =>
 
 export default SyncMonitoringPanel;
 
+
+
+
+
+
+
+
+
+
+
