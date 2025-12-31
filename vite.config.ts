@@ -10,6 +10,7 @@ const version = packageJson.version || '1.0.211'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/', // Ensure base path is root
   preview: {
     host: '0.0.0.0',
     port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
@@ -17,7 +18,10 @@ export default defineConfig({
       'rsvp-frontend-new.onrender.com',
       'rsvp-frontend.onrender.com',
       '.onrender.com' // Allow all Render hosts
-    ]
+    ],
+    // Ensure preview serves from dist directory
+    strictPort: false,
+    cors: true
   },
   build: {
     // Force cache busting - add timestamp to filenames
@@ -32,9 +36,9 @@ export default defineConfig({
       },
       output: {
         // Add hash to filenames for cache busting
-        entryFileNames: `assets/[name]-[hash].js`,
-        chunkFileNames: `assets/[name]-[hash].js`,
-        assetFileNames: `assets/[name]-[hash].[ext]`,
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         manualChunks: (id) => {
           // Split node_modules into vendor chunks
           if (id.includes('node_modules')) {
