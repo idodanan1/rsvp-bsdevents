@@ -1,14 +1,18 @@
 @echo off
 chcp 65001 >nul
-cd /d "%~dp0"
 echo ========================================
-echo ניקוי והתקנה מחדש
+echo התקנת תלויות - גרסה מתוקנת
 echo ========================================
 echo.
+
+REM נווט לתיקיית הפרויקט
+set "PROJECT_DIR=%~dp0"
+cd /d "%PROJECT_DIR%"
+
 echo תיקייה נוכחית: %CD%
 echo.
 
-REM בדיקה שהתיקייה נכונה - package.json צריך להיות קיים
+REM בדיקה שהתיקייה נכונה
 if not exist package.json (
     echo ERROR: package.json לא נמצא!
     echo התיקייה הנוכחית: %CD%
@@ -21,48 +25,43 @@ if not exist package.json (
 echo ✅ package.json נמצא - התיקייה נכונה
 echo.
 
-echo שלב 1: מחיקת node_modules...
+REM מחיקת node_modules אם קיים
 if exist node_modules (
     echo מוחק node_modules...
     rmdir /s /q node_modules
     echo ✅ node_modules נמחק
-) else (
-    echo ℹ️ node_modules לא קיים
+    echo.
 )
 
-echo.
-echo שלב 2: מחיקת package-lock.json...
+REM מחיקת package-lock.json אם קיים
 if exist package-lock.json (
     echo מוחק package-lock.json...
     del /q package-lock.json
     echo ✅ package-lock.json נמחק
-) else (
-    echo ℹ️ package-lock.json לא קיים
+    echo.
 )
 
+REM התקנת תלויות
+echo מתקין תלויות עם --legacy-peer-deps...
 echo.
-echo שלב 3: התקנת תלויות עם --legacy-peer-deps...
-echo תיקייה נוכחית לפני npm install: %CD%
-echo.
-REM וידוא שאנחנו בתיקייה הנכונה לפני npm install
-cd /d "%~dp0"
-call npm install --legacy-peer-deps --prefix "%~dp0"
+call npm install --legacy-peer-deps
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ERROR: שגיאה בהתקנת תלויות!
+    echo.
+    echo נסה:
+    echo 1. פתח Command Prompt כמנהל (Run as Administrator)
+    echo 2. נווט לתיקיית הפרויקט
+    echo 3. הרץ: npm install --legacy-peer-deps
+    echo.
     pause
     exit /b 1
 )
 
 echo.
 echo ========================================
-echo ✅ ניקוי והתקנה הושלמו!
+echo ✅ התקנה הושלמה בהצלחה!
 echo ========================================
-echo.
-echo עכשיו:
-echo 1. בדוק שהכל עובד: npm run build
-echo 2. דחוף את השינויים ל-GitHub
-echo 3. Render יבנה עם --legacy-peer-deps
 echo.
 pause
