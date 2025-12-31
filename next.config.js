@@ -4,6 +4,9 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
+  // Disable static page generation to prevent React Router conflicts
+  // This project uses Vite + React Router, not Next.js pages
+  output: 'standalone',
   experimental: {
     serverActions: {
       bodySizeLimit: '2mb',
@@ -15,8 +18,14 @@ const nextConfig = {
         '**/Office/**',
         '**/SolutionPackages/**',
         '**/PackageResources/**',
+        '**/src/pages/**', // Exclude React Router pages from Next.js build
+        '**/src/components/Footer.tsx', // Exclude Footer from static generation
       ],
     },
+  },
+  // Skip static generation - this is a Vite project, not Next.js
+  generateBuildId: async () => {
+    return 'vite-build'
   },
   typescript: {
     ignoreBuildErrors: true,

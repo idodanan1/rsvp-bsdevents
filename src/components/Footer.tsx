@@ -2,6 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, FileText, Shield } from 'lucide-react';
 
+// Check if we're in SSR/SSG environment (Next.js build)
+const isSSR = typeof window === 'undefined';
+
 const Footer: React.FC = () => {
   return (
     <footer className="bg-gray-800 text-white mt-auto flex-shrink-0 w-full" role="contentinfo">
@@ -37,34 +40,67 @@ const Footer: React.FC = () => {
             <h3 className="text-lg font-semibold mb-4">מידע משפטי</h3>
             <nav className="space-y-2 text-sm" aria-label="קישורים משפטיים">
               <div>
-                <Link 
-                  to="/terms" 
-                  className="flex items-center gap-2 hover:text-teal-400 transition-colors"
-                  aria-label="תנאי שימוש"
-                >
-                  <FileText className="w-4 h-4" aria-hidden="true" />
-                  תנאי שימוש
-                </Link>
+                {isSSR ? (
+                  <a 
+                    href="#/terms" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="תנאי שימוש"
+                  >
+                    <FileText className="w-4 h-4" aria-hidden="true" />
+                    תנאי שימוש
+                  </a>
+                ) : (
+                  <Link 
+                    to="/terms" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="תנאי שימוש"
+                  >
+                    <FileText className="w-4 h-4" aria-hidden="true" />
+                    תנאי שימוש
+                  </Link>
+                )}
               </div>
               <div>
-                <Link 
-                  to="/privacy" 
-                  className="flex items-center gap-2 hover:text-teal-400 transition-colors"
-                  aria-label="מדיניות פרטיות"
-                >
-                  <Shield className="w-4 h-4" aria-hidden="true" />
-                  מדיניות פרטיות
-                </Link>
+                {isSSR ? (
+                  <a 
+                    href="#/privacy" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="מדיניות פרטיות"
+                  >
+                    <Shield className="w-4 h-4" aria-hidden="true" />
+                    מדיניות פרטיות
+                  </a>
+                ) : (
+                  <Link 
+                    to="/privacy" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="מדיניות פרטיות"
+                  >
+                    <Shield className="w-4 h-4" aria-hidden="true" />
+                    מדיניות פרטיות
+                  </Link>
+                )}
               </div>
               <div>
-                <Link 
-                  to="/accessibility" 
-                  className="flex items-center gap-2 hover:text-teal-400 transition-colors"
-                  aria-label="הצהרת נגישות"
-                >
-                  <Shield className="w-4 h-4" aria-hidden="true" />
-                  הצהרת נגישות
-                </Link>
+                {isSSR ? (
+                  <a 
+                    href="#/accessibility" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="הצהרת נגישות"
+                  >
+                    <Shield className="w-4 h-4" aria-hidden="true" />
+                    הצהרת נגישות
+                  </a>
+                ) : (
+                  <Link 
+                    to="/accessibility" 
+                    className="flex items-center gap-2 hover:text-teal-400 transition-colors"
+                    aria-label="הצהרת נגישות"
+                  >
+                    <Shield className="w-4 h-4" aria-hidden="true" />
+                    הצהרת נגישות
+                  </Link>
+                )}
               </div>
             </nav>
           </div>
