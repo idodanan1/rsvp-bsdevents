@@ -103,7 +103,27 @@ app.use(cors({
 }));
 
 // טיפול בבקשות OPTIONS (Preflight) - קריטי למובייל ומכשירים חיצוניים
-app.options('*', cors());
+// Use the same CORS configuration for OPTIONS requests
+app.options('*', cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.some(allowed => {
+      if (typeof allowed === 'string') {
+        return allowed === origin;
+      } else if (allowed instanceof RegExp) {
+        return allowed.test(origin);
+      }
+      return false;
+    })) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow preflight even if origin not in list (will be checked in actual request)
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cache-Control', 'Pragma'],
+  maxAge: 86400
+}));
 
 // Additional CORS middleware to ensure headers are ALWAYS set (even on errors)
 // This is critical for guest response pages to work from any IP/device
@@ -136,7 +156,11 @@ app.use((req, res, next) => {
   
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
+    // Log for debugging
+    console.log(`🔍 OPTIONS preflight request from origin: ${origin || 'no origin'}`);
+    console.log(`✅ Allowed origins check: ${isAllowed ? 'PASSED' : 'FAILED'}`);
+    // Send 200 OK with all CORS headers
+    return res.status(200).end();
     return;
   }
   next();
