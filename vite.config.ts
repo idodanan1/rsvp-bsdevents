@@ -10,6 +10,15 @@ const version = packageJson.version || '1.0.211'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  preview: {
+    host: '0.0.0.0',
+    port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
+    allowedHosts: [
+      'rsvp-frontend-new.onrender.com',
+      'rsvp-frontend.onrender.com',
+      '.onrender.com' // Allow all Render hosts
+    ]
+  },
   build: {
     // Force cache busting - add timestamp to filenames
     rollupOptions: {
