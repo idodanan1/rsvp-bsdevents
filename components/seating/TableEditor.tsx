@@ -58,8 +58,7 @@ export default function TableEditor({
     } else if (onCreate && eventId) {
       success = await onCreate({
         ...formData,
-        position_x: null,
-        position_y: null,
+        event_id: eventId,
       })
     }
 

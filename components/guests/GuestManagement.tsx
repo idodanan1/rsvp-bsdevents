@@ -10,7 +10,6 @@ import { he } from '@/lib/i18n/he'
 import type { Database } from '@/types/database.types'
 
 type Guest = Database['public']['Tables']['guests']['Row']
-type GuestInsert = Omit<Database['public']['Tables']['guests']['Insert'], 'id' | 'event_id' | 'created_at' | 'updated_at'>
 
 interface GuestManagementProps {
   eventId: string
@@ -84,14 +83,13 @@ export default function GuestManagement({ eventId }: GuestManagementProps) {
     }
   }, [eventId, filters])
 
-  const handleAddGuest = async (guestData: GuestInsert) => {
-    // Type assertion to fix TypeScript inference issue
-    const { error } = await (supabase
-      .from('guests') as any)
+  const handleAddGuest = async (guestData: Omit<Guest, 'id' | 'event_id' | 'created_at' | 'updated_at'>) => {
+    const { error } = await supabase
+      .from('guests')
       .insert({
         ...guestData,
         event_id: eventId,
-      } as Database['public']['Tables']['guests']['Insert'])
+      })
 
     if (error) {
       console.error('Error adding guest:', error)
@@ -102,10 +100,9 @@ export default function GuestManagement({ eventId }: GuestManagementProps) {
   }
 
   const handleUpdateGuest = async (id: string, updates: Partial<Guest>) => {
-    // Type assertion to fix TypeScript inference issue
-    const { error } = await (supabase
-      .from('guests') as any)
-      .update(updates as Database['public']['Tables']['guests']['Update'])
+    const { error } = await supabase
+      .from('guests')
+      .update(updates)
       .eq('id', id)
 
     if (error) {
