@@ -173,7 +173,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         
         <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200">
           <div className="text-sm text-gray-500 text-center">
-            גרסה 1.0.0
+            גרסה {process.env.npm_package_version || '1.0.194'}
           </div>
         </div>
       </div>

@@ -1,12 +1,13 @@
 {
   "name": "rsvp-saas",
-  "version": "1.0.193",
+  "version": "1.0.194",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
+    "dev": "vite",
+    "build": "vite build",
+    "start": "vite preview",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "type-check": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
@@ -47,9 +48,11 @@
   "devDependencies": {
     "@types/qrcode": "^1.5.5",
     "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
     "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
     "eslint-config-next": "^14.2.0",
-    "prisma": "^5.19.0"
+    "prisma": "^5.19.0",
+    "vite": "^5.1.0"
   }
 }
