@@ -3,8 +3,26 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useEventStore } from '../store/eventStore';
 import { useUserStore } from '../store/userStore';
 import { calculateGlobalStats, formatDate, getStatusIcon, getStatusColor } from '../utils/helpers';
-import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings, RefreshCw, Monitor } from 'lucide-react';
+import { Plus, Users, Calendar, CheckCircle, XCircle, HelpCircle, Clock, Trash2, RotateCcw, Edit, Eye, Settings, RefreshCw, Monitor, LogOut, CalendarDays, User as UserIcon } from 'lucide-react';
 import DeletedEventsModal from './DeletedEventsModal';
+import toast from 'react-hot-toast';
+
+// Hebrew month names
+const hebrewMonths = [
+  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
+  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
+];
+
+// Helper function to format date in Hebrew
+const formatDateHebrew = (date: Date | string | undefined): string => {
+  if (!date) return '';
+  const d = date instanceof Date ? date : new Date(date);
+  if (isNaN(d.getTime())) return '';
+  const day = d.getDate();
+  const month = hebrewMonths[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day} ב${month} ${year}`;
+};
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +46,9 @@ const Dashboard: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [connectedDevicesCount, setConnectedDevicesCount] = useState<number>(0);
   const [sessionId, setSessionId] = useState<string>('');
+  const [showRestoreByIdModal, setShowRestoreByIdModal] = useState(false);
+  const [restoreEventId, setRestoreEventId] = useState<string>('');
+  const { logout } = useUserStore();
 
   // Update time every second
   useEffect(() => {
@@ -207,6 +228,93 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Handle logout
+  const handleLogout = () => {
+    logout();
+    toast.success('התנתקת בהצלחה');
+    navigate('/login');
+  };
+
+  // Handle update campaigns
+  const handleUpdateCampaigns = async () => {
+    try {
+      await updateExistingEventsCampaigns();
+      toast.success('כל האירועים עודכנו בהצלחה');
+    } catch (error: any) {
+      console.error('❌ Error updating campaigns:', error);
+      toast.error('שגיאה בעדכון האירועים');
+    }
+  };
+
+  // Handle sync to API
+  const handleSyncToAPI = async () => {
+    try {
+      await syncAllEventsToAPI();
+      toast.success('כל האירועים סונכרנו בהצלחה');
+    } catch (error: any) {
+      console.error('❌ Error syncing to API:', error);
+      toast.error('שגיאה בסנכרון האירועים');
+    }
+  };
+
+  // Handle clear and reload
+  const handleClearAndReload = async () => {
+    const confirmed = window.confirm('האם אתה בטוח שברצונך לנקות ולטעון מחדש? פעולה זו תמחק את כל האירועים של משתמשים אחרים מהמאגר המקומי.');
+    if (confirmed) {
+      try {
+        cleanupOtherUsersEvents();
+        await handleRefresh();
+        toast.success('נוקה וטען מחדש בהצלחה');
+      } catch (error: any) {
+        console.error('❌ Error clearing and reloading:', error);
+        toast.error('שגיאה בניקוי וטעינה מחדש');
+      }
+    }
+  };
+
+  // Handle restore from localStorage
+  const handleRestoreFromLocalStorage = async () => {
+    try {
+      const stored = localStorage.getItem('rsvp-events-storage');
+      if (!stored) {
+        toast.error('לא נמצאו אירועים ב-localStorage');
+        return;
+      }
+      const parsed = JSON.parse(stored);
+      if (parsed.state && parsed.state.deletedEvents && parsed.state.deletedEvents.length > 0) {
+        const lastDeleted = parsed.state.deletedEvents[parsed.state.deletedEvents.length - 1];
+        if (lastDeleted) {
+          await restoreDeletedEvent(lastDeleted.id);
+          toast.success('אירוע שוחזר מ-localStorage');
+        } else {
+          toast.error('לא נמצאו אירועים מחוקים ב-localStorage');
+        }
+      } else {
+        toast.error('לא נמצאו אירועים מחוקים ב-localStorage');
+      }
+    } catch (error: any) {
+      console.error('❌ Error restoring from localStorage:', error);
+      toast.error('שגיאה בשחזור מ-localStorage');
+    }
+  };
+
+  // Handle restore by ID
+  const handleRestoreById = async () => {
+    if (!restoreEventId.trim()) {
+      toast.error('נא להזין מזהה אירוע');
+      return;
+    }
+    try {
+      await restoreDeletedEvent(restoreEventId.trim());
+      toast.success('אירוע שוחזר בהצלחה');
+      setShowRestoreByIdModal(false);
+      setRestoreEventId('');
+    } catch (error: any) {
+      console.error('❌ Error restoring event:', error);
+      toast.error('שגיאה בשחזור האירוע');
+    }
+  };
+
 
   // Only show loading spinner if we're loading AND have no events
   // If we have events (even from localStorage), show them immediately
@@ -219,44 +327,113 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-none space-y-6" style={{ width: '100%', maxWidth: 'none' }}>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-teal-50 to-yellow-50 rounded-xl p-6 border border-teal-200 shadow-sm w-full">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
-            <p className="text-gray-600 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה</p>
-            <p className="text-sm text-gray-500 mt-1">מעודכן: {currentTime.toLocaleString('he-IL')}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+    <div className="w-full max-w-none" style={{ width: '100%', maxWidth: 'none' }}>
+      {/* Top Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium"
+        >
+          <LogOut className="w-5 h-5 rotate-180" />
+          <span>התנתק</span>
+        </button>
+        
+        <div className="flex items-center gap-4">
           <Link
-            to="/create-event"
-            className="btn-primary flex items-center gap-2 px-6 py-3 shadow-md hover:shadow-lg transition-all"
+            to="/accessibility"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium"
           >
-            <Plus className="w-5 h-5" />
-            <span>אירוע חדש</span>
+            <UserIcon className="w-5 h-5" />
+            <span>נגישות</span>
           </Link>
-          <button
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all"
-            title="טען נתונים מהמאגר"
+          
+          <Link
+            to="/pricing"
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all font-medium"
           >
-            {isLoading ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                <span>טוען...</span>
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-5 h-5" />
-                <span>רענן</span>
-              </>
-            )}
-          </button>
+            <span>רכוש רשומות</span>
+          </Link>
+          
+          <div className="flex items-center gap-2 px-4 py-2 bg-teal-100 text-teal-700 rounded-lg">
+            <CalendarDays className="w-5 h-5" />
+            <span className="font-semibold">{user?.credits || 0} רשומות</span>
           </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-gray-700 font-semibold">בס"ד</span>
+            <UserIcon className="w-5 h-5 text-gray-600" />
+          </div>
+          
+          <h2 className="text-xl font-bold text-gray-800">בס"ד אירועים</h2>
         </div>
       </div>
+
+      {/* Main Content */}
+      <div className="p-6 space-y-6">
+        {/* Dashboard Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
+          <p className="text-gray-600 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה מעודכן: {currentTime.toLocaleString('he-IL')}</p>
+        </div>
+
+        {/* Action Buttons Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+          <Link
+            to="/create-event"
+            className="flex flex-col items-center justify-center p-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium shadow-md"
+          >
+            <Plus className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">אירוע חדש</span>
+          </Link>
+          
+          <Link
+            to="/calendar"
+            className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-medium shadow-md"
+          >
+            <CalendarDays className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">לוח שנה</span>
+          </Link>
+          
+          <button
+            onClick={handleUpdateCampaigns}
+            className="flex flex-col items-center justify-center p-4 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium shadow-md"
+          >
+            <RefreshCw className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">עדכן כל האירועים לתבנית חדשה</span>
+          </button>
+          
+          <button
+            onClick={handleSyncToAPI}
+            className="flex flex-col items-center justify-center p-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium shadow-md"
+          >
+            <RefreshCw className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">סנכרן אירועים ל-API</span>
+          </button>
+          
+          <button
+            onClick={handleClearAndReload}
+            className="flex flex-col items-center justify-center p-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all font-medium shadow-md"
+          >
+            <Trash2 className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">נקה וטען מחדש</span>
+          </button>
+          
+          <button
+            onClick={handleRestoreFromLocalStorage}
+            className="flex flex-col items-center justify-center p-4 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all font-medium shadow-md"
+          >
+            <RotateCcw className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">שחזר מ-localStorage</span>
+          </button>
+          
+          <button
+            onClick={() => setShowRestoreByIdModal(true)}
+            className="flex flex-col items-center justify-center p-4 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium shadow-md"
+          >
+            <RotateCcw className="w-6 h-6 mb-2" />
+            <span className="text-sm text-center">שחזר אירוע לפי מזהה</span>
+          </button>
+        </div>
 
       {/* Quick Stats - Ordered to match model */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
@@ -378,44 +555,99 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+          <div className="space-y-6">
             {events.map((event: any) => {
+              const totalGuests = event.guests?.length || 0;
               const confirmed = event.guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0;
               const declined = event.guests?.filter((g: any) => g.rsvpStatus === 'declined').length || 0;
-              const pending = event.guests?.filter((g: any) => g.rsvpStatus === 'pending').length || 0;
+              const maybe = event.guests?.filter((g: any) => g.rsvpStatus === 'maybe').length || 0;
+              const pending = event.guests?.filter((g: any) => g.rsvpStatus === 'pending' || !g.rsvpStatus).length || 0;
+              
+              const eventName = event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע');
+              const eventDate = event.eventDate ? formatDateHebrew(event.eventDate) : '';
+              const eventTime = event.eventTime || '';
 
               return (
                 <div 
                   key={event.id} 
-                  className="event-card bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 w-full"
+                  className="bg-white border border-gray-200 rounded-lg shadow-md p-6 hover:shadow-lg transition-all"
                 >
-                  <div className="p-4">
-                    {/* Top row - Confirmed and Declined */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-red-600">{confirmed}</span>
-                        <span className="text-sm text-gray-600">מגיעים</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-800">{declined}</span>
-                        <span className="text-sm text-gray-600">לא מגיעים</span>
-                      </div>
-                    </div>
+                  {/* Event Header */}
+                  <div className="mb-4">
+                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{eventName}</h3>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{eventName}</h3>
+                    <p className="text-sm text-gray-600 mb-1">מזהה: {event.id}</p>
+                    {eventDate && (
+                      <p className="text-sm text-gray-700 font-medium">
+                        {eventDate}{eventTime ? ` - ${eventTime}` : ''}
+                      </p>
+                    )}
+                  </div>
 
-                    {/* Middle - Pending count with question mark */}
-                    <div className="flex items-center justify-center mb-4 py-3 bg-gray-50 rounded-lg">
-                      <HelpCircle className="w-5 h-5 text-gray-500 ml-2" />
-                      <span className="text-2xl font-bold text-gray-800">{pending}</span>
+                  {/* Statistics Cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                    <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 text-center">
+                      <p className="text-xs text-blue-700 mb-1">סה"כ מוזמנים</p>
+                      <p className="text-2xl font-bold text-blue-800">{totalGuests}</p>
                     </div>
+                    <div className="bg-green-100 border border-green-200 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <CheckCircle className="w-4 h-4 text-green-700" />
+                      </div>
+                      <p className="text-xs text-green-700 mb-1">מגיעים</p>
+                      <p className="text-2xl font-bold text-green-800">{confirmed}</p>
+                    </div>
+                    <div className="bg-red-100 border border-red-200 rounded-lg p-3 text-center">
+                      <div className="flex items-center justify-center mb-1">
+                        <XCircle className="w-4 h-4 text-red-700" />
+                      </div>
+                      <p className="text-xs text-red-700 mb-1">לא מגיעים</p>
+                      <p className="text-2xl font-bold text-red-800">{declined}</p>
+                    </div>
+                    <div className="bg-yellow-100 border border-yellow-200 rounded-lg p-3 text-center">
+                      <p className="text-xs text-yellow-700 mb-1">אולי</p>
+                      <p className="text-2xl font-bold text-yellow-800">{maybe}</p>
+                    </div>
+                    <div className="bg-gray-100 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-xs text-gray-700 mb-1">לא ענו</p>
+                      <p className="text-2xl font-bold text-gray-800">{pending}</p>
+                    </div>
+                  </div>
 
-                    {/* Bottom - Messages button */}
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <Link
+                      to={`/event/${event.id}/view`}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all font-medium"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span>צפייה</span>
+                    </Link>
+                    <Link
+                      to={`/event/${event.id}/seating`}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-300 text-purple-800 rounded-lg hover:bg-purple-400 transition-all font-medium"
+                    >
+                      <span>הושבה</span>
+                    </Link>
+                    <button
+                      onClick={() => handleEditEvent(event)}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium"
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span>עריכה</span>
+                    </button>
                     <Link
                       to={`/event/${event.id}/campaigns`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="block w-full bg-teal-600 text-white text-center py-2.5 rounded-lg font-semibold hover:bg-teal-700 transition-all"
+                      className="flex items-center gap-2 px-4 py-2 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium"
                     >
-                      הודעות
+                      <span>הודעות</span>
                     </Link>
+                    <button
+                      onClick={() => handleDeleteEvent(event.id, eventName)}
+                      className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );
@@ -432,6 +664,64 @@ const Dashboard: React.FC = () => {
         onRestoreEvent={restoreDeletedEvent}
         onPermanentlyDeleteEvent={permanentlyDeleteEvent}
       />
+
+      {/* Restore by ID Modal */}
+      {showRestoreByIdModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">שחזר אירוע לפי מזהה</h2>
+                <button
+                  onClick={() => {
+                    setShowRestoreByIdModal(false);
+                    setRestoreEventId('');
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    מזהה האירוע
+                  </label>
+                  <input
+                    type="text"
+                    value={restoreEventId}
+                    onChange={(e) => setRestoreEventId(e.target.value)}
+                    placeholder="הזן מזהה אירוע"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleRestoreById();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 space-x-reverse">
+                  <button
+                    onClick={() => {
+                      setShowRestoreByIdModal(false);
+                      setRestoreEventId('');
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                  >
+                    ביטול
+                  </button>
+                  <button
+                    onClick={handleRestoreById}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    שחזר
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Event Modal */}
       {showEditEventModal && selectedEventForEdit && (

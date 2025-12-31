@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User, Wallet } from 'lucide-react';
+import { Calendar, Plus, Home, Settings, MessageSquare, Users, Bell, CalendarDays, LogOut, CreditCard, User, Wallet, FileText } from 'lucide-react';
 import { useUserStore } from '../store/userStore';
 import toast from 'react-hot-toast';
 import Footer from './Footer';
@@ -27,10 +27,31 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex w-full max-w-none" style={{ width: '100%', margin: 0 }}>
-      {/* Sidebar */}
-      <div className="w-64 bg-gradient-to-b from-white to-gray-50 shadow-xl border-l border-gray-200">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-teal-500 bg-clip-text text-transparent mb-8">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-h-screen w-full" style={{ width: '100%', flex: '1 1 0%' }}>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 w-full" style={{ width: '100%', flex: '1 1 0%' }}>
+          <div className="w-full max-w-none" style={{ width: '100%', maxWidth: 'none' }}>
+            {children}
+          </div>
+        </main>
+        <Footer />
+      </div>
+
+      {/* Sidebar - Right */}
+      <div className="w-64 bg-green-100 shadow-xl border-r border-gray-200 flex flex-col">
+        {/* Logout button at top */}
+        <div className="p-4 border-b border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 font-medium"
+          >
+            <LogOut className="w-5 h-5 rotate-180" />
+            <span>התנתק</span>
+          </button>
+        </div>
+
+        <div className="p-6 flex-1">
+          <h1 className="text-2xl font-bold text-gray-800 mb-8 text-center">
             בס"ד אירועים
           </h1>
           
@@ -39,8 +60,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${
                 isActive('/') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
               aria-label="דשבורד"
               aria-current={isActive('/') ? 'page' : undefined}
@@ -53,8 +74,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/create-event"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/create-event') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
               <Plus className="w-5 h-5" />
@@ -65,8 +86,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/calendar"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/calendar') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
               <CalendarDays className="w-5 h-5" />
@@ -77,11 +98,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/templates"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/templates') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
-              <MessageSquare className="w-5 h-5" />
+              <FileText className="w-5 h-5" />
               <span>תבניות הודעות</span>
             </Link>
             
@@ -89,8 +110,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/clients"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/clients') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
               <Users className="w-5 h-5" />
@@ -101,8 +122,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/reminders"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/reminders') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
               <Bell className="w-5 h-5" />
@@ -113,11 +134,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/budget"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/budget') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
-              <Wallet className="w-5 h-5" />
+              <Settings className="w-5 h-5" />
               <span>ניהול תקציב וספקים</span>
             </Link>
             
@@ -127,8 +148,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to="/admin"
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive('/admin') 
-                      ? 'bg-teal-100 text-teal-700 font-medium' 
-                      : 'text-gray-600 hover:bg-yellow-50'
+                      ? 'bg-green-200 text-green-800 font-medium' 
+                      : 'text-gray-700 hover:bg-green-50'
                   }`}
                 >
                   <Settings className="w-5 h-5" />
@@ -138,8 +159,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to="/users"
                   className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive('/users') 
-                      ? 'bg-teal-100 text-teal-700 font-medium' 
-                      : 'text-gray-600 hover:bg-yellow-50'
+                      ? 'bg-green-200 text-green-800 font-medium' 
+                      : 'text-gray-700 hover:bg-green-50'
                   }`}
                 >
                   <Users className="w-5 h-5" />
@@ -152,74 +173,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               to="/settings"
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive('/settings') 
-                  ? 'bg-teal-100 text-teal-700 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
+                  ? 'bg-green-200 text-green-800 font-medium' 
+                  : 'text-gray-700 hover:bg-green-50'
               }`}
             >
               <Settings className="w-5 h-5" />
               <span>הגדרות</span>
             </Link>
-            
-            {/* כפתור התנתקות בתפריט הצד */}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors text-red-600 hover:bg-red-50 mt-4"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>התנתק</span>
-            </button>
           </nav>
         </div>
         
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200">
-          <div className="text-sm text-gray-500 text-center">
-            גרסה {typeof window !== 'undefined' && (window as any).__APP_VERSION__ ? (window as any).__APP_VERSION__ : '1.0.211'}
-          </div>
+        {/* Logout button at bottom */}
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 font-medium"
+          >
+            <LogOut className="w-5 h-5 rotate-180" />
+            <span>התנתק</span>
+          </button>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen w-full" style={{ width: '100%', flex: '1 1 0%' }}>
-        {/* Header */}
-        <header className="bg-gradient-to-r from-white to-gray-50 shadow-md border-b border-gray-200 px-8 py-4 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {user && (
-                <>
-                  <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
-                    <User className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-700 font-semibold">{user.name}</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-blue-50 px-4 py-2 rounded-lg border border-teal-200 shadow-sm">
-                    <CreditCard className="w-5 h-5 text-teal-600" />
-                    <span className="text-teal-700 font-bold">{user.credits} רשומות</span>
-                  </div>
-                  <Link
-                    to="/pricing"
-                    className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-5 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all font-semibold shadow-md hover:shadow-lg"
-                  >
-                    רכוש רשומות
-                  </Link>
-                </>
-              )}
-            </div>
-            {user && (
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-semibold border border-red-200 shadow-sm hover:shadow"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>התנתק</span>
-              </button>
-            )}
-          </div>
-        </header>
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full" style={{ width: '100%', flex: '1 1 0%' }}>
-          <div className="w-full max-w-none" style={{ width: '100%', maxWidth: 'none' }}>
-            {children}
-          </div>
-        </main>
-        <Footer />
       </div>
     </div>
   );

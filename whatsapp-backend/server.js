@@ -150,7 +150,7 @@ app.use((req, res, next) => {
   }
   
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type', 'Authorization', 'X-Requested-With', 'Accept, Origin', 'Cache-Control', 'Pragma');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Max-Age', '86400');
   
@@ -161,7 +161,6 @@ app.use((req, res, next) => {
     console.log(`✅ Allowed origins check: ${isAllowed ? 'PASSED' : 'FAILED'}`);
     // Send 200 OK with all CORS headers
     return res.status(200).end();
-    return;
   }
   next();
 });
