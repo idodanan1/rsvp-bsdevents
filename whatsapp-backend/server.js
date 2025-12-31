@@ -69,6 +69,7 @@ const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3001',
   'https://rsvp-frontend-wy47.onrender.com', // Frontend URL from environment
+  'https://rsvp-frontend-new.onrender.com', // New frontend URL
   'https://whatsapp-backend-enfz.onrender.com', // Backend URL (for internal calls)
   process.env.FRONTEND_URL, // Frontend URL from environment variable
   /\.onrender\.com$/, // מאפשר את כל תתי-הדומיינים של render
