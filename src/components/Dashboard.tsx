@@ -208,7 +208,9 @@ const Dashboard: React.FC = () => {
   };
 
 
-  if (isLoading) {
+  // Only show loading spinner if we're loading AND have no events
+  // If we have events (even from localStorage), show them immediately
+  if (isLoading && events.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -256,64 +258,69 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Ordered to match model */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
-        <div className="stat-card bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-blue-700 mb-1">מחשבים מחוברים</p>
-              <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
-            </div>
-            <div className="bg-blue-200 rounded-full p-3 flex-shrink-0">
-              <Monitor className="w-8 h-8 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-teal-700 mb-1">אירועים פעילים</p>
-              <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
-            </div>
-            <div className="bg-teal-200 rounded-full p-3 flex-shrink-0">
-              <Calendar className="w-8 h-8 text-teal-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-yellow-700 mb-1">מוזמנים סה"כ</p>
-              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.totalGuests}</p>
-            </div>
-            <div className="bg-yellow-200 rounded-full p-3 flex-shrink-0">
-              <Users className="w-8 h-8 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-green-700 mb-1">אחוז תגובה</p>
-              <p className="text-3xl font-bold text-green-600 stat-number">{globalStats.averageResponseRate}%</p>
-            </div>
-            <div className="bg-green-200 rounded-full p-3 flex-shrink-0">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="stat-card bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 hover:shadow-lg transition-all duration-300 w-full">
+        {/* 1. אישרו הגעה (Confirmed Attendance) */}
+        <div className="stat-card bg-white border-2 border-purple-200 hover:shadow-lg transition-all duration-300 w-full">
           <div className="flex items-center justify-between w-full">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-purple-700 mb-1">אישרו הגעה</p>
               <p className="text-3xl font-bold text-purple-600 stat-number">{globalStats.totalConfirmed}</p>
             </div>
-            <div className="bg-purple-200 rounded-full p-3 flex-shrink-0">
+            <div className="bg-purple-100 rounded-full p-3 flex-shrink-0">
               <CheckCircle className="w-8 h-8 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* 2. אחוז תגובה (Response Rate) */}
+        <div className="stat-card bg-white border-2 border-green-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-green-700 mb-1">אחוז תגובה</p>
+              <p className="text-3xl font-bold text-green-600 stat-number">{globalStats.averageResponseRate}%</p>
+            </div>
+            <div className="bg-green-100 rounded-full p-3 flex-shrink-0">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* 3. מוזמנים סה"כ (Total Invited) */}
+        <div className="stat-card bg-white border-2 border-yellow-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-yellow-700 mb-1">מוזמנים סה"כ</p>
+              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.totalGuests}</p>
+            </div>
+            <div className="bg-yellow-100 rounded-full p-3 flex-shrink-0">
+              <Users className="w-8 h-8 text-yellow-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* 4. אירועים פעילים (Active Events) */}
+        <div className="stat-card bg-white border-2 border-teal-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-teal-700 mb-1">אירועים פעילים</p>
+              <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
+            </div>
+            <div className="bg-teal-100 rounded-full p-3 flex-shrink-0">
+              <Calendar className="w-8 h-8 text-teal-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* 5. מחשבים מחוברים (Connected Computers) */}
+        <div className="stat-card bg-white border-2 border-blue-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-blue-700 mb-1">מחשבים מחוברים</p>
+              <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
+            </div>
+            <div className="bg-blue-100 rounded-full p-3 flex-shrink-0">
+              <Monitor className="w-8 h-8 text-blue-600" />
             </div>
           </div>
         </div>
@@ -371,134 +378,44 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
             {events.map((event: any) => {
               const confirmed = event.guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0;
               const declined = event.guests?.filter((g: any) => g.rsvpStatus === 'declined').length || 0;
-              const maybe = event.guests?.filter((g: any) => g.rsvpStatus === 'maybe').length || 0;
               const pending = event.guests?.filter((g: any) => g.rsvpStatus === 'pending').length || 0;
-              const total = event.guests.length;
 
               return (
                 <div 
                   key={event.id} 
-                  className="event-card bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-xl transition-all duration-300 rounded-xl overflow-hidden w-full h-full"
+                  className="event-card bg-white border border-gray-300 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 w-full"
                 >
-                  <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-4 text-white">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold mb-1">
-                          {event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע')}
-                        </h3>
-                        <p className="text-sm text-teal-50 flex items-center">
-                          <Calendar className="w-4 h-4 ml-1" />
-                          {formatDate(event.eventDate)} - {event.eventTime}
-                        </p>
+                  <div className="p-4">
+                    {/* Top row - Confirmed and Declined */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-red-600">{confirmed}</span>
+                        <span className="text-sm text-gray-600">מגיעים</span>
                       </div>
-                      <div className="text-right bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
-                        <p className="text-xs text-white/90 font-medium mb-1">סה"כ מוזמנים</p>
-                        <p className="text-2xl font-bold stat-number">{total}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="p-5">
-
-                    {/* Enhanced Stats */}
-                    <div className="grid grid-cols-2 gap-3 mb-5">
-                      <div className="text-center p-3 bg-green-50 rounded-lg border-2 border-green-200 hover:bg-green-100 transition-colors">
-                        <div className="flex items-center justify-center mb-1">
-                          <CheckCircle className="w-5 h-5 text-green-600 ml-1" />
-                          <span className="text-2xl font-bold text-green-600 stat-number">{confirmed}</span>
-                        </div>
-                        <p className="text-xs text-green-700 font-semibold">מגיעים</p>
-                      </div>
-
-                      <div className="text-center p-3 bg-red-50 rounded-lg border-2 border-red-200 hover:bg-red-100 transition-colors">
-                        <div className="flex items-center justify-center mb-1">
-                          <XCircle className="w-5 h-5 text-red-600 ml-1" />
-                          <span className="text-2xl font-bold text-red-600 stat-number">{declined}</span>
-                        </div>
-                        <p className="text-xs text-red-700 font-semibold">לא מגיעים</p>
-                      </div>
-
-                      <div className="text-center p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200 hover:bg-yellow-100 transition-colors">
-                        <div className="flex items-center justify-center mb-1">
-                          <HelpCircle className="w-5 h-5 text-yellow-600 ml-1" />
-                          <span className="text-2xl font-bold text-yellow-600 stat-number">{maybe}</span>
-                        </div>
-                        <p className="text-xs text-yellow-700 font-semibold">אולי</p>
-                      </div>
-
-                      <div className="text-center p-3 bg-gray-50 rounded-lg border-2 border-gray-200 hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center justify-center mb-1">
-                          <Clock className="w-5 h-5 text-gray-600 ml-1" />
-                          <span className="text-2xl font-bold text-gray-600 stat-number">{pending}</span>
-                        </div>
-                        <p className="text-xs text-gray-700 font-semibold">לא ענו</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-gray-800">{declined}</span>
+                        <span className="text-sm text-gray-600">לא מגיעים</span>
                       </div>
                     </div>
 
-                    {/* Enhanced Actions */}
-                    <div className="space-y-2">
-                      {/* Primary Actions */}
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            navigate(`/event/${event.id}/manage`);
-                          }}
-                          className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-teal-700 transition-all shadow-md hover:shadow-lg"
-                        >
-                          <Eye className="w-4 h-4" />
-                          <span>ניהול</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleEditEvent(event);
-                          }}
-                          className="flex-1 bg-blue-600 text-white text-center py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>עריכה</span>
-                        </button>
-                      </div>
-                      
-                      {/* Secondary Actions */}
-                      <div className="flex gap-2">
-                        <Link
-                          to={`/event/${event.id}/campaigns`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-center text-sm font-semibold transition-all border border-green-200"
-                        >
-                          הודעות
-                        </Link>
-                        <button
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.stopPropagation();
-                            navigate(`/event/${event.id}/seating`);
-                          }}
-                          className="flex-1 px-3 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 text-center text-sm font-semibold transition-all border border-purple-200"
-                        >
-                          הושבה
-                        </button>
-                        <button
-                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                            e.stopPropagation();
-                            handleDeleteEvent(event.id, event.coupleName);
-                          }}
-                          className="px-3 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-all border border-red-200"
-                          title="מחק אירוע"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    {/* Middle - Pending count with question mark */}
+                    <div className="flex items-center justify-center mb-4 py-3 bg-gray-50 rounded-lg">
+                      <HelpCircle className="w-5 h-5 text-gray-500 ml-2" />
+                      <span className="text-2xl font-bold text-gray-800">{pending}</span>
                     </div>
+
+                    {/* Bottom - Messages button */}
+                    <Link
+                      to={`/event/${event.id}/campaigns`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="block w-full bg-teal-600 text-white text-center py-2.5 rounded-lg font-semibold hover:bg-teal-700 transition-all"
+                    >
+                      הודעות
+                    </Link>
                   </div>
                 </div>
               );
