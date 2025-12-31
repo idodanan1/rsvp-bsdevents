@@ -214,8 +214,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
           </div>
         </header>
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full">
-          <div className="w-full max-w-full mx-auto">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full bg-gradient-to-br from-teal-50 to-yellow-50">
+          <div className="w-full max-w-full">
             {children}
           </div>
         </main>
