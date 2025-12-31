@@ -214,8 +214,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
           </div>
         </header>
-        <main className="flex-1 p-8 overflow-auto min-h-0">
-          {children}
+        <main className="flex-1 p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full">
+          <div className="w-full max-w-full">
+            {children}
+          </div>
         </main>
         <Footer />
       </div>
