@@ -4,9 +4,8 @@ import { useEventStore } from '../store/eventStore';
 import { Event, Guest, Table, Campaign } from '../types';
 import { calculateEventStats, formatDate, getStatusColor, formatFullName, cleanName, generateGuestResponseLink } from '../utils/helpers';
 import { webhookService } from '../services/webhookService';
-// Import messageService dynamically to avoid circular dependency issues
-// import { messageService } from '../services/messageService';
-import type { MessageData, BulkMessageResult } from '../services/messageService';
+// Import messageService statically - no circular dependency issues
+import { messageService, MessageData, BulkMessageResult } from '../services/messageService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 // import ExcelJS from 'exceljs';
@@ -2807,9 +2806,6 @@ const EventManagement: React.FC = () => {
       
       let result: any;
       try {
-        // CRITICAL: Import messageService dynamically to avoid circular dependency issues
-        const { messageService } = await import('../services/messageService');
-        
         // CRITICAL: For free-form messages, pass the message content
         // Each recipient has their own personalized message in recipient.message
         // But we also need to pass a base message for messageService to use
@@ -3033,9 +3029,6 @@ const EventManagement: React.FC = () => {
       
       let result: any;
       try {
-        // CRITICAL: Import messageService dynamically to avoid circular dependency issues
-        const { messageService } = await import('../services/messageService');
-        
         // Use MessageData type since recipients are MessageRecipient[]
         const messageData: MessageData = {
           message,

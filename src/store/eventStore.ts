@@ -1,10 +1,12 @@
 ﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { formatDate, cleanName, ensureUniqueEventIds } from '../utils/helpers';
+import { formatDate, cleanName, ensureUniqueEventIds, generateGuestResponseLink } from '../utils/helpers';
 import { messageService, MessageData, MessageRecipient, BulkMessageResult } from '../services/messageService';
 import { generateQRCodeImage } from '../services/qrService';
 import { cacheService, CACHE_KEYS } from '../services/cacheService';
 import { crossTabSync } from '../utils/crossTabSync';
+import { webhookService } from '../services/webhookService';
+import { schedulerService } from '../services/schedulerService';
 
 // Type definitions
 type Event = any;
@@ -2887,7 +2889,6 @@ export const useEventStore = create<EventStore>()(
           }
 
           // Cancel any existing scheduled task for this campaign
-          const { schedulerService } = await import('../services/schedulerService');
           schedulerService.cancelCampaign(campaignId);
 
           // Update campaign with scheduled date and status
@@ -2940,10 +2941,6 @@ export const useEventStore = create<EventStore>()(
 
       sendCampaign: async (eventId: string, campaignId: string): Promise<any> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
-        // טעינת השירות בצורה דינמית
-        const { webhookService } = await import('../services/webhookService');
-        
-        // שימוש ב-as any כדי למנוע מ-TypeScript לעצור את ה-Build
         const service = webhookService as any;
         
         if (!service.pollingActive) {
@@ -3028,9 +3025,6 @@ export const useEventStore = create<EventStore>()(
             // (This is a fallback for custom campaigns)
             templateNameForCampaign = undefined;
           }
-          
-          // Import helper function once before map
-          const { generateGuestResponseLink } = await import('../utils/helpers');
           
           // Create personalized messages for each guest (using filtered guests)
           const personalizedMessages = await Promise.all(filteredGuests.map(async (guest: any) => {
@@ -3383,10 +3377,6 @@ export const useEventStore = create<EventStore>()(
 
       resendFailedMessages: async (eventId: string, campaignId: string): Promise<any> => {
         // CRITICAL: Ensure webhookService is running to receive updates after sending messages
-        // טעינת השירות בצורה דינמית
-        const { webhookService } = await import('../services/webhookService');
-        
-        // שימוש ב-as any כדי למנוע מ-TypeScript לעצור את ה-Build
         const service = webhookService as any;
         
         if (!service.pollingActive) {
@@ -3443,9 +3433,6 @@ export const useEventStore = create<EventStore>()(
             templateNameForCampaign = undefined;
           }
 
-          // Import helper function
-          const { generateGuestResponseLink, formatDate } = await import('../utils/helpers');
-          
           // Create personalized messages for each failed guest
           const personalizedMessages = await Promise.all(failedGuests.map(async (guest: any) => {
             let personalizedMessage = campaign.message;

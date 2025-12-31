@@ -20,8 +20,29 @@ export default defineConfig({
         }
         // Use default warning handler for other warnings
         warn(warning)
+      },
+      output: {
+        manualChunks: {
+          // Split React and React DOM into separate chunk
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Split Supabase into separate chunk
+          'supabase-vendor': ['@supabase/supabase-js', '@supabase/ssr'],
+          // Split Zustand (state management) into separate chunk
+          'zustand-vendor': ['zustand'],
+          // Split Lucide icons into separate chunk
+          'lucide-vendor': ['lucide-react'],
+          // Split heavy utility libraries
+          'utils-vendor': ['date-fns', 'clsx', 'tailwind-merge'],
+          // Split Excel/PDF libraries
+          'export-vendor': ['exceljs', 'xlsx', 'jspdf'],
+          // Split QR code libraries
+          'qr-vendor': ['qrcode', 'html5-qrcode'],
+          // Split other heavy dependencies
+          'other-vendor': ['react-hot-toast', 'zod']
+        }
       }
-    }
+    },
+    chunkSizeWarningLimit: 1000 // Increase limit to 1MB per chunk
   },
   // Handle environment variables
   define: {

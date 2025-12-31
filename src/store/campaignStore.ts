@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { whatsappService } from '../services/whatsappService';
 import { schedulerService } from '../services/schedulerService';
+import { useEventStore } from './eventStore';
 
 // Type definitions
 type Campaign = any;
@@ -354,7 +355,6 @@ export const useCampaignStore = create<CampaignStore>()(
           
           // If campaign has eventId, use eventStore to send it
           if (updatedCampaign.eventId) {
-            const { useEventStore } = await import('./eventStore');
             const eventStore = useEventStore.getState();
             await eventStore.sendCampaign(updatedCampaign.eventId, updatedCampaign.id);
           } else {

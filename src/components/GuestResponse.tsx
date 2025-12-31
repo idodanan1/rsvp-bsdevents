@@ -1152,8 +1152,7 @@ const GuestResponse = () => {
         
         // CRITICAL: Get the updated state immediately after updateGuestResponse
         // This ensures we have the latest data from the store
-        const storeModule = await import('../store/eventStore');
-        const storeState = storeModule.useEventStore.getState();
+        const storeState = useEventStore.getState();
         
         // Verify the update was applied
         const refreshedEvent = storeState.events.find((e: any) => e.id === currentEvent.id);

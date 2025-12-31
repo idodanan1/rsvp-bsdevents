@@ -1,33 +1,45 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Layout from './components/Layout';
-import Dashboard from './components/Dashboard';
-import CreateEvent from './components/CreateEvent';
-import EventManagement from './components/EventManagement';
-import EventViewer from './components/EventViewer';
-import CampaignManagement from './components/CampaignManagement';
-import MessageTemplates from './components/MessageTemplates';
-import ClientDashboard from './components/ClientDashboard';
-import SeatingManagement from './components/SeatingManagement';
-import VenueEditor from './components/VenueEditor';
-import GuestResponse from './components/GuestResponse';
-import ClientManagement from './components/ClientManagement';
-import CalendarView from './components/CalendarView';
-import QRScan from './components/QRScan';
-import CheckInStation from './components/CheckInStation';
-import Login from './components/Login';
-import SignUp from './components/SignUp';
-import Pricing from './components/Pricing';
-import AdminDashboard from './components/AdminDashboard';
-import UserManagement from './components/UserManagement';
-import BudgetManagement from './components/BudgetManagement';
-import Settings from './components/Settings';
 import ProtectedRoute from './components/ProtectedRoute';
 import Accessibility from './components/Accessibility';
-import AccessibilityPage from './pages/AccessibilityPage';
-import TermsPage from './pages/TermsPage';
-import PrivacyPage from './pages/PrivacyPage';
+
+// Lazy load heavy components for code splitting
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const CreateEvent = lazy(() => import('./components/CreateEvent'));
+const EventManagement = lazy(() => import('./components/EventManagement'));
+const EventViewer = lazy(() => import('./components/EventViewer'));
+const CampaignManagement = lazy(() => import('./components/CampaignManagement'));
+const MessageTemplates = lazy(() => import('./components/MessageTemplates'));
+const ClientDashboard = lazy(() => import('./components/ClientDashboard'));
+const SeatingManagement = lazy(() => import('./components/SeatingManagement'));
+const VenueEditor = lazy(() => import('./components/VenueEditor'));
+const GuestResponse = lazy(() => import('./components/GuestResponse'));
+const ClientManagement = lazy(() => import('./components/ClientManagement'));
+const CalendarView = lazy(() => import('./components/CalendarView'));
+const QRScan = lazy(() => import('./components/QRScan'));
+const CheckInStation = lazy(() => import('./components/CheckInStation'));
+const Login = lazy(() => import('./components/Login'));
+const SignUp = lazy(() => import('./components/SignUp'));
+const Pricing = lazy(() => import('./components/Pricing'));
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const UserManagement = lazy(() => import('./components/UserManagement'));
+const BudgetManagement = lazy(() => import('./components/BudgetManagement'));
+const Settings = lazy(() => import('./components/Settings'));
+const AccessibilityPage = lazy(() => import('./pages/AccessibilityPage'));
+const TermsPage = lazy(() => import('./pages/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+      <p className="text-gray-600">טוען...</p>
+    </div>
+  </div>
+);
 import { useEventStore } from './store/eventStore';
 import { useClientStore } from './store/clientStore';
 import { useUserStore } from './store/userStore';
@@ -247,37 +259,38 @@ function App() {
           }}
         />
         <main id="main-content">
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/client/:eventId" element={<ClientDashboard />} />
-            <Route path="/guest-response/:eventId" element={<GuestResponse />} />
-            <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
-            <Route path="/check-in/:eventId" element={<CheckInStation />} />
-            <Route path="/accessibility" element={<AccessibilityPage />} />
-            <Route path="/terms" element={<TermsPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
-            
-            {/* Protected routes */}
-            <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
-          <Route path="/pricing" element={<ProtectedRoute><Layout><Pricing /></Layout></ProtectedRoute>} />
-          <Route path="/create-event" element={<ProtectedRoute><Layout><CreateEvent /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id/manage" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id/view" element={<ProtectedRoute><Layout><EventViewer /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id/campaigns" element={<ProtectedRoute><Layout><CampaignManagement /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id/seating" element={<ProtectedRoute><Layout><SeatingManagement /></Layout></ProtectedRoute>} />
-          <Route path="/event/:id/venue" element={<ProtectedRoute><VenueEditor /></ProtectedRoute>} />
-          <Route path="/templates" element={<ProtectedRoute><Layout><MessageTemplates /></Layout></ProtectedRoute>} />
-          <Route path="/clients" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
-          <Route path="/calendar" element={<ProtectedRoute><Layout><CalendarView /></Layout></ProtectedRoute>} />
-          <Route path="/reminders" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
-          <Route path="/budget" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
-          <Route path="/budget/:id" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
-          <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/client/:eventId" element={<ClientDashboard />} />
+              <Route path="/guest-response/:eventId" element={<GuestResponse />} />
+              <Route path="/qr-scan/:eventId/:guestId" element={<QRScan />} />
+              <Route path="/check-in/:eventId" element={<CheckInStation />} />
+              <Route path="/accessibility" element={<AccessibilityPage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              
+              {/* Protected routes */}
+              <Route path="/" element={<ProtectedRoute><Layout><Dashboard /></Layout></ProtectedRoute>} />
+              <Route path="/pricing" element={<ProtectedRoute><Layout><Pricing /></Layout></ProtectedRoute>} />
+              <Route path="/create-event" element={<ProtectedRoute><Layout><CreateEvent /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id/manage" element={<ProtectedRoute><Layout><EventManagement /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id/view" element={<ProtectedRoute><Layout><EventViewer /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id/campaigns" element={<ProtectedRoute><Layout><CampaignManagement /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id/seating" element={<ProtectedRoute><Layout><SeatingManagement /></Layout></ProtectedRoute>} />
+              <Route path="/event/:id/venue" element={<ProtectedRoute><VenueEditor /></ProtectedRoute>} />
+              <Route path="/templates" element={<ProtectedRoute><Layout><MessageTemplates /></Layout></ProtectedRoute>} />
+              <Route path="/clients" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><Layout><CalendarView /></Layout></ProtectedRoute>} />
+              <Route path="/reminders" element={<ProtectedRoute><Layout><ClientManagement /></Layout></ProtectedRoute>} />
+              <Route path="/budget" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
+              <Route path="/budget/:id" element={<ProtectedRoute><Layout><BudgetManagement /></Layout></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute><Layout><AdminDashboard /></Layout></ProtectedRoute>} />
+              <Route path="/users" element={<ProtectedRoute><Layout><UserManagement /></Layout></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute><Layout><Settings /></Layout></ProtectedRoute>} />
           <Route path="*" element={
             <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full text-center">
@@ -292,7 +305,8 @@ function App() {
               </div>
             </div>
           } />
-        </Routes>
+            </Routes>
+          </Suspense>
         </main>
       </div>
     </Router>
