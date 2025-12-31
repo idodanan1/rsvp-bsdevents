@@ -356,6 +356,7 @@ const EventManagement: React.FC = () => {
         }, 1000);
         
         // Also refresh pending count after a delay to ensure it's accurate
+        setTimeout(async () => {
           try {
             const refreshCheckResponse = await fetch(`${BACKEND_URL}/api/guests/pending-updates?all=true`, {
               signal: AbortSignal.timeout(3000)
