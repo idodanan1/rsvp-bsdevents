@@ -327,49 +327,8 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-none" style={{ width: '100%', maxWidth: 'none' }}>
-      {/* Top Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium"
-        >
-          <LogOut className="w-5 h-5 rotate-180" />
-          <span>התנתק</span>
-        </button>
-        
-        <div className="flex items-center gap-4">
-          <Link
-            to="/accessibility"
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all font-medium"
-          >
-            <UserIcon className="w-5 h-5" />
-            <span>נגישות</span>
-          </Link>
-          
-          <Link
-            to="/pricing"
-            className="flex items-center gap-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-all font-medium"
-          >
-            <span>רכוש רשומות</span>
-          </Link>
-          
-          <div className="flex items-center gap-2 px-4 py-2 bg-teal-100 text-teal-700 rounded-lg">
-            <CalendarDays className="w-5 h-5" />
-            <span className="font-semibold">{user?.credits || 0} רשומות</span>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-gray-700 font-semibold">בס"ד</span>
-            <UserIcon className="w-5 h-5 text-gray-600" />
-          </div>
-          
-          <h2 className="text-xl font-bold text-gray-800">בס"ד אירועים</h2>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Dashboard Header */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
@@ -574,7 +533,6 @@ const Dashboard: React.FC = () => {
                 >
                   {/* Event Header */}
                   <div className="mb-4">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{eventName}</h3>
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">{eventName}</h3>
                     <p className="text-sm text-gray-600 mb-1">מזהה: {event.id}</p>
                     {eventDate && (
