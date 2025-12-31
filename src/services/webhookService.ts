@@ -22,6 +22,15 @@ class WebhookService {
       });
 
       if (!response.ok) {
+        // If endpoint doesn't exist (404), silently return empty result
+        if (response.status === 404) {
+          console.warn('⚠️ sync-updates endpoint not available (404) - skipping sync');
+          return {
+            processed: 0,
+            failed: 0,
+            remaining: 0
+          };
+        }
         throw new Error(`Sync failed: ${response.statusText}`);
       }
 
@@ -32,7 +41,12 @@ class WebhookService {
         remaining: data.remaining || 0
       };
     } catch (error) {
-      console.error('Error syncing updates:', error);
+      // Silently handle errors - endpoint may not exist
+      if (error instanceof Error && error.message.includes('404')) {
+        console.warn('⚠️ sync-updates endpoint not available - skipping sync');
+      } else {
+        console.error('Error syncing updates:', error);
+      }
       return {
         processed: 0,
         failed: 0,

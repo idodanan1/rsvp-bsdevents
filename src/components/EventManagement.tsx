@@ -959,7 +959,7 @@ const EventManagement: React.FC = () => {
     // DO NOT include arrays or objects directly - they cause infinite loops
     // Use only eventId (id) and eventsVersion (number) - these are stable and sufficient
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion, calculateGuestsToDisplay]); // CRITICAL: Only eventId and eventsVersion - removed eventsHash to prevent infinite recalculations
+  }, [id, eventsVersion]); // CRITICAL: Only eventId and eventsVersion - removed calculateGuestsToDisplay to prevent React #310 errors
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync
