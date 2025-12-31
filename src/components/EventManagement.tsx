@@ -1413,6 +1413,12 @@ const EventManagement: React.FC = () => {
     const guests = guestsToDisplay || [];
     console.log('🔄 Calculating filteredGuests - guests length:', guests.length);
     
+    // CRITICAL: If guestsToDisplay is empty or not an array, return empty array
+    if (!Array.isArray(guests) || guests.length === 0) {
+      console.warn('⚠️ filteredGuests: guestsToDisplay is empty or not an array');
+      return [];
+    }
+    
     const filtered = guests.filter((guest: any) => {
     const matchesSearch = 
       guest.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||

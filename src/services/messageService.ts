@@ -115,6 +115,34 @@ class MessageService {
       });
 
       if (!response.ok) {
+        // If endpoint doesn't exist (404), return a graceful error result
+        if (response.status === 404) {
+          console.warn('⚠️ send-bulk endpoint not available (404) - endpoint may not be implemented');
+          const recipients = 'recipients' in options ? options.recipients : [];
+          const recipientCount = recipients.length;
+          const isMessageData = 'recipients' in options && recipients.length > 0 && 'id' in (recipients[0] as any);
+          
+          if (isMessageData) {
+            const messageData = options as MessageData;
+            return {
+              results: messageData.recipients.map(r => ({
+                recipientId: r.id,
+                success: false,
+                error: 'Send-bulk endpoint not available (404)'
+              })),
+              successful: 0,
+              failed: recipientCount
+            } as BulkMessageResult;
+          } else {
+            return {
+              success: false,
+              sent: 0,
+              failed: recipientCount,
+              errors: ['Send-bulk endpoint not available (404)']
+            } as SendMessageResult;
+          }
+        }
+        
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Failed to send messages: ${response.statusText}`);
       }
