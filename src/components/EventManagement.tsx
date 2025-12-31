@@ -370,10 +370,9 @@ const EventManagement: React.FC = () => {
             console.warn('⚠️ Could not refresh pending count:', err);
           }
         }, 1000);
-      } else {
-        const errorText = await response.text();
-        console.error(`❌ Backend processing failed: ${response.status}`, errorText);
-        throw new Error(`Backend processing failed: ${response.status}`);
+      } catch (innerError: any) {
+        console.error('❌ Error refreshing events from Supabase:', innerError);
+        alert('❌ שגיאה בעדכון הנתונים מ-Supabase. נסה שוב.');
       }
     } catch (error: any) {
       console.error('❌ Error processing pending updates:', error);
