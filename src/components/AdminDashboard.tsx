@@ -104,7 +104,7 @@ const AdminDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-yellow-50 p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">דשבורד מנהל</h1>
           <p className="text-gray-600">ניהול תשלומים והכנסות</p>

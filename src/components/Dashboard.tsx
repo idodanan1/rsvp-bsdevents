@@ -217,16 +217,16 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-teal-50 to-yellow-50 rounded-xl p-6 border border-teal-200 shadow-sm">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
+      <div className="bg-gradient-to-r from-teal-50 to-yellow-50 rounded-xl p-6 border border-teal-200 shadow-sm w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+          <div className="flex-1">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
             <p className="text-gray-600 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה</p>
             <p className="text-sm text-gray-500 mt-1">מעודכן: {currentTime.toLocaleString('he-IL')}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 flex-shrink-0">
           <Link
             to="/create-event"
             className="btn-primary flex items-center gap-2 px-6 py-3 shadow-md hover:shadow-lg transition-all"
@@ -257,62 +257,62 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="stat-card bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
+        <div className="stat-card bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-blue-700 mb-1">מחשבים מחוברים</p>
               <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
             </div>
-            <div className="bg-blue-200 rounded-full p-3">
+            <div className="bg-blue-200 rounded-full p-3 flex-shrink-0">
               <Monitor className="w-8 h-8 text-blue-600" />
             </div>
           </div>
         </div>
 
-        <div className="stat-card bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="stat-card bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-teal-700 mb-1">אירועים פעילים</p>
               <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
             </div>
-            <div className="bg-teal-200 rounded-full p-3">
+            <div className="bg-teal-200 rounded-full p-3 flex-shrink-0">
               <Calendar className="w-8 h-8 text-teal-600" />
             </div>
           </div>
         </div>
 
-        <div className="stat-card bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="stat-card bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-yellow-700 mb-1">מוזמנים סה"כ</p>
               <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.totalGuests}</p>
             </div>
-            <div className="bg-yellow-200 rounded-full p-3">
+            <div className="bg-yellow-200 rounded-full p-3 flex-shrink-0">
               <Users className="w-8 h-8 text-yellow-600" />
             </div>
           </div>
         </div>
 
-        <div className="stat-card bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="stat-card bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-green-700 mb-1">אחוז תגובה</p>
               <p className="text-3xl font-bold text-green-600 stat-number">{globalStats.averageResponseRate}%</p>
             </div>
-            <div className="bg-green-200 rounded-full p-3">
+            <div className="bg-green-200 rounded-full p-3 flex-shrink-0">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
           </div>
         </div>
 
-        <div className="stat-card bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 hover:shadow-lg transition-all duration-300">
-          <div className="flex items-center justify-between">
-            <div>
+        <div className="stat-card bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 hover:shadow-lg transition-all duration-300 w-full">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-purple-700 mb-1">אישרו הגעה</p>
               <p className="text-3xl font-bold text-purple-600 stat-number">{globalStats.totalConfirmed}</p>
             </div>
-            <div className="bg-purple-200 rounded-full p-3">
+            <div className="bg-purple-200 rounded-full p-3 flex-shrink-0">
               <CheckCircle className="w-8 h-8 text-purple-600" />
             </div>
           </div>
@@ -321,8 +321,8 @@ const Dashboard: React.FC = () => {
 
 
       {/* Events Grid */}
-      <div>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+      <div className="w-full">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 w-full">
           <h2 className="text-2xl font-bold text-gray-900">האירועים שלי</h2>
           <div className="flex flex-wrap gap-2 items-center">
             {deletedEvents.length > 0 && (
@@ -338,7 +338,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         {events.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 w-full">
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">אין אירועים עדיין</h3>
             <p className="text-gray-600 mb-6">התחל ביצירת האירוע הראשון שלך</p>
@@ -371,7 +371,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
             {events.map((event: any) => {
               const confirmed = event.guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0;
               const declined = event.guests?.filter((g: any) => g.rsvpStatus === 'declined').length || 0;
@@ -382,7 +382,7 @@ const Dashboard: React.FC = () => {
               return (
                 <div 
                   key={event.id} 
-                  className="event-card bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-xl transition-all duration-300 rounded-xl overflow-hidden"
+                  className="event-card bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-xl transition-all duration-300 rounded-xl overflow-hidden w-full h-full"
                 >
                   <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-4 text-white">
                     <div className="flex items-start justify-between">
@@ -391,7 +391,7 @@ const Dashboard: React.FC = () => {
                           {event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע')}
                         </h3>
                         <p className="text-sm text-teal-50 flex items-center">
-                          <Calendar className="w-4 h-4 ml-1" />
+                          <Calendar className="w-4 h-4 ms-1" />
                           {formatDate(event.eventDate)} - {event.eventTime}
                         </p>
                       </div>
@@ -408,7 +408,7 @@ const Dashboard: React.FC = () => {
                     <div className="grid grid-cols-2 gap-3 mb-5">
                       <div className="text-center p-3 bg-green-50 rounded-lg border-2 border-green-200 hover:bg-green-100 transition-colors">
                         <div className="flex items-center justify-center mb-1">
-                          <CheckCircle className="w-5 h-5 text-green-600 ml-1" />
+                          <CheckCircle className="w-5 h-5 text-green-600 ms-1" />
                           <span className="text-2xl font-bold text-green-600 stat-number">{confirmed}</span>
                         </div>
                         <p className="text-xs text-green-700 font-semibold">מגיעים</p>
@@ -416,7 +416,7 @@ const Dashboard: React.FC = () => {
 
                       <div className="text-center p-3 bg-red-50 rounded-lg border-2 border-red-200 hover:bg-red-100 transition-colors">
                         <div className="flex items-center justify-center mb-1">
-                          <XCircle className="w-5 h-5 text-red-600 ml-1" />
+                          <XCircle className="w-5 h-5 text-red-600 ms-1" />
                           <span className="text-2xl font-bold text-red-600 stat-number">{declined}</span>
                         </div>
                         <p className="text-xs text-red-700 font-semibold">לא מגיעים</p>
@@ -424,7 +424,7 @@ const Dashboard: React.FC = () => {
 
                       <div className="text-center p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200 hover:bg-yellow-100 transition-colors">
                         <div className="flex items-center justify-center mb-1">
-                          <HelpCircle className="w-5 h-5 text-yellow-600 ml-1" />
+                          <HelpCircle className="w-5 h-5 text-yellow-600 ms-1" />
                           <span className="text-2xl font-bold text-yellow-600 stat-number">{maybe}</span>
                         </div>
                         <p className="text-xs text-yellow-700 font-semibold">אולי</p>
@@ -432,7 +432,7 @@ const Dashboard: React.FC = () => {
 
                       <div className="text-center p-3 bg-gray-50 rounded-lg border-2 border-gray-200 hover:bg-gray-100 transition-colors">
                         <div className="flex items-center justify-center mb-1">
-                          <Clock className="w-5 h-5 text-gray-600 ml-1" />
+                          <Clock className="w-5 h-5 text-gray-600 ms-1" />
                           <span className="text-2xl font-bold text-gray-600 stat-number">{pending}</span>
                         </div>
                         <p className="text-xs text-gray-700 font-semibold">לא ענו</p>

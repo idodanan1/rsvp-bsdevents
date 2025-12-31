@@ -1110,7 +1110,7 @@ const ClientDashboard: React.FC = () => {
 
       {/* Main Content */}
       {currentEvent ? (
-      <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Event Info */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
           <div className="flex items-start justify-between">

@@ -179,9 +179,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen w-full">
         {/* Header */}
-        <header className="bg-gradient-to-r from-white to-gray-50 shadow-md border-b border-gray-200 px-8 py-4 flex-shrink-0">
+        <header className="bg-gradient-to-r from-white to-gray-50 shadow-md border-b border-gray-200 px-6 lg:px-8 py-4 flex-shrink-0 w-full">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {user && (
@@ -214,8 +214,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
           </div>
         </header>
-        <main className="flex-1 p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full">
-          <div className="w-full max-w-full">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full">
+          <div className="w-full max-w-full mx-auto">
             {children}
           </div>
         </main>

@@ -162,7 +162,7 @@ const ClientManagement: React.FC = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">

@@ -3162,8 +3162,8 @@ const EventManagement: React.FC = () => {
   
   try {
     return (
-      <div className="min-h-screen bg-gray-50 p-6">
-        <div className="w-full space-y-6">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 w-full">
+        <div className="w-full max-w-full space-y-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-4">
         <div className="flex items-center justify-between">
@@ -3190,13 +3190,13 @@ const EventManagement: React.FC = () => {
               className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="רענן נתונים"
             >
-              <RefreshCw className={`w-5 h-5 ml-2 ${isLoading || isSyncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-5 h-5 ms-2 ${isLoading || isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'מסנכרן...' : 'רענן'}
             </button>
             {/* Sync Status Indicator */}
             {isSyncing && (
               <div className="flex items-center text-orange-600 px-3 py-2 rounded-lg bg-orange-50">
-                <Activity className="w-4 h-4 ml-2 animate-pulse" />
+                <Activity className="w-4 h-4 ms-2 animate-pulse" />
                 <span className="text-sm font-medium">מסנכרן עם השרת...</span>
               </div>
             )}
@@ -3207,7 +3207,7 @@ const EventManagement: React.FC = () => {
                 className="flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md font-semibold"
                 title={`עבד ${pendingUpdatesCount} עדכונים ממתינים`}
               >
-                <Play className={`w-5 h-5 ml-2 ${isProcessingPendingUpdates ? 'animate-spin' : ''}`} />
+                <Play className={`w-5 h-5 ms-2 ${isProcessingPendingUpdates ? 'animate-spin' : ''}`} />
                 <span>{isProcessingPendingUpdates ? 'מעבד...' : `עבד ${pendingUpdatesCount} עדכונים ממתינים`}</span>
               </button>
             )}
@@ -3216,7 +3216,7 @@ const EventManagement: React.FC = () => {
               className="flex items-center text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
               title="פתח חלון ניטור עדכונים וסינכרון"
             >
-              <Activity className="w-5 h-5 ml-2" />
+              <Activity className="w-5 h-5 ms-2" />
               ניטור סינכרון
             </button>
             <button
@@ -3242,7 +3242,7 @@ const EventManagement: React.FC = () => {
               className="flex items-center text-green-600 hover:text-green-800 px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
               title="סרוק ועדכן את כל העדכונים מ-WhatsApp (כולל ישנים)"
             >
-              <RefreshCw className="w-5 h-5 ml-2" />
+              <RefreshCw className="w-5 h-5 ms-2" />
               סנכרן עדכוני WhatsApp
             </button>
             <button
@@ -3251,7 +3251,7 @@ const EventManagement: React.FC = () => {
               aria-label="חזרה לדשבורד"
               title="חזרה לדשבורד"
             >
-              <ArrowRight className="w-5 h-5 ml-2" />
+              <ArrowRight className="w-5 h-5 ms-2" />
               חזרה לדשבורד
             </button>
           </div>
@@ -3742,7 +3742,7 @@ const EventManagement: React.FC = () => {
                             <span className="text-sm font-medium">
                               {formatFullName(guest.firstName, guest.lastName)}
                             </span>
-                            <span className="text-sm text-gray-500 mr-2">
+                            <span className="text-sm text-gray-500 me-2">
                               {guest.phoneNumber}
                             </span>
                           </div>
@@ -4368,7 +4368,7 @@ const EventManagement: React.FC = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-                <Activity className="w-6 h-6 ml-2 text-blue-600" />
+                <Activity className="w-6 h-6 ms-2 text-blue-600" />
                 ניטור עדכונים וסינכרון
               </h3>
               <button
