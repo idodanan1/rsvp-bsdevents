@@ -792,7 +792,6 @@ const ClientDashboard: React.FC = () => {
             loadFromAPI();
           }
         })();
-        }
         // Still load from public API to ensure we have the absolute latest data
         loadFromAPI();
       } else {
