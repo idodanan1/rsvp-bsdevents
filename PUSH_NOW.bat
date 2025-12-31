@@ -2,33 +2,45 @@
 chcp 65001 >nul
 cd /d "%~dp0"
 echo ========================================
-echo דחיפה מיידית ל-GitHub
+echo דחיפת commit ל-GitHub
 echo ========================================
 echo.
 
-echo מעלה ל-GitHub...
-git push origin main
+echo בודק commits אחרונים...
+git log --oneline -3
 
+echo.
+echo דוחף ל-GitHub...
+git push origin main 2>&1
+set PUSH_EXIT_CODE=%ERRORLEVEL%
+
+REM Check if push was successful (exit code 0) or if it's just a warning
+git push origin main >nul 2>&1
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ========================================
     echo ✅ השינויים הועלו ל-GitHub!
     echo ========================================
     echo.
-    echo Repository: idodanan1/-rsvp-management-system
-    echo.
     echo עכשיו:
-    echo 1. לך ל-Render Dashboard
-    echo 2. חפש: rsvp-frontend
-    echo 3. בדוק את ה-Deploys
-    echo 4. אם לא רואה build חדש, לחץ "Manual Deploy"
+    echo 1. לך ל-Render Dashboard: https://dashboard.render.com
+    echo 2. חפש את rsvp-frontend
+    echo 3. לחץ "Manual Deploy"
+    echo 4. בחר "Deploy latest commit"
+    echo 5. המתן 5-10 דקות לבנייה
+    echo 6. נקה cache בדפדפן (Ctrl+Shift+Delete)
+    echo 7. רענן את הדף (Ctrl+Shift+R)
+    echo 8. בדוק את הגרסה - אמור להיות 1.0.211
     echo.
 ) else (
     echo.
-    echo ERROR: שגיאה בדחיפה ל-GitHub!
+    echo ========================================
+    echo ❌ שגיאה בדחיפה!
+    echo ========================================
     echo.
     echo נסה:
-    echo git push origin main
+    echo 1. git push origin main
+    echo 2. או בדוק את החיבור ל-GitHub
     echo.
 )
 

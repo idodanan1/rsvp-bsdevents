@@ -1,0 +1,106 @@
+# 📝 איך למלא את הטופס ב-Render
+
+## מה שכבר נכון ✅:
+
+- ✅ **Source Code:** `idodanan1 / -rsvp-management-system` - נכון!
+- ✅ **Language:** `Node` - נכון!
+- ✅ **Branch:** `main` - נכון!
+- ✅ **Region:** `Oregon (US West)` - בסדר!
+
+---
+
+## מה שצריך לשנות/להוסיף:
+
+### 1. Name (שם השירות)
+
+**שנה ל:**
+```
+rsvp-frontend-new
+```
+
+**למה?**
+- זה שם זמני
+- אחרי שתבדוק שהכל עובד, תמחק את הישן ותשנה את השם ל-`rsvp-frontend`
+
+---
+
+### 2. Root Directory
+
+**גלול למטה עד שתמצא "Root Directory"**
+
+**הזן:**
+```
+.
+```
+(נקודה אחת - זה אומר שהשורש הוא התיקייה הראשית)
+
+---
+
+### 3. Build Command
+
+**גלול למטה עד שתמצא "Build Command"**
+
+**הזן:**
+```
+npm install --legacy-peer-deps && npm run build
+```
+
+---
+
+### 4. Start Command
+
+**גלול למטה עד שתמצא "Start Command"**
+
+**הזן:**
+```
+npm start
+```
+
+---
+
+### 5. Environment Variables
+
+**גלול למטה עד שתמצא "Environment Variables"**
+
+**לחץ "Add Environment Variable" לכל אחד:**
+
+#### משתנה 1:
+- **Key:** `NODE_ENV`
+- **Value:** `production`
+
+#### משתנה 2:
+- **Key:** `NEXT_PUBLIC_SUPABASE_URL`
+- **Value:** `https://alzfyoqndkfntwiiqfyr.supabase.co`
+
+#### משתנה 3:
+- **Key:** `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Value:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsemZ5b3FuZGtmbnR3aWlxZnlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1MjQ5NzIsImV4cCI6MjA4MjEwMDk3Mn0.gutqbSjawSPiHgSBOgZlJRSN6whbXXnHW8h0E9Z950w`
+
+#### משתנה 4:
+- **Key:** `VITE_BACKEND_URL`
+- **Value:** `https://whatsapp-backend-enfz.onrender.com`
+
+#### משתנה 5:
+- **Key:** `NEXT_PUBLIC_APP_URL`
+- **Value:** `https://rsvp-frontend-new.onrender.com`
+(או השאר ריק - תעדכן אחרי שתקבל את ה-URL החדש)
+
+---
+
+## אחרי שמילאת הכל:
+
+1. **גלול למטה עד הסוף**
+2. **בחר את ה-Plan שלך** (Starter / Standard / Pro)
+3. **לחץ "Create Web Service"**
+4. **המתן 5-10 דקות לבנייה**
+
+---
+
+## ⚠️ חשוב:
+
+- **השם `rsvp-frontend-new` הוא זמני** - אחרי שתבדוק שהכל עובד, תמחק את הישן ותשנה את השם ל-`rsvp-frontend`
+- **אחרי שהשירות נוצר**, Render יתן לך URL חדש - עדכן את `NEXT_PUBLIC_APP_URL` ל-URL החדש
+
+---
+
+**פתח את `MY_ENV_VARS_FOR_RENDER.txt` כדי להעתיק את כל הערכים בקלות!**

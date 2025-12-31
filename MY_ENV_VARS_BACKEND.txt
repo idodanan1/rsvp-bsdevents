@@ -1,0 +1,73 @@
+========================================
+Environment Variables ל-Render - whatsapp-backend
+========================================
+
+המשתנים האלה הם ל-whatsapp-backend (אם צריך ליצור אותו מחדש)
+
+========================================
+1. NODE_ENV
+========================================
+Key: NODE_ENV
+Value: production
+
+========================================
+2. SUPABASE_URL
+========================================
+Key: SUPABASE_URL
+Value: https://alzfyoqndkfntwiiqfyr.supabase.co
+
+========================================
+3. SUPABASE_SERVICE_ROLE_KEY
+========================================
+Key: SUPABASE_SERVICE_ROLE_KEY
+Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsemZ5b3FuZGtmbnR3aWlxZnlyIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjUyNDk3MiwiZXhwIjoyMDgyMTAwOTcyfQ.CIVpghbktOr95LJSPRZ1NhfF0LF0_Pio7oQ4ylqQte8
+
+========================================
+4. WHATSAPP_ACCESS_TOKEN
+========================================
+Key: WHATSAPP_ACCESS_TOKEN
+Value: EAAQ16mfCx58BQHpZBE0CqnZBcNZACQ6AEBkcRKQVCX7k0JWbrhWjAtZAHEeZBL19m5NEjcmLjVaVqhqmjaTXcvBmsiJGvTIZB5d7m5nPpIFnRZA9QGmeZC9LJBZCPlLQen2ZCzxXrw6m99ZA4bX59nULCiN7ssjg2h4XlQ6QfKtmMOB5bE97OVtYOLf6wexyBg7zFrRDgZDZD
+
+========================================
+5. WHATSAPP_PHONE_NUMBER_ID
+========================================
+Key: WHATSAPP_PHONE_NUMBER_ID
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+6. WHATSAPP_BUSINESS_ACCOUNT_ID
+========================================
+Key: WHATSAPP_BUSINESS_ACCOUNT_ID
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+7. WHATSAPP_APP_ID
+========================================
+Key: WHATSAPP_APP_ID
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+8. WHATSAPP_APP_SECRET
+========================================
+Key: WHATSAPP_APP_SECRET
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+9. WHATSAPP_VERIFY_TOKEN
+========================================
+Key: WHATSAPP_VERIFY_TOKEN
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+10. WHATSAPP_WEBHOOK_URL
+========================================
+Key: WHATSAPP_WEBHOOK_URL
+Value: [העתק את הערך מ-Render Dashboard]
+
+========================================
+⚠️ חשוב:
+========================================
+- המשתנים 5-10 צריכים להיות ב-whatsapp-backend הישן
+- העתק אותם לפני שתמחק את השירות (אם צריך)
+
+========================================
