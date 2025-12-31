@@ -26,7 +26,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex w-full max-w-none" style={{ width: '100%', margin: 0 }}>
       {/* Sidebar */}
       <div className="w-64 bg-gradient-to-b from-white to-gray-50 shadow-xl border-l border-gray-200">
         <div className="p-6">
@@ -179,7 +179,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen w-full" style={{ width: '100%', flex: '1 1 0%' }}>
         {/* Header */}
         <header className="bg-gradient-to-r from-white to-gray-50 shadow-md border-b border-gray-200 px-8 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -214,8 +214,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             )}
           </div>
         </header>
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full">
-          <div className="w-full max-w-full">
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full" style={{ width: '100%', flex: '1 1 0%' }}>
+          <div className="w-full max-w-none" style={{ width: '100%', maxWidth: 'none' }}>
             {children}
           </div>
         </main>

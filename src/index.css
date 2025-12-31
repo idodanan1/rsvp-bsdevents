@@ -67,24 +67,41 @@
     @apply border-gray-200;
   }
   
+  /* Emergency CSS Reset - Force Full Width */
+  html {
+    direction: rtl;
+    width: 100% !important;
+    min-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  
   body {
     @apply bg-gray-50 text-gray-900;
     direction: rtl;
-    width: 100%;
+    width: 100% !important;
+    min-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow-x: hidden;
     font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
-  }
-  
-  html {
-    direction: rtl;
-    width: 100%;
-    overflow-x: hidden;
+    box-sizing: border-box;
   }
   
   #root {
-    width: 100%;
+    width: 100% !important;
     min-height: 100vh;
+    margin: 0 !important;
+    padding: 0 !important;
     overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  
+  /* Ensure all containers take full width */
+  *, *::before, *::after {
+    box-sizing: border-box;
   }
 }
 

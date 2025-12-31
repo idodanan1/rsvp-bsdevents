@@ -247,7 +247,7 @@ function App() {
     <Router>
       <LocationSaver />
       <Accessibility />
-      <div className="min-h-screen w-full bg-gradient-to-br from-teal-50 to-yellow-50 overflow-x-hidden">
+      <div className="min-h-screen w-full max-w-none bg-gradient-to-br from-teal-50 to-yellow-50 overflow-x-hidden" style={{ width: '100%', margin: 0, padding: 0 }}>
         <Toaster 
           position="top-center"
           toastOptions={{

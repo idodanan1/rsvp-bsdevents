@@ -217,7 +217,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="w-full max-w-full space-y-6">
+    <div className="w-full max-w-none space-y-6" style={{ width: '100%', maxWidth: 'none' }}>
       {/* Header */}
       <div className="bg-gradient-to-r from-teal-50 to-yellow-50 rounded-xl p-6 border border-teal-200 shadow-sm w-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
