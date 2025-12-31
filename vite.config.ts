@@ -5,7 +5,7 @@ import { resolve } from 'path'
 
 // Read package.json to get version
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
-const version = packageJson.version || '1.0.199'
+const version = packageJson.version || '1.0.210'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -79,6 +79,7 @@ export default defineConfig({
   define: {
     'process.env': process.env,
     'process.env.npm_package_version': JSON.stringify(version),
-    '__APP_VERSION__': JSON.stringify(version)
+    '__APP_VERSION__': JSON.stringify(version),
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(version)
   }
 })

@@ -1,6 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, FileText, Shield } from 'lucide-react';
-import Link from 'next/link';
 
 const Footer: React.FC = () => {
   return (
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
             <nav className="space-y-2 text-sm" aria-label="קישורים משפטיים">
               <div>
                 <Link 
-                  href="/terms" 
+                  to="/terms" 
                   className="flex items-center gap-2 hover:text-teal-400 transition-colors"
                   aria-label="תנאי שימוש"
                 >
@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
               </div>
               <div>
                 <Link 
-                  href="/privacy" 
+                  to="/privacy" 
                   className="flex items-center gap-2 hover:text-teal-400 transition-colors"
                   aria-label="מדיניות פרטיות"
                 >
@@ -58,7 +58,7 @@ const Footer: React.FC = () => {
               </div>
               <div>
                 <Link 
-                  href="/accessibility" 
+                  to="/accessibility" 
                   className="flex items-center gap-2 hover:text-teal-400 transition-colors"
                   aria-label="הצהרת נגישות"
                 >
@@ -77,6 +77,9 @@ const Footer: React.FC = () => {
               <p>מערכת ניהול הזמנות ואישורי הגעה</p>
               <p className="text-gray-400 text-xs mt-4">
                 כל הזכויות שמורות © {new Date().getFullYear()}
+              </p>
+              <p className="text-gray-400 text-xs mt-2">
+                גרסה {typeof window !== 'undefined' && (window as any).__APP_VERSION__ ? (window as any).__APP_VERSION__ : '1.0.210'}
               </p>
             </div>
           </div>
