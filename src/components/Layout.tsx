@@ -27,199 +27,171 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen flex w-full max-w-none" style={{ width: '100%', margin: 0 }}>
-      {/* Sidebar - Left */}
-      <div className="w-64 bg-white shadow-lg border-l border-gray-200 flex flex-col">
-        {/* Logout button at top */}
-        <div className="p-4 border-b border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 font-medium"
-          >
-            <LogOut className="w-5 h-5 rotate-180" />
-            <span>התנתק</span>
-          </button>
-        </div>
-
-        <div className="p-6 flex-1">
-          <h1 className="text-2xl font-bold text-yellow-500 mb-8 text-center">
-            בס"ד אירועים
-          </h1>
-          
-          <nav className="space-y-2" role="navigation" aria-label="ניווט ראשי">
-            <Link
-              to="/"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500 ${
-                isActive('/') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-              aria-label="דשבורד"
-              aria-current={isActive('/') ? 'page' : undefined}
-            >
-              <Home className="w-5 h-5" aria-hidden="true" />
-              <span>דשבורד</span>
-            </Link>
-            
-            <Link
-              to="/create-event"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/create-event') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <Plus className="w-5 h-5" />
-              <span>אירוע חדש</span>
-            </Link>
-            
-            <Link
-              to="/calendar"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/calendar') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <CalendarDays className="w-5 h-5" />
-              <span>לוח שנה</span>
-            </Link>
-            
-            <Link
-              to="/templates"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/templates') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <FileText className="w-5 h-5" />
-              <span>תבניות הודעות</span>
-            </Link>
-            
-            <Link
-              to="/clients"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/clients') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <Users className="w-5 h-5" />
-              <span>ניהול לקוחות</span>
-            </Link>
-            
-            <Link
-              to="/reminders"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/reminders') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <Bell className="w-5 h-5" />
-              <span>תזכורות</span>
-            </Link>
-            
-            <Link
-              to="/budget"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/budget') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>ניהול תקציב וספקים</span>
-            </Link>
-            
-            {user?.isAdmin && (
-              <>
-                <Link
-                  to="/admin"
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive('/admin') 
-                      ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                      : 'text-gray-600 hover:bg-yellow-50'
-                  }`}
-                >
-                  <Settings className="w-5 h-5" />
-                  <span>דשבורד מנהל</span>
-                </Link>
-                <Link
-                  to="/users"
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive('/users') 
-                      ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                      : 'text-gray-600 hover:bg-yellow-50'
-                  }`}
-                >
-                  <Users className="w-5 h-5" />
-                  <span>ניהול משתמשים</span>
-                </Link>
-              </>
-            )}
-            
-            <Link
-              to="/settings"
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive('/settings') 
-                  ? 'bg-yellow-100 text-yellow-800 font-medium' 
-                  : 'text-gray-600 hover:bg-yellow-50'
-              }`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>הגדרות</span>
-            </Link>
-          </nav>
-        </div>
-        
-        {/* Logout button at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50 font-medium"
-          >
-            <LogOut className="w-5 h-5 rotate-180" />
-            <span>התנתק</span>
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen w-full" style={{ width: '100%', flex: '1 1 0%' }}>
+      <div className="flex-1 flex flex-col min-h-screen w-full" style={{ width: '100%', flex: '1 1 0%', marginRight: '260px' }}>
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <User className="w-5 h-5 text-gray-600" />
-                <span className="text-gray-700 font-medium">{user?.name || 'מנהל המערכת'}</span>
-              </div>
-              <div className="flex items-center gap-2 bg-teal-50 px-4 py-2 rounded-lg">
-                <CalendarDays className="w-5 h-5 text-teal-600" />
-                <span className="text-teal-700 font-semibold">{user?.credits || 0} רשומות</span>
-              </div>
-              <Link
-                to="/pricing"
-                className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium"
+        <header className="bg-white border-b border-gray-200" style={{ height: '64px', padding: '0 24px' }}>
+          <div className="flex items-center justify-between h-full">
+            <div className="flex items-center gap-4">
+              <span className="text-gray-700 font-medium text-sm">{user?.name || 'מנהל המערכת'}</span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors text-sm"
               >
-                רכוש רשומות
-              </Link>
+                <LogOut className="w-4 h-4" />
+                <span>התנתק</span>
+              </button>
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
-            >
-              <LogOut className="w-5 h-5" />
-              <span>התנתק</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-700 font-medium text-sm">בס"ד אירועים</span>
+              <span className="text-gray-500 text-xs">גרסה 1.0.0</span>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 p-8 overflow-y-auto overflow-x-hidden min-h-0 w-full" style={{ width: '100%', flex: '1 1 0%' }}>
-          {children}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 w-full" style={{ width: '100%', flex: '1 1 0%', backgroundColor: '#f9fafb', padding: '24px' }}>
+          <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+            {children}
+          </div>
         </main>
         <Footer />
+      </div>
+
+      {/* Sidebar - Right */}
+      <div className="fixed right-0 top-0 h-screen flex flex-col" style={{ width: '260px', backgroundColor: '#1f2937', padding: '16px' }}>
+        <nav className="flex flex-col flex-1" role="navigation" aria-label="ניווט ראשי">
+          <Link
+            to="/"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+            aria-label="דשבורד"
+            aria-current={isActive('/') ? 'page' : undefined}
+          >
+            <Home className="w-4 h-4" aria-hidden="true" />
+            <span>דשבורד</span>
+          </Link>
+          
+          <Link
+            to="/create-event"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/create-event') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <Plus className="w-4 h-4" />
+            <span>אירוע חדש</span>
+          </Link>
+          
+          <Link
+            to="/calendar"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/calendar') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <CalendarDays className="w-4 h-4" />
+            <span>לוח שנה</span>
+          </Link>
+          
+          <Link
+            to="/templates"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/templates') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <FileText className="w-4 h-4" />
+            <span>תבניות הודעות</span>
+          </Link>
+          
+          <Link
+            to="/clients"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/clients') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <Users className="w-4 h-4" />
+            <span>ניהול לקוחות</span>
+          </Link>
+          
+          <Link
+            to="/reminders"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/reminders') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <Bell className="w-4 h-4" />
+            <span>תזכורות</span>
+          </Link>
+          
+          {user?.isAdmin && (
+            <>
+              <Link
+                to="/admin"
+                className={`flex items-center gap-2 w-full transition-colors text-sm ${
+                  isActive('/admin') 
+                    ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                    : 'text-gray-300 hover:bg-gray-700'
+                }`}
+                style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+              >
+                <Settings className="w-4 h-4" />
+                <span>דשבורד מנהל</span>
+              </Link>
+              <Link
+                to="/users"
+                className={`flex items-center gap-2 w-full transition-colors text-sm ${
+                  isActive('/users') 
+                    ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                    : 'text-gray-300 hover:bg-gray-700'
+                }`}
+                style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+              >
+                <Users className="w-4 h-4" />
+                <span>ניהול משתמשים</span>
+              </Link>
+            </>
+          )}
+          
+          <Link
+            to="/settings"
+            className={`flex items-center gap-2 w-full transition-colors text-sm ${
+              isActive('/settings') 
+                ? 'bg-gray-700 text-white font-medium border-r-2 border-white' 
+                : 'text-gray-300 hover:bg-gray-700'
+            }`}
+            style={{ height: '44px', marginBottom: '8px', padding: '0 12px' }}
+          >
+            <Settings className="w-4 h-4" />
+            <span>הגדרות</span>
+          </Link>
+        </nav>
+        
+        {/* Logout button at bottom */}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 w-full transition-colors text-sm text-gray-300 hover:bg-gray-700"
+          style={{ height: '44px', marginTop: 'auto', padding: '0 12px' }}
+        >
+          <LogOut className="w-4 h-4" />
+          <span>התנתק</span>
+        </button>
       </div>
     </div>
   );

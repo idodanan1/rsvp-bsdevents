@@ -327,13 +327,12 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Dashboard Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
-          <p className="text-gray-600 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה מעודכן: {currentTime.toLocaleString('he-IL')}</p>
-        </div>
+    <div className="space-y-6">
+      {/* Dashboard Header */}
+      <div>
+        <h1 className="font-bold text-gray-900 mb-2" style={{ fontSize: '22px' }}>דשבורד</h1>
+        <p className="text-gray-600" style={{ fontSize: '14px' }}>בס"ד אירועים - אישורי הגעה וסידורי הושבה מעודכן: {currentTime.toLocaleString('he-IL')}</p>
+      </div>
 
         {/* Action Buttons Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
@@ -395,69 +394,48 @@ const Dashboard: React.FC = () => {
         </div>
 
       {/* Quick Stats - Ordered to match model */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 w-full">
+      <div className="grid grid-cols-4 gap-4 w-full">
         {/* 1. אישרו הגעה (Confirmed Attendance) */}
-        <div className="stat-card bg-white border-2 border-purple-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-purple-700 mb-1">אישרו הגעה</p>
-              <p className="text-3xl font-bold text-purple-600 stat-number">{globalStats.totalConfirmed}</p>
-            </div>
-            <div className="bg-purple-100 rounded-full p-3 flex-shrink-0">
-              <CheckCircle className="w-8 h-8 text-purple-600" />
-            </div>
+        <div className="stat-card bg-white hover:shadow-lg transition-all duration-300 w-full" style={{ height: '120px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-purple-700 mb-1" style={{ fontSize: '14px' }}>אישרו הגעה</p>
+            <p className="font-bold text-purple-600 stat-number" style={{ fontSize: '28px' }}>{globalStats.totalConfirmed}</p>
+          </div>
+          <div className="bg-purple-100 rounded-full p-3 flex-shrink-0">
+            <CheckCircle className="w-8 h-8 text-purple-600" />
           </div>
         </div>
 
         {/* 2. אחוז תגובה (Response Rate) */}
-        <div className="stat-card bg-white border-2 border-green-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-green-700 mb-1">אחוז תגובה</p>
-              <p className="text-3xl font-bold text-green-600 stat-number">{globalStats.averageResponseRate}%</p>
-            </div>
-            <div className="bg-green-100 rounded-full p-3 flex-shrink-0">
-              <CheckCircle className="w-8 h-8 text-green-600" />
-            </div>
+        <div className="stat-card bg-white hover:shadow-lg transition-all duration-300 w-full" style={{ height: '120px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-green-700 mb-1" style={{ fontSize: '14px' }}>אחוז תגובה</p>
+            <p className="font-bold text-green-600 stat-number" style={{ fontSize: '28px' }}>{globalStats.averageResponseRate}%</p>
+          </div>
+          <div className="bg-green-100 rounded-full p-3 flex-shrink-0">
+            <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
         </div>
 
         {/* 3. מוזמנים סה"כ (Total Invited) */}
-        <div className="stat-card bg-white border-2 border-yellow-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-yellow-700 mb-1">מוזמנים סה"כ</p>
-              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.totalGuests}</p>
-            </div>
-            <div className="bg-yellow-100 rounded-full p-3 flex-shrink-0">
-              <Users className="w-8 h-8 text-yellow-600" />
-            </div>
+        <div className="stat-card bg-white hover:shadow-lg transition-all duration-300 w-full" style={{ height: '120px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-yellow-700 mb-1" style={{ fontSize: '14px' }}>מוזמנים סה"כ</p>
+            <p className="font-bold text-yellow-600 stat-number" style={{ fontSize: '28px' }}>{globalStats.totalGuests}</p>
+          </div>
+          <div className="bg-yellow-100 rounded-full p-3 flex-shrink-0">
+            <Users className="w-8 h-8 text-yellow-600" />
           </div>
         </div>
 
         {/* 4. אירועים פעילים (Active Events) */}
-        <div className="stat-card bg-white border-2 border-teal-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-teal-700 mb-1">אירועים פעילים</p>
-              <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
-            </div>
-            <div className="bg-teal-100 rounded-full p-3 flex-shrink-0">
-              <Calendar className="w-8 h-8 text-teal-600" />
-            </div>
+        <div className="stat-card bg-white hover:shadow-lg transition-all duration-300 w-full" style={{ height: '120px', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-teal-700 mb-1" style={{ fontSize: '14px' }}>אירועים פעילים</p>
+            <p className="font-bold text-teal-600 stat-number" style={{ fontSize: '28px' }}>{globalStats.activeEvents}</p>
           </div>
-        </div>
-
-        {/* 5. מחשבים מחוברים (Connected Computers) */}
-        <div className="stat-card bg-white border-2 border-blue-200 hover:shadow-lg transition-all duration-300 w-full">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-blue-700 mb-1">מחשבים מחוברים</p>
-              <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
-            </div>
-            <div className="bg-blue-100 rounded-full p-3 flex-shrink-0">
-              <Monitor className="w-8 h-8 text-blue-600" />
-            </div>
+          <div className="bg-teal-100 rounded-full p-3 flex-shrink-0">
+            <Calendar className="w-8 h-8 text-teal-600" />
           </div>
         </div>
       </div>
@@ -466,7 +444,7 @@ const Dashboard: React.FC = () => {
       {/* Events Grid */}
       <div className="w-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 w-full">
-          <h2 className="text-2xl font-bold text-gray-900">האירועים שלי</h2>
+          <h2 className="font-bold text-gray-900" style={{ fontSize: '20px' }}>האירועים שלי</h2>
           <div className="flex flex-wrap gap-2 items-center">
             {deletedEvents.length > 0 && (
               <button
@@ -514,7 +492,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {events.map((event: any) => {
               const totalGuests = event.guests?.length || 0;
               const confirmed = event.guests?.filter((g: any) => g.rsvpStatus === 'confirmed').length || 0;
@@ -529,84 +507,34 @@ const Dashboard: React.FC = () => {
               return (
                 <div 
                   key={event.id} 
-                  className="bg-white border border-gray-200 rounded-lg shadow-md p-6 hover:shadow-lg transition-all"
+                  className="bg-white border border-gray-200 rounded-lg shadow-md hover:shadow-lg transition-all"
+                  style={{ height: '96px', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                   {/* Event Header */}
-                  <div className="mb-4">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">{eventName}</h3>
-                    <p className="text-sm text-gray-600 mb-1">מזהה: {event.id}</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 mb-1" style={{ fontSize: '18px' }}>{eventName}</h3>
                     {eventDate && (
-                      <p className="text-sm text-gray-700 font-medium">
+                      <p className="text-gray-700" style={{ fontSize: '14px' }}>
                         {eventDate}{eventTime ? ` - ${eventTime}` : ''}
                       </p>
                     )}
                   </div>
-
-                  {/* Statistics Cards */}
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
-                    <div className="bg-blue-100 border border-blue-200 rounded-lg p-3 text-center">
-                      <p className="text-xs text-blue-700 mb-1">סה"כ מוזמנים</p>
-                      <p className="text-2xl font-bold text-blue-800">{totalGuests}</p>
-                    </div>
-                    <div className="bg-green-100 border border-green-200 rounded-lg p-3 text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <CheckCircle className="w-4 h-4 text-green-700" />
-                      </div>
-                      <p className="text-xs text-green-700 mb-1">מגיעים</p>
-                      <p className="text-2xl font-bold text-green-800">{confirmed}</p>
-                    </div>
-                    <div className="bg-red-100 border border-red-200 rounded-lg p-3 text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <XCircle className="w-4 h-4 text-red-700" />
-                      </div>
-                      <p className="text-xs text-red-700 mb-1">לא מגיעים</p>
-                      <p className="text-2xl font-bold text-red-800">{declined}</p>
-                    </div>
-                    <div className="bg-yellow-100 border border-yellow-200 rounded-lg p-3 text-center">
-                      <p className="text-xs text-yellow-700 mb-1">אולי</p>
-                      <p className="text-2xl font-bold text-yellow-800">{maybe}</p>
-                    </div>
-                    <div className="bg-gray-100 border border-gray-200 rounded-lg p-3 text-center">
-                      <p className="text-xs text-gray-700 mb-1">לא ענו</p>
-                      <p className="text-2xl font-bold text-gray-800">{pending}</p>
-                    </div>
+                  
+                  {/* Status */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600" style={{ fontSize: '14px' }}>
+                      {confirmed > 0 ? `מגיעים: ${confirmed}` : 'ללא תגובות'}
+                    </span>
                   </div>
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <Link
-                      to={`/event/${event.id}/view`}
-                      className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-all font-medium"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span>צפייה</span>
-                    </Link>
-                    <Link
-                      to={`/event/${event.id}/seating`}
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-300 text-purple-800 rounded-lg hover:bg-purple-400 transition-all font-medium"
-                    >
-                      <span>הושבה</span>
-                    </Link>
-                    <button
-                      onClick={() => handleEditEvent(event)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium"
-                    >
-                      <Edit className="w-4 h-4" />
-                      <span>עריכה</span>
-                    </button>
-                    <Link
-                      to={`/event/${event.id}/campaigns`}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium"
-                    >
-                      <span>הודעות</span>
-                    </Link>
-                    <button
-                      onClick={() => handleDeleteEvent(event.id, eventName)}
-                      className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {/* Action Button */}
+                  <Link
+                    to={`/event/${event.id}/view`}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all"
+                    style={{ fontSize: '14px' }}
+                  >
+                    צפייה
+                  </Link>
                 </div>
               );
             })}
