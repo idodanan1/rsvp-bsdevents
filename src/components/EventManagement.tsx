@@ -812,9 +812,10 @@ const EventManagement: React.FC = () => {
   // CRITICAL: All hooks must be before any conditional returns
   // Get guests from store - ALWAYS use getState() inside useMemo to avoid React #310 errors
   // Use useMemo with minimal dependencies to avoid React #310 errors
-  // CRITICAL: Use useCallback to memoize the calculation function and prevent infinite loops
-  const calculateGuestsToDisplay = useCallback(() => {
-    // CRITICAL: Use getState() inside useCallback to avoid React #310 errors
+  // CRITICAL: Use useMemo directly (not useCallback + useMemo) to avoid React #310 errors
+  // This ensures React can properly track dependencies and prevent infinite loops
+  const guestsToDisplay = useMemo(() => {
+    // CRITICAL: Use getState() inside useMemo to avoid React #310 errors
     // This ensures we don't access unstable references (events, currentEvent) directly
     // React will not complain because getState() is a stable function reference
     const state = useEventStore.getState();
@@ -844,21 +845,17 @@ const EventManagement: React.FC = () => {
       // CRITICAL: Create deep copy with new object references to ensure React detects changes
       // ALWAYS create new object references, even if data appears unchanged
       // This forces React to re-render when eventsVersion changes
-      // CRITICAL: Force new object references by adding a unique key based on eventsHash
-      const guests = event.guests.map((g: any, index: number) => {
+      const guests = event.guests.map((g: any) => {
         try {
           // CRITICAL: Always create a completely new object with all properties spread
           // This ensures React sees this as a new object reference, triggering re-render
-          // CRITICAL: Add a unique key based on eventsHash to force new reference
           const guestCopy = {
             ...g,
             responseDate: g.responseDate ? (typeof g.responseDate === 'string' ? new Date(g.responseDate) : g.responseDate instanceof Date ? g.responseDate : undefined) : undefined,
-            // CRITICAL: Remove _forceUpdate to avoid React #310 errors
           };
           // Remove any internal properties that shouldn't be in the final object
           delete (guestCopy as any)._updateTimestamp;
           delete (guestCopy as any)._renderKey;
-          // Keep _forceUpdate for now to ensure React detects the change
           return guestCopy;
         } catch (error: any) {
           console.warn('⚠️ Error processing guest responseDate:', error, g);
@@ -905,12 +902,6 @@ const EventManagement: React.FC = () => {
           }))
         });
         eventGuestsKeyRef.current = newKey;
-      } else {
-        // CRITICAL: Even if key unchanged, we still need to return a new array reference
-        // This ensures React detects changes when eventsVersion changes
-        if (Math.random() < 0.1) { // Log only 10% to reduce noise
-          console.log('ℹ️ guestsToDisplay: Guests key unchanged, but returning new array reference anyway (eventsVersion:', eventsVersion, ')');
-        }
       }
       
       // CRITICAL: Only return new array reference if data actually changed
@@ -932,7 +923,6 @@ const EventManagement: React.FC = () => {
       
       // Only create new array if data actually changed
       if (currentDataKey !== prevGuestsDataRef.current) {
-        console.log('📊 Guests data actually changed - creating new array reference');
         prevGuestsDataRef.current = currentDataKey;
         const guestsCopy = guests.map((g: any) => ({ ...g }));
         prevGuestsArrayRef.current = guestsCopy;
@@ -941,7 +931,6 @@ const EventManagement: React.FC = () => {
       
       // CRITICAL: Return previous array reference if data unchanged (prevents infinite loop)
       // This is the key fix - we don't create a new array if data hasn't changed
-      console.log('ℹ️ Guests data unchanged - returning previous array reference to prevent infinite loop');
       return prevGuestsArrayRef.current.length > 0 ? prevGuestsArrayRef.current : guests.map((g: any) => ({ ...g }));
     }
     
@@ -950,16 +939,11 @@ const EventManagement: React.FC = () => {
       console.log('⚠️ No guests found for event:', id, '- Event exists:', !!currentEvents.find((e: Event) => e.id === id));
     }
     return [];
-  }, [id, eventsVersion]); // CRITICAL: Only depend on eventId and eventsVersion to prevent infinite loops
-  
-  // CRITICAL: Use useMemo to memoize the result, calling the useCallback function
-  const guestsToDisplay = useMemo(() => {
-    return calculateGuestsToDisplay();
     // CRITICAL: Use only primitive stable values as dependencies to avoid React #310 errors
     // DO NOT include arrays or objects directly - they cause infinite loops
     // Use only eventId (id) and eventsVersion (number) - these are stable and sufficient
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, eventsVersion]); // CRITICAL: Only eventId and eventsVersion - removed calculateGuestsToDisplay to prevent React #310 errors
+  }, [id, eventsVersion]); // CRITICAL: Only eventId and eventsVersion - using getState() inside to avoid React #310 errors
   
   // CRITICAL: Use the ref value as guestsKey to avoid React #310 errors
   // The ref is updated inside guestsToDisplay useMemo, so it's always in sync

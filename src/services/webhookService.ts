@@ -24,14 +24,15 @@ class WebhookService {
       if (!response.ok) {
         // If endpoint doesn't exist (404), silently return empty result
         if (response.status === 404) {
-          console.warn('⚠️ sync-updates endpoint not available (404) - skipping sync');
+          // Don't log warning - endpoint doesn't exist, this is expected
           return {
             processed: 0,
             failed: 0,
             remaining: 0
           };
         }
-        throw new Error(`Sync failed: ${response.statusText}`);
+        // For other errors, throw but catch below
+        throw new Error(`Sync failed: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -41,11 +42,16 @@ class WebhookService {
         remaining: data.remaining || 0
       };
     } catch (error) {
-      // Silently handle errors - endpoint may not exist
-      if (error instanceof Error && error.message.includes('404')) {
-        console.warn('⚠️ sync-updates endpoint not available - skipping sync');
-      } else {
-        console.error('Error syncing updates:', error);
+      // Silently handle all errors - endpoint may not exist or network may be down
+      // Only log if it's not a 404 (which we already handled above)
+      if (error instanceof Error) {
+        // Check if it's a network error or 404
+        if (error.message.includes('404') || error.message.includes('Failed to fetch')) {
+          // Don't log - endpoint doesn't exist or network issue, this is expected
+        } else {
+          // Only log unexpected errors (not 404, not network)
+          console.warn('⚠️ sync-updates error (non-critical):', error.message);
+        }
       }
       return {
         processed: 0,
