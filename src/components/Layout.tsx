@@ -28,9 +28,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex">
       {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
+      <div className="w-64 bg-gradient-to-b from-white to-gray-50 shadow-xl border-l border-gray-200">
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-yellow-500 mb-8">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-yellow-500 to-teal-500 bg-clip-text text-transparent mb-8">
             בס"ד אירועים
           </h1>
           
@@ -181,22 +181,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-4 flex-shrink-0">
+        <header className="bg-gradient-to-r from-white to-gray-50 shadow-md border-b border-gray-200 px-8 py-4 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               {user && (
                 <>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
                     <User className="w-5 h-5 text-gray-600" />
-                    <span className="text-gray-700 font-medium">{user.name}</span>
+                    <span className="text-gray-700 font-semibold">{user.name}</span>
                   </div>
-                  <div className="flex items-center gap-2 bg-teal-50 px-4 py-2 rounded-lg">
+                  <div className="flex items-center gap-2 bg-gradient-to-r from-teal-50 to-blue-50 px-4 py-2 rounded-lg border border-teal-200 shadow-sm">
                     <CreditCard className="w-5 h-5 text-teal-600" />
-                    <span className="text-teal-700 font-semibold">{user.credits} רשומות</span>
+                    <span className="text-teal-700 font-bold">{user.credits} רשומות</span>
                   </div>
                   <Link
                     to="/pricing"
-                    className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-colors font-medium"
+                    className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-5 py-2 rounded-lg hover:from-yellow-600 hover:to-yellow-700 transition-all font-semibold shadow-md hover:shadow-lg"
                   >
                     רכוש רשומות
                   </Link>
@@ -206,7 +206,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {user && (
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-semibold border border-red-200 shadow-sm hover:shadow"
               >
                 <LogOut className="w-5 h-5" />
                 <span>התנתק</span>

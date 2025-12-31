@@ -217,235 +217,103 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">דשבורד</h1>
-          <p className="text-yellow-500 mt-2 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה ✅ מעודכן: {currentTime.toLocaleString('he-IL')}</p>
-        </div>
-        <div className="flex space-x-3">
-          {/* Quick restore button for specific event */}
-          <button
-            onClick={async () => {
-              const eventId = prompt('הזן את מזהה האירוע לשחזור:');
-              if (eventId && eventId.trim()) {
-                try {
-                  const success = await restoreDeletedEvent(eventId.trim());
-                  if (success) {
-                    alert('✅ האירוע שוחזר בהצלחה!');
-                    // CRITICAL: Get fetchEvents from store to ensure it's accessible
-                    const storeState = useEventStore.getState();
-                    const fetchEventsFn = storeState.fetchEvents;
-                    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                      await fetchEventsFn(true);
-                    } else {
-                      console.error('❌ fetchEvents is not available in store state');
-                    }
-                  } else {
-                    alert('❌ שגיאה בשחזור האירוע. נסה לבדוק את המזהה או לפתוח את חלון האירועים שנמחקו.');
-                  }
-                } catch (error: any) {
-                  console.error('❌ Error restoring event:', error);
-                  alert(`❌ שגיאה בשחזור האירוע: ${error?.message || 'שגיאה לא ידועה'}`);
-                }
-              }
-            }}
-            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-green-100 text-green-700 hover:bg-green-200 border-green-300"
-            title="שחזר אירוע לפי מזהה"
-          >
-            <RotateCcw className="w-5 h-5" />
-            <span>שחזר אירוע לפי מזהה</span>
-          </button>
-          {/* Restore from localStorage button */}
-          <button
-            onClick={async () => {
-              const confirmed = window.confirm(
-                'האם אתה בטוח שברצונך לשחזר את כל האירועים מ-localStorage?\n\n' +
-                'זה יחליף את כל האירועים הנוכחיים בנתונים מ-localStorage.\n\n' +
-                '⚠️ שים לב: זה יכול לגרום לאובדן נתונים אם localStorage לא מעודכן.'
-              );
-              
-              if (confirmed) {
-                try {
-                  const { restoreEvents } = useEventStore.getState();
-                  const success = restoreEvents();
-                  
-                  if (success) {
-                    // Sync restored events to backend
-                    const { syncAllEventsToAPI, fetchEvents: fetchEventsFn } = useEventStore.getState();
-                    await syncAllEventsToAPI();
-                    // CRITICAL: Verify fetchEvents is available before calling
-                    if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                      await fetchEventsFn(true);
-                    } else {
-                      console.error('❌ fetchEvents is not available in store state');
-                    }
-                    
-                    alert('✅ האירועים שוחזרו מ-localStorage בהצלחה!\n\nכל האירועים נשלחו לשרת.');
-                  } else {
-                    alert('❌ לא נמצאו נתונים ב-localStorage לשחזור.');
-                  }
-                } catch (error: any) {
-                  console.error('❌ Error restoring from localStorage:', error);
-                  alert(`❌ שגיאה בשחזור מ-localStorage: ${error?.message || 'שגיאה לא ידועה'}`);
-                }
-              }
-            }}
-            className="btn-secondary flex items-center space-x-2 space-x-reverse bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-300"
-            title="שחזר אירועים מ-localStorage (גיבוי מקומי)"
-          >
-            <RotateCcw className="w-5 h-5" />
-            <span>שחזר מ-localStorage</span>
-          </button>
-          {deletedEvents.length > 0 && (
-            <button
-              onClick={() => setShowDeletedEventsModal(true)}
-              className="btn-secondary flex items-center space-x-2 space-x-reverse bg-orange-100 text-orange-700 hover:bg-orange-200 border-orange-300"
-            >
-              <RotateCcw className="w-5 h-5" />
-              <span>שחזר אירועים ({deletedEvents.length})</span>
-            </button>
-          )}
-          <button
-            onClick={async () => {
-              try {
-                // First, clean up localStorage
-                cleanupOtherUsersEvents();
-                
-                // Then, force refresh from API (this will load only current user's events)
-                // CRITICAL: Get fetchEvents from store to ensure it's accessible
-                const storeState = useEventStore.getState();
-                const fetchEventsFn = storeState.fetchEvents;
-                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                  await fetchEventsFn(true);
-                } else {
-                  console.error('❌ fetchEvents is not available in store state');
-                }
-                
-                alert('✅ ניקיתי את האירועים שלא שייכים לך וטענתי מחדש מה-API.\n\nעכשיו תראה רק את האירועים שלך.');
-              } catch (error: any) {
-                console.error('❌ Error cleaning up:', error);
-                alert(`❌ שגיאה בניקוי: ${error?.message || 'שגיאה לא ידועה'}`);
-              }
-            }}
-            className="btn-secondary flex items-center space-x-2 bg-red-100 text-red-700 hover:bg-red-200 border-red-300"
-            title="נקה אירועים שלא שייכים למשתמש הנוכחי וטען מחדש מה-API"
-          >
-            <Trash2 className="w-5 h-5" />
-            <span>נקה וטען מחדש</span>
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const result = await syncAllEventsToAPI();
-                // CRITICAL: syncAllEventsToAPI already calls fetchEvents internally, but we'll refresh once more to ensure UI updates
-                const storeState = useEventStore.getState();
-                const fetchEventsFn = storeState.fetchEvents;
-                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                  await fetchEventsFn(true); // Force refresh to update UI immediately
-                }
-                alert(`✅ סנכרנו ${result.synced} אירועים ל-API בהצלחה!\n\nעכשיו תוכל לראות אותם גם במחשבים אחרים.`);
-              } catch (error: any) {
-                console.error('❌ Error syncing events:', error);
-                alert(`❌ שגיאה בסנכרון: ${error?.message || 'שגיאה לא ידועה'}`);
-              }
-            }}
-            className="btn-warning flex items-center space-x-2 bg-blue-500 hover:bg-blue-600 text-white"
-            title="סנכרן את כל האירועים מה-localStorage ל-API כדי לראות אותם במחשבים אחרים"
-          >
-            <RefreshCw className="w-5 h-5" />
-            <span>סנכרן אירועים ל-API</span>
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                updateExistingEventsCampaigns();
-                // CRITICAL: Get fetchEvents from store to ensure it's accessible
-                const storeState = useEventStore.getState();
-                const fetchEventsFn = storeState.fetchEvents;
-                if (fetchEventsFn && typeof fetchEventsFn === 'function') {
-                  await fetchEventsFn();
-                } else {
-                  console.error('❌ fetchEvents is not available in store state');
-                }
-                alert('✅ כל האירועים הקיימים עודכנו להשתמש בתבנית החדשה!');
-              } catch (error: any) {
-                console.error('❌ Error updating campaigns:', error);
-                alert('❌ שגיאה בעדכון קמפיינים: ' + error);
-              }
-            }}
-            className="btn-primary flex items-center space-x-2"
-          >
-            <RefreshCw className="w-5 h-5" />
-            <span>עדכן כל האירועים לתבנית חדשה</span>
-          </button>
-          <Link
-            to="/calendar"
-            className="btn-secondary flex items-center space-x-2"
-          >
-            <Calendar className="w-5 h-5" />
-            <span>לוח שנה</span>
-          </Link>
+      <div className="bg-gradient-to-r from-teal-50 to-yellow-50 rounded-xl p-6 border border-teal-200 shadow-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">דשבורד</h1>
+            <p className="text-gray-600 font-medium">בס"ד אירועים - אישורי הגעה וסידורי הושבה</p>
+            <p className="text-sm text-gray-500 mt-1">מעודכן: {currentTime.toLocaleString('he-IL')}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
           <Link
             to="/create-event"
-            className="btn-primary flex items-center space-x-2"
+            className="btn-primary flex items-center gap-2 px-6 py-3 shadow-md hover:shadow-lg transition-all"
           >
             <Plus className="w-5 h-5" />
             <span>אירוע חדש</span>
           </Link>
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all"
+            title="טען נתונים מהמאגר"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>טוען...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-5 h-5" />
+                <span>רענן</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="stat-card">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="stat-card bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">מחשבים מחוברים</p>
+              <p className="text-sm font-medium text-blue-700 mb-1">מחשבים מחוברים</p>
               <p className="text-3xl font-bold text-blue-600 stat-number">{connectedDevicesCount}</p>
             </div>
-            <Monitor className="w-8 h-8 text-blue-600" />
+            <div className="bg-blue-200 rounded-full p-3">
+              <Monitor className="w-8 h-8 text-blue-600" />
+            </div>
           </div>
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">אירועים פעילים</p>
+              <p className="text-sm font-medium text-teal-700 mb-1">אירועים פעילים</p>
               <p className="text-3xl font-bold text-teal-600 stat-number">{globalStats.activeEvents}</p>
             </div>
-            <Calendar className="w-8 h-8 text-teal-600" />
-          </div>
-        </div>
-
-        <div className="stat-card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">מוזמנים סה"כ</p>
-              <p className="text-3xl font-bold text-yellow-500 stat-number">{globalStats.totalGuests}</p>
+            <div className="bg-teal-200 rounded-full p-3">
+              <Calendar className="w-8 h-8 text-teal-600" />
             </div>
-            <Users className="w-8 h-8 text-yellow-500" />
           </div>
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card bg-gradient-to-br from-yellow-50 to-yellow-100 border-2 border-yellow-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">אחוז תגובה</p>
-              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.averageResponseRate}%</p>
+              <p className="text-sm font-medium text-yellow-700 mb-1">מוזמנים סה"כ</p>
+              <p className="text-3xl font-bold text-yellow-600 stat-number">{globalStats.totalGuests}</p>
             </div>
-            <CheckCircle className="w-8 h-8 text-yellow-600" />
+            <div className="bg-yellow-200 rounded-full p-3">
+              <Users className="w-8 h-8 text-yellow-600" />
+            </div>
           </div>
         </div>
 
-        <div className="stat-card">
+        <div className="stat-card bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 hover:shadow-lg transition-all duration-300">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">אישרו הגעה</p>
+              <p className="text-sm font-medium text-green-700 mb-1">אחוז תגובה</p>
+              <p className="text-3xl font-bold text-green-600 stat-number">{globalStats.averageResponseRate}%</p>
+            </div>
+            <div className="bg-green-200 rounded-full p-3">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-card bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200 hover:shadow-lg transition-all duration-300">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-purple-700 mb-1">אישרו הגעה</p>
               <p className="text-3xl font-bold text-purple-600 stat-number">{globalStats.totalConfirmed}</p>
             </div>
-            <CheckCircle className="w-8 h-8 text-purple-600" />
+            <div className="bg-purple-200 rounded-full p-3">
+              <CheckCircle className="w-8 h-8 text-purple-600" />
+            </div>
           </div>
         </div>
       </div>
@@ -453,34 +321,16 @@ const Dashboard: React.FC = () => {
 
       {/* Events Grid */}
       <div>
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <h2 className="text-2xl font-bold text-gray-900">האירועים שלי</h2>
-          <div className="flex gap-3 items-center">
-            <button
-              onClick={handleRefresh}
-              disabled={isLoading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-md"
-              title="טען נתונים מהמאגר"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>טוען...</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="w-4 h-4" />
-                  <span>טען מהמאגר</span>
-                </>
-              )}
-            </button>
+          <div className="flex flex-wrap gap-2 items-center">
             {deletedEvents.length > 0 && (
               <button
                 onClick={() => setShowDeletedEventsModal(true)}
-                className="btn-secondary flex items-center space-x-2 space-x-reverse"
+                className="bg-orange-100 text-orange-700 px-4 py-2 rounded-lg hover:bg-orange-200 flex items-center gap-2 font-medium transition-colors border border-orange-200"
               >
-                <RotateCcw className="w-5 h-5" />
-                <span>שחזר אירועים שנמחקו ({deletedEvents.length})</span>
+                <RotateCcw className="w-4 h-4" />
+                <span>שחזר אירועים ({deletedEvents.length})</span>
               </button>
             )}
           </div>
@@ -531,173 +381,122 @@ const Dashboard: React.FC = () => {
               return (
                 <div 
                   key={event.id} 
-                  className="event-card bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 hover:border-blue-300 transition-all duration-300 cursor-pointer"
-                  onClick={() => navigate(`/event/${event.id}/manage`)}
+                  className="event-card bg-white border-2 border-gray-200 hover:border-teal-400 hover:shadow-xl transition-all duration-300 rounded-xl overflow-hidden"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-gray-900 mb-1">
-                        {event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע')}
-                      </h3>
-                      {(event.groomName || event.brideName) && (
-                        <p className="text-sm text-gray-500 mb-1">
-                          {event.groomName && event.brideName 
-                            ? `${event.groomName} & ${event.brideName}`
-                            : event.groomName || event.brideName}
+                  <div className="bg-gradient-to-r from-teal-500 to-blue-500 p-4 text-white">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-xl font-bold mb-1">
+                          {event.coupleName || (event.groomName && event.brideName ? `${event.groomName} & ${event.brideName}` : 'אירוע')}
+                        </h3>
+                        <p className="text-sm text-teal-50 flex items-center">
+                          <Calendar className="w-4 h-4 ml-1" />
+                          {formatDate(event.eventDate)} - {event.eventTime}
                         </p>
-                      )}
-                      <p className="text-xs text-gray-400 mb-1 font-mono">
-                        מזהה: {event.id}
-                      </p>
-                      <p className="text-gray-600 flex items-center font-medium">
-                        <Calendar className="w-4 h-4 mr-1" />
-                        {formatDate(event.eventDate)} - {event.eventTime}
-                      </p>
-                    </div>
-                    <div className="text-right bg-blue-50 rounded-lg p-3 border border-blue-200">
-                      <p className="text-sm text-blue-700 font-medium">סה"כ מוזמנים</p>
-                      <p className="text-2xl font-bold text-blue-600 stat-number">{total}</p>
+                      </div>
+                      <div className="text-right bg-white/20 backdrop-blur-sm rounded-lg p-3 border border-white/30">
+                        <p className="text-xs text-white/90 font-medium mb-1">סה"כ מוזמנים</p>
+                        <p className="text-2xl font-bold stat-number">{total}</p>
+                      </div>
                     </div>
                   </div>
+                  
+                  <div className="p-5">
 
-                  {/* Enhanced Stats */}
-                  <div className="grid grid-cols-2 gap-3 mb-6">
-                    <div className="text-center p-3 bg-green-50 rounded-lg border-2 border-green-200">
-                      <div className="flex items-center justify-center mb-1">
-                        <CheckCircle className="w-4 h-4 text-green-600 mr-1" />
-                        <span className="text-xl font-bold text-green-600 stat-number">{confirmed}</span>
+                    {/* Enhanced Stats */}
+                    <div className="grid grid-cols-2 gap-3 mb-5">
+                      <div className="text-center p-3 bg-green-50 rounded-lg border-2 border-green-200 hover:bg-green-100 transition-colors">
+                        <div className="flex items-center justify-center mb-1">
+                          <CheckCircle className="w-5 h-5 text-green-600 ml-1" />
+                          <span className="text-2xl font-bold text-green-600 stat-number">{confirmed}</span>
+                        </div>
+                        <p className="text-xs text-green-700 font-semibold">מגיעים</p>
                       </div>
-                      <p className="text-xs text-green-700 font-medium">מגיעים</p>
-                    </div>
 
-                    <div className="text-center p-3 bg-red-50 rounded-lg border-2 border-red-200">
-                      <div className="flex items-center justify-center mb-1">
-                        <XCircle className="w-4 h-4 text-red-600 mr-1" />
-                        <span className="text-xl font-bold text-red-600 stat-number">{declined}</span>
+                      <div className="text-center p-3 bg-red-50 rounded-lg border-2 border-red-200 hover:bg-red-100 transition-colors">
+                        <div className="flex items-center justify-center mb-1">
+                          <XCircle className="w-5 h-5 text-red-600 ml-1" />
+                          <span className="text-2xl font-bold text-red-600 stat-number">{declined}</span>
+                        </div>
+                        <p className="text-xs text-red-700 font-semibold">לא מגיעים</p>
                       </div>
-                      <p className="text-xs text-red-700 font-medium">לא מגיעים</p>
-                    </div>
 
-                    <div className="text-center p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200">
-                      <div className="flex items-center justify-center mb-1">
-                        <HelpCircle className="w-4 h-4 text-yellow-600 mr-1" />
-                        <span className="text-xl font-bold text-yellow-600 stat-number">{maybe}</span>
+                      <div className="text-center p-3 bg-yellow-50 rounded-lg border-2 border-yellow-200 hover:bg-yellow-100 transition-colors">
+                        <div className="flex items-center justify-center mb-1">
+                          <HelpCircle className="w-5 h-5 text-yellow-600 ml-1" />
+                          <span className="text-2xl font-bold text-yellow-600 stat-number">{maybe}</span>
+                        </div>
+                        <p className="text-xs text-yellow-700 font-semibold">אולי</p>
                       </div>
-                      <p className="text-xs text-yellow-700 font-medium">אולי</p>
-                    </div>
 
-                    <div className="text-center p-3 bg-gray-50 rounded-lg border-2 border-gray-200">
-                      <div className="flex items-center justify-center mb-1">
-                        <Clock className="w-4 h-4 text-gray-600 mr-1" />
-                        <span className="text-xl font-bold text-gray-600 stat-number">{pending}</span>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg border-2 border-gray-200 hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center justify-center mb-1">
+                          <Clock className="w-5 h-5 text-gray-600 ml-1" />
+                          <span className="text-2xl font-bold text-gray-600 stat-number">{pending}</span>
+                        </div>
+                        <p className="text-xs text-gray-700 font-semibold">לא ענו</p>
                       </div>
-                      <p className="text-xs text-gray-700 font-medium">לא ענו</p>
                     </div>
-                  </div>
 
-                  {/* Enhanced Actions */}
-                  <div className="space-y-2">
-                    {/* Primary Actions */}
-                    <div className="flex space-x-2">
-                      <button
-                        type="button"
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditEvent(event);
-                        }}
-                        onPointerUp={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditEvent(event);
-                        }}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditEvent(event);
-                        }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditEvent(event);
-                        }}
-                        onTouchStart={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleEditEvent(event);
-                        }}
-                        className="flex-1 bg-blue-600 text-white text-center py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors cursor-pointer"
-                        style={{ pointerEvents: 'auto', zIndex: 10 }}
-                      >
-                        <Edit className="w-4 h-4" />
-                        <span>עריכה</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('View button clicked for event:', event);
-                          navigate(`/event/${event.id}/view`);
-                        }}
-                        onPointerUp={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('View button pointer up for event:', event);
-                          navigate(`/event/${event.id}/view`);
-                        }}
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate(`/event/${event.id}/view`);
-                        }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('View button clicked for event:', event);
-                          navigate(`/event/${event.id}/view`);
-                        }}
-                        onTouchStart={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          console.log('View button touched for event:', event);
-                          navigate(`/event/${event.id}/view`);
-                        }}
-                        className="flex-1 bg-gray-600 text-white text-center py-2 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-gray-700 transition-colors cursor-pointer"
-                        style={{ pointerEvents: 'auto', zIndex: 10 }}
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>צפייה</span>
-                      </button>
-                    </div>
-                    
-                    {/* Secondary Actions */}
-                    <div className="flex space-x-2">
-                      <Link
-                        to={`/event/${event.id}/campaigns`}
-                        className="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-center text-sm font-medium transition-colors"
-                      >
-                        הודעות
-                      </Link>
-                      <button
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.stopPropagation();
-                          navigate(`/event/${event.id}/seating`);
-                        }}
-                        className="flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 text-center text-sm font-medium transition-colors"
-                      >
-                        הושבה
-                      </button>
-                      <button
-                        onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
-                          e.stopPropagation();
-                          handleDeleteEvent(event.id, event.coupleName);
-                        }}
-                        className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                        title="מחק אירוע"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    {/* Enhanced Actions */}
+                    <div className="space-y-2">
+                      {/* Primary Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate(`/event/${event.id}/manage`);
+                          }}
+                          className="flex-1 bg-teal-600 text-white text-center py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-teal-700 transition-all shadow-md hover:shadow-lg"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>ניהול</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleEditEvent(event);
+                          }}
+                          className="flex-1 bg-blue-600 text-white text-center py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                        >
+                          <Edit className="w-4 h-4" />
+                          <span>עריכה</span>
+                        </button>
+                      </div>
+                      
+                      {/* Secondary Actions */}
+                      <div className="flex gap-2">
+                        <Link
+                          to={`/event/${event.id}/campaigns`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 text-center text-sm font-semibold transition-all border border-green-200"
+                        >
+                          הודעות
+                        </Link>
+                        <button
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.stopPropagation();
+                            navigate(`/event/${event.id}/seating`);
+                          }}
+                          className="flex-1 px-3 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 text-center text-sm font-semibold transition-all border border-purple-200"
+                        >
+                          הושבה
+                        </button>
+                        <button
+                          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+                            e.stopPropagation();
+                            handleDeleteEvent(event.id, event.coupleName);
+                          }}
+                          className="px-3 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-all border border-red-200"
+                          title="מחק אירוע"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
