@@ -79,7 +79,7 @@ const Footer: React.FC = () => {
                 כל הזכויות שמורות © {new Date().getFullYear()}
               </p>
               <p className="text-gray-400 text-xs mt-2">
-                גרסה {typeof window !== 'undefined' && (window as any).__APP_VERSION__ ? (window as any).__APP_VERSION__ : '1.0.210'}
+                גרסה {typeof window !== 'undefined' && (window as any).__APP_VERSION__ ? (window as any).__APP_VERSION__ : '1.0.211'}
               </p>
             </div>
           </div>
