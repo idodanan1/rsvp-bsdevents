@@ -455,15 +455,35 @@ const Dashboard: React.FC = () => {
       <div>
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">האירועים שלי</h2>
-          {deletedEvents.length > 0 && (
+          <div className="flex gap-3 items-center">
             <button
-              onClick={() => setShowDeletedEventsModal(true)}
-              className="btn-secondary flex items-center space-x-2 space-x-reverse"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-md"
+              title="טען נתונים מהמאגר"
             >
-              <RotateCcw className="w-5 h-5" />
-              <span>שחזר אירועים שנמחקו ({deletedEvents.length})</span>
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>טוען...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>טען מהמאגר</span>
+                </>
+              )}
             </button>
-          )}
+            {deletedEvents.length > 0 && (
+              <button
+                onClick={() => setShowDeletedEventsModal(true)}
+                className="btn-secondary flex items-center space-x-2 space-x-reverse"
+              >
+                <RotateCcw className="w-5 h-5" />
+                <span>שחזר אירועים שנמחקו ({deletedEvents.length})</span>
+              </button>
+            )}
+          </div>
         </div>
         
         {events.length === 0 ? (
@@ -471,13 +491,33 @@ const Dashboard: React.FC = () => {
             <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-900 mb-2">אין אירועים עדיין</h3>
             <p className="text-gray-600 mb-6">התחל ביצירת האירוע הראשון שלך</p>
-            <Link
-              to="/create-event"
-              className="btn-primary inline-flex items-center space-x-2"
-            >
-              <Plus className="w-5 h-5" />
-              <span>צור אירוע חדש</span>
-            </Link>
+            <div className="flex gap-3 justify-center items-center flex-wrap">
+              <button
+                onClick={handleRefresh}
+                disabled={isLoading}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-lg"
+                title="טען נתונים מהמאגר"
+              >
+                {isLoading ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    <span>טוען מהמאגר...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-5 h-5" />
+                    <span>טען מהמאגר</span>
+                  </>
+                )}
+              </button>
+              <Link
+                to="/create-event"
+                className="btn-primary inline-flex items-center space-x-2"
+              >
+                <Plus className="w-5 h-5" />
+                <span>צור אירוע חדש</span>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
