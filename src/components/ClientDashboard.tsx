@@ -785,12 +785,13 @@ const ClientDashboard: React.FC = () => {
               return prev; // Keep current (newer) data
             }
           });
-            } catch (err: any) {
-              console.error('❌ Error in fetchEvents:', err);
-              // If fetchEvents fails, use public API
-              loadFromAPI();
             }
-          })();
+          } catch (err: any) {
+            console.error('❌ Error in fetchEvents:', err);
+            // If fetchEvents fails, use public API
+            loadFromAPI();
+          }
+        })();
         }
         // Still load from public API to ensure we have the absolute latest data
         loadFromAPI();
