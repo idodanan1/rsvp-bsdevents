@@ -334,65 +334,6 @@ const Dashboard: React.FC = () => {
         <p className="text-gray-600" style={{ fontSize: '14px' }}>בס"ד אירועים - אישורי הגעה וסידורי הושבה מעודכן: {currentTime.toLocaleString('he-IL')}</p>
       </div>
 
-        {/* Action Buttons Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-          <Link
-            to="/create-event"
-            className="flex flex-col items-center justify-center p-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-all font-medium shadow-md"
-          >
-            <Plus className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">אירוע חדש</span>
-          </Link>
-          
-          <Link
-            to="/calendar"
-            className="flex flex-col items-center justify-center p-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-medium shadow-md"
-          >
-            <CalendarDays className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">לוח שנה</span>
-          </Link>
-          
-          <button
-            onClick={handleUpdateCampaigns}
-            className="flex flex-col items-center justify-center p-4 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium shadow-md"
-          >
-            <RefreshCw className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">עדכן כל האירועים לתבנית חדשה</span>
-          </button>
-          
-          <button
-            onClick={handleSyncToAPI}
-            className="flex flex-col items-center justify-center p-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all font-medium shadow-md"
-          >
-            <RefreshCw className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">סנכרן אירועים ל-API</span>
-          </button>
-          
-          <button
-            onClick={handleClearAndReload}
-            className="flex flex-col items-center justify-center p-4 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all font-medium shadow-md"
-          >
-            <Trash2 className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">נקה וטען מחדש</span>
-          </button>
-          
-          <button
-            onClick={handleRestoreFromLocalStorage}
-            className="flex flex-col items-center justify-center p-4 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all font-medium shadow-md"
-          >
-            <RotateCcw className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">שחזר מ-localStorage</span>
-          </button>
-          
-          <button
-            onClick={() => setShowRestoreByIdModal(true)}
-            className="flex flex-col items-center justify-center p-4 bg-green-400 text-white rounded-lg hover:bg-green-500 transition-all font-medium shadow-md"
-          >
-            <RotateCcw className="w-6 h-6 mb-2" />
-            <span className="text-sm text-center">שחזר אירוע לפי מזהה</span>
-          </button>
-        </div>
-
       {/* Quick Stats - Ordered to match model */}
       <div className="grid grid-cols-4 gap-4 w-full">
         {/* 1. אישרו הגעה (Confirmed Attendance) */}
