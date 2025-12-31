@@ -15,9 +15,8 @@ git status
 
 echo.
 echo 3. בודק אם יש שינויים שלא נדחפו...
-git log origin/main..HEAD --oneline > temp_commits.txt 2>&1
-type temp_commits.txt
-del temp_commits.txt
+git fetch origin
+git log origin/main..HEAD --oneline
 
 echo.
 echo 4. מוסיף כל השינויים...
