@@ -18,6 +18,7 @@ const nextConfig = {
         '**/Office/**',
         '**/SolutionPackages/**',
         '**/PackageResources/**',
+<<<<<<< HEAD
         '**/src/pages/**', // Exclude React Router pages from Next.js build
         '**/src/components/Footer.tsx', // Exclude Footer from static generation
       ],
@@ -27,6 +28,11 @@ const nextConfig = {
   generateBuildId: async () => {
     return 'vite-build'
   },
+=======
+      ],
+    },
+  },
+>>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
   typescript: {
     ignoreBuildErrors: true,
     tsconfigPath: './tsconfig.json',
@@ -46,7 +52,10 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     const path = require('path');
     
+<<<<<<< HEAD
     // CRITICAL: Set up path alias BEFORE other resolve config
+=======
+>>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
     if (!config.resolve) {
       config.resolve = {};
     }
@@ -54,6 +63,7 @@ const nextConfig = {
       config.resolve.alias = {};
     }
     
+<<<<<<< HEAD
     // Set up @ alias to point to project root
     config.resolve.alias['@'] = path.resolve(__dirname);
     
@@ -64,6 +74,12 @@ const nextConfig = {
         ...config.resolve.alias,
         '@': path.resolve(__dirname),
       },
+=======
+    config.resolve.alias['@'] = path.resolve(__dirname);
+    
+    config.resolve = {
+      ...config.resolve,
+>>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
       modules: ['node_modules', 'src'],
     };
     

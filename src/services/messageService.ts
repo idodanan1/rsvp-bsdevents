@@ -1,5 +1,9 @@
 // Message service for sending WhatsApp messages
+<<<<<<< HEAD
 const BACKEND_URL = (process.env as any).NEXT_PUBLIC_BACKEND_URL || (process.env as any).VITE_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+=======
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://whatsapp-backend-enfz.onrender.com';
+>>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
 
 export interface Recipient {
   phoneNumber: string;
@@ -231,4 +235,14 @@ class MessageService {
 }
 
 export const messageService = new MessageService();
+
+
+
+
+
+
+
+
+
+
 

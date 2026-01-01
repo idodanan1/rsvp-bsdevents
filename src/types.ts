@@ -60,6 +60,7 @@ export interface Event {
   updatedAt?: Date | string;
 }
 
+<<<<<<< HEAD
 export interface Reminder {
   id: string;
   clientId: string;
@@ -95,4 +96,15 @@ export type VendorCategory =
   | 'rings'
   | 'invitations'
   | 'other';
+=======
+
+
+
+
+
+
+
+
+
+>>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
 
