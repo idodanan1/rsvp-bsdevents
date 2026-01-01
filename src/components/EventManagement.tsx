@@ -1657,16 +1657,11 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-<<<<<<< HEAD
       const tableGuests = currentEvent.guests.filter((guest: any) => guest.tableId === table.id);
-=======
-      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
       
       // Count actual attendance - use guestCount, not number of records
       const totalGuests = tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const attended = tableGuests
-<<<<<<< HEAD
         .filter((g: any) => g.actualAttendance === 'attended')
         .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const notAttended = tableGuests
@@ -1675,16 +1670,6 @@ const EventManagement: React.FC = () => {
       const notMarked = tableGuests
         .filter((g: any) => !g.actualAttendance || g.actualAttendance === 'not_marked')
         .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
-=======
-        .filter(g => g.actualAttendance === 'attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
-      const notAttended = tableGuests
-        .filter(g => g.actualAttendance === 'not_attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
-      const notMarked = tableGuests
-        .filter(g => !g.actualAttendance || g.actualAttendance === 'not_marked')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
       
       // Calculate attendance percentage
       const attendancePercentage = totalGuests > 0 ? Math.round((attended / totalGuests) * 100) : 0;
@@ -1745,11 +1730,7 @@ const EventManagement: React.FC = () => {
 
     // Process each table
     currentEvent.tables.forEach((table: Table) => {
-<<<<<<< HEAD
       const tableGuests = currentEvent.guests.filter((guest: any) => guest.tableId === table.id);
-=======
-      const tableGuests = currentEvent.guests.filter(guest => guest.tableId === table.id);
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
       
       if (tableGuests.length === 0) {
         // Empty table
@@ -1768,13 +1749,8 @@ const EventManagement: React.FC = () => {
       // Count attendance - use guestCount, not number of records
       const totalGuests = tableGuests.reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
       const attendedCount = tableGuests
-<<<<<<< HEAD
         .filter((g: any) => g.actualAttendance === 'attended')
         .reduce((sum: number, guest: any) => sum + (guest.guestCount || 1), 0);
-=======
-        .filter(g => g.actualAttendance === 'attended')
-        .reduce((sum: number, guest: Guest) => sum + (guest.guestCount || 1), 0);
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
 
       // Table header with attendance summary
       dataRows.push([
@@ -2747,13 +2723,9 @@ const EventManagement: React.FC = () => {
 
       const recipients = guestsToSend.map((guest: any) => {
         // CRITICAL: Find the original row number of the guest in the event (not filtered)
-<<<<<<< HEAD
         // Add optional chaining to prevent crash if currentEvent or guests is undefined
         const guestIndex = currentEvent?.guests?.findIndex((g: any) => g.id === guest.id) ?? -1;
         const originalRowNumber = guestIndex >= 0 ? guestIndex + 1 : 0;
-=======
-        const originalRowNumber = currentEvent.guests.findIndex(g => g.id === guest.id) + 1;
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
         // Use helper function to ensure production URL (works on all devices)
         const guestLink = generateGuestResponseLink(currentEvent.id, guest.id, guest.firstName, guest.lastName, guest.phoneNumber, originalRowNumber);
       console.log('🔗 Generated guest link:', guestLink);
@@ -2983,11 +2955,7 @@ const EventManagement: React.FC = () => {
         console.log('📧 Using first campaign message:', firstCampaign.name);
         
         // Replace template variables in campaign message
-<<<<<<< HEAD
         const guestTable = event.tables?.find((table: Table) => table.guests?.includes(guestIdToUse));
-=======
-        const guestTable = event.tables?.find(table => table.guests.includes(guestIdToUse));
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
         const tableNumber = guestTable ? guestTable.number : 'לא הוקצה';
         
         message = firstCampaign.message
@@ -3519,9 +3487,6 @@ const EventManagement: React.FC = () => {
 <<<<<<< HEAD
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
                   ? `${Math.round((currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
-=======
-                {currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
-                  ? `${Math.round((currentEvent.guests?.filter(g => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter(g => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
 >>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
                   : '0%'} מסירה
               </p>
@@ -3540,9 +3505,6 @@ const EventManagement: React.FC = () => {
               <p className="text-xs text-red-600 mt-1">
 <<<<<<< HEAD
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
-=======
-                {currentEvent.guests?.filter(g => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
               </p>
             </div>
             <XCircle className="w-8 h-8 text-red-600" />
@@ -3598,11 +3560,7 @@ const EventManagement: React.FC = () => {
                   // Each guest with messageSentDate represents at least one message sent
                   // Note: This counts each guest once, but if same guest received multiple individual messages,
                   // we can't track exact count without message history
-<<<<<<< HEAD
                   const individualMessages = currentEvent.guests?.filter((g: any) => {
-=======
-                  const individualMessages = currentEvent.guests?.filter(g => {
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
                     const status = g.messageStatus || 'not_sent';
                     // Count guests who received individual messages (not through campaigns)
                     // We check if they have messageSentDate but weren't counted in campaigns
@@ -3626,11 +3584,7 @@ const EventManagement: React.FC = () => {
                     return sum;
                   }, 0) || 0;
                   
-<<<<<<< HEAD
                   const individualMessages = currentEvent.guests?.filter((g: any) => {
-=======
-                  const individualMessages = currentEvent.guests?.filter(g => {
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
                     const status = g.messageStatus || 'not_sent';
                     return (status === 'sent' || status === 'delivered') && g.messageSentDate;
                   }).length || 0;
@@ -3663,9 +3617,6 @@ const EventManagement: React.FC = () => {
               // Filter to show only guests without table assignment
 <<<<<<< HEAD
               const unseatedGuests = currentEvent.guests?.filter((g: any) => !g.tableId) || [];
-=======
-              const unseatedGuests = currentEvent.guests?.filter(g => !g.tableId) || [];
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
               if (unseatedGuests.length === 0) {
                 alert('✅ כל האורחים הושבו!');
                 return;
@@ -4337,13 +4288,8 @@ const EventManagement: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-3">
                 <p className="text-sm font-medium text-gray-700 mb-2">מוזמנים נבחרים:</p>
                 <div className="max-h-32 overflow-y-auto">
-<<<<<<< HEAD
                   {selectedGuests.map((guestId: any) => {
                     const guest = currentEvent.guests.find((g: any) => g.id === guestId);
-=======
-                  {selectedGuests.map(guestId => {
-                    const guest = currentEvent.guests.find(g => g.id === guestId);
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
                     return guest ? (
                       <div key={guestId} className="text-sm text-gray-600 py-1">
                         {formatFullName(guest.firstName, guest.lastName)} – {guest.phoneNumber}
