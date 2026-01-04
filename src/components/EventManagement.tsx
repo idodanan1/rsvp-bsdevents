@@ -3484,10 +3484,8 @@ const EventManagement: React.FC = () => {
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0}
               </p>
               <p className="text-xs text-green-600 mt-1">
-<<<<<<< HEAD
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length > 0
                   ? `${Math.round((currentEvent.guests?.filter((g: any) => g.messageStatus === 'delivered').length || 0) / (currentEvent.guests?.filter((g: any) => g.messageStatus === 'sent' || g.messageStatus === 'delivered').length || 1) * 100)}%`
->>>>>>> 86e722ebed052cbfd599d333b3ae65939a606cab
                   : '0%'} מסירה
               </p>
             </div>
@@ -3503,7 +3501,6 @@ const EventManagement: React.FC = () => {
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length || 0}
               </p>
               <p className="text-xs text-red-600 mt-1">
-<<<<<<< HEAD
                 {currentEvent.guests?.filter((g: any) => g.messageStatus === 'failed').length > 0 ? 'נדרש טיפול' : 'אין שגיאות'}
               </p>
             </div>
@@ -3615,7 +3612,6 @@ const EventManagement: React.FC = () => {
           <button 
             onClick={() => {
               // Filter to show only guests without table assignment
-<<<<<<< HEAD
               const unseatedGuests = currentEvent.guests?.filter((g: any) => !g.tableId) || [];
               if (unseatedGuests.length === 0) {
                 alert('✅ כל האורחים הושבו!');
